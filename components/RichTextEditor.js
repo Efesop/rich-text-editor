@@ -1,83 +1,96 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
+import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronLeft, ChevronRight, Plus, Save, MoreVertical, Pencil, Trash } from 'lucide-react'
+<<<<<<< HEAD
+<<<<<<< HEAD
+import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search } from 'lucide-react'
+
+const EditorJS = dynamic(() => import('@editorjs/editorjs'), { ssr: false })
+=======
+import { ChevronLeft, ChevronRight, Plus, Save } from 'lucide-react'
+>>>>>>> parent of 2adb202 (Update RichTextEditor.js)
+=======
+import { ChevronLeft, ChevronRight, Plus, Save } from 'lucide-react'
+>>>>>>> parent of 2adb202 (Update RichTextEditor.js)
 
 export default function RichTextEditor() {
   const [pages, setPages] = useState([])
   const [currentPage, setCurrentPage] = useState(null)
   const [isEditing, setIsEditing] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [pageTitle, setPageTitle] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
   const editorRef = useRef(null)
+<<<<<<< HEAD
+=======
   const editorInstanceRef = useRef(null)
-  const [openDropdown, setOpenDropdown] = useState(null)
-  const dropdownRef = useRef(null)
+<<<<<<< HEAD
+>>>>>>> parent of 2adb202 (Update RichTextEditor.js)
+=======
+>>>>>>> parent of 2adb202 (Update RichTextEditor.js)
 
   useEffect(() => {
     fetchPages()
   }, [])
 
   useEffect(() => {
-    if (currentPage && typeof window !== 'undefined') {
-      loadEditorJS()
+    if (currentPage) {
+      const setupEditor = async () => {
+        if (!editorRef.current) {
+          await initEditor();
+        } else {
+          await editorRef.current.isReady;
+          editorRef.current.render(currentPage.content);
+        }
+      };
+      setupEditor();
     }
     return () => {
-      if (editorInstanceRef.current) {
-        editorInstanceRef.current.destroy()
-        editorInstanceRef.current = null
+      if (editorRef.current) {
+        editorRef.current.destroy();
+        editorRef.current = null;
       }
+<<<<<<< HEAD
+    };
+  }, [currentPage]);
+=======
     }
   }, [currentPage])
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setOpenDropdown(null)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [])
+<<<<<<< HEAD
+>>>>>>> parent of 2adb202 (Update RichTextEditor.js)
+=======
+>>>>>>> parent of 2adb202 (Update RichTextEditor.js)
 
   const fetchPages = async () => {
-    try {
-      const response = await fetch('/api/pages')
-      const data = await response.json()
-      setPages(data)
-      setCurrentPage(data[0])
-    } catch (error) {
-      console.error('Error fetching pages:', error)
-      // Add a fallback or error state here
-      setPages([])
-      setCurrentPage(null)
-    }
+    const response = await fetch('/api/pages')
+    const data = await response.json()
+    setPages(data)
+    setCurrentPage(data[0])
   }
 
-  const loadEditorJS = async () => {
-    if (editorInstanceRef.current) {
-      editorInstanceRef.current.destroy()
+  const initEditor = async () => {
+    if (typeof window === 'undefined') return;
+
+    if (editorRef.current) {
+      editorRef.current.destroy();
     }
 
-    const EditorJS = (await import('@editorjs/editorjs')).default
-    const Header = (await import('@editorjs/header')).default
-    const List = (await import('@editorjs/list')).default
-    const Checklist = (await import('@editorjs/checklist')).default
-    const Quote = (await import('@editorjs/quote')).default
-    const CodeTool = (await import('@editorjs/code')).default
-    const InlineCode = (await import('@editorjs/inline-code')).default
-    const Marker = (await import('@editorjs/marker')).default
-    const Table = (await import('@editorjs/table')).default
-    const LinkTool = (await import('@editorjs/link')).default
-    const ImageTool = (await import('@editorjs/image')).default
-    const Embed = (await import('@editorjs/embed')).default
-    const Delimiter = (await import('@editorjs/delimiter')).default
+    const EditorJS = (await import('@editorjs/editorjs')).default;
+    const Header = (await import('@editorjs/header')).default;
+    const List = (await import('@editorjs/list')).default;
+    const Checklist = (await import('@editorjs/checklist')).default;
+    const Quote = (await import('@editorjs/quote')).default;
+    const CodeTool = (await import('@editorjs/code')).default;
+    const InlineCode = (await import('@editorjs/inline-code')).default;
+    const Marker = (await import('@editorjs/marker')).default;
+    const Table = (await import('@editorjs/table')).default;
+    const LinkTool = (await import('@editorjs/link')).default;
+    const ImageTool = (await import('@editorjs/image')).default;
+    const Embed = (await import('@editorjs/embed')).default;
+    const Delimiter = (await import('@editorjs/delimiter')).default;
 
     const editor = new EditorJS({
       holder: 'editorjs',
@@ -95,75 +108,70 @@ export default function RichTextEditor() {
         embed: Embed,
         delimiter: Delimiter,
       },
-      data: currentPage.content, // Load the content of the current page
+      data: currentPage?.content || {},
       onChange: () => {
-        console.log('Editor content changed')
+        // Debounce the save operation to prevent frequent updates
+        if (editor.debounceTimer) clearTimeout(editor.debounceTimer);
+        editor.debounceTimer = setTimeout(async () => {
+          const content = await editor.save();
+          setCurrentPage(prev => ({ ...prev, content }));
+        }, 300);
       },
-      onReady: () => {
-        console.log('Editor.js is ready to work!')
-      },
-      autofocus: true,
-      placeholder: 'Let`s write an awesome story!',
-    })
+    });
 
-    editorInstanceRef.current = editor
+    await editor.isReady;
+    editorRef.current = editor;
+    return editor;
   }
 
   const handleNewPage = () => {
-    const newPage = { id: Date.now().toString(), title: 'New Page', content: { time: Date.now(), blocks: [] } }
-    setPages(prevPages => [...prevPages, newPage])
+    const newPage = { id: Date.now().toString(), title: 'New Page', content: { blocks: [] } }
+    setPages([...pages, newPage])
     setCurrentPage(newPage)
   }
 
   const handleSavePage = async () => {
     if (editorRef.current) {
-      try {
-        const savedData = await editorRef.current.save()
-        const updatedPage = { ...currentPage, content: savedData }
-        const updatedPages = pages.map(page => 
-          page.id === currentPage.id ? updatedPage : page
-        )
-        setPages(updatedPages)
-        setCurrentPage(updatedPage)
-        await fetch('/api/pages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(updatedPages),
-        })
-      } catch (error) {
-        console.error('Error saving pages:', error)
-      }
+      const content = await editorRef.current.save();
+      const updatedPages = pages.map(page => 
+        page.id === currentPage.id ? { ...page, content } : page
+      );
+      setPages(updatedPages);
+      await fetch('/api/pages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedPages),
+      });
+    }
+  }
+
+  const handleDeletePage = (pageId) => {
+    const updatedPages = pages.filter(page => page.id !== pageId)
+    setPages(updatedPages)
+    if (currentPage.id === pageId) {
+      setCurrentPage(updatedPages[0] || null)
     }
   }
 
   const handlePageSelect = async (page) => {
-    if (currentPage && editorInstanceRef.current) {
-      try {
-        const savedData = await editorInstanceRef.current.save()
-        const updatedCurrentPage = { ...currentPage, content: savedData }
-        setPages(prevPages => prevPages.map(p => 
-          p.id === currentPage.id ? updatedCurrentPage : p
-        ))
-        await fetch(`/api/pages/${currentPage.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(updatedCurrentPage),
-        })
-      } catch (error) {
-        console.error('Error saving current page:', error)
-      }
+    if (editorRef.current && currentPage) {
+      const content = await editorRef.current.save();
+      setPages(prevPages => prevPages.map(p => 
+        p.id === currentPage.id ? { ...p, content } : p
+      ));
     }
-    setCurrentPage(page)
+    setCurrentPage(page);
   }
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen)
   }
 
+<<<<<<< HEAD
+  const filteredPages = pages.filter(page => 
+    page.title.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+=======
   const handleTitleChange = (e) => {
     setPageTitle(e.target.value)
   }
@@ -197,159 +205,103 @@ export default function RichTextEditor() {
       setPageTitle(currentPage.title)
     }
   }, [currentPage])
-
-  const toggleDropdown = (pageId) => {
-    setOpenDropdown(openDropdown === pageId ? null : pageId)
-  }
-
-  const handleDeletePage = async (pageId) => {
-    if (confirm("Are you sure you want to delete this page?")) {
-      try {
-        await fetch(`/api/pages/${pageId}`, {
-          method: 'DELETE',
-        })
-        setPages(prevPages => prevPages.filter(page => page.id !== pageId))
-        if (currentPage.id === pageId) {
-          setCurrentPage(pages[0] || null)
-        }
-      } catch (error) {
-        console.error('Error deleting page:', error)
-      }
-    }
-  }
-
-  const handleRenamePage = (pageId) => {
-    const page = pages.find(p => p.id === pageId)
-    const newTitle = prompt("Enter new page title:", page.title)
-    if (newTitle && newTitle !== page.title) {
-      const updatedPage = { ...page, title: newTitle }
-      setPages(prevPages => prevPages.map(p => p.id === pageId ? updatedPage : p))
-      if (currentPage.id === pageId) {
-        setCurrentPage(updatedPage)
-      }
-      // You may want to add an API call here to update the page title on the server
-    }
-  }
+<<<<<<< HEAD
+>>>>>>> parent of 2adb202 (Update RichTextEditor.js)
+=======
+>>>>>>> parent of 2adb202 (Update RichTextEditor.js)
 
   if (!currentPage) return <div>Loading...</div>
 
   return (
-    <div className="flex h-screen bg-white overflow-hidden">
+    <div className="flex h-screen bg-background">
       {/* Sidebar */}
-      <div 
-        className={`fixed top-0 left-0 h-full bg-[#f7f6f3] border-r border-[#e0e0e0] transition-all duration-300 ease-in-out z-10 ${
-          sidebarOpen ? 'w-60' : 'w-12'
-        } overflow-hidden`}
-      >
+      <div className={`bg-muted transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-64' : 'w-0'}`}>
         <div className="flex flex-col h-full">
-          <div 
-            className="flex items-center justify-between p-4 border-b border-[#e0e0e0] cursor-pointer"
-            onClick={toggleSidebar}
-          >
-            {sidebarOpen && <h2 className="text-sm font-medium text-[#37352f]">Your Workspace</h2>}
-            {sidebarOpen ? (
-              <ChevronLeft className="h-4 w-4 text-[#908e86]" />
-            ) : (
-              <ChevronRight className="h-4 w-4 text-[#908e86]" />
-            )}
+          <div className="flex justify-between items-center p-4">
+            <h2 className="text-lg font-semibold">Pages</h2>
+            <Button variant="ghost" size="icon" onClick={handleNewPage}>
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
-          {sidebarOpen && (
-            <div className="flex-grow overflow-y-auto">
-              <div className="p-2">
-                <Button 
-                  variant="ghost" 
-                  className="w-full justify-start text-[#37352f] hover:bg-[#e9e8e3]"
-                  onClick={handleNewPage}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  New page
+          <div className="px-4 mb-2">
+            <Input
+              placeholder="Search pages..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              startAdornment={<Search className="h-4 w-4 text-muted-foreground" />}
+            />
+          </div>
+          <ScrollArea className="flex-grow">
+            {filteredPages.map(page => (
+              <div
+                key={page.id}
+                className={`p-2 cursor-pointer hover:bg-accent flex justify-between items-center ${currentPage.id === page.id ? 'bg-accent' : ''}`}
+                onClick={() => handlePageSelect(page)}
+              >
+                <div className="flex items-center">
+                  <FileText className="h-4 w-4 mr-2" />
+                  {page.title}
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => handleDeletePage(page.id)}>
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
+<<<<<<< HEAD
+            ))}
+          </ScrollArea>
+=======
               <ScrollArea className="h-[calc(100vh-60px)]">
                 <nav className="mt-2">
                   {pages.map(page => (
                     <div
                       key={page.id}
-                      className="flex items-center px-2 py-1 mx-1 rounded cursor-pointer text-sm group hover:bg-[#e9e8e3] relative"
+                      className={`px-2 py-1 mx-1 rounded cursor-pointer text-sm ${
+                        currentPage?.id === page.id 
+                          ? 'bg-[#e9e8e3] text-[#37352f]' 
+                          : 'text-[#6b6b6b] hover:bg-[#e9e8e3]'
+                      }`}
+                      onClick={() => handlePageSelect(page)}
                     >
-                      <div
-                        className={`flex-grow ${
-                          currentPage?.id === page.id 
-                            ? 'text-[#37352f] font-medium' 
-                            : 'text-[#6b6b6b]'
-                        }`}
-                        onClick={() => handlePageSelect(page)}
-                      >
-                        {page.title}
-                      </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="opacity-0 group-hover:opacity-100 p-0 h-6 w-6"
-                        onClick={() => toggleDropdown(page.id)}
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                      {openDropdown === page.id && (
-                        <div 
-                          ref={dropdownRef}
-                          className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10"
-                        >
-                          <button
-                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
-                            onClick={() => handleRenamePage(page.id)}
-                          >
-                            <Pencil className="h-4 w-4 inline mr-2" />
-                            Rename
-                          </button>
-                          <button
-                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
-                            onClick={() => handleDeletePage(page.id)}
-                          >
-                            <Trash className="h-4 w-4 inline mr-2" />
-                            Delete
-                          </button>
-                        </div>
-                      )}
+                      {page.title}
                     </div>
                   ))}
                 </nav>
               </ScrollArea>
             </div>
           )}
+>>>>>>> parent of 2adb202 (Update RichTextEditor.js)
         </div>
       </div>
 
+      {/* Toggle Sidebar Button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute top-2 left-2 z-10"
+        onClick={toggleSidebar}
+      >
+        {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+      </Button>
+
       {/* Main Content */}
-      <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${sidebarOpen ? 'ml-60' : 'ml-12'}`}>
-        {/* Top Bar */}
-        <div className="flex items-center p-4 border-b border-gray-200 bg-white">
+      <div className="flex-1 flex flex-col">
+        <div className="flex justify-between items-center p-4 border-b">
           {isEditing ? (
-            <form onSubmit={(e) => { e.preventDefault(); handleTitleSave(); }} className="flex-1 mr-2">
-              <Input
-                value={pageTitle}
-                onChange={handleTitleChange}
-                onBlur={handleTitleSave}
-                autoFocus
-                className="w-full"
-              />
-            </form>
+            <Input
+              value={currentPage.title}
+              onChange={(e) => setCurrentPage({ ...currentPage, title: e.target.value })}
+              onBlur={() => setIsEditing(false)}
+              autoFocus
+            />
           ) : (
-            <h1 
-              className="text-2xl font-bold text-gray-800 flex-1 mr-2 cursor-pointer" 
-              onClick={() => setIsEditing(true)}
-            >
-              {currentPage?.title}
-            </h1>
+            <h1 className="text-2xl font-bold" onClick={() => setIsEditing(true)}>{currentPage.title}</h1>
           )}
-          <Button onClick={handleSavePage} className="bg-blue-500 hover:bg-blue-600 text-white">
+          <Button onClick={handleSavePage}>
             <Save className="h-4 w-4 mr-2" />
             Save
           </Button>
         </div>
-
-        {/* Editor */}
-        <div id="editorjs" className="flex-1 p-4 overflow-auto bg-white" />
+        <div id="editorjs" className="flex-1 p-8 overflow-auto" />
       </div>
     </div>
   )

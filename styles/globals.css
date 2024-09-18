@@ -2,23 +2,4 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  body {
-    @apply text-gray-900 bg-white;
-  }
-}
-
-@layer components {
-  .ce-block__content, 
-  .ce-toolbar__content {
-    max-width: calc(100% - 80px) !important;
-  }
-
-  .cdx-block {
-    max-width: 100% !important;
-  }
-
-  .codex-editor__redactor {
-    padding-bottom: 300px !important;
-  }
-}
+/* Your custom styles */
