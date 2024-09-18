@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, Save, FileText, ChevronDown } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Save } from 'lucide-react'
 
 export default function RichTextEditor() {
   const [pages, setPages] = useState([])
@@ -14,7 +14,6 @@ export default function RichTextEditor() {
   const [pageTitle, setPageTitle] = useState('')
   const editorRef = useRef(null)
   const editorInstanceRef = useRef(null)
-  const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false)
 
   useEffect(() => {
     fetchPages()
@@ -147,7 +146,7 @@ export default function RichTextEditor() {
   }
 
   const toggleSidebar = () => {
-    setSidebarOpen(prev => !prev)
+    setSidebarOpen(!sidebarOpen)
   }
 
   const handleTitleChange = (e) => {
@@ -156,22 +155,23 @@ export default function RichTextEditor() {
 
   const handleTitleSave = async () => {
     setIsEditing(false)
-    if (currentPage) {
-      const updatedPage = { ...currentPage, title: pageTitle }
-      setCurrentPage(updatedPage)
-      setPages(prevPages => prevPages.map(page => 
-        page.id === currentPage.id ? updatedPage : page
-      ))
+    if (currentPage && editorInstanceRef.current) {
       try {
+        const savedData = await editorInstanceRef.current.save()
+        const updatedPage = { ...currentPage, title: pageTitle, content: savedData }
+        setCurrentPage(updatedPage)
+        setPages(prevPages => prevPages.map(page => 
+          page.id === currentPage.id ? updatedPage : page
+        ))
         await fetch(`/api/pages/${currentPage.id}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ title: pageTitle }),
+          body: JSON.stringify(updatedPage),
         })
       } catch (error) {
-        console.error('Error saving page title:', error)
+        console.error('Error saving page:', error)
       }
     }
   }
@@ -183,10 +183,6 @@ export default function RichTextEditor() {
     }
   }, [currentPage])
 
-  const toggleWorkspace = () => {
-    setWorkspaceCollapsed(!workspaceCollapsed)
-  }
-
   if (!currentPage) return <div>Loading...</div>
 
   return (
@@ -194,22 +190,22 @@ export default function RichTextEditor() {
       {/* Sidebar */}
       <div 
         className={`fixed top-0 left-0 h-full bg-[#f7f6f3] border-r border-[#e0e0e0] transition-all duration-300 ease-in-out z-10 ${
-          sidebarOpen ? 'w-60' : 'w-0'
+          sidebarOpen ? 'w-60' : 'w-12'
         } overflow-hidden`}
       >
         <div className="flex flex-col h-full">
           <div 
             className="flex items-center justify-between p-4 border-b border-[#e0e0e0] cursor-pointer"
-            onClick={toggleWorkspace}
+            onClick={toggleSidebar}
           >
-            <h2 className="text-sm font-medium text-[#37352f]">Your Workspace</h2>
-            {workspaceCollapsed ? (
-              <ChevronRight className="h-4 w-4 text-[#908e86]" />
+            {sidebarOpen && <h2 className="text-sm font-medium text-[#37352f]">Your Workspace</h2>}
+            {sidebarOpen ? (
+              <ChevronLeft className="h-4 w-4 text-[#908e86]" />
             ) : (
-              <ChevronDown className="h-4 w-4 text-[#908e86]" />
+              <ChevronRight className="h-4 w-4 text-[#908e86]" />
             )}
           </div>
-          {!workspaceCollapsed && (
+          {sidebarOpen && (
             <div className="flex-grow overflow-y-auto">
               <div className="p-2">
                 <Button 
@@ -244,21 +240,9 @@ export default function RichTextEditor() {
       </div>
 
       {/* Main Content */}
-      <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${sidebarOpen ? 'ml-60' : 'ml-0'}`}>
+      <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${sidebarOpen ? 'ml-60' : 'ml-12'}`}>
         {/* Top Bar */}
         <div className="flex items-center p-4 border-b border-gray-200 bg-white">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="mr-2"
-            onClick={toggleSidebar}
-          >
-            {sidebarOpen ? (
-              <ChevronLeft className="h-4 w-4 text-gray-600" />
-            ) : (
-              <ChevronRight className="h-4 w-4 text-gray-600" />
-            )}
-          </Button>
           {isEditing ? (
             <form onSubmit={(e) => { e.preventDefault(); handleTitleSave(); }} className="flex-1 mr-2">
               <Input
