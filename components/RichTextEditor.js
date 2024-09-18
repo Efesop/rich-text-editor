@@ -9,7 +9,7 @@ import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVe
 
 const EditorJS = dynamic(() => import('@editorjs/editorjs'), { ssr: false })
 
-const PageItem = ({ page, isActive, onSelect, onRename, onDelete }) => {
+const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -28,51 +28,55 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete }) => {
 
   return (
     <div
-      className={`p-2 cursor-pointer hover:bg-accent flex justify-between items-center ${isActive ? 'bg-accent' : ''}`}
+      className={`p-2 cursor-pointer hover:bg-gray-200 flex justify-between items-center ${isActive ? 'bg-gray-200' : ''}`}
       onClick={() => onSelect(page)}
     >
-      <div className="flex items-center">
-        <FileText className="h-4 w-4 mr-2" />
-        {page.title}
-      </div>
-      <div className="relative" ref={dropdownRef}>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsOpen(!isOpen);
-          }}
-        >
-          <MoreVertical className="h-4 w-4" />
-        </Button>
-        {isOpen && (
-          <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5">
-            <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
-              <button
-                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 w-full text-left"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRename(page);
-                  setIsOpen(false);
-                }}
-              >
-                Rename
-              </button>
-              <button
-                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 w-full text-left"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(page);
-                  setIsOpen(false);
-                }}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
+      <div className="flex items-center overflow-hidden">
+        <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
+        {sidebarOpen && (
+          <span className="truncate">{page.title}</span>
         )}
       </div>
+      {sidebarOpen && (
+        <div className="relative" ref={dropdownRef}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen(!isOpen);
+            }}
+          >
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+          {isOpen && (
+            <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5">
+              <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
+                <button
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 w-full text-left"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRename(page);
+                    setIsOpen(false);
+                  }}
+                >
+                  Rename
+                </button>
+                <button
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 w-full text-left"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(page);
+                    setIsOpen(false);
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -267,23 +271,25 @@ export default function RichTextEditor() {
   if (!currentPage) return <div>Loading...</div>
 
   return (
-    <div className="flex h-screen bg-white overflow-hidden">
+    <div className="flex h-screen bg-white">
       {/* Sidebar */}
-      <div className={`bg-muted transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-64' : 'w-0'} flex flex-col h-full`}>
+      <div className={`bg-gray-100 transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-64' : 'w-16'} flex flex-col h-full border-r`}>
         <div className="flex justify-between items-center p-4">
-          <h2 className="text-lg font-semibold">Pages</h2>
+          {sidebarOpen && <h2 className="text-lg font-semibold">Pages</h2>}
           <Button variant="ghost" size="icon" onClick={handleNewPage}>
             <Plus className="h-4 w-4" />
           </Button>
         </div>
-        <div className="px-4 mb-2">
-          <Input
-            placeholder="Search pages..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            startAdornment={<Search className="h-4 w-4 text-muted-foreground" />}
-          />
-        </div>
+        {sidebarOpen && (
+          <div className="px-4 mb-2">
+            <Input
+              placeholder="Search pages..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              startAdornment={<Search className="h-4 w-4 text-muted-foreground" />}
+            />
+          </div>
+        )}
         <ScrollArea className="flex-grow">
           {filteredPages.map(page => (
             <PageItem
@@ -293,20 +299,19 @@ export default function RichTextEditor() {
               onSelect={handlePageSelect}
               onRename={handleRenamePage}
               onDelete={handleDeletePage}
+              sidebarOpen={sidebarOpen}
             />
           ))}
         </ScrollArea>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="m-2"
+          onClick={toggleSidebar}
+        >
+          {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </Button>
       </div>
-
-      {/* Toggle Sidebar Button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute top-2 left-2 z-10"
-        onClick={toggleSidebar}
-      >
-        {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-      </Button>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
