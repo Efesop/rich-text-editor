@@ -54,20 +54,24 @@ export default function RichTextEditor() {
         delimiter: Delimiter,
       },
       data: currentPage?.content || {},
-      onChange: async () => {
-        const content = await editor.save();
-        setCurrentPage(prev => ({ ...prev, content }));
-      },
-      onReady: () => {
-        console.log('Editor.js is ready to work!');
-      },
+      readOnly: false,
       autofocus: false,
       placeholder: 'Let`s write an awesome story!',
     });
 
     await editor.isReady;
     editorInstanceRef.current = editor;
-  }, []);
+
+    editor.on('change', () => {
+      if (editorInstanceRef.current.saveTimeout) {
+        clearTimeout(editorInstanceRef.current.saveTimeout);
+      }
+      editorInstanceRef.current.saveTimeout = setTimeout(async () => {
+        const content = await editor.save();
+        setCurrentPage(prev => ({...prev, content}));
+      }, 1000);
+    });
+  }, [currentPage]);
 
   useEffect(() => {
     fetchPages()
@@ -112,8 +116,8 @@ export default function RichTextEditor() {
   const handleSavePage = async () => {
     if (editorInstanceRef.current) {
       try {
-        const content = await editorInstanceRef.current.save();
-        const updatedPage = { ...currentPage, content };
+        const outputData = await editorInstanceRef.current.save();
+        const updatedPage = { ...currentPage, content: outputData };
         const updatedPages = pages.map(page => 
           page.id === currentPage.id ? updatedPage : page
         );
