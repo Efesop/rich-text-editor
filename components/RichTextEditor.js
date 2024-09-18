@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronLeft, ChevronRight, Plus, Save } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Save, MoreVertical, Pencil, Trash } from 'lucide-react'
 
 export default function RichTextEditor() {
   const [pages, setPages] = useState([])
@@ -14,6 +14,8 @@ export default function RichTextEditor() {
   const [pageTitle, setPageTitle] = useState('')
   const editorRef = useRef(null)
   const editorInstanceRef = useRef(null)
+  const [openDropdown, setOpenDropdown] = useState(null)
+  const dropdownRef = useRef(null)
 
   useEffect(() => {
     fetchPages()
@@ -30,6 +32,19 @@ export default function RichTextEditor() {
       }
     }
   }, [currentPage])
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setOpenDropdown(null)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   const fetchPages = async () => {
     try {
@@ -183,6 +198,39 @@ export default function RichTextEditor() {
     }
   }, [currentPage])
 
+  const toggleDropdown = (pageId) => {
+    setOpenDropdown(openDropdown === pageId ? null : pageId)
+  }
+
+  const handleDeletePage = async (pageId) => {
+    if (confirm("Are you sure you want to delete this page?")) {
+      try {
+        await fetch(`/api/pages/${pageId}`, {
+          method: 'DELETE',
+        })
+        setPages(prevPages => prevPages.filter(page => page.id !== pageId))
+        if (currentPage.id === pageId) {
+          setCurrentPage(pages[0] || null)
+        }
+      } catch (error) {
+        console.error('Error deleting page:', error)
+      }
+    }
+  }
+
+  const handleRenamePage = (pageId) => {
+    const page = pages.find(p => p.id === pageId)
+    const newTitle = prompt("Enter new page title:", page.title)
+    if (newTitle && newTitle !== page.title) {
+      const updatedPage = { ...page, title: newTitle }
+      setPages(prevPages => prevPages.map(p => p.id === pageId ? updatedPage : p))
+      if (currentPage.id === pageId) {
+        setCurrentPage(updatedPage)
+      }
+      // You may want to add an API call here to update the page title on the server
+    }
+  }
+
   if (!currentPage) return <div>Loading...</div>
 
   return (
@@ -222,14 +270,47 @@ export default function RichTextEditor() {
                   {pages.map(page => (
                     <div
                       key={page.id}
-                      className={`px-2 py-1 mx-1 rounded cursor-pointer text-sm ${
-                        currentPage?.id === page.id 
-                          ? 'bg-[#e9e8e3] text-[#37352f]' 
-                          : 'text-[#6b6b6b] hover:bg-[#e9e8e3]'
-                      }`}
-                      onClick={() => handlePageSelect(page)}
+                      className="flex items-center px-2 py-1 mx-1 rounded cursor-pointer text-sm group hover:bg-[#e9e8e3] relative"
                     >
-                      {page.title}
+                      <div
+                        className={`flex-grow ${
+                          currentPage?.id === page.id 
+                            ? 'text-[#37352f] font-medium' 
+                            : 'text-[#6b6b6b]'
+                        }`}
+                        onClick={() => handlePageSelect(page)}
+                      >
+                        {page.title}
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="opacity-0 group-hover:opacity-100 p-0 h-6 w-6"
+                        onClick={() => toggleDropdown(page.id)}
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                      {openDropdown === page.id && (
+                        <div 
+                          ref={dropdownRef}
+                          className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10"
+                        >
+                          <button
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                            onClick={() => handleRenamePage(page.id)}
+                          >
+                            <Pencil className="h-4 w-4 inline mr-2" />
+                            Rename
+                          </button>
+                          <button
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                            onClick={() => handleDeletePage(page.id)}
+                          >
+                            <Trash className="h-4 w-4 inline mr-2" />
+                            Delete
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </nav>
