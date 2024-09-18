@@ -1,21 +1,13 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { ScrollArea } from "./ui/scroll-area"
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search } from 'lucide-react'
 
 const EditorJS = dynamic(() => import('@editorjs/editorjs'), { ssr: false })
-=======
-import { ChevronLeft, ChevronRight, Plus, Save } from 'lucide-react'
->>>>>>> parent of 2adb202 (Update RichTextEditor.js)
-=======
-import { ChevronLeft, ChevronRight, Plus, Save } from 'lucide-react'
->>>>>>> parent of 2adb202 (Update RichTextEditor.js)
 
 export default function RichTextEditor() {
   const [pages, setPages] = useState([])
@@ -24,58 +16,11 @@ export default function RichTextEditor() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const editorRef = useRef(null)
-<<<<<<< HEAD
-=======
   const editorInstanceRef = useRef(null)
-<<<<<<< HEAD
->>>>>>> parent of 2adb202 (Update RichTextEditor.js)
-=======
->>>>>>> parent of 2adb202 (Update RichTextEditor.js)
 
-  useEffect(() => {
-    fetchPages()
-  }, [])
-
-  useEffect(() => {
-    if (currentPage) {
-      const setupEditor = async () => {
-        if (!editorRef.current) {
-          await initEditor();
-        } else {
-          await editorRef.current.isReady;
-          editorRef.current.render(currentPage.content);
-        }
-      };
-      setupEditor();
-    }
-    return () => {
-      if (editorRef.current) {
-        editorRef.current.destroy();
-        editorRef.current = null;
-      }
-<<<<<<< HEAD
-    };
-  }, [currentPage]);
-=======
-    }
-  }, [currentPage])
-<<<<<<< HEAD
->>>>>>> parent of 2adb202 (Update RichTextEditor.js)
-=======
->>>>>>> parent of 2adb202 (Update RichTextEditor.js)
-
-  const fetchPages = async () => {
-    const response = await fetch('/api/pages')
-    const data = await response.json()
-    setPages(data)
-    setCurrentPage(data[0])
-  }
-
-  const initEditor = async () => {
-    if (typeof window === 'undefined') return;
-
-    if (editorRef.current) {
-      editorRef.current.destroy();
+  const loadEditorJS = useCallback(async () => {
+    if (editorInstanceRef.current && typeof editorInstanceRef.current.destroy === 'function') {
+      editorInstanceRef.current.destroy();
     }
 
     const EditorJS = (await import('@editorjs/editorjs')).default;
@@ -109,19 +54,53 @@ export default function RichTextEditor() {
         delimiter: Delimiter,
       },
       data: currentPage?.content || {},
-      onChange: () => {
-        // Debounce the save operation to prevent frequent updates
-        if (editor.debounceTimer) clearTimeout(editor.debounceTimer);
-        editor.debounceTimer = setTimeout(async () => {
-          const content = await editor.save();
-          setCurrentPage(prev => ({ ...prev, content }));
-        }, 300);
+      onChange: async () => {
+        const content = await editor.save();
+        setCurrentPage(prev => ({ ...prev, content }));
       },
+      onReady: () => {
+        console.log('Editor.js is ready to work!');
+      },
+      autofocus: false,
+      placeholder: 'Let`s write an awesome story!',
     });
 
     await editor.isReady;
-    editorRef.current = editor;
-    return editor;
+    editorInstanceRef.current = editor;
+  }, []);
+
+  useEffect(() => {
+    fetchPages()
+  }, [])
+
+  useEffect(() => {
+    if (currentPage && typeof window !== 'undefined') {
+      loadEditorJS().then(() => {
+        if (editorInstanceRef.current) {
+          editorInstanceRef.current.render(currentPage.content);
+        }
+      });
+    }
+    return () => {
+      if (editorInstanceRef.current && typeof editorInstanceRef.current.destroy === 'function') {
+        editorInstanceRef.current.destroy();
+        editorInstanceRef.current = null;
+      }
+    };
+  }, [currentPage, loadEditorJS]);
+
+  const fetchPages = async () => {
+    try {
+      const response = await fetch('/api/pages')
+      const data = await response.json()
+      setPages(data)
+      setCurrentPage(data[0])
+    } catch (error) {
+      console.error('Error fetching pages:', error)
+      // Add a fallback or error state here
+      setPages([])
+      setCurrentPage(null)
+    }
   }
 
   const handleNewPage = () => {
@@ -131,89 +110,77 @@ export default function RichTextEditor() {
   }
 
   const handleSavePage = async () => {
-    if (editorRef.current) {
-      const content = await editorRef.current.save();
-      const updatedPages = pages.map(page => 
-        page.id === currentPage.id ? { ...page, content } : page
-      );
-      setPages(updatedPages);
-      await fetch('/api/pages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedPages),
-      });
+    if (editorInstanceRef.current) {
+      try {
+        const content = await editorInstanceRef.current.save();
+        const updatedPage = { ...currentPage, content };
+        const updatedPages = pages.map(page => 
+          page.id === currentPage.id ? updatedPage : page
+        );
+        setPages(updatedPages);
+        await fetch(`/api/pages/${currentPage.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedPage),
+        });
+      } catch (error) {
+        console.error('Error saving page:', error);
+      }
     }
   }
 
-  const handleDeletePage = (pageId) => {
-    const updatedPages = pages.filter(page => page.id !== pageId)
-    setPages(updatedPages)
-    if (currentPage.id === pageId) {
-      setCurrentPage(updatedPages[0] || null)
+  const handleDeletePage = async (pageId) => {
+    try {
+      await fetch(`/api/pages/${pageId}`, { method: 'DELETE' });
+      const updatedPages = pages.filter(page => page.id !== pageId);
+      setPages(updatedPages);
+      if (currentPage.id === pageId) {
+        setCurrentPage(updatedPages[0] || null);
+      }
+    } catch (error) {
+      console.error('Error deleting page:', error);
     }
   }
 
   const handlePageSelect = async (page) => {
-    if (editorRef.current && currentPage) {
-      const content = await editorRef.current.save();
-      setPages(prevPages => prevPages.map(p => 
-        p.id === currentPage.id ? { ...p, content } : p
-      ));
+    if (currentPage && editorInstanceRef.current) {
+      try {
+        const savedData = await editorInstanceRef.current.save();
+        const updatedCurrentPage = { ...currentPage, content: savedData };
+        setPages(prevPages => prevPages.map(p => 
+          p.id === currentPage.id ? updatedCurrentPage : p
+        ));
+        await fetch(`/api/pages/${currentPage.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updatedCurrentPage),
+        });
+      } catch (error) {
+        console.error('Error saving current page:', error);
+      }
     }
     setCurrentPage(page);
+    if (editorInstanceRef.current) {
+      editorInstanceRef.current.render(page.content);
+    } else {
+      loadEditorJS();
+    }
   }
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen)
   }
 
-<<<<<<< HEAD
   const filteredPages = pages.filter(page => 
     page.title.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-=======
-  const handleTitleChange = (e) => {
-    setPageTitle(e.target.value)
-  }
-
-  const handleTitleSave = async () => {
-    setIsEditing(false)
-    if (currentPage && editorInstanceRef.current) {
-      try {
-        const savedData = await editorInstanceRef.current.save()
-        const updatedPage = { ...currentPage, title: pageTitle, content: savedData }
-        setCurrentPage(updatedPage)
-        setPages(prevPages => prevPages.map(page => 
-          page.id === currentPage.id ? updatedPage : page
-        ))
-        await fetch(`/api/pages/${currentPage.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(updatedPage),
-        })
-      } catch (error) {
-        console.error('Error saving page:', error)
-      }
-    }
-  }
-
-  // Update pageTitle when currentPage changes
-  useEffect(() => {
-    if (currentPage) {
-      setPageTitle(currentPage.title)
-    }
-  }, [currentPage])
-<<<<<<< HEAD
->>>>>>> parent of 2adb202 (Update RichTextEditor.js)
-=======
->>>>>>> parent of 2adb202 (Update RichTextEditor.js)
+  );
 
   if (!currentPage) return <div>Loading...</div>
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-white overflow-hidden">
       {/* Sidebar */}
       <div className={`bg-muted transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-64' : 'w-0'}`}>
         <div className="flex flex-col h-full">
@@ -246,30 +213,8 @@ export default function RichTextEditor() {
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
-<<<<<<< HEAD
             ))}
           </ScrollArea>
-=======
-              <ScrollArea className="h-[calc(100vh-60px)]">
-                <nav className="mt-2">
-                  {pages.map(page => (
-                    <div
-                      key={page.id}
-                      className={`px-2 py-1 mx-1 rounded cursor-pointer text-sm ${
-                        currentPage?.id === page.id 
-                          ? 'bg-[#e9e8e3] text-[#37352f]' 
-                          : 'text-[#6b6b6b] hover:bg-[#e9e8e3]'
-                      }`}
-                      onClick={() => handlePageSelect(page)}
-                    >
-                      {page.title}
-                    </div>
-                  ))}
-                </nav>
-              </ScrollArea>
-            </div>
-          )}
->>>>>>> parent of 2adb202 (Update RichTextEditor.js)
         </div>
       </div>
 
