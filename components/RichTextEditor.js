@@ -5,9 +5,77 @@ import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical } from 'lucide-react'
 
 const EditorJS = dynamic(() => import('@editorjs/editorjs'), { ssr: false })
+
+const PageItem = ({ page, isActive, onSelect, onRename, onDelete }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  return (
+    <div
+      className={`p-2 cursor-pointer hover:bg-accent flex justify-between items-center ${isActive ? 'bg-accent' : ''}`}
+      onClick={() => onSelect(page)}
+    >
+      <div className="flex items-center">
+        <FileText className="h-4 w-4 mr-2" />
+        {page.title}
+      </div>
+      <div className="relative" ref={dropdownRef}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen(!isOpen);
+          }}
+        >
+          <MoreVertical className="h-4 w-4" />
+        </Button>
+        {isOpen && (
+          <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5">
+            <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
+              <button
+                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 w-full text-left"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRename(page);
+                  setIsOpen(false);
+                }}
+              >
+                Rename
+              </button>
+              <button
+                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 w-full text-left"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(page);
+                  setIsOpen(false);
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export default function RichTextEditor() {
   const [pages, setPages] = useState([])
@@ -71,7 +139,7 @@ export default function RichTextEditor() {
         setCurrentPage(prev => ({...prev, content}));
       }, 1000);
     });
-  }, [currentPage]);
+  }, []);
 
   useEffect(() => {
     fetchPages()
@@ -133,16 +201,18 @@ export default function RichTextEditor() {
     }
   }
 
-  const handleDeletePage = async (pageId) => {
-    try {
-      await fetch(`/api/pages/${pageId}`, { method: 'DELETE' });
-      const updatedPages = pages.filter(page => page.id !== pageId);
-      setPages(updatedPages);
-      if (currentPage.id === pageId) {
-        setCurrentPage(updatedPages[0] || null);
+  const handleDeletePage = async (page) => {
+    if (confirm('Are you sure you want to delete this page?')) {
+      try {
+        await fetch(`/api/pages/${page.id}`, { method: 'DELETE' });
+        const updatedPages = pages.filter(p => p.id !== page.id);
+        setPages(updatedPages);
+        if (currentPage.id === page.id) {
+          setCurrentPage(updatedPages[0] || null);
+        }
+      } catch (error) {
+        console.error('Error deleting page:', error);
       }
-    } catch (error) {
-      console.error('Error deleting page:', error);
     }
   }
 
@@ -181,45 +251,51 @@ export default function RichTextEditor() {
     page.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleRenamePage = (page) => {
+    const newTitle = prompt('Enter new title:', page.title);
+    if (newTitle && newTitle !== page.title) {
+      const updatedPage = { ...page, title: newTitle };
+      const updatedPages = pages.map(p => p.id === page.id ? updatedPage : p);
+      setPages(updatedPages);
+      if (currentPage.id === page.id) {
+        setCurrentPage(updatedPage);
+      }
+      // You might want to add an API call here to update the page title on the server
+    }
+  };
+
   if (!currentPage) return <div>Loading...</div>
 
   return (
     <div className="flex h-screen bg-white overflow-hidden">
       {/* Sidebar */}
-      <div className={`bg-muted transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-64' : 'w-0'}`}>
-        <div className="flex flex-col h-full">
-          <div className="flex justify-between items-center p-4">
-            <h2 className="text-lg font-semibold">Pages</h2>
-            <Button variant="ghost" size="icon" onClick={handleNewPage}>
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="px-4 mb-2">
-            <Input
-              placeholder="Search pages..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              startAdornment={<Search className="h-4 w-4 text-muted-foreground" />}
-            />
-          </div>
-          <ScrollArea className="flex-grow">
-            {filteredPages.map(page => (
-              <div
-                key={page.id}
-                className={`p-2 cursor-pointer hover:bg-accent flex justify-between items-center ${currentPage.id === page.id ? 'bg-accent' : ''}`}
-                onClick={() => handlePageSelect(page)}
-              >
-                <div className="flex items-center">
-                  <FileText className="h-4 w-4 mr-2" />
-                  {page.title}
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => handleDeletePage(page.id)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </ScrollArea>
+      <div className={`bg-muted transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-64' : 'w-0'} flex flex-col h-full`}>
+        <div className="flex justify-between items-center p-4">
+          <h2 className="text-lg font-semibold">Pages</h2>
+          <Button variant="ghost" size="icon" onClick={handleNewPage}>
+            <Plus className="h-4 w-4" />
+          </Button>
         </div>
+        <div className="px-4 mb-2">
+          <Input
+            placeholder="Search pages..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            startAdornment={<Search className="h-4 w-4 text-muted-foreground" />}
+          />
+        </div>
+        <ScrollArea className="flex-grow">
+          {filteredPages.map(page => (
+            <PageItem
+              key={page.id}
+              page={page}
+              isActive={currentPage.id === page.id}
+              onSelect={handlePageSelect}
+              onRename={handleRenamePage}
+              onDelete={handleDeletePage}
+            />
+          ))}
+        </ScrollArea>
       </div>
 
       {/* Toggle Sidebar Button */}
