@@ -97,10 +97,11 @@ export default function RichTextEditor() {
   const [searchTerm, setSearchTerm] = useState('')
   const editorRef = useRef(null)
   const editorInstanceRef = useRef(null)
+  const [saveStatus, setSaveStatus] = useState('saved'); // 'saved', 'saving', 'error'
 
   const loadEditorJS = useCallback(async () => {
-    if (editorInstanceRef.current && typeof editorInstanceRef.current.destroy === 'function') {
-      editorInstanceRef.current.destroy();
+    if (editorInstanceRef.current) {
+      return;
     }
 
     const EditorJS = (await import('@editorjs/editorjs')).default;
@@ -120,15 +121,7 @@ export default function RichTextEditor() {
     const editor = new EditorJS({
       holder: 'editorjs',
       tools: {
-        header: {
-          class: Header,
-          inlineToolbar: true,
-          config: {
-            placeholder: 'Enter a header',
-            levels: [1, 2, 3, 4, 5, 6],
-            defaultLevel: 2
-          }
-        },
+        header: Header,
         list: List,
         checklist: Checklist,
         quote: Quote,
@@ -141,24 +134,32 @@ export default function RichTextEditor() {
         embed: Embed,
         delimiter: Delimiter,
       },
-      data: currentPage?.content || {},
-      readOnly: false,
-      autofocus: true,
-      placeholder: 'Write something...',
+      data: currentPage?.content || { blocks: [] },
+      preserveBlank: true,
+      onChange: () => {
+        setSaveStatus('saving');
+        if (editorInstanceRef.current.saveTimeout) {
+          clearTimeout(editorInstanceRef.current.saveTimeout);
+        }
+        editorInstanceRef.current.saveTimeout = setTimeout(async () => {
+          try {
+            const content = await editor.save();
+            console.log('Content before saving:', content);
+            const updatedPage = { ...currentPage, content };
+            setCurrentPage(updatedPage);
+            setPages(prevPages => prevPages.map(p => p.id === updatedPage.id ? updatedPage : p));
+            setSaveStatus('saved');
+            console.log('Content after saving:', updatedPage.content);
+          } catch (error) {
+            console.error('Error saving:', error);
+            setSaveStatus('error');
+          }
+        }, 2000);
+      },
     });
 
     await editor.isReady;
     editorInstanceRef.current = editor;
-
-    editor.on('change', () => {
-      if (editorInstanceRef.current.saveTimeout) {
-        clearTimeout(editorInstanceRef.current.saveTimeout);
-      }
-      editorInstanceRef.current.saveTimeout = setTimeout(async () => {
-        const content = await editor.save();
-        setCurrentPage(prev => ({...prev, content}));
-      }, 1000);
-    });
   }, [currentPage]);
 
   useEffect(() => {
@@ -167,11 +168,7 @@ export default function RichTextEditor() {
 
   useEffect(() => {
     if (currentPage && typeof window !== 'undefined') {
-      loadEditorJS().then(() => {
-        if (editorInstanceRef.current) {
-          editorInstanceRef.current.render(currentPage.content);
-        }
-      });
+      loadEditorJS();
     }
     return () => {
       if (editorInstanceRef.current && typeof editorInstanceRef.current.destroy === 'function') {
@@ -181,50 +178,31 @@ export default function RichTextEditor() {
     };
   }, [currentPage, loadEditorJS]);
 
-  const fetchPages = async () => {
+  const fetchPages = () => {
     try {
-      const response = await fetch('/api/pages')
-      const data = await response.json()
-      setPages(data)
-      setCurrentPage(data[0])
+      const data = require('../data/pages.json');
+      setPages(data);
+      if (data.length > 0) {
+        setCurrentPage(data[0]);
+      } else {
+        handleNewPage();
+      }
     } catch (error) {
-      console.error('Error fetching pages:', error)
-      // Add a fallback or error state here
-      setPages([])
-      setCurrentPage(null)
+      console.error('Error fetching pages:', error);
+      setPages([]);
+      handleNewPage();
     }
-  }
+  };
 
   const handleNewPage = () => {
-    const newPage = { id: Date.now().toString(), title: 'New Page', content: { blocks: [] } }
-    setPages([...pages, newPage])
-    setCurrentPage(newPage)
-  }
-
-  const handleSavePage = async () => {
-    if (editorInstanceRef.current) {
-      try {
-        const outputData = await editorInstanceRef.current.save();
-        const updatedPage = { ...currentPage, content: outputData };
-        const updatedPages = pages.map(page => 
-          page.id === currentPage.id ? updatedPage : page
-        );
-        setPages(updatedPages);
-        await fetch(`/api/pages/${currentPage.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedPage),
-        });
-      } catch (error) {
-        console.error('Error saving page:', error);
-      }
-    }
-  }
+    const newPage = { id: Date.now().toString(), title: 'New Page', content: { blocks: [] } };
+    setPages(prevPages => [...prevPages, newPage]);
+    setCurrentPage(newPage);
+  };
 
   const handleDeletePage = async (page) => {
     if (confirm('Are you sure you want to delete this page?')) {
       try {
-        await fetch(`/api/pages/${page.id}`, { method: 'DELETE' });
         const updatedPages = pages.filter(p => p.id !== page.id);
         setPages(updatedPages);
         if (currentPage.id === page.id) {
@@ -237,28 +215,21 @@ export default function RichTextEditor() {
   }
 
   const handlePageSelect = async (page) => {
-    if (currentPage && editorInstanceRef.current) {
+    if (editorInstanceRef.current) {
       try {
         const savedData = await editorInstanceRef.current.save();
         const updatedCurrentPage = { ...currentPage, content: savedData };
         setPages(prevPages => prevPages.map(p => 
           p.id === currentPage.id ? updatedCurrentPage : p
         ));
-        await fetch(`/api/pages/${currentPage.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(updatedCurrentPage),
-        });
+        setCurrentPage(page);
+        await editorInstanceRef.current.blocks.clear();
+        editorInstanceRef.current.render(page.content);
       } catch (error) {
-        console.error('Error saving current page:', error);
+        console.error('Error switching pages:', error);
       }
-    }
-    setCurrentPage(page);
-    if (editorInstanceRef.current) {
-      editorInstanceRef.current.render(page.content);
     } else {
+      setCurrentPage(page);
       loadEditorJS();
     }
   }
@@ -274,22 +245,26 @@ export default function RichTextEditor() {
   const handleRenamePage = async (page) => {
     const newTitle = prompt('Enter new title:', page.title);
     if (newTitle && newTitle !== page.title) {
-      const updatedPage = { ...page, title: newTitle };
-      const updatedPages = pages.map(p => p.id === page.id ? updatedPage : p);
-      setPages(updatedPages);
-      if (currentPage.id === page.id) {
-        setCurrentPage(updatedPage);
-      }
       try {
-        await fetch(`/api/pages/${page.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(updatedPage),
-        });
+        let updatedPage = { ...page, title: newTitle };
+        
+        if (currentPage.id === page.id && editorInstanceRef.current) {
+          const savedData = await editorInstanceRef.current.save();
+          updatedPage.content = savedData;
+        }
+
+        const updatedPages = pages.map(p => p.id === page.id ? updatedPage : p);
+        setPages(updatedPages);
+        if (currentPage.id === page.id) {
+          setCurrentPage(updatedPage);
+        }
+
+        // Re-render the editor with the updated content
+        if (currentPage.id === page.id && editorInstanceRef.current) {
+          editorInstanceRef.current.render(updatedPage.content);
+        }
       } catch (error) {
-        console.error('Error updating page title:', error);
+        console.error('Error updating page:', error);
       }
     }
   };
@@ -348,10 +323,11 @@ export default function RichTextEditor() {
           >
             {currentPage.title}
           </h1>
-          <Button onClick={handleSavePage}>
-            <Save className="h-4 w-4 mr-2" />
-            Save
-          </Button>
+          <div className="flex items-center">
+            {saveStatus === 'saving' && <span className="text-yellow-500">Saving...</span>}
+            {saveStatus === 'saved' && <span className="text-green-500">Saved</span>}
+            {saveStatus === 'error' && <span className="text-red-500">Error saving</span>}
+          </div>
         </div>
         <div id="editorjs" className="flex-1 p-8 overflow-auto codex-editor" />
       </div>
