@@ -112,7 +112,15 @@ export default function RichTextEditor() {
     const editor = new EditorJS({
       holder: 'editorjs',
       tools: {
-        header: Header,
+        header: {
+          class: Header,
+          inlineToolbar: true,
+          config: {
+            placeholder: 'Enter a header',
+            levels: [1, 2, 3, 4, 5, 6],
+            defaultLevel: 2
+          }
+        },
         list: List,
         checklist: Checklist,
         quote: Quote,
@@ -127,7 +135,7 @@ export default function RichTextEditor() {
       },
       data: currentPage?.content || {},
       readOnly: false,
-      autofocus: false,
+      autofocus: true,
       placeholder: 'Let`s write an awesome story!',
     });
 
@@ -143,7 +151,7 @@ export default function RichTextEditor() {
         setCurrentPage(prev => ({...prev, content}));
       }, 1000);
     });
-  }, []);
+  }, [currentPage]);
 
   useEffect(() => {
     fetchPages()
@@ -264,7 +272,14 @@ export default function RichTextEditor() {
       if (currentPage.id === page.id) {
         setCurrentPage(updatedPage);
       }
-      // You might want to add an API call here to update the page title on the server
+      // Update the page title on the server
+      fetch(`/api/pages/${page.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedPage),
+      }).catch(error => console.error('Error updating page title:', error));
     }
   };
 
@@ -316,22 +331,18 @@ export default function RichTextEditor() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         <div className="flex justify-between items-center p-4 border-b">
-          {isEditing ? (
-            <Input
-              value={currentPage.title}
-              onChange={(e) => setCurrentPage({ ...currentPage, title: e.target.value })}
-              onBlur={() => setIsEditing(false)}
-              autoFocus
-            />
-          ) : (
-            <h1 className="text-2xl font-bold" onClick={() => setIsEditing(true)}>{currentPage.title}</h1>
-          )}
+          <h1 
+            className="text-2xl font-bold cursor-pointer" 
+            onClick={() => handleRenamePage(currentPage)}
+          >
+            {currentPage.title}
+          </h1>
           <Button onClick={handleSavePage}>
             <Save className="h-4 w-4 mr-2" />
             Save
           </Button>
         </div>
-        <div id="editorjs" className="flex-1 p-8 overflow-auto" />
+        <div id="editorjs" className="flex-1 p-8 overflow-auto codex-editor" />
       </div>
     </div>
   )
