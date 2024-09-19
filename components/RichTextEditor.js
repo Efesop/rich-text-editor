@@ -26,15 +26,23 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen })
     };
   }, []);
 
+  const truncateTitle = (title) => {
+    if (title.length <= 3) return title;
+    return title.slice(0, 3) + '...';
+  };
+
   return (
     <div
       className={`p-2 cursor-pointer hover:bg-gray-200 flex justify-between items-center ${isActive ? 'bg-gray-200' : ''}`}
       onClick={() => onSelect(page)}
     >
       <div className="flex items-center overflow-hidden">
-        <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
-        {sidebarOpen && (
+        {sidebarOpen ? (
           <span className="truncate">{page.title}</span>
+        ) : (
+          <span className="w-8 text-center" title={page.title}>
+            {truncateTitle(page.title)}
+          </span>
         )}
       </div>
       {sidebarOpen && (
@@ -136,7 +144,7 @@ export default function RichTextEditor() {
       data: currentPage?.content || {},
       readOnly: false,
       autofocus: true,
-      placeholder: 'Let`s write an awesome story!',
+      placeholder: 'Write something...',
     });
 
     await editor.isReady;
@@ -263,7 +271,7 @@ export default function RichTextEditor() {
     page.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleRenamePage = (page) => {
+  const handleRenamePage = async (page) => {
     const newTitle = prompt('Enter new title:', page.title);
     if (newTitle && newTitle !== page.title) {
       const updatedPage = { ...page, title: newTitle };
@@ -272,14 +280,17 @@ export default function RichTextEditor() {
       if (currentPage.id === page.id) {
         setCurrentPage(updatedPage);
       }
-      // Update the page title on the server
-      fetch(`/api/pages/${page.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedPage),
-      }).catch(error => console.error('Error updating page title:', error));
+      try {
+        await fetch(`/api/pages/${page.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updatedPage),
+        });
+      } catch (error) {
+        console.error('Error updating page title:', error);
+      }
     }
   };
 
@@ -288,7 +299,7 @@ export default function RichTextEditor() {
   return (
     <div className="flex h-screen bg-white">
       {/* Sidebar */}
-      <div className={`bg-gray-100 transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-64' : 'w-16'} flex flex-col h-full border-r`}>
+      <div className={`bg-gray-100 transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-64' : 'w-12'} flex flex-col h-full border-r`}>
         <div className="flex justify-between items-center p-4">
           {sidebarOpen && <h2 className="text-lg font-semibold">Pages</h2>}
           <Button variant="ghost" size="icon" onClick={handleNewPage}>
