@@ -6,10 +6,12 @@ import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { ScrollArea } from "./ui/scroll-area"
 import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical } from 'lucide-react'
+import { useTheme } from 'next-themes'
+import { Sun, Moon } from 'lucide-react'
 
 const EditorJS = dynamic(() => import('@editorjs/editorjs'), { ssr: false })
 
-const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen }) => {
+const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen, theme }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -31,9 +33,17 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen })
     return title.slice(0, 3) + '...';
   };
 
+  const activeClass = isActive
+    ? theme === 'dark'
+      ? 'bg-gray-700'
+      : 'bg-gray-200'
+    : '';
+
   return (
     <div
-      className={`p-2 cursor-pointer hover:bg-gray-200 flex justify-between items-center ${isActive ? 'bg-gray-200' : ''}`}
+      className={`p-2 cursor-pointer flex justify-between items-center ${activeClass} ${
+        theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
+      }`}
       onClick={() => onSelect(page)}
     >
       <div className="flex items-center overflow-hidden">
@@ -58,10 +68,16 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen })
             <MoreVertical className="h-4 w-4" />
           </Button>
           {isOpen && (
-            <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5">
+            <div className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg ${
+              theme === 'dark' ? 'bg-gray-800' : 'bg-white'
+            } ring-1 ring-black ring-opacity-5`}>
               <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
                 <button
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 w-full text-left"
+                  className={`block px-4 py-2 text-sm w-full text-left ${
+                    theme === 'dark'
+                      ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
                   onClick={(e) => {
                     e.stopPropagation();
                     onRename(page);
@@ -71,7 +87,11 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen })
                   Rename
                 </button>
                 <button
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 w-full text-left"
+                  className={`block px-4 py-2 text-sm w-full text-left ${
+                    theme === 'dark'
+                      ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
                   onClick={(e) => {
                     e.stopPropagation();
                     onDelete(page);
@@ -89,7 +109,25 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen })
   );
 };
 
+const ThemeToggle = () => {
+  const { theme, setTheme } = useTheme()
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+      className="w-9 px-0"
+    >
+      <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+      <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+      <span className="sr-only">Toggle theme</span>
+    </Button>
+  )
+}
+
 export default function RichTextEditor() {
+  const { theme } = useTheme();
   const [pages, setPages] = useState([])
   const [currentPage, setCurrentPage] = useState(null)
   const [isEditing, setIsEditing] = useState(false)
@@ -316,9 +354,9 @@ export default function RichTextEditor() {
   if (!currentPage) return <div>Loading...</div>
 
   return (
-    <div className="flex h-screen bg-white">
+    <div className={`flex h-screen ${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-white text-black'}`}>
       {/* Sidebar */}
-      <div className={`bg-gray-100 transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-64' : 'w-12'} flex flex-col h-full border-r`}>
+      <div className={`transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-64' : 'w-12'} flex flex-col h-full border-r ${theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-100 border-gray-200 text-black'}`}>
         <div className="flex justify-between items-center p-4">
           {sidebarOpen && <h2 className="text-lg font-semibold">Pages</h2>}
           <Button variant="ghost" size="icon" onClick={handleNewPage}>
@@ -332,6 +370,7 @@ export default function RichTextEditor() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               startAdornment={<Search className="h-4 w-4 text-muted-foreground" />}
+              className={theme === 'dark' ? 'bg-gray-700 text-white' : 'bg-white text-black'}
             />
           </div>
         )}
@@ -345,6 +384,7 @@ export default function RichTextEditor() {
               onRename={handleRenamePage}
               onDelete={handleDeletePage}
               sidebarOpen={sidebarOpen}
+              theme={theme}
             />
           ))}
         </ScrollArea>
@@ -360,7 +400,7 @@ export default function RichTextEditor() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        <div className="flex justify-between items-center p-4 border-b">
+        <div className={`flex justify-between items-center p-4 border-b ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
           <h1 
             className="text-2xl font-bold cursor-pointer" 
             onClick={() => handleRenamePage(currentPage)}
@@ -368,13 +408,14 @@ export default function RichTextEditor() {
             {currentPage.title}
           </h1>
           <div className="flex items-center space-x-4">
-            <span className="text-gray-500">{wordCount} words</span>
+            <span className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>{wordCount} words</span>
             {saveStatus === 'saving' && <span className="text-yellow-500">Saving...</span>}
             {saveStatus === 'saved' && <span className="text-green-500">Saved</span>}
             {saveStatus === 'error' && <span className="text-red-500">Error saving</span>}
+            <ThemeToggle />
           </div>
         </div>
-        <div id="editorjs" className="flex-1 p-8 overflow-auto codex-editor" />
+        <div id="editorjs" className={`flex-1 p-8 overflow-auto codex-editor ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-black'}`} />
         <div className="flex justify-end p-4">
           <Button onClick={exportToPDF}>
             Export as PDF
