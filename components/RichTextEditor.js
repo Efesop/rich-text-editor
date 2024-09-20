@@ -117,6 +117,7 @@ export default function RichTextEditor() {
     const ImageTool = (await import('@editorjs/image')).default;
     const Embed = (await import('@editorjs/embed')).default;
     const Delimiter = (await import('@editorjs/delimiter')).default;
+    const Paragraph = (await import('@editorjs/paragraph')).default;
 
     const editor = new EditorJS({
       holder: 'editorjs',
@@ -133,6 +134,13 @@ export default function RichTextEditor() {
         image: ImageTool,
         embed: Embed,
         delimiter: Delimiter,
+        paragraph: {
+          class: Paragraph,
+          inlineToolbar: true,
+          config: {
+            preserveBlank: true,
+          },
+        },
       },
       data: currentPage?.content || { blocks: [] },
       onChange: () => {
