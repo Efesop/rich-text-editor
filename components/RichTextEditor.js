@@ -135,26 +135,18 @@ export default function RichTextEditor() {
         delimiter: Delimiter,
       },
       data: currentPage?.content || { blocks: [] },
-      preserveBlank: true,
       onChange: () => {
-        setSaveStatus('saving');
         if (editorInstanceRef.current.saveTimeout) {
           clearTimeout(editorInstanceRef.current.saveTimeout);
         }
         editorInstanceRef.current.saveTimeout = setTimeout(async () => {
-          try {
-            const content = await editor.save();
-            console.log('Content before saving:', content);
-            const updatedPage = { ...currentPage, content };
-            setCurrentPage(updatedPage);
-            setPages(prevPages => prevPages.map(p => p.id === updatedPage.id ? updatedPage : p));
-            setSaveStatus('saved');
-            console.log('Content after saving:', updatedPage.content);
-          } catch (error) {
-            console.error('Error saving:', error);
-            setSaveStatus('error');
-          }
-        }, 2000);
+          const content = await editor.save();
+          localStorage.setItem(`page_${currentPage.id}`, JSON.stringify(content));
+          setSaveStatus('saved');
+        }, 1000);
+      },
+      onReady: () => {
+        editorInstanceRef.current = editor;
       },
     });
 
@@ -180,7 +172,8 @@ export default function RichTextEditor() {
 
   const fetchPages = () => {
     try {
-      const data = require('../data/pages.json');
+      const storedPages = localStorage.getItem('pages');
+      const data = storedPages ? JSON.parse(storedPages) : [];
       setPages(data);
       if (data.length > 0) {
         setCurrentPage(data[0]);
@@ -196,8 +189,10 @@ export default function RichTextEditor() {
 
   const handleNewPage = () => {
     const newPage = { id: Date.now().toString(), title: 'New Page', content: { blocks: [] } };
-    setPages(prevPages => [...prevPages, newPage]);
+    const updatedPages = [...pages, newPage];
+    setPages(updatedPages);
     setCurrentPage(newPage);
+    localStorage.setItem('pages', JSON.stringify(updatedPages));
   };
 
   const handleDeletePage = async (page) => {
@@ -205,6 +200,7 @@ export default function RichTextEditor() {
       try {
         const updatedPages = pages.filter(p => p.id !== page.id);
         setPages(updatedPages);
+        localStorage.setItem('pages', JSON.stringify(updatedPages));
         if (currentPage.id === page.id) {
           setCurrentPage(updatedPages[0] || null);
         }
@@ -212,27 +208,35 @@ export default function RichTextEditor() {
         console.error('Error deleting page:', error);
       }
     }
-  }
+  };
+
+  const loadPage = (page) => {
+    const savedContent = localStorage.getItem(`page_${page.id}`);
+    if (savedContent) {
+      page.content = JSON.parse(savedContent);
+    }
+    setCurrentPage(page);
+    if (editorInstanceRef.current) {
+      editorInstanceRef.current.render(page.content);
+    }
+  };
+
+  const savePage = async () => {
+    if (editorInstanceRef.current) {
+      const content = await editorInstanceRef.current.save();
+      const updatedPage = { ...currentPage, content };
+      const updatedPages = pages.map(p => p.id === updatedPage.id ? updatedPage : p);
+      setPages(updatedPages);
+      localStorage.setItem('pages', JSON.stringify(updatedPages));
+    }
+  };
 
   const handlePageSelect = async (page) => {
     if (editorInstanceRef.current) {
-      try {
-        const savedData = await editorInstanceRef.current.save();
-        const updatedCurrentPage = { ...currentPage, content: savedData };
-        setPages(prevPages => prevPages.map(p => 
-          p.id === currentPage.id ? updatedCurrentPage : p
-        ));
-        setCurrentPage(page);
-        await editorInstanceRef.current.blocks.clear();
-        editorInstanceRef.current.render(page.content);
-      } catch (error) {
-        console.error('Error switching pages:', error);
-      }
-    } else {
-      setCurrentPage(page);
-      loadEditorJS();
+      await savePage();
     }
-  }
+    loadPage(page);
+  };
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen)
@@ -255,6 +259,7 @@ export default function RichTextEditor() {
 
         const updatedPages = pages.map(p => p.id === page.id ? updatedPage : p);
         setPages(updatedPages);
+        localStorage.setItem('pages', JSON.stringify(updatedPages));
         if (currentPage.id === page.id) {
           setCurrentPage(updatedPage);
         }
@@ -267,6 +272,31 @@ export default function RichTextEditor() {
         console.error('Error updating page:', error);
       }
     }
+  };
+
+  const exportToPDF = async () => {
+    if (editorInstanceRef.current) {
+      try {
+        const content = await editorInstanceRef.current.save();
+        // In Electron, we'll use a library like jsPDF to generate the PDF
+        // For now, we'll just log the content
+        console.log('Content to export as PDF:', content);
+        alert('PDF export functionality will be implemented in the Electron app.');
+      } catch (error) {
+        console.error('Error exporting to PDF:', error);
+      }
+    }
+  };
+
+  const customSave = async () => {
+    const savedData = await editorInstanceRef.current.save();
+    savedData.blocks = savedData.blocks.map(block => {
+      if (block.type === 'paragraph' && !block.data.text.trim()) {
+        return { ...block, data: { text: '' } };
+      }
+      return block;
+    });
+    return savedData;
   };
 
   if (!currentPage) return <div>Loading...</div>
@@ -330,6 +360,11 @@ export default function RichTextEditor() {
           </div>
         </div>
         <div id="editorjs" className="flex-1 p-8 overflow-auto codex-editor" />
+        <div className="flex justify-end p-4">
+          <Button onClick={exportToPDF}>
+            Export as PDF
+          </Button>
+        </div>
       </div>
     </div>
   )
