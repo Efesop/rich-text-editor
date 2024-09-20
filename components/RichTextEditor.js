@@ -41,12 +41,12 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen, t
 
   return (
     <div
-      className={`p-2 cursor-pointer flex justify-between items-center ${activeClass} ${
+      className={`cursor-pointer flex justify-between items-center ${activeClass} ${
         theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
       }`}
       onClick={() => onSelect(page)}
     >
-      <div className="flex items-center overflow-hidden">
+      <div className="flex items-center overflow-hidden py-2 px-4 w-full">
         {sidebarOpen ? (
           <span className="truncate">{page.title}</span>
         ) : (
@@ -356,7 +356,7 @@ export default function RichTextEditor() {
   return (
     <div className={`flex h-screen ${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-white text-black'}`}>
       {/* Sidebar */}
-      <div className={`transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-64' : 'w-12'} flex flex-col h-full border-r ${theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-100 border-gray-200 text-black'}`}>
+      <div className={`transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-64' : 'w-12'} flex flex-col h-full border-r ${theme === 'dark' ? 'bg-gray-900 border-gray-700 text-white' : 'bg-gray-100 border-gray-200 text-black'}`}>
         <div className="flex justify-between items-center p-4">
           {sidebarOpen && <h2 className="text-lg font-semibold">Pages</h2>}
           <Button variant="ghost" size="icon" onClick={handleNewPage}>
@@ -370,7 +370,11 @@ export default function RichTextEditor() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               startAdornment={<Search className="h-4 w-4 text-muted-foreground" />}
-              className={theme === 'dark' ? 'bg-gray-700 text-white' : 'bg-white text-black'}
+              className={`${
+                theme === 'dark'
+                  ? 'bg-gray-700 text-white border-gray-900'
+                  : 'bg-white text-black'
+              }`}
             />
           </div>
         )}
@@ -400,7 +404,7 @@ export default function RichTextEditor() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        <div className={`flex justify-between items-center p-4 border-b ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
+        <div className={`flex justify-between items-center p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
           <h1 
             className="text-2xl font-bold cursor-pointer" 
             onClick={() => handleRenamePage(currentPage)}
@@ -416,7 +420,7 @@ export default function RichTextEditor() {
           </div>
         </div>
         <div id="editorjs" className={`flex-1 p-8 overflow-auto codex-editor ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-black'}`} />
-        <div className="flex justify-end p-4">
+        <div className={`flex justify-end p-4 ${theme === 'dark' ? 'bg-gray-800 border-t border-gray-700' : 'bg-white border-t border-gray-200'}`}>
           <Button onClick={exportToPDF}>
             Export as PDF
           </Button>
