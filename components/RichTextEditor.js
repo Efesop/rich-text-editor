@@ -98,6 +98,7 @@ export default function RichTextEditor() {
   const editorRef = useRef(null)
   const editorInstanceRef = useRef(null)
   const [saveStatus, setSaveStatus] = useState('saved'); // 'saved', 'saving', 'error'
+  const [wordCount, setWordCount] = useState(0);
 
   const loadEditorJS = useCallback(async () => {
     if (editorInstanceRef.current) {
@@ -148,9 +149,18 @@ export default function RichTextEditor() {
           clearTimeout(editorInstanceRef.current.saveTimeout);
         }
         editorInstanceRef.current.saveTimeout = setTimeout(async () => {
-          const content = await editor.save();
+          const content = await editorInstanceRef.current.save();
           localStorage.setItem(`page_${currentPage.id}`, JSON.stringify(content));
           setSaveStatus('saved');
+          
+          // Calculate word count
+          const wordCount = content.blocks.reduce((count, block) => {
+            if (block.type === 'paragraph' || block.type === 'header') {
+              return count + block.data.text.trim().split(/\s+/).length;
+            }
+            return count;
+          }, 0);
+          setWordCount(wordCount);
         }, 1000);
       },
       onReady: () => {
@@ -222,6 +232,13 @@ export default function RichTextEditor() {
     const savedContent = localStorage.getItem(`page_${page.id}`);
     if (savedContent) {
       page.content = JSON.parse(savedContent);
+      const wordCount = page.content.blocks.reduce((count, block) => {
+        if (block.type === 'paragraph' || block.type === 'header') {
+          return count + block.data.text.trim().split(/\s+/).length;
+        }
+        return count;
+      }, 0);
+      setWordCount(wordCount);
     }
     setCurrentPage(page);
     if (editorInstanceRef.current) {
@@ -296,17 +313,6 @@ export default function RichTextEditor() {
     }
   };
 
-  const customSave = async () => {
-    const savedData = await editorInstanceRef.current.save();
-    savedData.blocks = savedData.blocks.map(block => {
-      if (block.type === 'paragraph' && !block.data.text.trim()) {
-        return { ...block, data: { text: '' } };
-      }
-      return block;
-    });
-    return savedData;
-  };
-
   if (!currentPage) return <div>Loading...</div>
 
   return (
@@ -361,7 +367,8 @@ export default function RichTextEditor() {
           >
             {currentPage.title}
           </h1>
-          <div className="flex items-center">
+          <div className="flex items-center space-x-4">
+            <span className="text-gray-500">{wordCount} words</span>
             {saveStatus === 'saving' && <span className="text-yellow-500">Saving...</span>}
             {saveStatus === 'saved' && <span className="text-green-500">Saved</span>}
             {saveStatus === 'error' && <span className="text-red-500">Error saving</span>}
