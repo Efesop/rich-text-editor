@@ -188,13 +188,21 @@ export default function RichTextEditor() {
         }
         editorInstanceRef.current.saveTimeout = setTimeout(async () => {
           const content = await editorInstanceRef.current.save();
-          localStorage.setItem(`page_${currentPage.id}`, JSON.stringify(content));
+          const updatedPage = { ...currentPage, content };
+          const updatedPages = pages.map(p => p.id === updatedPage.id ? updatedPage : p);
+          setPages(updatedPages);
+          window.electron.invoke('save-pages', updatedPages).catch((error) => {
+            console.error('Error saving pages:', error);
+          });
           setSaveStatus('saved');
           
           // Calculate word count
           const wordCount = content.blocks.reduce((count, block) => {
             if (block.type === 'paragraph' || block.type === 'header') {
-              return count + block.data.text.trim().split(/\s+/).length;
+              const text = block.data.text.trim();
+              if (text) {
+                return count + text.split(/\s+/).filter(word => word.length > 0).length;
+              }
             }
             return count;
           }, 0);
@@ -216,6 +224,10 @@ export default function RichTextEditor() {
 
   useEffect(() => {
     if (currentPage && typeof window !== 'undefined') {
+      if (editorInstanceRef.current) {
+        editorInstanceRef.current.destroy();
+        editorInstanceRef.current = null;
+      }
       loadEditorJS();
     }
     return () => {
@@ -227,20 +239,18 @@ export default function RichTextEditor() {
   }, [currentPage, loadEditorJS]);
 
   const fetchPages = () => {
-    try {
-      const storedPages = localStorage.getItem('pages');
-      const data = storedPages ? JSON.parse(storedPages) : [];
+    window.electron.invoke('read-pages').then((data) => {
       setPages(data);
       if (data.length > 0) {
         setCurrentPage(data[0]);
       } else {
         handleNewPage();
       }
-    } catch (error) {
+    }).catch((error) => {
       console.error('Error fetching pages:', error);
       setPages([]);
       handleNewPage();
-    }
+    });
   };
 
   const handleNewPage = () => {
@@ -248,7 +258,9 @@ export default function RichTextEditor() {
     const updatedPages = [...pages, newPage];
     setPages(updatedPages);
     setCurrentPage(newPage);
-    localStorage.setItem('pages', JSON.stringify(updatedPages));
+    window.electron.invoke('save-pages', updatedPages).catch((error) => {
+      console.error('Error saving pages:', error);
+    });
   };
 
   const handleDeletePage = async (page) => {
@@ -256,7 +268,9 @@ export default function RichTextEditor() {
       try {
         const updatedPages = pages.filter(p => p.id !== page.id);
         setPages(updatedPages);
-        localStorage.setItem('pages', JSON.stringify(updatedPages));
+        window.electron.invoke('save-pages', updatedPages).catch((error) => {
+          console.error('Error saving pages:', error);
+        });
         if (currentPage.id === page.id) {
           setCurrentPage(updatedPages[0] || null);
         }
@@ -267,21 +281,21 @@ export default function RichTextEditor() {
   };
 
   const loadPage = (page) => {
-    const savedContent = localStorage.getItem(`page_${page.id}`);
-    if (savedContent) {
-      page.content = JSON.parse(savedContent);
-      const wordCount = page.content.blocks.reduce((count, block) => {
-        if (block.type === 'paragraph' || block.type === 'header') {
-          return count + block.data.text.trim().split(/\s+/).length;
-        }
-        return count;
-      }, 0);
-      setWordCount(wordCount);
-    }
     setCurrentPage(page);
     if (editorInstanceRef.current) {
       editorInstanceRef.current.render(page.content);
     }
+    // Calculate word count
+    const wordCount = (page.content?.blocks || []).reduce((count, block) => {
+      if (block.type === 'paragraph' || block.type === 'header') {
+        const text = block.data.text.trim();
+        if (text) {
+          return count + text.split(/\s+/).filter(word => word.length > 0).length;
+        }
+      }
+      return count;
+    }, 0);
+    setWordCount(wordCount);
   };
 
   const savePage = async () => {
@@ -290,7 +304,9 @@ export default function RichTextEditor() {
       const updatedPage = { ...currentPage, content };
       const updatedPages = pages.map(p => p.id === updatedPage.id ? updatedPage : p);
       setPages(updatedPages);
-      localStorage.setItem('pages', JSON.stringify(updatedPages));
+      window.electron.invoke('save-pages', updatedPages).catch((error) => {
+        console.error('Error saving pages:', error);
+      });
     }
   };
 
@@ -322,7 +338,9 @@ export default function RichTextEditor() {
 
         const updatedPages = pages.map(p => p.id === page.id ? updatedPage : p);
         setPages(updatedPages);
-        localStorage.setItem('pages', JSON.stringify(updatedPages));
+        window.electron.invoke('save-pages', updatedPages).catch((error) => {
+          console.error('Error saving pages:', error);
+        });
         if (currentPage.id === page.id) {
           setCurrentPage(updatedPage);
         }
