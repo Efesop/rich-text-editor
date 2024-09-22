@@ -138,6 +138,9 @@ export default function RichTextEditor() {
   const editorInstanceRef = useRef(null)
   const [saveStatus, setSaveStatus] = useState('saved'); // 'saved', 'saving', 'error'
   const [wordCount, setWordCount] = useState(0);
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [pageToRename, setPageToRename] = useState(null);
+  const [newPageTitle, setNewPageTitle] = useState('');
 
   const loadEditorJS = useCallback(async () => {
     if (editorInstanceRef.current) {
@@ -300,7 +303,7 @@ export default function RichTextEditor() {
   };
 
   const savePage = async () => {
-    if (editorInstanceRef.current) {
+    if (editorInstanceRef.current && currentPage) {
       const content = await editorInstanceRef.current.save();
       const updatedPage = { ...currentPage, content };
       const updatedPages = pages.map(p => p.id === updatedPage.id ? updatedPage : p);
@@ -326,34 +329,37 @@ export default function RichTextEditor() {
     page.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleRenamePage = async (page) => {
-    const newTitle = prompt('Enter new title:', page.title);
-    if (newTitle && newTitle !== page.title) {
-      try {
-        let updatedPage = { ...page, title: newTitle };
-        
-        if (currentPage.id === page.id && editorInstanceRef.current) {
-          const savedData = await editorInstanceRef.current.save();
-          updatedPage.content = savedData;
-        }
+  const handleRenamePage = (page) => {
+    setPageToRename(page);
+    setNewPageTitle(page.title);
+    setIsRenameModalOpen(true);
+  };
 
-        const updatedPages = pages.map(p => p.id === page.id ? updatedPage : p);
+  const confirmRename = async () => {
+    if (pageToRename && newPageTitle && newPageTitle !== pageToRename.title) {
+      try {
+        const updatedPage = { ...pageToRename, title: newPageTitle };
+        const updatedPages = pages.map(p => p.id === pageToRename.id ? updatedPage : p);
+        
         setPages(updatedPages);
-        window.electron.invoke('save-pages', updatedPages).catch((error) => {
-          console.error('Error saving pages:', error);
-        });
-        if (currentPage.id === page.id) {
+        if (currentPage.id === pageToRename.id) {
           setCurrentPage(updatedPage);
         }
 
-        // Re-render the editor with the updated content
-        if (currentPage.id === page.id && editorInstanceRef.current) {
+        // Save changes to file system
+        await window.electron.invoke('save-pages', updatedPages);
+
+        // Re-render the editor if the current page was renamed
+        if (currentPage.id === pageToRename.id && editorInstanceRef.current) {
           editorInstanceRef.current.render(updatedPage.content);
         }
       } catch (error) {
         console.error('Error updating page:', error);
       }
     }
+    setIsRenameModalOpen(false);
+    setPageToRename(null);
+    setNewPageTitle('');
   };
 
   const exportToPDF = async () => {
@@ -466,6 +472,44 @@ export default function RichTextEditor() {
           </Button>
         </div>
       </div>
+
+      {isRenameModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full`}>
+            <h2 className={`text-xl mb-4 ${theme === 'dark' ? 'text-white' : 'text-black'}`}>Rename Page</h2>
+            <input
+              type="text"
+              value={newPageTitle}
+              onChange={(e) => setNewPageTitle(e.target.value)}
+              className={`w-full p-2 mb-4 border rounded ${
+                theme === 'dark' ? 'bg-gray-700 text-white' : 'bg-white text-black'
+              }`}
+            />
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setIsRenameModalOpen(false)}
+                className={`px-4 py-2 rounded ${
+                  theme === 'dark'
+                    ? 'bg-gray-600 hover:bg-gray-700 text-white'
+                    : 'bg-gray-200 hover:bg-gray-300 text-black'
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRename}
+                className={`px-4 py-2 rounded ${
+                  theme === 'dark'
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                }`}
+              >
+                Rename
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
