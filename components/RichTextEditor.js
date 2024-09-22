@@ -9,6 +9,7 @@ import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVe
 import { useTheme } from 'next-themes'
 import { Sun, Moon } from 'lucide-react'
 import jsPDF from 'jspdf';
+import { RenameModal } from '@/components/RenameModal';
 
 const EditorJS = dynamic(() => import('@editorjs/editorjs'), { ssr: false })
 
@@ -136,7 +137,7 @@ export default function RichTextEditor() {
   const [searchTerm, setSearchTerm] = useState('')
   const editorRef = useRef(null)
   const editorInstanceRef = useRef(null)
-  const [saveStatus, setSaveStatus] = useState('saved'); // 'saved', 'saving', 'error'
+  const [saveStatus, setSaveStatus] = useState('saved');
   const [wordCount, setWordCount] = useState(0);
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   const [pageToRename, setPageToRename] = useState(null);
@@ -346,10 +347,8 @@ export default function RichTextEditor() {
           setCurrentPage(updatedPage);
         }
 
-        // Save changes to file system
         await window.electron.invoke('save-pages', updatedPages);
 
-        // Re-render the editor if the current page was renamed
         if (currentPage.id === pageToRename.id && editorInstanceRef.current) {
           editorInstanceRef.current.render(updatedPage.content);
         }
@@ -473,43 +472,13 @@ export default function RichTextEditor() {
         </div>
       </div>
 
-      {isRenameModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full`}>
-            <h2 className={`text-xl mb-4 ${theme === 'dark' ? 'text-white' : 'text-black'}`}>Rename Page</h2>
-            <input
-              type="text"
-              value={newPageTitle}
-              onChange={(e) => setNewPageTitle(e.target.value)}
-              className={`w-full p-2 mb-4 border rounded ${
-                theme === 'dark' ? 'bg-gray-700 text-white' : 'bg-white text-black'
-              }`}
-            />
-            <div className="flex justify-end space-x-2">
-              <button
-                onClick={() => setIsRenameModalOpen(false)}
-                className={`px-4 py-2 rounded ${
-                  theme === 'dark'
-                    ? 'bg-gray-600 hover:bg-gray-700 text-white'
-                    : 'bg-gray-200 hover:bg-gray-300 text-black'
-                }`}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmRename}
-                className={`px-4 py-2 rounded ${
-                  theme === 'dark'
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                    : 'bg-blue-500 hover:bg-blue-600 text-white'
-                }`}
-              >
-                Rename
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <RenameModal
+        isOpen={isRenameModalOpen}
+        onClose={() => setIsRenameModalOpen(false)}
+        onConfirm={confirmRename}
+        title={newPageTitle}
+        onTitleChange={setNewPageTitle}
+      />
     </div>
   )
 }
