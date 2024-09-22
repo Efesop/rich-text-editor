@@ -8,6 +8,7 @@ import { ScrollArea } from "./ui/scroll-area"
 import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Sun, Moon } from 'lucide-react'
+import jsPDF from 'jspdf';
 
 const EditorJS = dynamic(() => import('@editorjs/editorjs'), { ssr: false })
 
@@ -359,10 +360,31 @@ export default function RichTextEditor() {
     if (editorInstanceRef.current) {
       try {
         const content = await editorInstanceRef.current.save();
-        // In Electron, we'll use a library like jsPDF to generate the PDF
-        // For now, we'll just log the content
-        console.log('Content to export as PDF:', content);
-        alert('PDF export functionality will be implemented in the Electron app.');
+        console.log('Editor content:', content);
+
+        const doc = new jsPDF();
+        let yOffset = 10;
+
+        content.blocks.forEach((block) => {
+          switch (block.type) {
+            case 'header':
+              doc.setFontSize(16 + (6 - block.data.level) * 2);
+              doc.text(block.data.text, 10, yOffset);
+              yOffset += 10;
+              break;
+            case 'paragraph':
+              doc.setFontSize(12);
+              const lines = doc.splitTextToSize(block.data.text, 190);
+              doc.text(lines, 10, yOffset);
+              yOffset += 5 * lines.length;
+              break;
+            // Add more cases for other block types as needed
+          }
+
+          yOffset += 5; // Add some space between blocks
+        });
+
+        doc.save(`${currentPage.title}.pdf`);
       } catch (error) {
         console.error('Error exporting to PDF:', error);
       }
