@@ -5,13 +5,12 @@ import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Sun, Moon } from 'lucide-react'
 import jsPDF from 'jspdf';
 import { RenameModal } from '@/components/RenameModal';
-
-const EditorJS = dynamic(() => import('@editorjs/editorjs'), { ssr: false })
+import ExportDropdown from '@/components/ExportDropdown';
 
 const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen, theme }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -361,12 +360,32 @@ export default function RichTextEditor() {
     setNewPageTitle('');
   };
 
-  const exportToPDF = async () => {
+  const handleExport = async (exportType) => {
     if (editorInstanceRef.current) {
       try {
         const content = await editorInstanceRef.current.save();
-        console.log('Editor content:', content);
+        switch (exportType) {
+          case 'pdf':
+            exportToPDF(content);
+            break;
+          case 'markdown':
+            exportToMarkdown(content);
+            break;
+          case 'text':
+            exportToPlainText(content);
+            break;
+          default:
+            console.error('Unsupported export type');
+        }
+      } catch (error) {
+        console.error('Error exporting content:', error);
+      }
+    }
+  };
 
+  const exportToPDF = (content) => {
+    if (editorInstanceRef.current) {
+      try {
         const doc = new jsPDF();
         let yOffset = 10;
 
@@ -394,6 +413,20 @@ export default function RichTextEditor() {
         console.error('Error exporting to PDF:', error);
       }
     }
+  };
+
+  const exportToMarkdown = (content) => {
+    // Implement Markdown export logic
+    console.log('Exporting to Markdown:', content);
+    // You'll need to convert the EditorJS content to Markdown format
+    // and then use a method to download it as a .md file
+  };
+
+  const exportToPlainText = (content) => {
+    // Implement Plain Text export logic
+    console.log('Exporting to Plain Text:', content);
+    // You'll need to extract all text content from the EditorJS blocks
+    // and then use a method to download it as a .txt file
   };
 
   if (!currentPage) return <div>Loading...</div>
@@ -461,15 +494,11 @@ export default function RichTextEditor() {
             {saveStatus === 'saving' && <span className="text-yellow-500">Saving...</span>}
             {saveStatus === 'saved' && <span className="text-green-500">Saved</span>}
             {saveStatus === 'error' && <span className="text-red-500">Error saving</span>}
+            <ExportDropdown onExport={handleExport} />
             <ThemeToggle />
           </div>
         </div>
         <div id="editorjs" className={`flex-1 p-8 overflow-auto codex-editor ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-black'}`} />
-        <div className={`flex justify-end p-4 ${theme === 'dark' ? 'bg-gray-800 border-t border-gray-700' : 'bg-white border-t border-gray-200'}`}>
-          <Button onClick={exportToPDF}>
-            Export as PDF
-          </Button>
-        </div>
       </div>
 
       <RenameModal
