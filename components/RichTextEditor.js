@@ -52,19 +52,15 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen, t
 
   return (
     <div
-      className={`cursor-pointer flex justify-between items-center ${activeClass} ${
+      className={`cursor-pointer flex justify-between items-center w-full ${activeClass} ${
         theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
       }`}
       onClick={() => onSelect(page)}
     >
-      <div className="flex items-center overflow-hidden py-2 px-4 w-full">
-        {sidebarOpen ? (
-          <span className="truncate">{page.title}</span>
-        ) : (
-          <span className="w-8 text-center" title={page.title}>
-            {truncateTitle(page.title)}
-          </span>
-        )}
+      <div className={`flex items-center overflow-hidden py-2 px-2 w-full ${sidebarOpen ? 'px-4' : 'justify-center'}`}>
+        <span className={`truncate ${sidebarOpen ? '' : 'text-center'}`} title={page.title}>
+          {sidebarOpen ? page.title : truncateTitle(page.title)}
+        </span>
       </div>
       {sidebarOpen && (
         <div className="relative" ref={dropdownRef}>
@@ -429,7 +425,11 @@ export default function RichTextEditor() {
   return (
     <div className={`flex h-screen ${theme === 'dark' ? 'dark bg-gray-900 text-white' : 'bg-white text-black'}`}>
       {/* Sidebar */}
-      <div className={`transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-64' : 'w-12'} flex flex-col h-full border-r ${theme === 'dark' ? 'bg-gray-900 border-gray-700 text-white' : 'bg-gray-100 border-gray-200 text-black'}`}>
+      <div className={`transition-all duration-300 ease-in-out ${
+        sidebarOpen ? 'w-64' : 'w-16'
+      } flex flex-col h-full border-r ${
+        theme === 'dark' ? 'bg-gray-900 border-gray-700 text-white' : 'bg-gray-100 border-gray-200 text-black'
+      }`}>
         <div className="flex justify-between items-center p-4">
           {sidebarOpen && <h2 className="text-lg font-semibold">Pages</h2>}
           <Button variant="ghost" size="icon" onClick={handleNewPage}>
