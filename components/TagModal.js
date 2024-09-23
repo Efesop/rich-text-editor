@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { useTheme } from 'next-themes'
+import { X } from 'lucide-react'
 
-export default function TagModal({ isOpen, onClose, onConfirm, onRemove, onDelete, tag, existingTags }) {
+export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, existingTags }) {
   const [tagName, setTagName] = useState('')
   const [showDeleteWarning, setShowDeleteWarning] = useState(false)
   const { theme } = useTheme()
@@ -32,8 +33,8 @@ export default function TagModal({ isOpen, onClose, onConfirm, onRemove, onDelet
     }
 
     const handleKeyDown = (event) => {
-      if (event.key === 'Enter') {
-        onConfirm(tagName)
+      if (event.key === 'Enter' && tagName.trim()) {
+        onConfirm(tagName.trim())
       }
     }
 
@@ -58,17 +59,31 @@ export default function TagModal({ isOpen, onClose, onConfirm, onRemove, onDelet
 
   if (!isOpen) return null
 
+  const handleConfirm = () => {
+    if (tagName.trim()) {
+      onConfirm(tagName.trim())
+    }
+  }
+
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
       <div 
         ref={modalRef}
-        className={`rounded shadow-xl border p-4 w-64 ${
+        className={`relative rounded-lg shadow-xl border p-6 w-80 ${
           theme === 'dark' 
             ? 'bg-gray-800 border-gray-700 text-white' 
             : 'bg-white border-gray-200 text-black'
         }`}
       >
-        <h2 className="mb-2 text-lg font-medium">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClose}
+          className="absolute top-2 right-2"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+        <h2 className="text-xl font-semibold mb-4">
           {tag ? 'Edit Tag' : 'Add Tag'}
         </h2>
         <Input
@@ -77,11 +92,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onRemove, onDelet
           value={tagName}
           onChange={(e) => setTagName(e.target.value)}
           list="existing-tags"
-          className={`w-full p-2 mb-4 text-sm border rounded ${
-            theme === 'dark' 
-              ? 'bg-gray-700 border-gray-600 text-white' 
-              : 'bg-white border-gray-300 text-black'
-          }`}
+          className="w-full mb-4"
         />
         <datalist id="existing-tags">
           {existingTags.map((existingTag, index) => (
@@ -89,37 +100,9 @@ export default function TagModal({ isOpen, onClose, onConfirm, onRemove, onDelet
           ))}
         </datalist>
         <div className="flex justify-end space-x-2">
-          {tag && (
-            <Button
-              variant="destructive"
-              onClick={onRemove}
-              className={`px-3 py-1 text-sm rounded ${
-                theme === 'dark'
-                  ? 'bg-red-600 hover:bg-red-700 text-white'
-                  : 'bg-red-500 hover:bg-red-600 text-white'
-              }`}
-            >
-              Remove
-            </Button>
-          )}
           <Button
-            variant="outline"
-            onClick={onClose}
-            className={`px-3 py-1 text-sm rounded ${
-              theme === 'dark'
-                ? 'bg-gray-700 hover:bg-gray-600 text-white'
-                : 'bg-gray-200 hover:bg-gray-300 text-black'
-            }`}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={() => onConfirm(tagName)}
-            className={`px-3 py-1 text-sm rounded ${
-              theme === 'dark'
-                ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                : 'bg-blue-500 hover:bg-blue-600 text-white'
-            }`}
+            onClick={handleConfirm}
+            disabled={!tagName.trim()}
           >
             {isExistingTag ? 'Select Tag' : 'Create Tag'}
           </Button>
@@ -129,36 +112,25 @@ export default function TagModal({ isOpen, onClose, onConfirm, onRemove, onDelet
             <Button
               variant="destructive"
               onClick={() => setShowDeleteWarning(true)}
-              className={`w-full px-3 py-1 text-sm rounded ${
-                theme === 'dark'
-                  ? 'bg-red-600 hover:bg-red-700 text-white'
-                  : 'bg-red-500 hover:bg-red-600 text-white'
-              }`}
+              className="w-full"
             >
-              Delete Tag
+              Delete
             </Button>
             {showDeleteWarning && (
-              <div className="mt-2 text-sm text-red-600">
+              <div className="mt-4 text-sm text-red-600">
                 <p>Are you sure you want to delete this tag? This action will remove the tag across all pages.</p>
                 <div className="flex justify-end space-x-2 mt-2">
                   <Button
                     variant="outline"
                     onClick={() => setShowDeleteWarning(false)}
-                    className={`px-3 py-1 text-sm rounded ${
-                      theme === 'dark'
-                        ? 'bg-gray-700 hover:bg-gray-600 text-white'
-                        : 'bg-gray-200 hover:bg-gray-300 text-black'
-                    }`}
+                    size="sm"
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={onDelete}
-                    className={`px-3 py-1 text-sm rounded ${
-                      theme === 'dark'
-                        ? 'bg-red-600 hover:bg-red-700 text-white'
-                        : 'bg-red-500 hover:bg-red-600 text-white'
-                    }`}
+                    variant="destructive"
+                    size="sm"
                   >
                     Confirm Delete
                   </Button>
