@@ -21,6 +21,7 @@ import {
   exportToXML,
   downloadFile 
 } from '@/utils/exportUtils';
+import TagModal from '@/components/TagModal';
 
 const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen, theme }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -61,6 +62,15 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen, t
         <span className={`truncate ${sidebarOpen ? '' : 'text-center'}`} title={page.title}>
           {sidebarOpen ? page.title : truncateTitle(page.title)}
         </span>
+        {sidebarOpen && page.tags && (
+          <div className="flex flex-wrap space-x-1 ml-2">
+            {page.tags.map((tag, index) => (
+              <span key={index} className="bg-gray-200 text-gray-700 px-1 py-0.5 rounded text-xs">
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
       {sidebarOpen && (
         <div className="relative" ref={dropdownRef}>
@@ -147,6 +157,11 @@ export default function RichTextEditor() {
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   const [pageToRename, setPageToRename] = useState(null);
   const [newPageTitle, setNewPageTitle] = useState('');
+  const [tags, setTags] = useState([]);
+  const [newTag, setNewTag] = useState('');
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
+  const [tagToEdit, setTagToEdit] = useState(null);
+  const [existingTags, setExistingTags] = useState(['Tag1', 'Tag2', 'Tag3']) // Example existing tags
 
   const loadEditorJS = useCallback(async () => {
     if (editorInstanceRef.current) {
@@ -208,13 +223,30 @@ export default function RichTextEditor() {
           
           // Calculate word count
           const wordCount = content.blocks.reduce((count, block) => {
-            if (block.type === 'paragraph' || block.type === 'header') {
-              const text = block.data.text.trim();
-              if (text) {
-                return count + text.split(/\s+/).filter(word => word.length > 0).length;
-              }
+            let text = ''
+            switch (block.type) {
+              case 'paragraph':
+              case 'header':
+              case 'quote':
+                text = block.data.text?.trim() || ''
+                break
+              case 'list':
+              case 'checklist':
+                text = block.data.items?.map(item => item.text).join(' ').trim() || ''
+                break
+              case 'table':
+                text = block.data.content.flat().join(' ').trim() || ''
+                break
+              case 'code':
+                text = block.data.code?.trim() || ''
+                break
+              default:
+                text = ''
             }
-            return count;
+            if (text) {
+              return count + text.split(/\s+/).filter(word => word.length > 0).length
+            }
+            return count
           }, 0);
           setWordCount(wordCount);
         }, 1000);
@@ -290,28 +322,46 @@ export default function RichTextEditor() {
     }
   };
 
-  const loadPage = (page) => {
+  const loadPage = useCallback((page) => {
     setCurrentPage(page);
+    setTags(page.tags || []);
     if (editorInstanceRef.current) {
       editorInstanceRef.current.render(page.content);
     }
     // Calculate word count
     const wordCount = (page.content?.blocks || []).reduce((count, block) => {
-      if (block.type === 'paragraph' || block.type === 'header') {
-        const text = block.data.text.trim();
-        if (text) {
-          return count + text.split(/\s+/).filter(word => word.length > 0).length;
-        }
+      let text = ''
+      switch (block.type) {
+        case 'paragraph':
+        case 'header':
+        case 'quote':
+          text = block.data.text?.trim() || ''
+          break
+        case 'list':
+        case 'checklist':
+          text = block.data.items?.map(item => item.text).join(' ').trim() || ''
+          break
+        case 'table':
+          text = block.data.content.flat().join(' ').trim() || ''
+          break
+        case 'code':
+          text = block.data.code?.trim() || ''
+          break
+        default:
+          text = ''
       }
-      return count;
+      if (text) {
+        return count + text.split(/\s+/).filter(word => word.length > 0).length
+      }
+      return count
     }, 0);
     setWordCount(wordCount);
-  };
+  }, [setWordCount]);
 
   const savePage = async () => {
     if (editorInstanceRef.current && currentPage) {
       const content = await editorInstanceRef.current.save();
-      const updatedPage = { ...currentPage, content };
+      const updatedPage = { ...currentPage, content, tags };
       const updatedPages = pages.map(p => p.id === updatedPage.id ? updatedPage : p);
       setPages(updatedPages);
       window.electron.invoke('save-pages', updatedPages).catch((error) => {
@@ -332,7 +382,8 @@ export default function RichTextEditor() {
   }
 
   const filteredPages = pages.filter(page => 
-    page.title.toLowerCase().includes(searchTerm.toLowerCase())
+    page.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (page.tags && page.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))
   );
 
   const handleRenamePage = (page) => {
@@ -477,20 +528,54 @@ export default function RichTextEditor() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        <div className={`flex justify-between items-center p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <h1 
-            className="text-2xl font-bold cursor-pointer" 
-            onClick={() => handleRenamePage(currentPage)}
-          >
-            {currentPage.title}
-          </h1>
-          <div className="flex items-center space-x-4">
-            <span className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>{wordCount} words</span>
-            {saveStatus === 'saving' && <span className="text-yellow-500">Saving...</span>}
-            {saveStatus === 'saved' && <span className="text-green-500">Saved</span>}
-            {saveStatus === 'error' && <span className="text-red-500">Error saving</span>}
-            <ExportDropdown onExport={handleExport} />
-            <ThemeToggle />
+        <div className={`flex flex-col p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <h1 
+                className="text-2xl font-bold cursor-pointer" 
+                onClick={() => handleRenamePage(currentPage)}
+              >
+                {currentPage.title}
+              </h1>
+              <button
+                onClick={() => setIsRenameModalOpen(true)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                Rename
+              </button>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>{wordCount} words</span>
+              {saveStatus === 'saving' && <span className="text-yellow-500">Saving...</span>}
+              {saveStatus === 'saved' && <span className="text-green-500">Saved</span>}
+              {saveStatus === 'error' && <span className="text-red-500">Error saving</span>}
+              <ExportDropdown onExport={handleExport} />
+              <ThemeToggle />
+            </div>
+          </div>
+          <div className="flex items-center space-x-2 mt-2">
+            {tags.map((tag, index) => (
+              <span
+                key={index}
+                className="bg-gray-200 text-gray-700 px-1 py-0.5 rounded text-xs cursor-pointer"
+                onClick={() => {
+                  setTagToEdit(tag);
+                  setIsTagModalOpen(true);
+                }}
+              >
+                {tag}
+              </span>
+            ))}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setTagToEdit(null);
+                setIsTagModalOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
         </div>
         <div id="editorjs" className={`flex-1 p-8 overflow-auto codex-editor ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-black'}`} />
@@ -502,6 +587,25 @@ export default function RichTextEditor() {
         onConfirm={confirmRename}
         title={newPageTitle}
         onTitleChange={setNewPageTitle}
+      />
+
+      <TagModal
+        isOpen={isTagModalOpen}
+        onClose={() => setIsTagModalOpen(false)}
+        onConfirm={(tag) => {
+          if (tagToEdit) {
+            setTags(tags.map(t => t === tagToEdit ? tag : t));
+          } else {
+            setTags([...tags, tag]);
+          }
+          setIsTagModalOpen(false);
+        }}
+        onDelete={() => {
+          setTags(tags.filter(t => t !== tagToEdit));
+          setIsTagModalOpen(false);
+        }}
+        tag={tagToEdit}
+        existingTags={existingTags}
       />
     </div>
   )

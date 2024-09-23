@@ -13,7 +13,8 @@
           }
         }
       ]
-    }
+    },
+    "tags": ["introduction", "welcome"]
   },
   {
     "id": "2",
@@ -37,7 +38,8 @@
         }
       ],
       "version": "2.30.6"
-    }
+    },
+    "tags": ["example", "guide"]
   },
   {
     "id": "1726566630884",
