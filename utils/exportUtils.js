@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell } from 'docx';
 import { create } from 'xmlbuilder2';
 import { stringify } from 'csv-stringify/sync';
 
@@ -27,6 +27,43 @@ export const exportToPDF = (content, title) => {
           yOffset += 7;
         });
         break;
+      case 'checklist':
+        doc.setFontSize(12);
+        block.data.items?.forEach((item) => {
+          const checkbox = item.checked ? '[x]' : '[ ]';
+          doc.text(`${checkbox} ${item.text}`, 10, yOffset);
+          yOffset += 7;
+        });
+        break;
+      case 'table':
+        doc.setFontSize(12);
+        block.data.content.forEach((row, rowIndex) => {
+          row.forEach((cell, cellIndex) => {
+            doc.text(cell, 10 + cellIndex * 40, yOffset + rowIndex * 10);
+          });
+        });
+        yOffset += block.data.content.length * 10;
+        break;
+      case 'quote':
+        doc.setFontSize(12);
+        doc.text(`"${block.data.text}" - ${block.data.caption}`, 10, yOffset);
+        yOffset += 10;
+        break;
+      case 'code':
+        doc.setFontSize(12);
+        const codeLines = doc.splitTextToSize(block.data.code || '', 190);
+        doc.text(codeLines, 10, yOffset);
+        yOffset += 5 * codeLines.length;
+        break;
+      case 'image':
+        doc.addImage(block.data.file.url, 'JPEG', 10, yOffset, 180, 100);
+        yOffset += 105;
+        break;
+      case 'delimiter':
+        doc.setFontSize(12);
+        doc.text('---', 10, yOffset);
+        yOffset += 10;
+        break;
     }
     yOffset += 5;
   });
@@ -43,6 +80,21 @@ export const exportToMarkdown = (content) => {
         return (block.data.text || '') + '\n\n';
       case 'list':
         return (block.data.items?.map(item => `- ${item}`).join('\n') || '') + '\n\n';
+      case 'checklist':
+        return (block.data.items?.map(item => `- [${item.checked ? 'x' : ' '}] ${item.text}`).join('\n') || '') + '\n\n';
+      case 'table':
+        const header = block.data.content[0].join(' | ');
+        const separator = block.data.content[0].map(() => '---').join(' | ');
+        const rows = block.data.content.slice(1).map(row => row.join(' | ')).join('\n');
+        return `${header}\n${separator}\n${rows}\n\n`;
+      case 'quote':
+        return `> ${block.data.text}\n> - ${block.data.caption}\n\n`;
+      case 'code':
+        return `\`\`\`\n${block.data.code}\n\`\`\`\n\n`;
+      case 'image':
+        return `![${block.data.caption}](${block.data.file.url})\n\n`;
+      case 'delimiter':
+        return `---\n\n`;
       default:
         return '';
     }
@@ -57,6 +109,18 @@ export const exportToPlainText = (content) => {
         return (block.data.text || '') + '\n\n';
       case 'list':
         return (block.data.items?.map(item => `- ${item}`).join('\n') || '') + '\n\n';
+      case 'checklist':
+        return (block.data.items?.map(item => `- [${item.checked ? 'x' : ' '}] ${item.text}`).join('\n') || '') + '\n\n';
+      case 'table':
+        return block.data.content.map(row => row.join('\t')).join('\n') + '\n\n';
+      case 'quote':
+        return `"${block.data.text}" - ${block.data.caption}\n\n`;
+      case 'code':
+        return `${block.data.code}\n\n`;
+      case 'image':
+        return `[Image: ${block.data.caption}]\n\n`;
+      case 'delimiter':
+        return `---\n\n`;
       default:
         return '';
     }
@@ -78,6 +142,30 @@ export const exportToRTF = (content) => {
         block.data.items?.forEach((item) => {
           rtf += `{\\pntext\\f0 \\'B7\\tab}{\\*\\pn\\pnlvlblt\\pnf0\\pnindent0{\\pntxtb\\'B7}}${item}\n\\par\n`;
         });
+        break;
+      case 'checklist':
+        block.data.items?.forEach((item) => {
+          const checkbox = item.checked ? '[x]' : '[ ]';
+          rtf += `${checkbox} ${item.text}\n\\par\n`;
+        });
+        break;
+      case 'table':
+        block.data.content.forEach((row) => {
+          rtf += row.join('\\tab') + '\\par\n';
+        });
+        break;
+      case 'quote':
+        rtf += `{\\i "${block.data.text}" - ${block.data.caption}}\n\\par\n`;
+        break;
+      case 'code':
+        rtf += `{\\f1 ${block.data.code}}\n\\par\n`;
+        break;
+      case 'image':
+        // RTF does not support embedding images directly, so we add a placeholder
+        rtf += `[Image: ${block.data.caption}]\n\\par\n`;
+        break;
+      case 'delimiter':
+        rtf += `---\n\\par\n`;
         break;
     }
   });
@@ -109,6 +197,31 @@ export const exportToDocx = async (content) => {
                 level: 0
               }
             })) || [];
+          case 'checklist':
+            return block.data.items?.map(item => new Paragraph({
+              text: `${item.checked ? '[x]' : '[ ]'} ${item.text}`
+            })) || [];
+          case 'table':
+            return new Table({
+              rows: block.data.content.map(row => new TableRow({
+                children: row.map(cell => new TableCell({
+                  children: [new Paragraph(cell)]
+                }))
+              }))
+            });
+          case 'quote':
+            return new Paragraph({
+              children: [new TextRun({ text: `"${block.data.text}" - ${block.data.caption}`, italics: true })]
+            });
+          case 'code':
+            return new Paragraph({
+              children: [new TextRun({ text: block.data.code, font: 'Courier New' })]
+            });
+          case 'image':
+            // DOCX does not support embedding images directly, so we add a placeholder
+            return new Paragraph(`[Image: ${block.data.caption}]`);
+          case 'delimiter':
+            return new Paragraph('---');
           default:
             return new Paragraph('');
         }
@@ -131,6 +244,18 @@ export const exportToCSV = (content) => {
         return [['Paragraph', '', block.data.text || '']];
       case 'list':
         return block.data.items?.map(item => ['List Item', '', item]) || [];
+      case 'checklist':
+        return block.data.items?.map(item => ['Checklist Item', item.checked ? 'Checked' : 'Unchecked', item.text]) || [];
+      case 'table':
+        return block.data.content.map(row => ['Table Row', '', row.join(', ')]);
+      case 'quote':
+        return [['Quote', '', `"${block.data.text}" - ${block.data.caption}`]];
+      case 'code':
+        return [['Code', '', block.data.code]];
+      case 'image':
+        return [['Image', '', block.data.caption]];
+      case 'delimiter':
+        return [['Delimiter', '', '---']];
       default:
         return [];
     }
@@ -165,6 +290,37 @@ export const exportToXML = (content) => {
         block.data.items?.forEach((item) => {
           list.ele('item').txt(item);
         });
+        break;
+      case 'checklist':
+        const checklist = root.ele('checklist');
+        block.data.items?.forEach((item) => {
+          checklist.ele('item', { checked: item.checked }).txt(item.text);
+        });
+        break;
+      case 'table':
+        const table = root.ele('table');
+        block.data.content.forEach((row) => {
+          const rowElement = table.ele('row');
+          row.forEach((cell) => {
+            rowElement.ele('cell').txt(cell);
+          });
+        });
+        break;
+      case 'quote':
+        root.ele('quote', { caption: block.data.caption })
+          .txt(block.data.text || '');
+        break;
+      case 'code':
+        root.ele('code')
+          .txt(block.data.code || '');
+        break;
+      case 'image':
+        root.ele('image', { caption: block.data.caption })
+          .txt(block.data.file.url);
+        break;
+      case 'delimiter':
+        root.ele('delimiter')
+          .txt('---');
         break;
     }
   });
