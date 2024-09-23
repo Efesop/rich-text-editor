@@ -51,3 +51,41 @@
     margin-top: 2.33em;
     margin-bottom: 0.5em;
   }
+  
+/* Editor.js dark mode styles */
+.dark .codex-editor .ce-toolbar__content,
+.dark .codex-editor .ce-block__content {
+  color: #ffffff;
+  background-color: #1f2937;
+}
+
+.dark .codex-editor .ce-toolbar__plus,
+.dark .codex-editor .ce-toolbar__settings-btn {
+  color: #ffffff;
+  background-color: #374151;
+}
+
+.dark .codex-editor .ce-toolbar__plus:hover,
+.dark .codex-editor .ce-toolbar__settings-btn:hover {
+  background-color: #4b5563;
+}
+
+.dark .codex-editor .ce-inline-toolbar,
+.dark .codex-editor .ce-conversion-toolbar,
+.dark .codex-editor .ce-settings {
+  color: #ffffff;
+  background-color: #374151;
+  border-color: #4b5563;
+}
+
+.dark .codex-editor .ce-inline-tool,
+.dark .codex-editor .ce-conversion-tool,
+.dark .codex-editor .ce-settings__button {
+  color: #ffffff;
+}
+
+.dark .codex-editor .ce-inline-tool:hover,
+.dark .codex-editor .ce-conversion-tool:hover,
+.dark .codex-editor .ce-settings__button:hover {
+  background-color: #4b5563;
+}
