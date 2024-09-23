@@ -2,14 +2,16 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { useTheme } from 'next-themes'
-import { X } from 'lucide-react'
+import { X, ChevronDown } from 'lucide-react'
 
 export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, existingTags }) {
   const [tagName, setTagName] = useState('')
   const [showDeleteWarning, setShowDeleteWarning] = useState(false)
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const { theme } = useTheme()
   const inputRef = useRef(null)
   const modalRef = useRef(null)
+  const dropdownRef = useRef(null)
 
   useEffect(() => {
     if (tag) {
@@ -29,6 +31,9 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
     const handleClickOutside = (event) => {
       if (modalRef.current && !modalRef.current.contains(event.target)) {
         onClose()
+      }
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false)
       }
     }
 
@@ -52,6 +57,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
   useEffect(() => {
     if (!isOpen) {
       setShowDeleteWarning(false)
+      setIsDropdownOpen(false)
     }
   }, [isOpen])
 
@@ -86,19 +92,50 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
         <h2 className="text-xl font-semibold mb-4">
           {tag ? 'Edit Tag' : 'Add Tag'}
         </h2>
-        <Input
-          ref={inputRef}
-          placeholder="Enter or select a tag"
-          value={tagName}
-          onChange={(e) => setTagName(e.target.value)}
-          list="existing-tags"
-          className="w-full mb-4"
-        />
-        <datalist id="existing-tags">
-          {existingTags.map((existingTag, index) => (
-            <option key={index} value={existingTag} />
-          ))}
-        </datalist>
+        <div className="relative">
+          <Input
+            ref={inputRef}
+            placeholder="Enter or select a tag"
+            value={tagName}
+            onChange={(e) => setTagName(e.target.value)}
+            className="w-full mb-4"
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="absolute right-0 top-0 h-full"
+          >
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+          {isDropdownOpen && (
+            <div 
+              ref={dropdownRef}
+              className={`absolute left-0 mt-1 w-full rounded-md shadow-lg ${
+                theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+              } border z-50`}
+            >
+              <div className="py-1" role="menu" aria-orientation="vertical">
+                {existingTags.map((existingTag, index) => (
+                  <button
+                    key={index}
+                    className={`block w-full text-left px-4 py-2 text-sm ${
+                      theme === 'dark'
+                        ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    }`}
+                    onClick={() => {
+                      setTagName(existingTag)
+                      setIsDropdownOpen(false)
+                    }}
+                  >
+                    {existingTag}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
         <div className="flex justify-end space-x-2">
           <Button
             onClick={handleConfirm}

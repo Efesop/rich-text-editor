@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, X } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Sun, Moon } from 'lucide-react'
 import { RenameModal } from '@/components/RenameModal';
@@ -560,13 +560,25 @@ export default function RichTextEditor() {
             {tags.map((tag, index) => (
               <span
                 key={index}
-                className="bg-gray-200 text-gray-700 px-1 py-0.5 rounded text-xs cursor-pointer"
-                onClick={() => {
-                  setTagToEdit(tag);
-                  setIsTagModalOpen(true);
-                }}
+                className={`flex items-center px-2 py-1 rounded text-xs ${
+                  theme === 'dark' ? 'bg-gray-700 text-gray-200' : 'bg-gray-200 text-gray-700'
+                }`}
               >
-                {tag}
+                <span
+                  className="cursor-pointer"
+                  onClick={() => {
+                    setTagToEdit(tag);
+                    setIsTagModalOpen(true);
+                  }}
+                >
+                  {tag}
+                </span>
+                <button
+                  className="ml-1 focus:outline-none"
+                  onClick={() => handleRemoveTag(tag)}
+                >
+                  <X className="h-3 w-3" />
+                </button>
               </span>
             ))}
             <Button
