@@ -22,6 +22,7 @@ import {
   downloadFile 
 } from '@/utils/exportUtils';
 import TagModal from '@/components/TagModal';
+import useTagStore from '../store/tagStore'
 
 const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen, theme }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -157,11 +158,10 @@ export default function RichTextEditor() {
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   const [pageToRename, setPageToRename] = useState(null);
   const [newPageTitle, setNewPageTitle] = useState('');
-  const [tags, setTags] = useState([]);
-  const [newTag, setNewTag] = useState('');
-  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
-  const [tagToEdit, setTagToEdit] = useState(null);
-  const [existingTags, setExistingTags] = useState(['Tag1', 'Tag2', 'Tag3']) // Example existing tags
+  const [tags, setTags] = useState([])
+  const [tagToEdit, setTagToEdit] = useState(null)
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false)
+  const { tags: existingTags, addTag, removeTag, deleteTag } = useTagStore()
 
   const loadEditorJS = useCallback(async () => {
     if (editorInstanceRef.current) {
@@ -471,6 +471,15 @@ export default function RichTextEditor() {
     }
   }, [currentPage]);
 
+  const handleRemoveTag = (tag) => {
+    setTags(tags.filter(t => t !== tag))
+  }
+
+  const handleDeleteTag = (tag) => {
+    deleteTag(tag)
+    setTags(tags.filter(t => t !== tag))
+  }
+
   if (!currentPage) return <div>Loading...</div>
 
   return (
@@ -537,12 +546,6 @@ export default function RichTextEditor() {
               >
                 {currentPage.title}
               </h1>
-              <button
-                onClick={() => setIsRenameModalOpen(true)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                Rename
-              </button>
             </div>
             <div className="flex items-center space-x-2">
               <span className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>{wordCount} words</span>
@@ -594,15 +597,20 @@ export default function RichTextEditor() {
         onClose={() => setIsTagModalOpen(false)}
         onConfirm={(tag) => {
           if (tagToEdit) {
-            setTags(tags.map(t => t === tagToEdit ? tag : t));
+            setTags(tags.map(t => t === tagToEdit ? tag : t))
           } else {
-            setTags([...tags, tag]);
+            setTags([...tags, tag])
+            addTag(tag)
           }
-          setIsTagModalOpen(false);
+          setIsTagModalOpen(false)
+        }}
+        onRemove={() => {
+          handleRemoveTag(tagToEdit)
+          setIsTagModalOpen(false)
         }}
         onDelete={() => {
-          setTags(tags.filter(t => t !== tagToEdit));
-          setIsTagModalOpen(false);
+          handleDeleteTag(tagToEdit)
+          setIsTagModalOpen(false)
         }}
         tag={tagToEdit}
         existingTags={existingTags}
