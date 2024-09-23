@@ -12,6 +12,11 @@ const ExportDropdown = ({ onExport }) => {
     { label: 'Export as PDF', value: 'pdf' },
     { label: 'Export as Markdown', value: 'markdown' },
     { label: 'Export as Plain Text', value: 'text' },
+    { label: 'Export as RTF', value: 'rtf' },
+    { label: 'Export as Word Document', value: 'docx' },
+    { label: 'Export as CSV', value: 'csv' },
+    { label: 'Export as JSON', value: 'json' },
+    { label: 'Export as XML', value: 'xml' },
   ];
 
   useEffect(() => {

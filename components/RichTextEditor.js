@@ -8,10 +8,19 @@ import { ScrollArea } from "./ui/scroll-area"
 import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Sun, Moon } from 'lucide-react'
-import jsPDF from 'jspdf';
 import { RenameModal } from '@/components/RenameModal';
 import ExportDropdown from '@/components/ExportDropdown';
-import { exportToPDF, exportToMarkdown, exportToPlainText, downloadFile } from '@/utils/exportUtils';
+import { 
+  exportToPDF, 
+  exportToMarkdown, 
+  exportToPlainText,
+  exportToRTF,
+  exportToDocx,
+  exportToCSV,
+  exportToJSON,
+  exportToXML,
+  downloadFile 
+} from '@/utils/exportUtils';
 
 const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen, theme }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -361,21 +370,50 @@ export default function RichTextEditor() {
     setNewPageTitle('');
   };
 
-  const handleExport = async (exportType) => {
-    if (editorInstanceRef.current) {
+  const handleExport = useCallback(async (exportType) => {
+    if (editorInstanceRef.current && currentPage) {
       try {
         const content = await editorInstanceRef.current.save();
+        const fileName = currentPage.title || 'Untitled';
         switch (exportType) {
           case 'pdf':
-            exportToPDF(content, currentPage.title);
+            exportToPDF(content, fileName);
             break;
           case 'markdown':
             const markdown = exportToMarkdown(content);
-            downloadFile(markdown, `${currentPage.title}.md`, 'text/markdown');
+            downloadFile(markdown, `${fileName}.md`, 'text/markdown');
             break;
           case 'text':
             const text = exportToPlainText(content);
-            downloadFile(text, `${currentPage.title}.txt`, 'text/plain');
+            downloadFile(text, `${fileName}.txt`, 'text/plain');
+            break;
+          case 'rtf':
+            const rtf = exportToRTF(content);
+            downloadFile(rtf, `${fileName}.rtf`, 'application/rtf');
+            break;
+          case 'docx':
+            const docxBuffer = await exportToDocx(content);
+            const docxBlob = new Blob([docxBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+            const docxUrl = URL.createObjectURL(docxBlob);
+            const a = document.createElement('a');
+            a.href = docxUrl;
+            a.download = `${fileName}.docx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(docxUrl);
+            break;
+          case 'csv':
+            const csv = exportToCSV(content);
+            downloadFile(csv, `${fileName}.csv`, 'text/csv');
+            break;
+          case 'json':
+            const json = exportToJSON(content);
+            downloadFile(json, `${fileName}.json`, 'application/json');
+            break;
+          case 'xml':
+            const xml = exportToXML(content);
+            downloadFile(xml, `${fileName}.xml`, 'application/xml');
             break;
           default:
             console.error('Unsupported export type');
@@ -384,7 +422,7 @@ export default function RichTextEditor() {
         console.error('Error exporting content:', error);
       }
     }
-  };
+  }, [currentPage]);
 
   if (!currentPage) return <div>Loading...</div>
 
