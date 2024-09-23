@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "./ui/button";
-import { Download } from 'lucide-react';
+import { Download, ChevronDown } from 'lucide-react';
 import { useTheme } from 'next-themes';
 
 const ExportDropdown = ({ onExport }) => {
@@ -41,6 +41,7 @@ const ExportDropdown = ({ onExport }) => {
         className="flex items-center"
       >
         Export
+        <ChevronDown className="ml-1 h-4 w-4" />
       </Button>
       {isOpen && (
         <div className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg ${
