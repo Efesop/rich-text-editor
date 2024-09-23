@@ -11,6 +11,7 @@ import { Sun, Moon } from 'lucide-react'
 import jsPDF from 'jspdf';
 import { RenameModal } from '@/components/RenameModal';
 import ExportDropdown from '@/components/ExportDropdown';
+import { exportToPDF, exportToMarkdown, exportToPlainText, downloadFile } from '@/utils/exportUtils';
 
 const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen, theme }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -366,13 +367,15 @@ export default function RichTextEditor() {
         const content = await editorInstanceRef.current.save();
         switch (exportType) {
           case 'pdf':
-            exportToPDF(content);
+            exportToPDF(content, currentPage.title);
             break;
           case 'markdown':
-            exportToMarkdown(content);
+            const markdown = exportToMarkdown(content);
+            downloadFile(markdown, `${currentPage.title}.md`, 'text/markdown');
             break;
           case 'text':
-            exportToPlainText(content);
+            const text = exportToPlainText(content);
+            downloadFile(text, `${currentPage.title}.txt`, 'text/plain');
             break;
           default:
             console.error('Unsupported export type');
@@ -381,52 +384,6 @@ export default function RichTextEditor() {
         console.error('Error exporting content:', error);
       }
     }
-  };
-
-  const exportToPDF = (content) => {
-    if (editorInstanceRef.current) {
-      try {
-        const doc = new jsPDF();
-        let yOffset = 10;
-
-        content.blocks.forEach((block) => {
-          switch (block.type) {
-            case 'header':
-              doc.setFontSize(16 + (6 - block.data.level) * 2);
-              doc.text(block.data.text, 10, yOffset);
-              yOffset += 10;
-              break;
-            case 'paragraph':
-              doc.setFontSize(12);
-              const lines = doc.splitTextToSize(block.data.text, 190);
-              doc.text(lines, 10, yOffset);
-              yOffset += 5 * lines.length;
-              break;
-            // Add more cases for other block types as needed
-          }
-
-          yOffset += 5; // Add some space between blocks
-        });
-
-        doc.save(`${currentPage.title}.pdf`);
-      } catch (error) {
-        console.error('Error exporting to PDF:', error);
-      }
-    }
-  };
-
-  const exportToMarkdown = (content) => {
-    // Implement Markdown export logic
-    console.log('Exporting to Markdown:', content);
-    // You'll need to convert the EditorJS content to Markdown format
-    // and then use a method to download it as a .md file
-  };
-
-  const exportToPlainText = (content) => {
-    // Implement Plain Text export logic
-    console.log('Exporting to Plain Text:', content);
-    // You'll need to extract all text content from the EditorJS blocks
-    // and then use a method to download it as a .txt file
   };
 
   if (!currentPage) return <div>Loading...</div>
