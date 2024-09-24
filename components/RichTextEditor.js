@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, X } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, X, ChevronDown } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Sun, Moon } from 'lucide-react'
 import { RenameModal } from '@/components/RenameModal';
@@ -23,6 +23,88 @@ import {
 } from '@/utils/exportUtils';
 import TagModal from '@/components/TagModal';
 import useTagStore from '../store/tagStore'
+
+const SearchInput = ({ value, onChange, filter, onFilterChange, placeholder }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  const { theme } = useTheme();
+
+  const filters = [
+    { value: 'all', label: 'All' },
+    { value: 'title', label: 'Page Names' },
+    { value: 'content', label: 'Page Content' },
+    { value: 'tags', label: 'Tags' },
+  ];
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const getDropdownStyle = () => {
+    const rect = dropdownRef.current?.getBoundingClientRect();
+    return {
+      zIndex: 9999,
+      top: rect ? `${rect.bottom + window.scrollY}px` : '0',
+      left: rect ? `${rect.left + window.scrollX}px` : '0',
+      backgroundColor: theme === 'dark' ? 'rgb(31, 41, 55)' : 'white',
+      color: theme === 'dark' ? 'white' : 'black',
+      borderColor: theme === 'dark' ? 'rgb(55, 65, 81)' : 'rgb(229, 231, 235)',
+    };
+  };
+
+  const inputClassName = `rounded-r-none ${theme === 'dark' ? 'border-gray-700' : ''}`;
+  const buttonClassName = `rounded-l-none border-l-0 px-2 ${theme === 'dark' ? 'border-gray-700' : ''}`;
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <div className="flex">
+        <Input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={inputClassName}
+        />
+        <Button
+          variant="outline"
+          className={buttonClassName}
+          onClick={() => setIsOpen(!isOpen)}
+        >
+          <ChevronDown className="h-4 w-4" />
+        </Button>
+      </div>
+      {isOpen && (
+        <div className="fixed mt-2 w-48 rounded-md shadow-lg border" style={getDropdownStyle()}>
+          <div className="py-1" role="menu" aria-orientation="vertical">
+            {filters.map((f) => (
+              <button
+                key={f.value}
+                className={`block w-full text-left px-4 py-2 text-sm hover:bg-accent hover:text-accent-foreground ${
+                  theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                }`}
+                onClick={() => {
+                  onFilterChange(f.value);
+                  setIsOpen(false);
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen, theme }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -165,6 +247,14 @@ export default function RichTextEditor() {
   const [tagToEdit, setTagToEdit] = useState(null)
   const [isTagModalOpen, setIsTagModalOpen] = useState(false)
   const { tags: existingTags, addTag, removeTag, deleteTag } = useTagStore()
+  const [searchFilter, setSearchFilter] = useState('all')
+
+  const searchPlaceholders = {
+    all: "Search all...",
+    title: "Search page names...",
+    content: "Search page content...",
+    tags: "Search tags..."
+  };
 
   const loadEditorJS = useCallback(async () => {
     if (editorInstanceRef.current) {
@@ -384,10 +474,23 @@ export default function RichTextEditor() {
     setSidebarOpen(!sidebarOpen)
   }
 
-  const filteredPages = pages.filter(page => 
-    page.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (page.tags && page.tags.some(tag => tag.name.toLowerCase().includes(searchTerm.toLowerCase())))
-  );
+  const filteredPages = pages.filter(page => {
+    if (searchTerm === '') return true;
+    const query = searchTerm.toLowerCase();
+    switch (searchFilter) {
+      case 'title':
+        return page.title.toLowerCase().includes(query);
+      case 'content':
+        return JSON.stringify(page.content).toLowerCase().includes(query);
+      case 'tags':
+        return page.tags && page.tags.some(tag => tag.name.toLowerCase().includes(query));
+      case 'all':
+      default:
+        return page.title.toLowerCase().includes(query) ||
+               JSON.stringify(page.content).toLowerCase().includes(query) ||
+               (page.tags && page.tags.some(tag => tag.name.toLowerCase().includes(query)));
+    }
+  });
 
   const handleRenamePage = (page) => {
     setPageToRename(page);
@@ -524,16 +627,12 @@ export default function RichTextEditor() {
         </div>
         {sidebarOpen && (
           <div className="px-4 mb-2">
-            <Input
-              placeholder="Search pages..."
+            <SearchInput
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              startAdornment={<Search className="h-4 w-4 text-muted-foreground" />}
-              className={`${
-                theme === 'dark'
-                  ? 'bg-gray-700 text-white border-gray-900'
-                  : 'bg-white text-black'
-              }`}
+              onChange={setSearchTerm}
+              filter={searchFilter}
+              onFilterChange={setSearchFilter}
+              placeholder={searchPlaceholders[searchFilter]}
             />
           </div>
         )}
