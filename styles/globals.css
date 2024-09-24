@@ -89,3 +89,39 @@
 .dark .codex-editor .ce-settings__button:hover {
   background-color: #4b5563;
 }
+
+/* Custom focus styles for input fields */
+input:focus,
+.ce-block__content:focus,
+.cdx-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+  border-color: rgba(99, 102, 241, 0.5);
+  transition: all 0.2s ease-in-out;
+}
+
+.dark input:focus,
+.dark .ce-block__content:focus,
+.dark .cdx-input:focus {
+  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.3);
+  border-color: rgba(129, 140, 248, 0.5);
+}
+
+/* Global focus styles */
+*:focus {
+  outline: none;
+}
+
+input:focus,
+textarea:focus,
+select:focus,
+button:focus {
+  box-shadow: 0 0 0 2px rgba(229, 231, 235, 0.5);
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus,
+.dark button:focus {
+  box-shadow: 0 0 0 2px rgba(75, 85, 99, 0.5);
+}

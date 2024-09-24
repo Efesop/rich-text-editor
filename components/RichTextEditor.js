@@ -86,40 +86,43 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen, t
             <MoreVertical className="h-4 w-4" />
           </Button>
           {isOpen && (
-            <div className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg ${
-              theme === 'dark' ? 'bg-gray-800' : 'bg-white'
-            } ring-1 ring-black ring-opacity-5`}>
-              <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
-                <button
-                  className={`block px-4 py-2 text-sm w-full text-left ${
-                    theme === 'dark'
-                      ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                  }`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRename(page);
-                    setIsOpen(false);
-                  }}
-                >
-                  Rename
-                </button>
-                <button
-                  className={`block px-4 py-2 text-sm w-full text-left ${
-                    theme === 'dark'
-                      ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                  }`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(page);
-                    setIsOpen(false);
-                  }}
-                >
-                  Delete
-                </button>
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+              <div className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg ${
+                theme === 'dark' ? 'bg-gray-800' : 'bg-white'
+              } ring-1 ring-black ring-opacity-5 z-50`}>
+                <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
+                  <button
+                    className={`block px-4 py-2 text-sm w-full text-left ${
+                      theme === 'dark'
+                        ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRename(page);
+                      setIsOpen(false);
+                    }}
+                  >
+                    Rename
+                  </button>
+                  <button
+                    className={`block px-4 py-2 text-sm w-full text-left ${
+                      theme === 'dark'
+                        ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(page);
+                      setIsOpen(false);
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
-            </div>
+            </>
           )}
         </div>
       )}
