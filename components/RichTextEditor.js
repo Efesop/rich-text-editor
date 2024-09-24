@@ -161,7 +161,7 @@ export default function RichTextEditor() {
   const [tags, setTags] = useState([])
   const [tagToEdit, setTagToEdit] = useState(null)
   const [isTagModalOpen, setIsTagModalOpen] = useState(false)
-  const { tags: existingTags, addTag, removeTag, deleteTag, setPages: setTagStorePages } = useTagStore()
+  const { tags: existingTags, addTag, removeTag, deleteTag } = useTagStore()
 
   const loadEditorJS = useCallback(async () => {
     if (editorInstanceRef.current) {
@@ -475,19 +475,10 @@ export default function RichTextEditor() {
     setTags(tags.filter(t => t !== tag))
   }
 
-  const handleDeleteTag = (tagToDelete) => {
-    deleteTag(tagToDelete)
-    setPages(pages.map(page => ({
-      ...page,
-      tags: page.tags.filter(tag => tag !== tagToDelete)
-    })))
-    setTags(tags.filter(tag => tag !== tagToDelete))
+  const handleDeleteTag = (tag) => {
+    deleteTag(tag)
+    setTags(tags.filter(t => t !== tag))
   }
-
-  // Add this useEffect to update the tagStore whenever pages change
-  useEffect(() => {
-    setTagStorePages(pages)
-  }, [pages, setTagStorePages])
 
   if (!currentPage) return <div>Loading...</div>
 
