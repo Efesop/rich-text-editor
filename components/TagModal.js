@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { X, ChevronDown, AlertTriangle } from 'lucide-react'
+import useTagStore from '../store/tagStore' // Correct import
 
 export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, existingTags }) {
   const [tagName, setTagName] = useState(tag || '')
@@ -9,6 +10,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const inputRef = useRef(null)
   const dropdownRef = useRef(null)
+  const deleteTag = useTagStore(state => state.deleteTag)
 
   useEffect(() => {
     if (isOpen) {
@@ -57,6 +59,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
       onDelete(tag)
     } else {
       console.log('onDelete function is not defined')
+      deleteTag(tag) // Call deleteTag directly if onDelete is not defined
     }
     setShowDeleteWarning(false)
     onClose()

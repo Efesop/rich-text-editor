@@ -17,11 +17,12 @@ const useTagStore = create((set, get) => ({
     const updatedPages = state.pages.map(page => ({
       ...page,
       tags: page.tags ? page.tags.filter(t => t !== tag) : []
-    }));
+    }))
+    console.log('Updated pages:', updatedPages) // Add this line
     return {
       tags: state.tags.filter((t) => t !== tag),
       pages: updatedPages
-    };
+    }
   }),
   setPages: (pages) => set((state) => {
     const allTags = [...new Set(pages.flatMap(page => page.tags || []))];
