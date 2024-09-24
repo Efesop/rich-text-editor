@@ -583,16 +583,14 @@ export default function RichTextEditor() {
             {tags.map((tag, index) => (
               <span
                 key={index}
-                className={`flex items-center px-2 py-1 rounded text-xs ${
-                  theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
-                }`}
+                className="flex items-center px-2 py-1 rounded text-xs text-gray-700"
                 style={{ backgroundColor: tag.color.background, border: `1px solid ${tag.color.border}` }}
               >
                 <span
-                  className="cursor-pointer"
+                  className="cursor-pointer text-gray-700"
                   onClick={() => {
-                    setTagToEdit(tag)
-                    setIsTagModalOpen(true)
+                    setTagToEdit(tag);
+                    setIsTagModalOpen(true);
                   }}
                 >
                   {tag.name}
@@ -601,7 +599,7 @@ export default function RichTextEditor() {
                   className="ml-1 focus:outline-none"
                   onClick={() => handleRemoveTag(tag)}
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-3 w-3 text-gray-700" />
                 </button>
               </span>
             ))}
@@ -609,11 +607,11 @@ export default function RichTextEditor() {
               variant="ghost"
               size="icon"
               onClick={() => {
-                setTagToEdit(null)
-                setIsTagModalOpen(true)
+                setTagToEdit(null);
+                setIsTagModalOpen(true);
               }}
             >
-              <Plus className="h-4 w-4" />
+              <Plus className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`} />
             </Button>
           </div>
         </div>
