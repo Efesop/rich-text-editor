@@ -476,8 +476,19 @@ export default function RichTextEditor() {
   }
 
   const handleDeleteTag = (tag) => {
-    deleteTag(tag)
-    setTags(tags.filter(t => t !== tag))
+    deleteTag(tag);
+    setTags(tags.filter(t => t !== tag));
+    
+    // Update all pages to remove the tag
+    const updatedPages = pages.map(page => ({
+      ...page,
+      tags: page.tags ? page.tags.filter(t => t !== tag) : []
+    }));
+    
+    setPages(updatedPages);
+    window.electron.invoke('save-pages', updatedPages).catch((error) => {
+      console.error('Error saving pages:', error);
+    });
   }
 
   if (!currentPage) return <div>Loading...</div>
