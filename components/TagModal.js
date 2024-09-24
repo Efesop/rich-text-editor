@@ -62,11 +62,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
   const isExistingTag = existingTags.some(t => t.name === tagName)
 
   const handleDelete = () => {
-    if (onDelete) {
-      onDelete(tag)
-    } else {
-      deleteTag(tag)
-    }
+    onDelete(tag)
     setShowDeleteWarning(false)
     onClose()
   }
