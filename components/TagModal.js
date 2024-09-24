@@ -1,10 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
-import { X, ChevronDown, AlertTriangle } from 'lucide-react'
+import { X, ChevronDown } from 'lucide-react'
 import useTagStore from '../store/tagStore'
 
-const colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#33FFF5']
+const colors = [
+  { background: '#E3F2FD', border: '#90CAF9' }, // Light Blue
+  { background: '#E8F5E9', border: '#A5D6A7' }, // Light Green
+  { background: '#FFF3E0', border: '#FFCC80' }, // Light Orange
+  { background: '#F3E5F5', border: '#CE93D8' }, // Light Purple
+  { background: '#FFEBEE', border: '#EF9A9A' }  // Light Red
+]
 
 export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, existingTags }) {
   const [tagName, setTagName] = useState(tag?.name || '')
@@ -140,7 +146,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
                         <button
                           key={index}
                           className={`w-6 h-6 rounded-full ${tagColor === color ? 'ring-2 ring-offset-2 ring-indigo-500' : ''}`}
-                          style={{ backgroundColor: color }}
+                          style={{ backgroundColor: color.background, border: `2px solid ${color.border}` }}
                           onClick={() => setTagColor(color)}
                         />
                       ))}

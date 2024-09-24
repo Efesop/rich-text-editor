@@ -66,7 +66,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen, t
         {sidebarOpen && page.tags && (
           <div className="flex flex-wrap space-x-1 ml-2">
             {page.tags.map((tag, index) => (
-              <span key={index} className="bg-gray-200 text-gray-700 px-1 py-0.5 rounded text-xs" style={{ backgroundColor: tag.color }}>
+              <span key={index} className="bg-gray-200 text-gray-700 px-1 py-0.5 rounded text-xs" style={{ backgroundColor: tag.color.background, border: `1px solid ${tag.color.border}` }}>
                 {tag.name}
               </span>
             ))}
@@ -472,19 +472,20 @@ export default function RichTextEditor() {
   }, [currentPage]);
 
   const handleRemoveTag = (tag) => {
-    setTags(tags.filter(t => t.name !== tag.name))
+    // Remove the tag from the current page only
+    const updatedTags = tags.filter(t => t.name !== tag.name);
+    setTags(updatedTags);
 
-    // Update all pages to remove the tag
-    const updatedPages = pages.map(page => ({
-      ...page,
-      tags: page.tags ? page.tags.filter(t => t.name !== tag.name) : []
-    }))
-    
-    setPages(updatedPages)
+    // Update the current page's tags
+    const updatedPage = { ...currentPage, tags: updatedTags };
+    const updatedPages = pages.map(page => page.id === currentPage.id ? updatedPage : page);
+    setPages(updatedPages);
+
+    // Save the updated pages
     window.electron.invoke('save-pages', updatedPages).catch((error) => {
-      console.error('Error saving pages:', error)
-    })
-  }
+      console.error('Error saving pages:', error);
+    });
+  };
 
   const handleDeleteTag = (tag) => {
     deleteTag(tag)
@@ -583,9 +584,9 @@ export default function RichTextEditor() {
               <span
                 key={index}
                 className={`flex items-center px-2 py-1 rounded text-xs ${
-                  theme === 'dark' ? 'bg-gray-700 text-gray-200' : 'bg-gray-200 text-gray-700'
+                  theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
                 }`}
-                style={{ backgroundColor: tag.color }}
+                style={{ backgroundColor: tag.color.background, border: `1px solid ${tag.color.border}` }}
               >
                 <span
                   className="cursor-pointer"
