@@ -137,7 +137,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen, t
   return (
     <div
       className={`cursor-pointer flex justify-between items-center w-full ${activeClass} ${
-        theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
+        theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-200'
       }`}
       onClick={() => onSelect(page)}
     >
@@ -217,14 +217,12 @@ const ThemeToggle = () => {
 
   return (
     <Button
-      variant="ghost"
+      variant="outline"
       size="icon"
       onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-      className="w-9 px-0"
+      className="border border-input hover:bg-accent hover:text-accent-foreground"
     >
-      <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-      <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-      <span className="sr-only">Toggle theme</span>
+      {theme === 'dark' ? <Sun className="h-[1.2rem] w-[1.2rem]" /> : <Moon className="h-[1.2rem] w-[1.2rem]" />}
     </Button>
   )
 }
