@@ -3,7 +3,7 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { X, ChevronDown, AlertTriangle } from 'lucide-react'
 
-export default function TagModal({ isOpen, onClose, onConfirm, onRemove, onDelete, tag, existingTags }) {
+export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, existingTags }) {
   const [tagName, setTagName] = useState(tag || '')
   const [showDeleteWarning, setShowDeleteWarning] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
@@ -48,22 +48,18 @@ export default function TagModal({ isOpen, onClose, onConfirm, onRemove, onDelet
     }
   }
 
-  const handleRemove = () => {
-    onRemove(tag)
-    onClose()
-  }
-
-  const handleDelete = () => {
-    onDelete(tag)
-    setShowDeleteWarning(false)
-    onClose()
-  }
-
   const filteredTags = existingTags.filter(t => 
     t.toLowerCase().includes(tagName.toLowerCase()) && t !== tagName
   )
 
   const isExistingTag = existingTags.includes(tagName)
+
+  const handleDelete = () => {
+    // Call onDelete with the tag to be deleted
+    onDelete(tag)
+    setShowDeleteWarning(false)
+    onClose()
+  }
 
   return (
     <div className="relative z-10" aria-labelledby="modal-title" role="dialog" aria-modal="true">
@@ -141,20 +137,12 @@ export default function TagModal({ isOpen, onClose, onConfirm, onRemove, onDelet
                 {isExistingTag ? 'Add' : 'Create'}
               </Button>
               {tag && (
-                <>
-                  <Button
-                    onClick={handleRemove}
-                    className="mt-3 inline-flex w-full justify-center rounded-md bg-yellow-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-yellow-500 sm:mt-0 sm:w-auto sm:mr-3"
-                  >
-                    Remove from Page
-                  </Button>
-                  <Button
-                    onClick={() => setShowDeleteWarning(true)}
-                    className="mt-3 inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:mt-0 sm:w-auto sm:mr-3"
-                  >
-                    Delete Global Tag
-                  </Button>
-                </>
+                <Button
+                  onClick={() => setShowDeleteWarning(true)}
+                  className="mt-3 inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:mt-0 sm:w-auto sm:mr-3"
+                >
+                  Delete
+                </Button>
               )}
             </div>
           </div>
@@ -182,20 +170,20 @@ export default function TagModal({ isOpen, onClose, onConfirm, onRemove, onDelet
                     </div>
                   </div>
                 </div>
-                <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-                  <Button
-                    onClick={handleDelete}
-                    className="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto"
-                  >
-                    Delete
-                  </Button>
-                  <Button
-                    onClick={() => setShowDeleteWarning(false)}
-                    className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
-                  >
-                    Cancel
-                  </Button>
-                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                <Button
+                  onClick={handleDelete}
+                  className="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto"
+                >
+                  Delete
+                </Button>
+                <Button
+                  onClick={() => setShowDeleteWarning(false)}
+                  className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+                >
+                  Cancel
+                </Button>
               </div>
             </div>
           </div>
