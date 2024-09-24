@@ -473,6 +473,17 @@ export default function RichTextEditor() {
 
   const handleRemoveTag = (tag) => {
     setTags(tags.filter(t => t.name !== tag.name))
+
+    // Update all pages to remove the tag
+    const updatedPages = pages.map(page => ({
+      ...page,
+      tags: page.tags ? page.tags.filter(t => t.name !== tag.name) : []
+    }))
+    
+    setPages(updatedPages)
+    window.electron.invoke('save-pages', updatedPages).catch((error) => {
+      console.error('Error saving pages:', error)
+    })
   }
 
   const handleDeleteTag = (tag) => {
@@ -620,8 +631,24 @@ export default function RichTextEditor() {
         isOpen={isTagModalOpen}
         onClose={() => setIsTagModalOpen(false)}
         onConfirm={(tag) => {
-          if (tagToEdit) {
-            setTags(tags.map(t => t.name === tagToEdit.name ? tag : t))
+          const existingTag = existingTags.find(t => t.name === tag.name)
+          if (existingTag) {
+            // Update the tag in the current page
+            const updatedCurrentTags = tags.map(t => t.name === existingTag.name ? tag : t)
+            if (!updatedCurrentTags.some(t => t.name === tag.name)) {
+              updatedCurrentTags.push(tag)
+            }
+            setTags(updatedCurrentTags)
+
+            // Update the tag in all pages
+            const updatedPages = pages.map(page => ({
+              ...page,
+              tags: page.tags ? page.tags.map(t => t.name === existingTag.name ? tag : t) : []
+            }))
+            setPages(updatedPages)
+            window.electron.invoke('save-pages', updatedPages).catch((error) => {
+              console.error('Error saving pages:', error)
+            })
           } else {
             setTags([...tags, tag])
             addTag(tag)
