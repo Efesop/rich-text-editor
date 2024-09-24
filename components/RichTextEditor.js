@@ -66,8 +66,8 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen, t
         {sidebarOpen && page.tags && (
           <div className="flex flex-wrap space-x-1 ml-2">
             {page.tags.map((tag, index) => (
-              <span key={index} className="bg-gray-200 text-gray-700 px-1 py-0.5 rounded text-xs">
-                {tag}
+              <span key={index} className="bg-gray-200 text-gray-700 px-1 py-0.5 rounded text-xs" style={{ backgroundColor: tag.color }}>
+                {tag.name}
               </span>
             ))}
           </div>
@@ -383,7 +383,7 @@ export default function RichTextEditor() {
 
   const filteredPages = pages.filter(page => 
     page.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (page.tags && page.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))
+    (page.tags && page.tags.some(tag => tag.name.toLowerCase().includes(searchTerm.toLowerCase())))
   );
 
   const handleRenamePage = (page) => {
@@ -472,23 +472,23 @@ export default function RichTextEditor() {
   }, [currentPage]);
 
   const handleRemoveTag = (tag) => {
-    setTags(tags.filter(t => t !== tag))
+    setTags(tags.filter(t => t.name !== tag.name))
   }
 
   const handleDeleteTag = (tag) => {
-    deleteTag(tag);
-    setTags(tags.filter(t => t !== tag));
+    deleteTag(tag)
+    setTags(tags.filter(t => t.name !== tag.name))
     
     // Update all pages to remove the tag
     const updatedPages = pages.map(page => ({
       ...page,
-      tags: page.tags ? page.tags.filter(t => t !== tag) : []
-    }));
+      tags: page.tags ? page.tags.filter(t => t.name !== tag.name) : []
+    }))
     
-    setPages(updatedPages);
+    setPages(updatedPages)
     window.electron.invoke('save-pages', updatedPages).catch((error) => {
-      console.error('Error saving pages:', error);
-    });
+      console.error('Error saving pages:', error)
+    })
   }
 
   if (!currentPage) return <div>Loading...</div>
@@ -574,15 +574,16 @@ export default function RichTextEditor() {
                 className={`flex items-center px-2 py-1 rounded text-xs ${
                   theme === 'dark' ? 'bg-gray-700 text-gray-200' : 'bg-gray-200 text-gray-700'
                 }`}
+                style={{ backgroundColor: tag.color }}
               >
                 <span
                   className="cursor-pointer"
                   onClick={() => {
-                    setTagToEdit(tag);
-                    setIsTagModalOpen(true);
+                    setTagToEdit(tag)
+                    setIsTagModalOpen(true)
                   }}
                 >
-                  {tag}
+                  {tag.name}
                 </span>
                 <button
                   className="ml-1 focus:outline-none"
@@ -596,8 +597,8 @@ export default function RichTextEditor() {
               variant="ghost"
               size="icon"
               onClick={() => {
-                setTagToEdit(null);
-                setIsTagModalOpen(true);
+                setTagToEdit(null)
+                setIsTagModalOpen(true)
               }}
             >
               <Plus className="h-4 w-4" />
@@ -620,7 +621,7 @@ export default function RichTextEditor() {
         onClose={() => setIsTagModalOpen(false)}
         onConfirm={(tag) => {
           if (tagToEdit) {
-            setTags(tags.map(t => t === tagToEdit ? tag : t))
+            setTags(tags.map(t => t.name === tagToEdit.name ? tag : t))
           } else {
             setTags([...tags, tag])
             addTag(tag)

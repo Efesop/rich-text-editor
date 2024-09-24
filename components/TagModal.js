@@ -2,10 +2,13 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { X, ChevronDown, AlertTriangle } from 'lucide-react'
-import useTagStore from '../store/tagStore' // Correct import
+import useTagStore from '../store/tagStore'
+
+const colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#33FFF5']
 
 export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, existingTags }) {
-  const [tagName, setTagName] = useState(tag || '')
+  const [tagName, setTagName] = useState(tag?.name || '')
+  const [tagColor, setTagColor] = useState(tag?.color || colors[0])
   const [showDeleteWarning, setShowDeleteWarning] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const inputRef = useRef(null)
@@ -14,7 +17,8 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
 
   useEffect(() => {
     if (isOpen) {
-      setTagName(tag || '')
+      setTagName(tag?.name || '')
+      setTagColor(tag?.color || colors[0])
       setShowDeleteWarning(false)
       setIsDropdownOpen(false)
       inputRef.current?.focus()
@@ -41,25 +45,21 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
 
   const handleConfirm = () => {
     if (tagName.trim()) {
-      onConfirm(tagName.trim())
+      onConfirm({ name: tagName.trim(), color: tagColor })
       onClose()
     }
   }
 
   const filteredTags = existingTags.filter(t => 
-    t.toLowerCase().includes(tagName.toLowerCase()) && t !== tagName
+    t.name.toLowerCase().includes(tagName.toLowerCase()) && t.name !== tagName
   )
-
-  const isExistingTag = existingTags.includes(tagName)
+  const isExistingTag = existingTags.some(t => t.name === tagName)
 
   const handleDelete = () => {
-    console.log('Delete button clicked for tag:', tag)
     if (onDelete) {
-      console.log('Calling onDelete function')
       onDelete(tag)
     } else {
-      console.log('onDelete function is not defined')
-      deleteTag(tag) // Call deleteTag directly if onDelete is not defined
+      deleteTag(tag)
     }
     setShowDeleteWarning(false)
     onClose()
@@ -73,7 +73,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
         <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
           <div 
             className="relative transform overflow-visible rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 w-full sm:max-w-xs"
-            onClick={(e) => e.stopPropagation()} // Add this line
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
               <button
@@ -121,16 +121,30 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
                               key={index}
                               className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                               onClick={() => {
-                                setTagName(existingTag)
+                                setTagName(existingTag.name)
+                                setTagColor(existingTag.color)
                                 setIsDropdownOpen(false)
                               }}
                             >
-                              {existingTag}
+                              {existingTag.name}
                             </button>
                           ))}
                         </div>
                       </div>
                     )}
+                  </div>
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium text-gray-900">Select Color</h4>
+                    <div className="flex space-x-2 mt-2">
+                      {colors.map((color, index) => (
+                        <button
+                          key={index}
+                          className={`w-6 h-6 rounded-full ${tagColor === color ? 'ring-2 ring-offset-2 ring-indigo-500' : ''}`}
+                          style={{ backgroundColor: color }}
+                          onClick={() => setTagColor(color)}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -160,7 +174,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div 
             className="bg-white rounded-lg p-6 max-w-sm w-full"
-            onClick={(e) => e.stopPropagation()} // Add this line
+            onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-medium mb-4">Delete Tag</h3>
             <p className="text-sm text-gray-500 mb-4">
@@ -168,19 +182,13 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
             </p>
             <div className="flex justify-end space-x-2">
               <Button
-                onClick={() => {
-                  console.log('Cancel button clicked')
-                  setShowDeleteWarning(false)
-                }}
+                onClick={() => setShowDeleteWarning(false)}
                 className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
               >
                 Cancel
               </Button>
               <Button
-                onClick={() => {
-                  alert('Delete button in confirmation modal clicked')
-                  handleDelete()
-                }}
+                onClick={handleDelete}
                 className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
               >
                 Delete
