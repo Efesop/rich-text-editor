@@ -735,7 +735,7 @@ export default function RichTextEditor() {
         {/* Footer */}
         <div className={`flex justify-between items-center p-3 text-sm ${theme === 'dark' ? 'bg-gray-800 border-t border-gray-700 text-gray-300' : 'bg-white border-t border-gray-200 text-gray-600'}`}>
           {currentPage.createdAt && (
-            <span>Created on {format(new Date(currentPage.createdAt), 'MMM d, yyyy')}</span>
+            <span>Created {format(new Date(currentPage.createdAt), 'MMM d, yyyy')}</span>
           )}
           <div className="flex items-center space-x-4">
             <span>{wordCount} words</span>
