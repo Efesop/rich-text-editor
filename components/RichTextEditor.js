@@ -24,6 +24,7 @@ import {
 import TagModal from '@/components/TagModal';
 import useTagStore from '../store/tagStore'
 import NestedList from '@editorjs/nested-list'
+import { format } from 'date-fns'
 
 const SearchInput = ({ value, onChange, filter, onFilterChange, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -396,14 +397,25 @@ export default function RichTextEditor() {
   };
 
   const handleNewPage = () => {
-    const newPage = { id: Date.now().toString(), title: 'New Page', content: { blocks: [] } };
-    const updatedPages = [...pages, newPage];
-    setPages(updatedPages);
-    setCurrentPage(newPage);
+    const newPage = {
+      id: Date.now().toString(),
+      title: 'New Page',
+      content: {
+        time: Date.now(),
+        blocks: [],
+        version: '2.30.6'
+      },
+      tags: [],
+      createdAt: new Date().toISOString() // Add creation date
+    }
+  
+    const updatedPages = [...pages, newPage]
+    setPages(updatedPages)
+    setCurrentPage(newPage)
     window.electron.invoke('save-pages', updatedPages).catch((error) => {
-      console.error('Error saving pages:', error);
-    });
-  };
+      console.error('Error saving pages:', error)
+    })
+  }
 
   const handleDeletePage = async (page) => {
     if (confirm('Are you sure you want to delete this page?')) {
@@ -670,25 +682,19 @@ export default function RichTextEditor() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         <div className={`flex flex-col p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <h1 
+              className="text-2xl font-bold cursor-pointer" 
+              onClick={() => handleRenamePage(currentPage)}
+            >
+              {currentPage.title}
+            </h1>
             <div className="flex items-center space-x-2">
-              <h1 
-                className="text-2xl font-bold cursor-pointer" 
-                onClick={() => handleRenamePage(currentPage)}
-              >
-                {currentPage.title}
-              </h1>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>{wordCount} words</span>
-              {saveStatus === 'saving' && <span className="text-yellow-500">Saving...</span>}
-              {saveStatus === 'saved' && <span className="text-green-500">Saved</span>}
-              {saveStatus === 'error' && <span className="text-red-500">Error saving</span>}
               <ExportDropdown onExport={handleExport} />
               <ThemeToggle />
             </div>
           </div>
-          <div className="flex items-center space-x-2 mt-2">
+          <div className="flex items-center space-x-2">
             {tags.map((tag, index) => (
               <span
                 key={index}
@@ -725,6 +731,21 @@ export default function RichTextEditor() {
           </div>
         </div>
         <div id="editorjs" className={`flex-1 p-8 overflow-auto codex-editor ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-black'}`} />
+
+        {/* Footer */}
+        <div className={`flex justify-between items-center p-3 text-sm ${theme === 'dark' ? 'bg-gray-800 border-t border-gray-700 text-gray-300' : 'bg-white border-t border-gray-200 text-gray-600'}`}>
+          {currentPage.createdAt && (
+            <span>Created on {format(new Date(currentPage.createdAt), 'MMM d, yyyy')}</span>
+          )}
+          <div className="flex items-center space-x-4">
+            <span>{wordCount} words</span>
+            <span>
+              {saveStatus === 'saving' && <span className="text-yellow-500">Saving...</span>}
+              {saveStatus === 'saved' && <span className="text-green-500">Saved</span>}
+              {saveStatus === 'error' && <span className="text-red-500">Error saving</span>}
+            </span>
+          </div>
+        </div>
       </div>
 
       <RenameModal
