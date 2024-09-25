@@ -23,6 +23,7 @@ import {
 } from '@/utils/exportUtils';
 import TagModal from '@/components/TagModal';
 import useTagStore from '../store/tagStore'
+import NestedList from '@editorjs/nested-list'
 
 const SearchInput = ({ value, onChange, filter, onFilterChange, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -137,7 +138,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen, t
   return (
     <div
       className={`cursor-pointer flex justify-between items-center w-full ${activeClass} ${
-        theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-200'
+        theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
       }`}
       onClick={() => onSelect(page)}
     >
@@ -217,12 +218,14 @@ const ThemeToggle = () => {
 
   return (
     <Button
-      variant="outline"
+      variant="ghost"
       size="icon"
       onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-      className="border border-input hover:bg-accent hover:text-accent-foreground"
+      className="w-9 px-0"
     >
-      {theme === 'dark' ? <Sun className="h-[1.2rem] w-[1.2rem]" /> : <Moon className="h-[1.2rem] w-[1.2rem]" />}
+      <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+      <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+      <span className="sr-only">Toggle theme</span>
     </Button>
   )
 }
@@ -278,7 +281,13 @@ export default function RichTextEditor() {
       holder: 'editorjs',
       tools: {
         header: Header,
-        list: List,
+        nestedlist: {
+          class: NestedList,
+          inlineToolbar: true,
+          config: {
+            defaultStyle: 'unordered'
+          },
+        },
         checklist: Checklist,
         quote: Quote,
         code: CodeTool,

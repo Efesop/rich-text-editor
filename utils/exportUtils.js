@@ -72,6 +72,17 @@ export const exportToPDF = (content, title) => {
 };
 
 export const exportToMarkdown = (content) => {
+  const createNestedMarkdownList = (items, level = 0) => {
+    return items.map(item => {
+      const indent = '  '.repeat(level);
+      let markdown = `${indent}- ${item.content}\n`;
+      if (item.items && item.items.length > 0) {
+        markdown += createNestedMarkdownList(item.items, level + 1);
+      }
+      return markdown;
+    }).join('');
+  };
+
   return content.blocks.map((block) => {
     switch (block.type) {
       case 'header':
@@ -95,6 +106,8 @@ export const exportToMarkdown = (content) => {
         return `![${block.data.caption}](${block.data.file.url})\n\n`;
       case 'delimiter':
         return `---\n\n`;
+      case 'nestedlist':
+        return createNestedMarkdownList(block.data.items) + '\n';
       default:
         return '';
     }
@@ -102,6 +115,17 @@ export const exportToMarkdown = (content) => {
 };
 
 export const exportToPlainText = (content) => {
+  const createNestedPlainTextList = (items, level = 0) => {
+    return items.map(item => {
+      const indent = '  '.repeat(level);
+      let text = `${indent}- ${item.content}\n`;
+      if (item.items && item.items.length > 0) {
+        text += createNestedPlainTextList(item.items, level + 1);
+      }
+      return text;
+    }).join('');
+  };
+
   return content.blocks.map((block) => {
     switch (block.type) {
       case 'header':
@@ -121,6 +145,8 @@ export const exportToPlainText = (content) => {
         return `[Image: ${block.data.caption}]\n\n`;
       case 'delimiter':
         return `---\n\n`;
+      case 'nestedlist':
+        return createNestedPlainTextList(block.data.items) + '\n';
       default:
         return '';
     }
@@ -190,13 +216,22 @@ export const exportToDocx = async (content) => {
             return new Paragraph({
               children: [new TextRun(block.data.text || '')]
             });
-          case 'list':
-            return block.data.items?.map(item => new Paragraph({
-              text: item,
-              bullet: {
-                level: 0
-              }
-            })) || [];
+          case 'nestedlist':
+            const createNestedList = (items, level = 0) => {
+              return items.flatMap(item => {
+                const paragraph = new Paragraph({
+                  text: item.content,
+                  bullet: {
+                    level: level
+                  }
+                });
+                if (item.items && item.items.length > 0) {
+                  return [paragraph, ...createNestedList(item.items, level + 1)];
+                }
+                return paragraph;
+              });
+            };
+            return createNestedList(block.data.items);
           case 'checklist':
             return block.data.items?.map(item => new Paragraph({
               text: `${item.checked ? '[x]' : '[ ]'} ${item.text}`
@@ -275,6 +310,16 @@ export const exportToXML = (content) => {
   const root = create({ version: '1.0', encoding: 'UTF-8' })
     .ele('content');
   
+  const createNestedXMLList = (parentElement, items) => {
+    items.forEach(item => {
+      const listItem = parentElement.ele('item').txt(item.content);
+      if (item.items && item.items.length > 0) {
+        const nestedList = listItem.ele('nestedList');
+        createNestedXMLList(nestedList, item.items);
+      }
+    });
+  };
+
   content.blocks.forEach((block) => {
     switch (block.type) {
       case 'header':
@@ -321,6 +366,10 @@ export const exportToXML = (content) => {
       case 'delimiter':
         root.ele('delimiter')
           .txt('---');
+        break;
+      case 'nestedlist':
+        const nestedList = root.ele('nestedList');
+        createNestedXMLList(nestedList, block.data.items);
         break;
     }
   });
