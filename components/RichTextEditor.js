@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, X, ChevronDown } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, X, ChevronDown, Lock } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Sun, Moon } from 'lucide-react'
 import { RenameModal } from '@/components/RenameModal';
@@ -25,6 +25,8 @@ import TagModal from '@/components/TagModal';
 import useTagStore from '../store/tagStore'
 import NestedList from '@editorjs/nested-list'
 import { format } from 'date-fns'
+// import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import PasswordModal from '@/components/PasswordModal';
 
 const SearchInput = ({ value, onChange, filter, onFilterChange, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -108,7 +110,7 @@ const SearchInput = ({ value, onChange, filter, onFilterChange, placeholder }) =
   );
 };
 
-const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen, theme }) => {
+const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, sidebarOpen, theme }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -147,6 +149,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen, t
         <span className={`truncate ${sidebarOpen ? '' : 'text-center'}`} title={page.title}>
           {sidebarOpen ? page.title : truncateTitle(page.title)}
         </span>
+        {page.password && <Lock className="h-4 w-4 ml-2" />}
         {sidebarOpen && page.tags && (
           <div className="flex flex-wrap space-x-1 ml-2">
             {page.tags.map((tag, index) => (
@@ -204,6 +207,20 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, sidebarOpen, t
                   >
                     Delete
                   </button>
+                  <button
+                    className={`block px-4 py-2 text-sm w-full text-left ${
+                      theme === 'dark'
+                        ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleLock(page);
+                      setIsOpen(false);
+                    }}
+                  >
+                    {page.password ? 'Unlock' : 'Lock'}
+                  </button>
                 </div>
               </div>
             </>
@@ -250,6 +267,9 @@ export default function RichTextEditor() {
   const [isTagModalOpen, setIsTagModalOpen] = useState(false)
   const { tags: existingTags, addTag, removeTag, deleteTag } = useTagStore()
   const [searchFilter, setSearchFilter] = useState('all')
+  const [pagePassword, setPagePassword] = useState('');
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [passwordAction, setPasswordAction] = useState('');
 
   const searchPlaceholders = {
     all: "Search all...",
@@ -406,7 +426,8 @@ export default function RichTextEditor() {
         version: '2.30.6'
       },
       tags: [],
-      createdAt: new Date().toISOString() // Add creation date
+      createdAt: new Date().toISOString(), // Add creation date
+      password: null // Add password field
     }
   
     const updatedPages = [...pages, newPage]
@@ -486,7 +507,13 @@ export default function RichTextEditor() {
     if (editorInstanceRef.current) {
       await savePage();
     }
-    loadPage(page);
+    if (page.password) {
+      setPasswordAction('access');
+      setPagePassword('');
+      setIsPasswordModalOpen(true);
+    } else {
+      loadPage(page);
+    }
   };
 
   const toggleSidebar = () => {
@@ -628,6 +655,78 @@ export default function RichTextEditor() {
     })
   }
 
+  const handleToggleLock = (page) => {
+    if (page.password) {
+      setPasswordAction('unlock');
+    } else {
+      setPasswordAction('lock');
+    }
+    setPagePassword('');
+    setIsPasswordModalOpen(true);
+  };
+
+  const confirmPasswordAction = async () => {
+    if (passwordAction === 'lock') {
+      await lockPage(currentPage, pagePassword);
+    } else if (passwordAction === 'unlock' || passwordAction === 'access') {
+      const success = await unlockPage(currentPage, pagePassword);
+      if (success) {
+        if (passwordAction === 'access') {
+          loadPage(currentPage);
+        }
+      } else {
+        alert('Incorrect password');
+        return; // Don't close the modal if the password is incorrect
+      }
+    }
+    setIsPasswordModalOpen(false);
+    setPagePassword('');
+  };
+
+  const lockPage = async (page, password) => {
+    const hashedPassword = await hashPassword(password);
+    const updatedPage = { ...page, password: hashedPassword };
+    const updatedPages = pages.map(p => p.id === updatedPage.id ? updatedPage : p);
+    setPages(updatedPages);
+    setCurrentPage(updatedPage);
+    await savePagesToStorage(updatedPages);
+  };
+
+  const unlockPage = async (page, password) => {
+    if (await verifyPassword(password, page.password)) {
+      const updatedPage = { ...page, password: null };
+      const updatedPages = pages.map(p => p.id === updatedPage.id ? updatedPage : p);
+      setPages(updatedPages);
+      setCurrentPage(updatedPage);
+      await savePagesToStorage(updatedPages);
+      return true;
+    } else {
+      console.error('Incorrect password');
+      return false;
+    }
+  };
+
+  const hashPassword = async (password) => {
+    // Use a secure hashing algorithm like bcrypt or Argon2
+    // For this example, we'll use a simple hash function
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+
+  const verifyPassword = async (inputPassword, storedHash) => {
+    const inputHash = await hashPassword(inputPassword);
+    return inputHash === storedHash;
+  };
+
+  const savePagesToStorage = async (updatedPages) => {
+    await window.electron.invoke('save-pages', updatedPages).catch((error) => {
+      console.error('Error saving pages:', error);
+    });
+  };
+
   if (!currentPage) return <div>Loading...</div>
 
   return (
@@ -664,6 +763,7 @@ export default function RichTextEditor() {
               onSelect={handlePageSelect}
               onRename={handleRenamePage}
               onDelete={handleDeletePage}
+              onToggleLock={handleToggleLock}
               sidebarOpen={sidebarOpen}
               theme={theme}
             />
@@ -794,6 +894,15 @@ export default function RichTextEditor() {
         }}
         tag={tagToEdit}
         existingTags={existingTags}
+      />
+
+      <PasswordModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+        onConfirm={confirmPasswordAction}
+        action={passwordAction}
+        password={pagePassword}
+        onPasswordChange={(newPassword) => setPagePassword(newPassword)}
       />
     </div>
   )

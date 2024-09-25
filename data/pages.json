@@ -14,7 +14,8 @@
         }
       ]
     },
-    "tags": ["introduction", "welcome"]
+    "tags": ["introduction", "welcome"],
+    "password": null
   },
   {
     "id": "2",
@@ -39,7 +40,8 @@
       ],
       "version": "2.30.6"
     },
-    "tags": ["example", "guide"]
+    "tags": ["example", "guide"],
+    "password": null
   },
   {
     "id": "1726566630884",
@@ -48,7 +50,8 @@
       "time": 1726568392564,
       "blocks": [],
       "version": "2.30.6"
-    }
+    },
+    "password": null
   },
   {
     "id": "1726567404152",
@@ -97,6 +100,7 @@
         }
       ],
       "version": "2.30.6"
-    }
+    },
+    "password": null
   }
 ]
