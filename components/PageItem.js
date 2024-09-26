@@ -21,13 +21,13 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
 
   return (
     <div
-      className={`flex items-center justify-between p-2 cursor-pointer ${
+      className={`flex items-center justify-between py-1.5 px-2 cursor-pointer ${
         isActive
           ? theme === 'dark'
             ? 'bg-gray-700'
             : 'bg-gray-200'
           : theme === 'dark'
-          ? 'hover:bg-gray-700'
+          ? 'hover:bg-gray-800'
           : 'hover:bg-gray-100'
       }`}
       onClick={() => onSelect(page)}

@@ -3,7 +3,7 @@ import { Input } from "./ui/input"
 import { Button } from "./ui/button"
 import { ChevronDown } from 'lucide-react'
 
-const SearchInput = ({ value, onChange, filter, onFilterChange, placeholder }) => {
+const SearchInput = ({ value, onChange, filter, onFilterChange, placeholder, theme }) => {
   const [isOpen, setIsOpen] = React.useState(false)
   const dropdownRef = React.useRef(null)
 
@@ -52,7 +52,7 @@ const SearchInput = ({ value, onChange, filter, onFilterChange, placeholder }) =
               <button
                 key={f.value}
                 className={`block w-full text-left px-4 py-2 text-sm ${
-                  filter === f.value ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                  filter === f.value ? 'bg-gray-100 text-gray-900' : 'text-gray-100'
                 } hover:bg-gray-100 hover:text-gray-900`}
                 role="menuitem"
                 onClick={() => {

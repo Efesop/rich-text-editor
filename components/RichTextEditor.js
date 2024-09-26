@@ -301,6 +301,27 @@ export default function RichTextEditor() {
     }
   }, [deletePage])
 
+  const filteredPages = useCallback(() => {
+    return pages.filter(page => {
+      if (searchTerm === '') return true;
+      
+      switch (searchFilter) {
+        case 'all':
+          return page.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                 JSON.stringify(page.content).toLowerCase().includes(searchTerm.toLowerCase()) ||
+                 (page.tags && page.tags.some(tag => tag.name.toLowerCase().includes(searchTerm.toLowerCase())));
+        case 'title':
+          return page.title.toLowerCase().includes(searchTerm.toLowerCase());
+        case 'content':
+          return JSON.stringify(page.content).toLowerCase().includes(searchTerm.toLowerCase());
+        case 'tags':
+          return page.tags && page.tags.some(tag => tag.name.toLowerCase().includes(searchTerm.toLowerCase()));
+        default:
+          return true;
+      }
+    });
+  }, [pages, searchTerm, searchFilter]);
+
   if (!isClient) {
     return null // or a loading indicator
   }
@@ -313,7 +334,7 @@ export default function RichTextEditor() {
   return (
     <div className={`flex h-screen ${theme === 'dark' ? 'dark bg-gray-900 text-white' : 'bg-white text-black'}`}>
       {/* Sidebar */}
-      <div className={`${sidebarOpen ? 'w-64' : 'w-16'} flex flex-col border-r transition-all duration-300 ease-in-out ${theme === 'dark' ? 'bg-gray-900 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
+      <div className={`${sidebarOpen ? 'w-64' : 'w-16'} flex flex-col transition-all duration-300 ease-in-out ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'}`}>
         <div className="flex items-center justify-between p-4">
           <Button variant="ghost" onClick={handleNewPage}>
             <Plus className="h-4 w-4" />
@@ -328,15 +349,16 @@ export default function RichTextEditor() {
               filter={searchFilter}
               onFilterChange={setSearchFilter}
               placeholder={searchPlaceholders[searchFilter]}
+              theme={theme}
             />
           </div>
         )}
         <ScrollArea className="flex-1">
-          {pages.map(page => (
+          {filteredPages().map(page => (
             <PageItem
               key={page.id}
               page={page}
-              isActive={currentPage.id === page.id}
+              isActive={currentPage?.id === page.id}
               onSelect={handlePageSelect}
               onRename={handleRenamePage}
               onDelete={handleDeletePage}
@@ -424,7 +446,7 @@ export default function RichTextEditor() {
         </div>
 
         {/* Footer */}
-        <div className={`footer-fixed flex justify-between items-center p-3 text-sm ${theme === 'dark' ? 'bg-gray-800 border-t border-gray-700 text-gray-300' : 'bg-white border-t border-gray-200 text-gray-600'}`}>
+        <div className={`footer-fixed flex justify-between items-center p-3 text-sm ${theme === 'dark' ? 'bg-gray-800 text-gray-300' : 'bg-white text-gray-600'}`}>
           {currentPage.createdAt && (
             <span>Created {format(new Date(currentPage.createdAt), 'MMM d, yyyy')}</span>
           )}
