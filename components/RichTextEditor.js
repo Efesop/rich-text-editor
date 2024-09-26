@@ -313,7 +313,7 @@ export default function RichTextEditor() {
   return (
     <div className={`flex h-screen ${theme === 'dark' ? 'dark bg-gray-900 text-white' : 'bg-white text-black'}`}>
       {/* Sidebar */}
-      <div className={`${sidebarOpen ? 'w-64' : 'w-16'} flex flex-col border-r transition-all duration-300 ease-in-out ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
+      <div className={`${sidebarOpen ? 'w-64' : 'w-16'} flex flex-col border-r transition-all duration-300 ease-in-out ${theme === 'dark' ? 'bg-gray-900 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
         <div className="flex items-center justify-between p-4">
           <Button variant="ghost" onClick={handleNewPage}>
             <Plus className="h-4 w-4" />
@@ -413,7 +413,7 @@ export default function RichTextEditor() {
         </div>
         
         {/* Editor */}
-        <div className="flex-1 overflow-auto p-6">
+        <div className={`flex-1 overflow-auto p-6 ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
           {currentPage && (
             <DynamicEditor
               data={currentPage.content}
