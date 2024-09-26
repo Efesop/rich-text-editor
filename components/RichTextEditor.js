@@ -337,15 +337,6 @@ export default function RichTextEditor() {
     <div className={`flex h-screen ${theme === 'dark' ? 'dark bg-gray-900 text-white' : 'bg-white text-black'}`}>
       {/* Sidebar */}
       <div className={`${sidebarOpen ? 'w-64' : 'w-16'} flex flex-col transition-all duration-300 ease-in-out ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'}`}>
-        <div className="flex items-center justify-between p-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-          >
-            {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-          </Button>
-        </div>
         <div className="px-4 mb-2">
           <SearchInput
             value={searchTerm}
@@ -381,6 +372,7 @@ export default function RichTextEditor() {
         <Button
           variant="ghost"
           onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="self-start ml-4 mb-4"
         >
           {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </Button>

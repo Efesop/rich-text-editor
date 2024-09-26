@@ -21,7 +21,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
 
   return (
     <div
-      className={`flex items-center justify-between py-0.5 px-2 cursor-pointer text-sm ${
+      className={`flex items-center justify-between py-0.5 px-2 cursor-pointer text-sm w-full ${ // Added w-full to ensure it fills the width
         isActive
           ? theme === 'dark'
             ? 'bg-gray-700'
