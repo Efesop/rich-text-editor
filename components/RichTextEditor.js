@@ -111,25 +111,47 @@ export default function RichTextEditor() {
         case 'paragraph':
         case 'header':
         case 'quote':
-          text = block.data.text?.trim() || ''
+          text = block.data.text || ''
           break
         case 'list':
         case 'checklist':
-          text = block.data.items?.map(item => item.text).join(' ').trim() || ''
+          text = (block.data.items || []).map(item => item.text || item).join(' ')
           break
         case 'table':
-          text = block.data.content.flat().join(' ').trim() || ''
+          text = (block.data.content || []).flat().join(' ')
           break
         case 'code':
-          text = block.data.code?.trim() || ''
+          text = block.data.code || ''
           break
+        case 'image':
+          text = block.data.caption || ''
+          break
+        case 'embed':
+          text = block.data.caption || ''
+          break
+        case 'raw':
+          text = block.data.html || ''
+          break
+        case 'nestedlist':
+          const flattenNestedList = (items) => {
+            return items.reduce((acc, item) => {
+              acc.push(item.content || '')
+              if (item.items) {
+                acc = acc.concat(flattenNestedList(item.items))
+              }
+              return acc
+            }, [])
+          }
+          text = flattenNestedList(block.data.items || []).join(' ')
+          break
+        // Add more cases for any other custom block types you might have
         default:
           text = ''
       }
-      if (text) {
-        return count + text.split(/\s+/).filter(word => word.length > 0).length
-      }
-      return count
+      // Remove HTML tags, if any
+      text = text.replace(/<[^>]*>/g, '')
+      // Count words
+      return count + (text.match(/\S+/g) || []).length
     }, 0)
   }, [])
 
