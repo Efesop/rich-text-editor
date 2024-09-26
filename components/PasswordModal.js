@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTheme } from 'next-themes';
 
-const PasswordModal = ({ isOpen, onClose, onConfirm, action, password, onPasswordChange }) => {
+const PasswordModal = ({ isOpen, onClose, onConfirm, action, password, onPasswordChange, error }) => {
 	const { theme } = useTheme();
 
 	if (!isOpen) return null;
@@ -75,28 +75,33 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, password, onPasswor
 
 	return (
 		<div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
-				<div className={`rounded-lg shadow-xl border p-6 w-96 ${
-					theme === 'dark' 
-						? 'bg-gray-800 border-gray-700 text-white' 
-						: 'bg-white border-gray-200 text-black'
-				}`}>
-					<h2 className="mb-4 text-xl font-semibold">{getTitle()}</h2>
-					<p className="mb-4 text-sm">{getDescription()}</p>
-					<input
-						type="password"
-						value={password}
-						onChange={(e) => onPasswordChange(e.target.value)}
-						className={`w-full p-2 mb-4 text-sm border rounded ${
-							theme === 'dark' 
-								? 'bg-gray-700 border-gray-600 text-white' 
-								: 'bg-white border-gray-300 text-black'
-						}`}
-						placeholder="Enter password"
-					/>
-					<div className="flex justify-end space-x-2">
-						{renderButtons()}
-					</div>
+			<div className={`rounded-lg shadow-xl border p-6 w-96 ${
+				theme === 'dark' 
+					? 'bg-gray-800 border-gray-700 text-white' 
+					: 'bg-white border-gray-200 text-black'
+			}`}>
+				<h2 className="mb-4 text-xl font-semibold">{getTitle()}</h2>
+				<p className="mb-4 text-sm">{getDescription()}</p>
+				<input
+					type="password"
+					value={password}
+					onChange={(e) => onPasswordChange(e.target.value)}
+					className={`w-full p-2 mb-2 text-sm border rounded ${
+						theme === 'dark' 
+							? 'bg-gray-700 border-gray-600 text-white' 
+							: 'bg-white border-gray-300 text-black'
+					}`}
+					placeholder="Enter password"
+				/>
+				{error && (
+					<p className={`text-sm mb-4 ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>
+						{error}
+					</p>
+				)}
+				<div className="flex justify-end space-x-2">
+					{renderButtons()}
 				</div>
+			</div>
 		</div>
 	)
 };

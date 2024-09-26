@@ -72,6 +72,7 @@ export default function RichTextEditor() {
   const [passwordAction, setPasswordAction] = useState('')
   const [pageToAccess, setPageToAccess] = useState(null)
   const [unlockedPages, setUnlockedPages] = useState(new Set())
+  const [passwordError, setPasswordError] = useState('')
 
   const [isClient, setIsClient] = useState(false)
 
@@ -237,6 +238,7 @@ export default function RichTextEditor() {
   }, [])
 
   const handlePasswordConfirm = async (actionType, password) => {
+    setPasswordError('') // Clear any previous errors
     switch (actionType) {
       case 'lock':
         const lockSuccess = await lockPage(pageToAccess, password)
@@ -244,7 +246,7 @@ export default function RichTextEditor() {
           setIsPasswordModalOpen(false)
           setPasswordInput('')
         } else {
-          // Handle lock failure
+          setPasswordError('Failed to lock the page. Please try again.')
         }
         break
       case 'open':
@@ -255,7 +257,7 @@ export default function RichTextEditor() {
           setIsPasswordModalOpen(false)
           setPasswordInput('')
         } else {
-          // Handle unlock failure (e.g., incorrect password)
+          setPasswordError('Incorrect password. Please try again.')
         }
         break
       case 'removeLock':
@@ -272,11 +274,13 @@ export default function RichTextEditor() {
           setIsPasswordModalOpen(false)
           setPasswordInput('')
         } else {
-          // Handle remove lock failure (e.g., incorrect password)
+          setPasswordError('Incorrect password. Unable to remove lock.')
         }
         break
     }
-    setPageToAccess(null)
+    if (passwordError) {
+      setPageToAccess(null)
+    }
   }
 
   const handleDeletePage = useCallback((page) => {
@@ -444,11 +448,16 @@ export default function RichTextEditor() {
 
       <PasswordModal
         isOpen={isPasswordModalOpen}
-        onClose={() => setIsPasswordModalOpen(false)}
+        onClose={() => {
+          setIsPasswordModalOpen(false)
+          setPasswordError('')
+          setPasswordInput('')
+        }}
         onConfirm={handlePasswordConfirm}
         action={passwordAction}
         password={passwordInput}
         onPasswordChange={setPasswordInput}
+        error={passwordError}
       />
     </div>
   )
