@@ -338,24 +338,31 @@ export default function RichTextEditor() {
       {/* Sidebar */}
       <div className={`${sidebarOpen ? 'w-64' : 'w-16'} flex flex-col transition-all duration-300 ease-in-out ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'}`}>
         <div className="flex items-center justify-between p-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+          >
+            {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </Button>
+        </div>
+        <div className="px-4 mb-2">
+          <SearchInput
+            value={searchTerm}
+            onChange={setSearchTerm}
+            filter={searchFilter}
+            onFilterChange={setSearchFilter}
+            placeholder={searchPlaceholders[searchFilter]}
+            theme={theme}
+          />
+        </div>
+        <div className="flex items-center justify-between p-4">
           <Button variant="ghost" onClick={handleNewPage}>
             <Plus className="h-4 w-4" />
             {sidebarOpen && <span className="ml-2">New Page</span>}
           </Button>
         </div>
-        {sidebarOpen && (
-          <div className="px-4 mb-2">
-            <SearchInput
-              value={searchTerm}
-              onChange={setSearchTerm}
-              filter={searchFilter}
-              onFilterChange={setSearchFilter}
-              placeholder={searchPlaceholders[searchFilter]}
-              theme={theme}
-            />
-          </div>
-        )}
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 px-4">
           {filteredPages().map(page => (
             <PageItem
               key={page.id}
