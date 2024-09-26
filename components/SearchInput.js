@@ -2,10 +2,12 @@ import React from 'react'
 import { Input } from "./ui/input"
 import { Button } from "./ui/button"
 import { ChevronDown } from 'lucide-react'
+import { useTheme } from 'next-themes'
 
-const SearchInput = ({ value, onChange, filter, onFilterChange, placeholder, theme }) => {
+const SearchInput = ({ value, onChange, filter, onFilterChange, placeholder }) => {
   const [isOpen, setIsOpen] = React.useState(false)
   const dropdownRef = React.useRef(null)
+  const { theme } = useTheme()
 
   const filters = [
     { value: 'all', label: 'All' },
@@ -27,6 +29,8 @@ const SearchInput = ({ value, onChange, filter, onFilterChange, placeholder, the
     }
   }, [])
 
+  const borderColor = theme === 'dark' ? 'border-gray-700' : 'border-gray-300'
+
   return (
     <div className="relative" ref={dropdownRef}>
       <div className="flex">
@@ -35,11 +39,11 @@ const SearchInput = ({ value, onChange, filter, onFilterChange, placeholder, the
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="rounded-r-none"
+          className={`rounded-r-none ${borderColor}`}
         />
         <Button
           variant="outline"
-          className="rounded-l-none border-l-0 px-2"
+          className={`rounded-l-none border-l-0 px-2 ${borderColor}`}
           onClick={() => setIsOpen(!isOpen)}
         >
           <ChevronDown className="h-4 w-4" />
@@ -52,7 +56,7 @@ const SearchInput = ({ value, onChange, filter, onFilterChange, placeholder, the
               <button
                 key={f.value}
                 className={`block w-full text-left px-4 py-2 text-sm ${
-                  filter === f.value ? 'bg-gray-100 text-gray-900' : 'text-gray-100'
+                  filter === f.value ? 'bg-gray-100 text-gray-900' : 'text-gray-900'
                 } hover:bg-gray-100 hover:text-gray-900`}
                 role="menuitem"
                 onClick={() => {

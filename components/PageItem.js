@@ -21,14 +21,14 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
 
   return (
     <div
-      className={`flex items-center justify-between py-1.5 px-2 cursor-pointer ${
+      className={`flex items-center justify-between py-0.5 px-2 cursor-pointer text-sm ${
         isActive
           ? theme === 'dark'
             ? 'bg-gray-700'
             : 'bg-gray-200'
           : theme === 'dark'
           ? 'hover:bg-gray-800'
-          : 'hover:bg-gray-100'
+          : 'hover:bg-gray-200'
       }`}
       onClick={() => onSelect(page)}
     >
@@ -36,7 +36,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
         {sidebarOpen && (
           <>
             <span className="truncate mr-2">{page.title}</span>
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-0.5">
               {page.tagNames && page.tagNames.map((tagName, index) => {
                 const tag = tags.find(t => t.name === tagName)
                 if (!tag) return null
