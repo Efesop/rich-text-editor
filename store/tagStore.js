@@ -1,33 +1,19 @@
 import { create } from 'zustand'
 
-const useTagStore = create((set, get) => ({
-  tags: [], // This will store all unique tags across all pages
-  pages: [],
-  addTag: (tag) => set((state) => ({ 
-    tags: state.tags.includes(tag) ? state.tags : [...state.tags, tag] 
-  })),
-  removeTag: (tag) => set((state) => ({ 
-    tags: state.tags.filter((t) => t !== tag),
-    pages: state.pages.map(page => ({
-      ...page,
-      tags: page.tags ? page.tags.filter(t => t !== tag) : []
-    }))
-  })),
-  deleteTag: (tag) => set((state) => {
-    const updatedPages = state.pages.map(page => ({
-      ...page,
-      tags: page.tags ? page.tags.filter(t => t.name !== tag.name) : []
-    }))
-    console.log('Updated pages:', updatedPages)
-    return {
-      tags: state.tags.filter((t) => t.name !== tag.name),
-      pages: updatedPages
+const useTagStore = create((set) => ({
+  tags: [],
+  addTag: (tag) => set((state) => {
+    if (!state.tags.some(t => t.name === tag.name)) {
+      return { tags: [...state.tags, tag] }
     }
+    return state
   }),
-  setPages: (pages) => set((state) => {
-    const allTags = [...new Set(pages.flatMap(page => page.tags || []))];
-    return { pages, tags: allTags };
-  }),
+  removeTag: (tagName) => set((state) => ({
+    tags: state.tags.filter(t => t.name !== tagName)
+  })),
+  updateTag: (oldName, newTag) => set((state) => ({
+    tags: state.tags.map(t => t.name === oldName ? newTag : t)
+  })),
 }))
 
 export default useTagStore

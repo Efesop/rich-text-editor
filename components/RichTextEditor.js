@@ -54,7 +54,8 @@ export default function RichTextEditor() {
     unlockPage,
     addTagToPage,
     removeTagFromPage,
-    deleteTagFromAllPages
+    deleteTagFromAllPages,
+    tags
   } = usePagesManager()
 
   const { theme } = useTheme()
@@ -65,10 +66,9 @@ export default function RichTextEditor() {
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false)
   const [pageToRename, setPageToRename] = useState(null)
   const [newPageTitle, setNewPageTitle] = useState('')
-  const [tags, setTags] = useState([])
   const [tagToEdit, setTagToEdit] = useState(null)
   const [isTagModalOpen, setIsTagModalOpen] = useState(false)
-  const { tags: existingTags, addTag, removeTag, deleteTag } = useTagStore()
+  const { addTag, removeTag, deleteTag } = useTagStore()
   const [searchFilter, setSearchFilter] = useState('all')
   const [passwordInput, setPasswordInput] = useState('')
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
@@ -343,6 +343,7 @@ export default function RichTextEditor() {
               onToggleLock={handleToggleLock}
               sidebarOpen={sidebarOpen}
               theme={theme}
+              tags={tags}
             />
           ))}
         </ScrollArea>
@@ -371,29 +372,33 @@ export default function RichTextEditor() {
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            {currentPage.tags && currentPage.tags.map((tag, index) => (
-              <span
-                key={index}
-                className="flex items-center px-2 py-1 rounded text-xs text-gray-700"
-                style={{ backgroundColor: tag.color.background, border: `1px solid ${tag.color.border}` }}
-              >
+            {currentPage.tagNames && currentPage.tagNames.map((tagName, index) => {
+              const tag = tags.find(t => t.name === tagName)
+              if (!tag) return null
+              return (
                 <span
-                  className="cursor-pointer text-gray-700"
-                  onClick={() => {
-                    setTagToEdit(tag)
-                    setIsTagModalOpen(true)
-                  }}
+                  key={index}
+                  className="flex items-center px-2 py-1 rounded text-xs text-gray-700"
+                  style={{ backgroundColor: tag.color.background, border: `1px solid ${tag.color.border}` }}
                 >
-                  {tag.name}
+                  <span
+                    className="cursor-pointer text-gray-700"
+                    onClick={() => {
+                      setTagToEdit(tag)
+                      setIsTagModalOpen(true)
+                    }}
+                  >
+                    {tag.name}
+                  </span>
+                  <button
+                    className="ml-1 focus:outline-none"
+                    onClick={() => handleRemoveTag(tag.name)}
+                  >
+                    <X className="h-3 w-3 text-gray-700" />
+                  </button>
                 </span>
-                <button
-                  className="ml-1 focus:outline-none"
-                  onClick={() => handleRemoveTag(tag.name)}
-                >
-                  <X className="h-3 w-3 text-gray-700" />
-                </button>
-              </span>
-            ))}
+              )
+            })}
             <Button
               variant="ghost"
               size="icon"
@@ -446,19 +451,16 @@ export default function RichTextEditor() {
         isOpen={isTagModalOpen}
         onClose={() => setIsTagModalOpen(false)}
         onConfirm={(tag) => {
-          handleAddTag(tag)
+          addTagToPage(currentPage.id, tag)
           setIsTagModalOpen(false)
         }}
-        onRemove={() => {
-          handleRemoveTag(tagToEdit.name)
+        onDelete={(tagName) => {
+          deleteTagFromAllPages(tagName)
           setIsTagModalOpen(false)
         }}
-        onDelete={() => {
-          handleDeleteTag(tagToEdit.name)
-          setIsTagModalOpen(false)
-        }}
+        deleteTagFromAllPages={deleteTagFromAllPages}
         tag={tagToEdit}
-        existingTags={existingTags}
+        existingTags={tags}
       />
 
       <PasswordModal

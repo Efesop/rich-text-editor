@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "./ui/button"
 import { MoreVertical, Lock } from 'lucide-react'
 
-const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, sidebarOpen, theme }) => {
+const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, sidebarOpen, theme, tags }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
 
@@ -37,15 +37,19 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
           <>
             <span className="truncate mr-2">{page.title}</span>
             <div className="flex flex-wrap gap-1">
-              {page.tags && page.tags.map((tag, index) => (
-                <span
-                  key={index}
-                  className="px-1 rounded text-xs"
-                  style={{ backgroundColor: tag.color.background, border: `1px solid ${tag.color.border}` }}
-                >
-                  {tag.name}
-                </span>
-              ))}
+              {page.tagNames && page.tagNames.map((tagName, index) => {
+                const tag = tags.find(t => t.name === tagName)
+                if (!tag) return null
+                return (
+                  <span
+                    key={index}
+                    className="px-1 rounded text-xs"
+                    style={{ backgroundColor: tag.color.background, border: `1px solid ${tag.color.border}` }}
+                  >
+                    {tag.name}
+                  </span>
+                )
+              })}
             </div>
           </>
         )}

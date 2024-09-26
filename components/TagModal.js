@@ -12,7 +12,7 @@ const colors = [
   { background: '#FFEBEE', border: '#EF9A9A' }  // Light Red
 ]
 
-export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, existingTags }) {
+export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, existingTags, deleteTagFromAllPages }) {
   const [tagName, setTagName] = useState(tag?.name || '')
   const [tagColor, setTagColor] = useState(tag?.color || colors[0])
   const [showDeleteWarning, setShowDeleteWarning] = useState(false)
@@ -51,7 +51,8 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
 
   const handleConfirm = () => {
     if (tagName.trim()) {
-      onConfirm({ name: tagName.trim(), color: tagColor })
+      const newTag = { name: tagName.trim(), color: tagColor }
+      onConfirm(newTag)
       onClose()
     }
   }
@@ -62,7 +63,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
   const isExistingTag = existingTags.some(t => t.name === tagName)
 
   const handleDelete = () => {
-    onDelete(tag)
+    onDelete(tag.name)
     setShowDeleteWarning(false)
     onClose()
   }

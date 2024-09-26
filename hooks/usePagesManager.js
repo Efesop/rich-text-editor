@@ -5,7 +5,7 @@ import useTagStore from '../store/tagStore'
 export function usePagesManager() {
   const [pages, setPages] = useState([])
   const [currentPage, setCurrentPage] = useState(null)
-  const { addTag, removeTag, deleteTag } = useTagStore()
+  const { tags, addTag, removeTag, updateTag } = useTagStore()
   const [saveStatus, setSaveStatus] = useState('saved')
 
   const fetchPages = useCallback(async () => {
@@ -152,27 +152,30 @@ export function usePagesManager() {
   }, [])
 
   const addTagToPage = useCallback((pageId, tag) => {
+    addTag(tag) // This will only add the tag if it doesn't already exist
     setPages(prevPages => prevPages.map(page => 
       page.id === pageId 
-        ? { ...page, tags: [...(page.tags || []), tag] }
-        : page
-    ))
-    if (currentPage && currentPage.id === pageId) {
-      setCurrentPage(prevPage => ({ ...prevPage, tags: [...(prevPage.tags || []), tag] }))
-    }
-    addTag(tag)
-  }, [currentPage, addTag])
-
-  const removeTagFromPage = useCallback((pageId, tagName) => {
-    setPages(prevPages => prevPages.map(page => 
-      page.id === pageId 
-        ? { ...page, tags: (page.tags || []).filter(t => t.name !== tagName) }
+        ? { ...page, tagNames: [...new Set([...(page.tagNames || []), tag.name])] }
         : page
     ))
     if (currentPage && currentPage.id === pageId) {
       setCurrentPage(prevPage => ({ 
         ...prevPage, 
-        tags: (prevPage.tags || []).filter(t => t.name !== tagName) 
+        tagNames: [...new Set([...(prevPage.tagNames || []), tag.name])] 
+      }))
+    }
+  }, [currentPage, addTag])
+
+  const removeTagFromPage = useCallback((pageId, tagName) => {
+    setPages(prevPages => prevPages.map(page => 
+      page.id === pageId 
+        ? { ...page, tagNames: (page.tagNames || []).filter(t => t !== tagName) }
+        : page
+    ))
+    if (currentPage && currentPage.id === pageId) {
+      setCurrentPage(prevPage => ({ 
+        ...prevPage, 
+        tagNames: (prevPage.tagNames || []).filter(t => t !== tagName) 
       }))
     }
   }, [currentPage])
@@ -180,16 +183,16 @@ export function usePagesManager() {
   const deleteTagFromAllPages = useCallback((tagName) => {
     setPages(prevPages => prevPages.map(page => ({
       ...page,
-      tags: (page.tags || []).filter(t => t.name !== tagName)
+      tagNames: (page.tagNames || []).filter(t => t !== tagName)
     })))
     if (currentPage) {
       setCurrentPage(prevPage => ({ 
         ...prevPage, 
-        tags: (prevPage.tags || []).filter(t => t.name !== tagName) 
+        tagNames: (prevPage.tagNames || []).filter(t => t !== tagName) 
       }))
     }
-    deleteTag(tagName)
-  }, [currentPage, deleteTag])
+    removeTag(tagName)
+  }, [currentPage, removeTag])
 
   return {
     pages,
@@ -205,6 +208,7 @@ export function usePagesManager() {
     fetchPages,
     addTagToPage,
     removeTagFromPage,
-    deleteTagFromAllPages
+    deleteTagFromAllPages,
+    tags
   }
 }
