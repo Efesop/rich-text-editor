@@ -321,7 +321,8 @@ export default function RichTextEditor() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
         <div className={`flex flex-col p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
           <div className="flex items-center justify-between mb-2">
             <h1 
@@ -366,13 +367,16 @@ export default function RichTextEditor() {
           </div>
         </div>
         
-        {currentPage && (
-          <DynamicEditor
-            data={currentPage.content}
-            onChange={handleEditorChange}
-            holder="editorjs"
-          />
-        )}
+        {/* Editor */}
+        <div className="flex-1 overflow-auto p-6">
+          {currentPage && (
+            <DynamicEditor
+              data={currentPage.content}
+              onChange={handleEditorChange}
+              holder="editorjs"
+            />
+          )}
+        </div>
 
         {/* Footer */}
         <div className={`flex justify-between items-center p-3 text-sm ${theme === 'dark' ? 'bg-gray-800 border-t border-gray-700 text-gray-300' : 'bg-white border-t border-gray-200 text-gray-600'}`}>
