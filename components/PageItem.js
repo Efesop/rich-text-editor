@@ -34,7 +34,20 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
     >
       <div className="flex items-center flex-1 min-w-0">
         {sidebarOpen && (
-          <span className="truncate mr-2">{page.title}</span>
+          <>
+            <span className="truncate mr-2">{page.title}</span>
+            <div className="flex flex-wrap gap-1">
+              {page.tags && page.tags.map((tag, index) => (
+                <span
+                  key={index}
+                  className="px-1 rounded text-xs"
+                  style={{ backgroundColor: tag.color.background, border: `1px solid ${tag.color.border}` }}
+                >
+                  {tag.name}
+                </span>
+              ))}
+            </div>
+          </>
         )}
       </div>
       <div className="flex items-center space-x-1">

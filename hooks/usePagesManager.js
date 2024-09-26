@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { hashPassword, verifyPassword } from '@/utils/passwordUtils'
+import useTagStore from '../store/tagStore'
 
 export function usePagesManager() {
   const [pages, setPages] = useState([])
   const [currentPage, setCurrentPage] = useState(null)
+  const { addTag, removeTag, deleteTag } = useTagStore()
   const [saveStatus, setSaveStatus] = useState('saved')
 
   const fetchPages = useCallback(async () => {
@@ -149,6 +151,46 @@ export function usePagesManager() {
     }
   }, [])
 
+  const addTagToPage = useCallback((pageId, tag) => {
+    setPages(prevPages => prevPages.map(page => 
+      page.id === pageId 
+        ? { ...page, tags: [...(page.tags || []), tag] }
+        : page
+    ))
+    if (currentPage && currentPage.id === pageId) {
+      setCurrentPage(prevPage => ({ ...prevPage, tags: [...(prevPage.tags || []), tag] }))
+    }
+    addTag(tag)
+  }, [currentPage, addTag])
+
+  const removeTagFromPage = useCallback((pageId, tagName) => {
+    setPages(prevPages => prevPages.map(page => 
+      page.id === pageId 
+        ? { ...page, tags: (page.tags || []).filter(t => t.name !== tagName) }
+        : page
+    ))
+    if (currentPage && currentPage.id === pageId) {
+      setCurrentPage(prevPage => ({ 
+        ...prevPage, 
+        tags: (prevPage.tags || []).filter(t => t.name !== tagName) 
+      }))
+    }
+  }, [currentPage])
+
+  const deleteTagFromAllPages = useCallback((tagName) => {
+    setPages(prevPages => prevPages.map(page => ({
+      ...page,
+      tags: (page.tags || []).filter(t => t.name !== tagName)
+    })))
+    if (currentPage) {
+      setCurrentPage(prevPage => ({ 
+        ...prevPage, 
+        tags: (prevPage.tags || []).filter(t => t.name !== tagName) 
+      }))
+    }
+    deleteTag(tagName)
+  }, [currentPage, deleteTag])
+
   return {
     pages,
     currentPage,
@@ -160,6 +202,9 @@ export function usePagesManager() {
     renamePage,
     lockPage,
     unlockPage,
-    fetchPages
+    fetchPages,
+    addTagToPage,
+    removeTagFromPage,
+    deleteTagFromAllPages
   }
 }

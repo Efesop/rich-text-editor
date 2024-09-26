@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
@@ -51,7 +51,10 @@ export default function RichTextEditor() {
     deletePage,
     renamePage,
     lockPage,
-    unlockPage
+    unlockPage,
+    addTagToPage,
+    removeTagFromPage,
+    deleteTagFromAllPages
   } = usePagesManager()
 
   const { theme } = useTheme()
@@ -224,30 +227,17 @@ export default function RichTextEditor() {
     setNewPageTitle('')
   }, [pageToRename, newPageTitle, renamePage])
 
-  const handleAddTag = useCallback(() => {
-    setTagToEdit(null)
-    setIsTagModalOpen(true)
-  }, [])
-
-  const handleEditTag = useCallback((tag) => {
-    setTagToEdit(tag)
-    setIsTagModalOpen(true)
-  }, [])
+  const handleAddTag = useCallback((tag) => {
+    addTagToPage(currentPage.id, tag)
+  }, [currentPage, addTagToPage])
 
   const handleRemoveTag = useCallback((tagName) => {
-    setTags(prevTags => prevTags.filter(tag => tag.name !== tagName))
-    removeTag(tagName)
-  }, [removeTag])
+    removeTagFromPage(currentPage.id, tagName)
+  }, [currentPage, removeTagFromPage])
 
-  const confirmTagAction = useCallback((tag) => {
-    if (tagToEdit) {
-      setTags(prevTags => prevTags.map(t => t.name === tag.name ? tag : t))
-    } else {
-      setTags(prevTags => [...prevTags, tag])
-      addTag(tag)
-    }
-    setIsTagModalOpen(false)
-  }, [tagToEdit, addTag])
+  const handleDeleteTag = useCallback((tagName) => {
+    deleteTagFromAllPages(tagName)
+  }, [deleteTagFromAllPages])
 
   const handleToggleLock = useCallback((page) => {
     if (page.password && page.password.hash) {
@@ -311,20 +301,6 @@ export default function RichTextEditor() {
     }
   }, [deletePage])
 
-  const filteredPages = useMemo(() => {
-    return pages.filter(page => {
-      const matchesSearch = page.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (searchFilter === 'content' && page.content.blocks.some(block => 
-          block.data.text && block.data.text.toLowerCase().includes(searchTerm.toLowerCase())
-        )) ||
-        (searchFilter === 'tags' && page.tags && page.tags.some(tag => 
-          tag.name.toLowerCase().includes(searchTerm.toLowerCase())
-        ))
-      
-      return matchesSearch
-    })
-  }, [pages, searchTerm, searchFilter])
-
   if (!isClient) {
     return null // or a loading indicator
   }
@@ -356,7 +332,7 @@ export default function RichTextEditor() {
           </div>
         )}
         <ScrollArea className="flex-1">
-          {filteredPages.map(page => (
+          {pages.map(page => (
             <PageItem
               key={page.id}
               page={page}
@@ -395,7 +371,7 @@ export default function RichTextEditor() {
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            {tags.map((tag, index) => (
+            {currentPage.tags && currentPage.tags.map((tag, index) => (
               <span
                 key={index}
                 className="flex items-center px-2 py-1 rounded text-xs text-gray-700"
@@ -403,7 +379,10 @@ export default function RichTextEditor() {
               >
                 <span
                   className="cursor-pointer text-gray-700"
-                  onClick={() => handleEditTag(tag)}
+                  onClick={() => {
+                    setTagToEdit(tag)
+                    setIsTagModalOpen(true)
+                  }}
                 >
                   {tag.name}
                 </span>
@@ -418,7 +397,10 @@ export default function RichTextEditor() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={handleAddTag}
+              onClick={() => {
+                setTagToEdit(null)
+                setIsTagModalOpen(true)
+              }}
             >
               <Plus className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`} />
             </Button>
@@ -463,7 +445,18 @@ export default function RichTextEditor() {
       <TagModal
         isOpen={isTagModalOpen}
         onClose={() => setIsTagModalOpen(false)}
-        onConfirm={confirmTagAction}
+        onConfirm={(tag) => {
+          handleAddTag(tag)
+          setIsTagModalOpen(false)
+        }}
+        onRemove={() => {
+          handleRemoveTag(tagToEdit.name)
+          setIsTagModalOpen(false)
+        }}
+        onDelete={() => {
+          handleDeleteTag(tagToEdit.name)
+          setIsTagModalOpen(false)
+        }}
         tag={tagToEdit}
         existingTags={existingTags}
       />
