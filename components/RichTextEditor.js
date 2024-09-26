@@ -311,13 +311,13 @@ export default function RichTextEditor() {
         case 'all':
           return page.title.toLowerCase().includes(lowercaseSearchTerm) ||
                  JSON.stringify(page.content).toLowerCase().includes(lowercaseSearchTerm) ||
-                 (page.tags && page.tags.some(tag => tag.name.toLowerCase().includes(lowercaseSearchTerm)));
+                 (page.tagNames && page.tagNames.some(tag => tag.toLowerCase().includes(lowercaseSearchTerm)));
         case 'title':
           return page.title.toLowerCase().includes(lowercaseSearchTerm);
         case 'content':
           return JSON.stringify(page.content).toLowerCase().includes(lowercaseSearchTerm);
         case 'tags':
-          return page.tags && page.tags.some(tag => tag.name.toLowerCase().includes(lowercaseSearchTerm));
+          return page.tagNames && page.tagNames.some(tag => tag.toLowerCase().includes(lowercaseSearchTerm));
         default:
           return true;
       }
