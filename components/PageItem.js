@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "./ui/button"
-import { MoreVertical, Lock, Unlock } from 'lucide-react'
+import { MoreVertical, Lock } from 'lucide-react'
 
 const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, sidebarOpen, theme }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
@@ -22,22 +22,26 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
   return (
     <div
       className={`flex items-center justify-between p-2 cursor-pointer ${
-        isActive ? (theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200') : ''
-      } hover:${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'}`}
+        isActive
+          ? theme === 'dark'
+            ? 'bg-gray-700'
+            : 'bg-gray-200'
+          : theme === 'dark'
+          ? 'hover:bg-gray-700'
+          : 'hover:bg-gray-100'
+      }`}
       onClick={() => onSelect(page)}
     >
-      <div className="flex items-center space-x-2 overflow-hidden">
-        {page.password ? (
-          <Lock className="h-4 w-4 text-gray-500" />
-        ) : (
-          <Unlock className="h-4 w-4 text-gray-500" />
-        )}
+      <div className="flex items-center flex-1 min-w-0">
         {sidebarOpen && (
-          <span className="truncate">{page.title}</span>
+          <span className="truncate mr-2">{page.title}</span>
         )}
       </div>
-      {sidebarOpen && (
-        <div className="relative" ref={dropdownRef}>
+      <div className="flex items-center space-x-1">
+        {page.password && page.password.hash && (
+          <Lock className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`} />
+        )}
+        <div ref={dropdownRef}>
           <Button
             variant="ghost"
             size="icon"
@@ -46,7 +50,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
               setIsDropdownOpen(!isDropdownOpen)
             }}
           >
-            <MoreVertical className="h-4 w-4" />
+            <MoreVertical className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`} />
           </Button>
           {isDropdownOpen && (
             <div className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg ${
@@ -93,7 +97,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
             </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   )
 }

@@ -67,9 +67,11 @@ export default function RichTextEditor() {
   const [isTagModalOpen, setIsTagModalOpen] = useState(false)
   const { tags: existingTags, addTag, removeTag, deleteTag } = useTagStore()
   const [searchFilter, setSearchFilter] = useState('all')
-  const [pagePassword, setPagePassword] = useState('')
+  const [passwordInput, setPasswordInput] = useState('')
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
   const [passwordAction, setPasswordAction] = useState('')
+  const [pageToAccess, setPageToAccess] = useState(null)
+  const [unlockedPages, setUnlockedPages] = useState(new Set())
 
   const [isClient, setIsClient] = useState(false)
 
@@ -82,15 +84,24 @@ export default function RichTextEditor() {
     setWordCount(calculateWordCount(content))
   }, [savePage])
 
-  const handlePageSelect = useCallback(async (page) => {
-    if (page.password) {
+  const handlePageSelect = (page) => {
+    if (currentPage && currentPage.password && unlockedPages.has(currentPage.id)) {
+      // Relock the current page if it was temporarily unlocked
+      setUnlockedPages(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(currentPage.id)
+        return newSet
+      })
+    }
+
+    if (page.password && !unlockedPages.has(page.id)) {
       setPasswordAction('access')
-      setPagePassword('')
+      setPageToAccess(page)
       setIsPasswordModalOpen(true)
     } else {
       setCurrentPage(page)
     }
-  }, [setCurrentPage])
+  }
 
   const calculateWordCount = useCallback((content) => {
     return content.blocks.reduce((count, block) => {
@@ -216,36 +227,57 @@ export default function RichTextEditor() {
   }, [tagToEdit, addTag])
 
   const handleToggleLock = useCallback((page) => {
-    if (page.password) {
+    if (page.password && page.password.hash) {
       setPasswordAction('unlock')
     } else {
       setPasswordAction('lock')
     }
-    setPagePassword('')
+    setPageToAccess(page)
     setIsPasswordModalOpen(true)
   }, [])
 
-  const confirmPasswordAction = useCallback(async () => {
-    if (passwordAction === 'lock') {
-      await lockPage(currentPage, pagePassword)
-    } else if (passwordAction === 'unlock') {
-      const success = await unlockPage(currentPage, pagePassword)
-      if (!success) {
-        console.error('Incorrect password')
-        return
-      }
-    } else if (passwordAction === 'access') {
-      const success = await unlockPage(currentPage, pagePassword)
-      if (success) {
-        setCurrentPage(currentPage)
-      } else {
-        console.error('Incorrect password')
-        return
-      }
+  const handlePasswordConfirm = async (actionType, password) => {
+    switch (actionType) {
+      case 'lock':
+        const lockSuccess = await lockPage(pageToAccess, password)
+        if (lockSuccess) {
+          setIsPasswordModalOpen(false)
+          setPasswordInput('')
+        } else {
+          // Handle lock failure
+        }
+        break
+      case 'open':
+        const unlockSuccess = await unlockPage(pageToAccess, password)
+        if (unlockSuccess) {
+          setUnlockedPages(prev => new Set(prev).add(pageToAccess.id))
+          setCurrentPage(pageToAccess)
+          setIsPasswordModalOpen(false)
+          setPasswordInput('')
+        } else {
+          // Handle unlock failure (e.g., incorrect password)
+        }
+        break
+      case 'removeLock':
+        const removeLockSuccess = await unlockPage(pageToAccess, password)
+        if (removeLockSuccess) {
+          const updatedPage = { ...pageToAccess, password: null }
+          setPages(prevPages => prevPages.map(p => p.id === updatedPage.id ? updatedPage : p))
+          setCurrentPage(updatedPage)
+          setUnlockedPages(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(updatedPage.id)
+            return newSet
+          })
+          setIsPasswordModalOpen(false)
+          setPasswordInput('')
+        } else {
+          // Handle remove lock failure (e.g., incorrect password)
+        }
+        break
     }
-    setIsPasswordModalOpen(false)
-    setPagePassword('')
-  }, [passwordAction, currentPage, pagePassword, lockPage, unlockPage, setCurrentPage])
+    setPageToAccess(null)
+  }
 
   const handleDeletePage = useCallback((page) => {
     if (window.confirm(`Are you sure you want to delete "${page.title}"?`)) {
@@ -379,7 +411,7 @@ export default function RichTextEditor() {
         </div>
 
         {/* Footer */}
-        <div className={`flex justify-between items-center p-3 text-sm ${theme === 'dark' ? 'bg-gray-800 border-t border-gray-700 text-gray-300' : 'bg-white border-t border-gray-200 text-gray-600'}`}>
+        <div className={`footer-fixed flex justify-between items-center p-3 text-sm ${theme === 'dark' ? 'bg-gray-800 border-t border-gray-700 text-gray-300' : 'bg-white border-t border-gray-200 text-gray-600'}`}>
           {currentPage.createdAt && (
             <span>Created {format(new Date(currentPage.createdAt), 'MMM d, yyyy')}</span>
           )}
@@ -413,10 +445,10 @@ export default function RichTextEditor() {
       <PasswordModal
         isOpen={isPasswordModalOpen}
         onClose={() => setIsPasswordModalOpen(false)}
-        onConfirm={confirmPasswordAction}
+        onConfirm={handlePasswordConfirm}
         action={passwordAction}
-        password={pagePassword}
-        onPasswordChange={(newPassword) => setPagePassword(newPassword)}
+        password={passwordInput}
+        onPasswordChange={setPasswordInput}
       />
     </div>
   )

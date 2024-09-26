@@ -84,19 +84,9 @@ export function usePagesManager() {
   }, [currentPage])
 
   const lockPage = useCallback(async (page, password) => {
-    const hashedPassword = await hashPassword(password)
-    const updatedPage = { ...page, password: hashedPassword }
-    setPages(prevPages => {
-      const updatedPages = prevPages.map(p => p.id === updatedPage.id ? updatedPage : p)
-      savePagesToStorage(updatedPages)
-      return updatedPages
-    })
-    setCurrentPage(updatedPage)
-  }, [])
-
-  const unlockPage = useCallback(async (page, password) => {
-    if (await verifyPassword(password, page.password)) {
-      const updatedPage = { ...page, password: null }
+    try {
+      const hashedPassword = await hashPassword(password)
+      const updatedPage = { ...page, password: { hash: hashedPassword } }
       setPages(prevPages => {
         const updatedPages = prevPages.map(p => p.id === updatedPage.id ? updatedPage : p)
         savePagesToStorage(updatedPages)
@@ -104,8 +94,48 @@ export function usePagesManager() {
       })
       setCurrentPage(updatedPage)
       return true
+    } catch (error) {
+      console.error('Error locking page:', error)
+      return false
     }
-    return false
+  }, [])
+
+  const unlockPage = useCallback(async (page, password) => {
+    try {
+      console.log('Attempting to unlock page:', page.id)
+      console.log('Password type:', typeof password)
+      console.log('Stored password type:', typeof page.password)
+      
+      if (!page.password || !page.password.hash) {
+        console.error('Page is not locked or password hash is missing')
+        return false
+      }
+
+      if (typeof password !== 'string') {
+        console.error('Invalid password type')
+        return false
+      }
+
+      const isPasswordCorrect = await verifyPassword(password, page.password.hash)
+      
+      if (isPasswordCorrect) {
+        const updatedPage = { ...page, password: null }
+        setPages(prevPages => {
+          const updatedPages = prevPages.map(p => p.id === updatedPage.id ? updatedPage : p)
+          savePagesToStorage(updatedPages)
+          return updatedPages
+        })
+        setCurrentPage(updatedPage)
+        console.log('Page unlocked successfully')
+        return true
+      } else {
+        console.log('Incorrect password')
+        return false
+      }
+    } catch (error) {
+      console.error('Error unlocking page:', error)
+      return false
+    }
   }, [])
 
   const savePagesToStorage = useCallback(async (updatedPages) => {
