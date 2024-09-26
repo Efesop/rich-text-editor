@@ -305,17 +305,19 @@ export default function RichTextEditor() {
     return pages.filter(page => {
       if (searchTerm === '') return true;
       
+      const lowercaseSearchTerm = searchTerm.toLowerCase();
+      
       switch (searchFilter) {
         case 'all':
-          return page.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                 JSON.stringify(page.content).toLowerCase().includes(searchTerm.toLowerCase()) ||
-                 (page.tags && page.tags.some(tag => tag.name.toLowerCase().includes(searchTerm.toLowerCase())));
+          return page.title.toLowerCase().includes(lowercaseSearchTerm) ||
+                 JSON.stringify(page.content).toLowerCase().includes(lowercaseSearchTerm) ||
+                 (page.tags && page.tags.some(tag => tag.name.toLowerCase().includes(lowercaseSearchTerm)));
         case 'title':
-          return page.title.toLowerCase().includes(searchTerm.toLowerCase());
+          return page.title.toLowerCase().includes(lowercaseSearchTerm);
         case 'content':
-          return JSON.stringify(page.content).toLowerCase().includes(searchTerm.toLowerCase());
+          return JSON.stringify(page.content).toLowerCase().includes(lowercaseSearchTerm);
         case 'tags':
-          return page.tags && page.tags.some(tag => tag.name.toLowerCase().includes(searchTerm.toLowerCase()));
+          return page.tags && page.tags.some(tag => tag.name.toLowerCase().includes(lowercaseSearchTerm));
         default:
           return true;
       }
