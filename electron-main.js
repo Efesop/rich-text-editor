@@ -28,6 +28,29 @@ function createWindow() {
   });
 }
 
+const tagsPath = path.join(app.getPath('userData'), 'tags.json');
+
+ipcMain.handle('read-tags', async () => {
+  try {
+    const data = await fs.readFile(tagsPath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      // File doesn't exist, return an empty array
+      return [];
+    }
+    throw error;
+  }
+});
+
+ipcMain.handle('save-tags', async (event, tags) => {
+  try {
+    await fs.writeFile(tagsPath, JSON.stringify(tags, null, 2));
+  } catch (error) {
+    throw error;
+  }
+});
+
 ipcMain.handle('read-pages', async () => {
   try {
     const data = await fs.readFile(path.join(app.getPath('userData'), 'pages.json'), 'utf8');

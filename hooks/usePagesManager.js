@@ -158,18 +158,25 @@ export function usePagesManager() {
 
   const addTagToPage = useCallback((pageId, tag) => {
     addTag(tag) // This will only add the tag if it doesn't already exist
-    setPages(prevPages => prevPages.map(page => 
-      page.id === pageId 
-        ? { ...page, tagNames: [...new Set([...(page.tagNames || []), tag.name])] }
-        : page
-    ))
+    setPages(prevPages => {
+      const updatedPages = prevPages.map(page => 
+        page.id === pageId 
+          ? { ...page, tagNames: [...new Set([...(page.tagNames || []), tag.name])] }
+          : page
+      )
+      // Use a setTimeout to ensure this runs after the state has been updated
+      setTimeout(() => savePagesToStorage(updatedPages), 0)
+      return updatedPages
+    })
     if (currentPage && currentPage.id === pageId) {
       setCurrentPage(prevPage => ({ 
         ...prevPage, 
         tagNames: [...new Set([...(prevPage.tagNames || []), tag.name])] 
       }))
     }
-  }, [currentPage, addTag])
+    // Add this line to save the updated pages
+    savePagesToStorage(pages)
+  }, [currentPage, addTag, pages, savePagesToStorage])
 
   const removeTagFromPage = useCallback((pageId, tagName) => {
     setPages(prevPages => prevPages.map(page => 
