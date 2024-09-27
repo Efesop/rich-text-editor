@@ -31,6 +31,16 @@ export function usePagesManager() {
   useEffect(() => {
     fetchPages()
   }, [fetchPages])
+  const savePagesToStorage = useCallback(async (updatedPages) => {
+    setSaveStatus('saving')
+    try {
+      await window.electron.invoke('save-pages', updatedPages)
+      setSaveStatus('saved')
+    } catch (error) {
+      console.error('Error saving pages:', error)
+      setSaveStatus('error')
+    }
+  }, [])
 
   const handleNewPage = useCallback(() => {
     const newPage = {
@@ -108,8 +118,6 @@ export function usePagesManager() {
   const unlockPage = useCallback(async (page, password, temporary = false) => {
     try {
       console.log('Attempting to unlock page:', page.id)
-      console.log('Password type:', typeof password)
-      console.log('Stored password type:', typeof page.password)
       
       if (!page.password || !page.password.hash) {
         console.error('Page is not locked or password hash is missing')
@@ -133,9 +141,10 @@ export function usePagesManager() {
             savePagesToStorage(updatedPages)
             return updatedPages
           })
+          page = updatedPage // Use the updated page for setting current page
         }
-        setCurrentPage(page)
-        console.log('Page unlocked successfully')
+        _setCurrentPage(page) // Directly set the current page
+        console.log('Page unlocked successfully and set as current')
         return true
       } else {
         console.log('Incorrect password')
@@ -145,18 +154,7 @@ export function usePagesManager() {
       console.error('Error unlocking page:', error)
       return false
     }
-  }, [])
-
-  const savePagesToStorage = useCallback(async (updatedPages) => {
-    setSaveStatus('saving')
-    try {
-      await window.electron.invoke('save-pages', updatedPages)
-      setSaveStatus('saved')
-    } catch (error) {
-      console.error('Error saving pages:', error)
-      setSaveStatus('error')
-    }
-  }, [])
+  }, [setPages, _setCurrentPage, setTempUnlockedPages, savePagesToStorage])
 
   const addTagToPage = useCallback((pageId, tag) => {
     addTag(tag) // This will only add the tag if it doesn't already exist
@@ -212,6 +210,10 @@ export function usePagesManager() {
       setTempUnlockedPages(new Set())
     }
   }, [tempUnlockedPages])
+
+  useEffect(() => {
+    fetchPages()
+  }, [fetchPages])
 
   return {
     pages,

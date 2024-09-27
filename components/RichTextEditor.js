@@ -270,31 +270,23 @@ export default function RichTextEditor() {
         if (unlockSuccess) {
           setIsPasswordModalOpen(false)
           setPasswordInput('')
+          // The page is now set as current in the unlockPage function
         } else {
           setPasswordError('Incorrect password. Please try again.')
         }
         break
       case 'removeLock':
-        const removeLockSuccess = await unlockPage(pageToAccess, password)
+        const removeLockSuccess = await unlockPage(pageToAccess, password, false)
         if (removeLockSuccess) {
-          const updatedPage = { ...pageToAccess, password: null }
-          setPages(prevPages => prevPages.map(p => p.id === updatedPage.id ? updatedPage : p))
-          setCurrentPage(updatedPage)
-          setTempUnlockedPages(prev => {
-            const newSet = new Set(prev)
-            newSet.delete(updatedPage.id)
-            return newSet
-          })
           setIsPasswordModalOpen(false)
           setPasswordInput('')
+          // The page is now set as current and unlocked in the unlockPage function
         } else {
           setPasswordError('Incorrect password. Unable to remove lock.')
         }
         break
     }
-    if (passwordError) {
-      setPageToAccess(null)
-    }
+    setPageToAccess(null)
   }
 
   const handleDeletePage = useCallback((page) => {
