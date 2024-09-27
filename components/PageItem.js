@@ -43,7 +43,9 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
                 return (
                   <span
                     key={index}
-                    className="px-1 rounded text-xs"
+                    className={`px-1 rounded text-xs ${
+                      theme === 'dark' ? 'text-gray-900' : 'text-gray-800'
+                    }`}
                     style={{ backgroundColor: tag.color.background, border: `1px solid ${tag.color.border}` }}
                   >
                     {tag.name}
