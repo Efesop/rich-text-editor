@@ -43,6 +43,7 @@ const searchPlaceholders = {
 export default function RichTextEditor() {
   const {
     pages,
+    setPages,
     currentPage,
     saveStatus,
     setCurrentPage,
@@ -55,7 +56,13 @@ export default function RichTextEditor() {
     addTagToPage,
     removeTagFromPage,
     deleteTagFromAllPages,
-    tags
+    tags,
+    tempUnlockedPages,
+    setTempUnlockedPages,
+    isPasswordModalOpen,
+    setIsPasswordModalOpen,
+    pageToAccess,
+    setPageToAccess
   } = usePagesManager()
 
   const { theme } = useTheme()
@@ -71,10 +78,7 @@ export default function RichTextEditor() {
   const { addTag, removeTag, deleteTag } = useTagStore()
   const [searchFilter, setSearchFilter] = useState('all')
   const [passwordInput, setPasswordInput] = useState('')
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
   const [passwordAction, setPasswordAction] = useState('')
-  const [pageToAccess, setPageToAccess] = useState(null)
-  const [unlockedPages, setUnlockedPages] = useState(new Set())
   const [passwordError, setPasswordError] = useState('')
 
   const [isClient, setIsClient] = useState(false)
@@ -89,16 +93,16 @@ export default function RichTextEditor() {
   }, [savePage])
 
   const handlePageSelect = (page) => {
-    if (currentPage && currentPage.password && unlockedPages.has(currentPage.id)) {
+    if (currentPage && currentPage.password && tempUnlockedPages.has(currentPage.id)) {
       // Relock the current page if it was temporarily unlocked
-      setUnlockedPages(prev => {
+      setTempUnlockedPages(prev => {
         const newSet = new Set(prev)
         newSet.delete(currentPage.id)
         return newSet
       })
     }
 
-    if (page.password && !unlockedPages.has(page.id)) {
+    if (page.password && !tempUnlockedPages.has(page.id)) {
       setPasswordAction('access')
       setPageToAccess(page)
       setIsPasswordModalOpen(true)
@@ -262,10 +266,8 @@ export default function RichTextEditor() {
         }
         break
       case 'open':
-        const unlockSuccess = await unlockPage(pageToAccess, password)
+        const unlockSuccess = await unlockPage(pageToAccess, password, true) // Pass true for temporary unlock
         if (unlockSuccess) {
-          setUnlockedPages(prev => new Set(prev).add(pageToAccess.id))
-          setCurrentPage(pageToAccess)
           setIsPasswordModalOpen(false)
           setPasswordInput('')
         } else {
@@ -278,7 +280,7 @@ export default function RichTextEditor() {
           const updatedPage = { ...pageToAccess, password: null }
           setPages(prevPages => prevPages.map(p => p.id === updatedPage.id ? updatedPage : p))
           setCurrentPage(updatedPage)
-          setUnlockedPages(prev => {
+          setTempUnlockedPages(prev => {
             const newSet = new Set(prev)
             newSet.delete(updatedPage.id)
             return newSet
@@ -373,6 +375,7 @@ export default function RichTextEditor() {
               sidebarOpen={sidebarOpen}
               theme={theme}
               tags={tags}
+              tempUnlockedPages={tempUnlockedPages}
             />
           ))}
         </ScrollArea>

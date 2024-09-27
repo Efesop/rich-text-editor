@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "./ui/button"
 import { MoreVertical, Lock } from 'lucide-react'
 
-const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, sidebarOpen, theme, tags }) => {
+const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, sidebarOpen, theme, tags, tempUnlockedPages }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
 
@@ -61,7 +61,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
         )}
       </div>
       <div className="flex items-center space-x-1">
-        {page.password && page.password.hash && (
+        {page.password && page.password.hash && !tempUnlockedPages.has(page.id) && (
           <Lock className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`} />
         )}
         <div ref={dropdownRef}>

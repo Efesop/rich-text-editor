@@ -4,9 +4,12 @@ import useTagStore from '../store/tagStore'
 
 export function usePagesManager() {
   const [pages, setPages] = useState([])
-  const [currentPage, setCurrentPage] = useState(null)
+  const [currentPage, _setCurrentPage] = useState(null)
   const { tags, addTag, removeTag, updateTag } = useTagStore()
   const [saveStatus, setSaveStatus] = useState('saved')
+  const [tempUnlockedPages, setTempUnlockedPages] = useState(new Set())
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
+  const [pageToAccess, setPageToAccess] = useState(null)
 
   const fetchPages = useCallback(async () => {
     try {
@@ -102,7 +105,7 @@ export function usePagesManager() {
     }
   }, [])
 
-  const unlockPage = useCallback(async (page, password) => {
+  const unlockPage = useCallback(async (page, password, temporary = false) => {
     try {
       console.log('Attempting to unlock page:', page.id)
       console.log('Password type:', typeof password)
@@ -121,13 +124,17 @@ export function usePagesManager() {
       const isPasswordCorrect = await verifyPassword(password, page.password.hash)
       
       if (isPasswordCorrect) {
-        const updatedPage = { ...page, password: null }
-        setPages(prevPages => {
-          const updatedPages = prevPages.map(p => p.id === updatedPage.id ? updatedPage : p)
-          savePagesToStorage(updatedPages)
-          return updatedPages
-        })
-        setCurrentPage(updatedPage)
+        if (temporary) {
+          setTempUnlockedPages(prev => new Set(prev).add(page.id))
+        } else {
+          const updatedPage = { ...page, password: null }
+          setPages(prevPages => {
+            const updatedPages = prevPages.map(p => p.id === updatedPage.id ? updatedPage : p)
+            savePagesToStorage(updatedPages)
+            return updatedPages
+          })
+        }
+        setCurrentPage(page)
         console.log('Page unlocked successfully')
         return true
       } else {
@@ -194,8 +201,21 @@ export function usePagesManager() {
     removeTag(tagName)
   }, [currentPage, removeTag])
 
+  const setCurrentPage = useCallback((page) => {
+    if (page.password && !tempUnlockedPages.has(page.id)) {
+      // Page is locked and not temporarily unlocked
+      setPageToAccess(page)
+      setIsPasswordModalOpen(true)
+    } else {
+      _setCurrentPage(page)
+      // Clear temporary unlock when switching pages
+      setTempUnlockedPages(new Set())
+    }
+  }, [tempUnlockedPages])
+
   return {
     pages,
+    setPages,
     currentPage,
     saveStatus,
     setCurrentPage,
@@ -209,6 +229,12 @@ export function usePagesManager() {
     addTagToPage,
     removeTagFromPage,
     deleteTagFromAllPages,
-    tags
+    tags,
+    tempUnlockedPages,
+    setTempUnlockedPages,
+    isPasswordModalOpen,
+    setIsPasswordModalOpen,
+    pageToAccess,
+    setPageToAccess
   }
 }
