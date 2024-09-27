@@ -337,7 +337,7 @@ export default function RichTextEditor() {
     <div className={`flex h-screen ${theme === 'dark' ? 'dark bg-gray-900 text-white' : 'bg-white text-black'}`}>
       {/* Sidebar */}
       <div className={`${sidebarOpen ? 'w-64' : 'w-16'} flex flex-col transition-all duration-300 ease-in-out ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'}`}>
-        <div className="px-4 mb-2">
+        <div className="px-4 mb-0.2 pt-6">
           <SearchInput
             value={searchTerm}
             onChange={setSearchTerm}
@@ -353,7 +353,7 @@ export default function RichTextEditor() {
             {sidebarOpen && <span className="ml-2">New Page</span>}
           </Button>
         </div>
-        <ScrollArea className="flex-1 px-4">
+        <ScrollArea className="h-[calc(100vh-60px)]">
           {filteredPages().map(page => (
             <PageItem
               key={page.id}

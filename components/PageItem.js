@@ -21,7 +21,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
 
   return (
     <div
-      className={`flex items-center justify-between py-0.5 px-2 cursor-pointer text-sm w-full ${ // Added w-full to ensure it fills the width
+      className={`flex items-center justify-between py-0.5 px-2 cursor-pointer text-sm w-full ${
         isActive
           ? theme === 'dark'
             ? 'bg-gray-700'
@@ -32,7 +32,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
       }`}
       onClick={() => onSelect(page)}
     >
-      <div className="flex items-center flex-1 min-w-0">
+      <div className="flex items-center flex-1 min-w-0 pl-3">
         {sidebarOpen && (
           <>
             <span className="truncate mr-2">{page.title}</span>
