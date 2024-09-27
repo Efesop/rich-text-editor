@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { ArrowUpDown, Check } from 'lucide-react'
 
-const SortDropdown = ({ onSort, theme, activeSortOption }) => {
+const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef(null)
 
@@ -28,6 +28,10 @@ const SortDropdown = ({ onSort, theme, activeSortOption }) => {
   }, [])
 
   const activeSort = sortOptions.find(option => option.value === activeSortOption)
+
+  if (!sidebarOpen) {
+    return null
+  }
 
   return (
     <div className="relative" ref={dropdownRef}>

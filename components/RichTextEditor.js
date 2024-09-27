@@ -369,7 +369,7 @@ export default function RichTextEditor() {
         <div className={`p-4 flex ${sidebarOpen ? 'justify-between' : 'justify-center'} items-center`}>
           {sidebarOpen && <h1 className="text-2xl font-bold">Pages</h1>}
           <div className="flex items-center space-x-2">
-            <SortDropdown onSort={setSortOption} theme={theme} activeSortOption={sortOption} />
+            {sidebarOpen && <SortDropdown onSort={setSortOption} theme={theme} activeSortOption={sortOption} sidebarOpen={sidebarOpen} />}
             <Button
               variant="ghost"
               size="sm"
