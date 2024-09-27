@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { X, ChevronDown } from 'lucide-react'
 import useTagStore from '../store/tagStore'
+import { cn } from "@/lib/utils"
 
 const colors = [
   { background: '#E3F2FD', border: '#90CAF9' }, // Light Blue
@@ -20,6 +21,18 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
   const inputRef = useRef(null)
   const dropdownRef = useRef(null)
   const deleteTag = useTagStore(state => state.deleteTag)
+  const [selectedColorIndex, setSelectedColorIndex] = useState(
+    colors.findIndex(c => JSON.stringify(c) === JSON.stringify(tag?.color)) || 0
+  )
+
+  const handleColorSelect = useCallback((color, index) => {
+    setTagColor(color)
+    setSelectedColorIndex(index)
+  }, [])
+
+  useEffect(() => {
+    setTagColor(colors[selectedColorIndex])
+  }, [selectedColorIndex])
 
   useEffect(() => {
     if (isOpen) {
@@ -142,9 +155,13 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
                       {colors.map((color, index) => (
                         <button
                           key={index}
-                          className={`w-6 h-6 rounded-full ${tagColor === color ? 'ring-2 ring-offset-2 ring-indigo-500' : ''}`}
+                          className={cn(
+                            "w-6 h-6 rounded-full transition-all duration-200 relative",
+                            "before:content-[''] before:absolute before:inset-0 before:rounded-full before:shadow-[0_0_0_2px_rgba(99,102,241,0.8)] before:opacity-0 before:transition-opacity before:duration-200",
+                            selectedColorIndex === index && "before:opacity-100 scale-110"
+                          )}
                           style={{ backgroundColor: color.background, border: `2px solid ${color.border}` }}
-                          onClick={() => setTagColor(color)}
+                          onClick={() => handleColorSelect(color, index)}
                         />
                       ))}
                     </div>
