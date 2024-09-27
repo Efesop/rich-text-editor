@@ -318,6 +318,12 @@ export default function RichTextEditor() {
     });
   }, [pages, searchTerm, searchFilter]);
 
+  useEffect(() => {
+    if (currentPage && currentPage.content) {
+      setWordCount(calculateWordCount(currentPage.content));
+    }
+  }, [currentPage, calculateWordCount]);
+
   if (!isClient) {
     return null // or a loading indicator
   }
