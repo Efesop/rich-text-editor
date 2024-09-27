@@ -402,7 +402,7 @@ export default function RichTextEditor() {
               <ThemeToggle />
             </div>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center flex-wrap gap-2 mt-2">
             {currentPage.tagNames && currentPage.tagNames.map((tagName, index) => {
               const tag = tags.find(t => t.name === tagName)
               if (!tag) return null
@@ -433,6 +433,7 @@ export default function RichTextEditor() {
             <Button
               variant="ghost"
               size="icon"
+              className="h-6 w-6"
               onClick={() => {
                 setTagToEdit(null)
                 setIsTagModalOpen(true)
