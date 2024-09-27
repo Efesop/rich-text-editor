@@ -7,61 +7,90 @@ export const exportToPDF = (content, title) => {
   const doc = new jsPDF();
   let yOffset = 10;
 
+  const addText = (text, fontSize, isBold = false) => {
+    doc.setFontSize(fontSize);
+    doc.setFont(undefined, isBold ? 'bold' : 'normal');
+    const lines = doc.splitTextToSize(text, 180);
+    doc.text(lines, 10, yOffset);
+    yOffset += fontSize * 0.5 * lines.length;
+  };
+
   content.blocks.forEach((block) => {
     switch (block.type) {
       case 'header':
-        doc.setFontSize(16 + (6 - (block.data.level || 1)) * 2);
-        doc.text(block.data.text || '', 10, yOffset);
-        yOffset += 10;
+        addText(block.data.text || '', 16 + (6 - (block.data.level || 1)) * 2, true);
         break;
       case 'paragraph':
-        doc.setFontSize(12);
-        const lines = doc.splitTextToSize(block.data.text || '', 190);
-        doc.text(lines, 10, yOffset);
-        yOffset += 5 * lines.length;
+        addText(block.data.text || '', 12);
         break;
       case 'list':
-        doc.setFontSize(12);
-        block.data.items?.forEach((item) => {
-          doc.text(`• ${item}`, 15, yOffset);
-          yOffset += 7;
-        });
+      case 'nestedlist':
+        const renderList = (items, level = 0) => {
+          items.forEach(item => {
+            const bullet = level === 0 ? '•' : '-';
+            addText(`${' '.repeat(level * 2)}${bullet} ${typeof item === 'string' ? item : item.content}`, 12);
+            if (item.items && item.items.length > 0) {
+              renderList(item.items, level + 1);
+            }
+          });
+        };
+        renderList(block.data.items || []);
         break;
       case 'checklist':
-        doc.setFontSize(12);
         block.data.items?.forEach((item) => {
-          const checkbox = item.checked ? '[x]' : '[ ]';
-          doc.text(`${checkbox} ${item.text}`, 10, yOffset);
-          yOffset += 7;
+          const checkbox = item.checked ? '☑' : '☐';
+          addText(`${checkbox} ${item.text}`, 12);
         });
         break;
       case 'table':
-        doc.setFontSize(12);
+        const startY = yOffset;
+        const cellPadding = 2;
+        const cellWidth = 180 / block.data.content[0].length;
+        const lineHeight = 6;
+
         block.data.content.forEach((row, rowIndex) => {
+          let maxLineCount = 1;
           row.forEach((cell, cellIndex) => {
-            doc.text(cell, 10 + cellIndex * 40, yOffset + rowIndex * 10);
+            const lines = doc.splitTextToSize(cell, cellWidth - 2 * cellPadding);
+            maxLineCount = Math.max(maxLineCount, lines.length);
+            doc.text(lines, 10 + cellIndex * cellWidth + cellPadding, yOffset + lineHeight);
           });
+          yOffset += lineHeight * maxLineCount + 2 * cellPadding;
+          if (rowIndex === 0 || rowIndex === block.data.content.length - 1) {
+            doc.line(10, yOffset, 190, yOffset);
+          }
         });
-        yOffset += block.data.content.length * 10;
+        doc.rect(10, startY, 180, yOffset - startY);
+        for (let i = 1; i < block.data.content[0].length; i++) {
+          doc.line(10 + i * cellWidth, startY, 10 + i * cellWidth, yOffset);
+        }
+        yOffset += 5;
         break;
       case 'quote':
-        doc.setFontSize(12);
-        doc.text(`"${block.data.text}" - ${block.data.caption}`, 10, yOffset);
-        yOffset += 10;
+        doc.setFont(undefined, 'italic');
+        addText(`"${block.data.text}"`, 12);
+        doc.setFont(undefined, 'normal');
+        addText(`- ${block.data.caption}`, 10);
         break;
       case 'code':
-        doc.setFontSize(12);
-        const codeLines = doc.splitTextToSize(block.data.code || '', 190);
-        doc.text(codeLines, 10, yOffset);
-        yOffset += 5 * codeLines.length;
+        doc.setFont('Courier', 'normal');
+        addText(block.data.code || '', 10);
+        doc.setFont(undefined, 'normal');
         break;
       case 'image':
-        doc.addImage(block.data.file.url, 'JPEG', 10, yOffset, 180, 100);
-        yOffset += 105;
+        try {
+          const img = new Image();
+          img.src = block.data.file.url;
+          doc.addImage(img, 'JPEG', 10, yOffset, 180, 100);
+          yOffset += 105;
+        } catch (error) {
+          console.error('Error adding image to PDF:', error);
+          addText('[Image: ' + (block.data.caption || 'Untitled') + ']', 12);
+        }
         break;
       case 'delimiter':
-        doc.setFontSize(12);
-        doc.text('---', 10, yOffset);
+        doc.setDrawColor(200);
+        doc.line(10, yOffset, 190, yOffset);
         yOffset += 10;
         break;
     }
@@ -193,6 +222,17 @@ export const exportToRTF = (content) => {
       case 'delimiter':
         rtf += `---\n\\par\n`;
         break;
+      case 'nestedlist':
+        const renderNestedListRTF = (items, level = 0) => {
+          items.forEach((item) => {
+            rtf += `${'\t'.repeat(level)}\\bullet ${item.content}\\par\n`;
+            if (item.items && item.items.length > 0) {
+              renderNestedListRTF(item.items, level + 1);
+            }
+          });
+        };
+        renderNestedListRTF(block.data.items);
+        break;
     }
   });
   
@@ -291,6 +331,17 @@ export const exportToCSV = (content) => {
         return [['Image', '', block.data.caption]];
       case 'delimiter':
         return [['Delimiter', '', '---']];
+      case 'nestedlist':
+        const flattenNestedList = (items, level = 0) => {
+          return items.flatMap(item => {
+            const result = [['Nested List Item', level, item.content]];
+            if (item.items && item.items.length > 0) {
+              return result.concat(flattenNestedList(item.items, level + 1));
+            }
+            return result;
+          });
+        };
+        return flattenNestedList(block.data.items);
       default:
         return [];
     }
