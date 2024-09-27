@@ -222,6 +222,20 @@ export function usePagesManager() {
     fetchPages()
   }, [fetchPages])
 
+  const updateTagInPages = useCallback((oldName, updatedTag) => {
+    setPages(prevPages => prevPages.map(page => ({
+      ...page,
+      tagNames: page.tagNames?.map(tagName => tagName === oldName ? updatedTag.name : tagName)
+    })))
+    if (currentPage) {
+      setCurrentPage(prevPage => ({
+        ...prevPage,
+        tagNames: prevPage.tagNames?.map(tagName => tagName === oldName ? updatedTag.name : tagName)
+      }))
+    }
+    updateTag(oldName, updatedTag) // This calls the updateTag function from useTagStore
+  }, [currentPage, updateTag])
+
   return {
     pages,
     setPages,
@@ -244,6 +258,7 @@ export function usePagesManager() {
     isPasswordModalOpen,
     setIsPasswordModalOpen,
     pageToAccess,
-    setPageToAccess
+    setPageToAccess,
+    updateTagInPages
   }
 }

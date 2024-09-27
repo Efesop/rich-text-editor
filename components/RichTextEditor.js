@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
@@ -30,6 +30,7 @@ import { usePagesManager } from '@/hooks/usePagesManager'
 import ThemeToggle from '@/components/ThemeToggle'
 import SearchInput from '@/components/SearchInput'
 import PageItem from '@/components/PageItem'
+import SortDropdown from '@/components/SortDropdown'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
 
@@ -62,7 +63,8 @@ export default function RichTextEditor() {
     isPasswordModalOpen,
     setIsPasswordModalOpen,
     pageToAccess,
-    setPageToAccess
+    setPageToAccess,
+    updateTagInPages
   } = usePagesManager()
 
   const { theme } = useTheme()
@@ -80,6 +82,7 @@ export default function RichTextEditor() {
   const [passwordInput, setPasswordInput] = useState('')
   const [passwordAction, setPasswordAction] = useState('')
   const [passwordError, setPasswordError] = useState('')
+  const [sortOption, setSortOption] = useState('default')
 
   const [isClient, setIsClient] = useState(false)
 
@@ -318,6 +321,32 @@ export default function RichTextEditor() {
     });
   }, [pages, searchTerm, searchFilter]);
 
+  const sortPages = useCallback((pages, option) => {
+    switch (option) {
+      case 'a-z':
+        return [...pages].sort((a, b) => a.title.localeCompare(b.title))
+      case 'z-a':
+        return [...pages].sort((a, b) => b.title.localeCompare(a.title))
+      case 'newest':
+        return [...pages].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      case 'oldest':
+        return [...pages].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+      case 'tag':
+        return [...pages].sort((a, b) => {
+          const aTag = a.tagNames && a.tagNames[0] ? a.tagNames[0] : ''
+          const bTag = b.tagNames && b.tagNames[0] ? b.tagNames[0] : ''
+          return aTag.localeCompare(bTag)
+        })
+      default:
+        return pages
+    }
+  }, [])
+
+  // Use useMemo to sort the pages based on the current sortOption
+  const sortedPages = useMemo(() => {
+    return sortPages(filteredPages(), sortOption)
+  }, [filteredPages, sortOption, sortPages])
+
   useEffect(() => {
     if (currentPage && currentPage.content) {
       setWordCount(calculateWordCount(currentPage.content));
@@ -339,14 +368,17 @@ export default function RichTextEditor() {
       <div className={`${sidebarOpen ? 'w-64' : 'w-16'} flex flex-col transition-all duration-300 ease-in-out ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'}`}>
         <div className={`p-4 flex ${sidebarOpen ? 'justify-between' : 'justify-center'} items-center`}>
           {sidebarOpen && <h1 className="text-2xl font-bold">Pages</h1>}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleNewPage}
-            className="hover:bg-gray-200 hover:text-primary-foreground"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center space-x-2">
+            <SortDropdown onSort={setSortOption} theme={theme} activeSortOption={sortOption} />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleNewPage}
+              className="hover:bg-gray-200 hover:text-primary-foreground"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         {sidebarOpen && (
           <div className="px-4 mb-5 pt-1">
@@ -361,7 +393,7 @@ export default function RichTextEditor() {
           </div>
         )}
         <ScrollArea className="flex-grow">
-          {filteredPages().map(page => (
+          {sortPages(filteredPages(), sortOption).map(page => (
             <PageItem
               key={page.id}
               page={page}
@@ -482,8 +514,14 @@ export default function RichTextEditor() {
       <TagModal
         isOpen={isTagModalOpen}
         onClose={() => setIsTagModalOpen(false)}
-        onConfirm={(tag) => {
-          addTagToPage(currentPage.id, tag)
+        onConfirm={(updatedTag) => {
+          if (tagToEdit) {
+            // Update existing tag
+            updateTagInPages(tagToEdit.name, updatedTag)
+          } else {
+            // Add new tag
+            addTagToPage(currentPage.id, updatedTag)
+          }
           setIsTagModalOpen(false)
         }}
         onDelete={(tagName) => {

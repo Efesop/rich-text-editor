@@ -38,6 +38,9 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
     if (isOpen) {
       setTagName(tag?.name || '')
       setTagColor(tag?.color || colors[0])
+      setSelectedColorIndex(
+        tag?.color ? colors.findIndex(c => JSON.stringify(c) === JSON.stringify(tag.color)) : 0
+      )
       setShowDeleteWarning(false)
       setIsDropdownOpen(false)
       inputRef.current?.focus()
