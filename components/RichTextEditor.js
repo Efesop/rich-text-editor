@@ -379,7 +379,7 @@ export default function RichTextEditor() {
         <Button
           variant="ghost"
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="self-start ml-4 mb-4"
+          className="self-start ml-2 mb-4"
         >
           {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </Button>

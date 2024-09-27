@@ -32,7 +32,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
       }`}
       onClick={() => onSelect(page)}
     >
-      <div className="flex items-center flex-1 min-w-0 pl-3">
+      <div className="flex items-center flex-1 min-w-0 pl-2">
         {sidebarOpen ? (
           <>
             <span className="truncate mr-2">{page.title}</span>
@@ -54,7 +54,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
           </>
         ) : (
           <span className="truncate mr-2" title={page.title}>
-            {page.title.slice(0, 2)}...
+            {page.title.slice(0, 3)}...
           </span>
         )}
       </div>
