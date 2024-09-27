@@ -337,7 +337,18 @@ export default function RichTextEditor() {
     <div className={`flex h-screen ${theme === 'dark' ? 'dark bg-gray-900 text-white' : 'bg-white text-black'}`}>
       {/* Sidebar */}
       <div className={`${sidebarOpen ? 'w-64' : 'w-16'} flex flex-col transition-all duration-300 ease-in-out ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'}`}>
-        <div className="px-4 mb-0.2 pt-6">
+        <div className="p-4 pt-6 flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Pages</h1>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleNewPage}
+            className="hover:bg-gray-200 hover:text-primary-foreground"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="px-4 mb-5 pt-1">
           <SearchInput
             value={searchTerm}
             onChange={setSearchTerm}
@@ -346,12 +357,6 @@ export default function RichTextEditor() {
             placeholder={searchPlaceholders[searchFilter]}
             theme={theme}
           />
-        </div>
-        <div className="flex items-center justify-between p-4">
-          <Button variant="ghost" onClick={handleNewPage}>
-            <Plus className="h-4 w-4" />
-            {sidebarOpen && <span className="ml-2">New Page</span>}
-          </Button>
         </div>
         <ScrollArea className="h-[calc(100vh-60px)]">
           {filteredPages().map(page => (
