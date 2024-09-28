@@ -315,6 +315,19 @@ export function usePagesManager() {
     })
   }, [savePagesToStorage])
 
+  const renameFolder = useCallback((folderId, newName) => {
+    setPages(prevPages => {
+      const updatedPages = prevPages.map(item => {
+        if (item.id === folderId && item.type === 'folder') {
+          return { ...item, title: newName }
+        }
+        return item
+      })
+      savePagesToStorage(updatedPages)
+      return updatedPages
+    })
+  }, [savePagesToStorage])
+
   return {
     pages,
     setPages,
@@ -342,6 +355,7 @@ export function usePagesManager() {
     createFolder,
     deleteFolder,
     addPageToFolder,
-    removePageFromFolder
+    removePageFromFolder,
+    renameFolder
   }
 }

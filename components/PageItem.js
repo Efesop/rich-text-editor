@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "./ui/button"
-import { MoreVertical, Lock, FolderMinus } from 'lucide-react'
+import { FileText, Lock, Unlock, Trash2, MoreVertical } from 'lucide-react'
 
 const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, onRemoveFromFolder, sidebarOpen, theme, tags, tempUnlockedPages }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
@@ -21,7 +21,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
 
   return (
     <div
-      className={`flex items-center justify-between py-0.5 px-2 cursor-pointer text-sm w-full ${
+      className={`flex items-center justify-between py-0.1 px-2 cursor-pointer text-sm w-full ${
         isActive
           ? theme === 'dark'
             ? 'bg-gray-700'
@@ -90,6 +90,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
                     setIsDropdownOpen(false)
                   }}
                 >
+                  <FileText className="h-4 w-4 inline mr-2" />
                   Rename
                 </button>
                 <button
@@ -102,6 +103,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
                     setIsDropdownOpen(false)
                   }}
                 >
+                  <Trash2 className="h-4 w-4 inline mr-2" />
                   Delete
                 </button>
                 <button
@@ -114,7 +116,17 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
                     setIsDropdownOpen(false)
                   }}
                 >
-                  {page.password ? 'Unlock' : 'Lock'}
+                  {page.password ? (
+                    <>
+                      <Unlock className="h-4 w-4 inline mr-2" />
+                      Unlock
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="h-4 w-4 inline mr-2" />
+                      Lock
+                    </>
+                  )}
                 </button>
                 {onRemoveFromFolder && (
                   <button

@@ -72,6 +72,7 @@ export default function RichTextEditor() {
     deleteFolder,
     addPageToFolder,
     removePageFromFolder,
+    renameFolder
   } = usePagesManager()
 
   const { theme } = useTheme()
@@ -448,6 +449,7 @@ export default function RichTextEditor() {
                     setIsAddToFolderModalOpen(true)
                   }}
                   onDeleteFolder={handleDeleteFolder}
+                  onRenameFolder={renameFolder}
                   theme={theme}
                   pages={pages}
                   onSelectPage={handlePageSelect}

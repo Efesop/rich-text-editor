@@ -116,10 +116,12 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
                       placeholder="Enter or select a tag"
                       value={tagName}
                       onChange={(e) => {
-                        setTagName(e.target.value)
-                        setIsDropdownOpen(true)
+                        const newValue = e.target.value.slice(0, 20);
+                        setTagName(newValue);
+                        setIsDropdownOpen(true);
                       }}
                       className="w-full pr-10"
+                      maxLength={20}
                     />
                     <Button
                       variant="ghost"
