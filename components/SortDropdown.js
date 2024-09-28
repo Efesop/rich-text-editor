@@ -6,11 +6,10 @@ const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
   const dropdownRef = useRef(null)
 
   const sortOptions = [
-    { value: 'default', label: 'Default' },
-    { value: 'a-z', label: 'A-Z' },
-    { value: 'z-a', label: 'Z-A' },
     { value: 'newest', label: 'Newest' },
     { value: 'oldest', label: 'Oldest' },
+    { value: 'a-z', label: 'A-Z' },
+    { value: 'z-a', label: 'Z-A' },
     { value: 'tag', label: 'By Tag' },
   ]
 

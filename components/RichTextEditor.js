@@ -82,7 +82,7 @@ export default function RichTextEditor() {
   const [passwordInput, setPasswordInput] = useState('')
   const [passwordAction, setPasswordAction] = useState('')
   const [passwordError, setPasswordError] = useState('')
-  const [sortOption, setSortOption] = useState('default')
+  const [sortOption, setSortOption] = useState('newest')
 
   const [isClient, setIsClient] = useState(false)
 
@@ -327,8 +327,6 @@ export default function RichTextEditor() {
         return [...pages].sort((a, b) => a.title.localeCompare(b.title))
       case 'z-a':
         return [...pages].sort((a, b) => b.title.localeCompare(a.title))
-      case 'newest':
-        return [...pages].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       case 'oldest':
         return [...pages].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
       case 'tag':
@@ -337,8 +335,9 @@ export default function RichTextEditor() {
           const bTag = b.tagNames && b.tagNames[0] ? b.tagNames[0] : ''
           return aTag.localeCompare(bTag)
         })
+      case 'newest':
       default:
-        return pages
+        return [...pages].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     }
   }, [])
 
