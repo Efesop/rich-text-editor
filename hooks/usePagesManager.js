@@ -78,13 +78,25 @@ export function usePagesManager() {
   const deletePage = useCallback(async (page) => {
     setPages(prevPages => {
       const updatedPages = prevPages.filter(p => p.id !== page.id)
+      if (updatedPages.length === 0) {
+        // If all pages are deleted, create a new default page
+        const newPage = {
+          id: Date.now().toString(),
+          title: 'New Page',
+          content: { time: Date.now(), blocks: [] },
+          tags: [],
+          createdAt: new Date().toISOString(),
+          password: null
+        }
+        updatedPages.push(newPage)
+      }
       savePagesToStorage(updatedPages)
       return updatedPages
     })
     if (currentPage.id === page.id) {
       setCurrentPage(pages[0] || null)
     }
-  }, [currentPage, pages])
+  }, [currentPage, pages, savePagesToStorage])
 
   const renamePage = useCallback(async (page, newTitle) => {
     const updatedPage = { ...page, title: newTitle }
