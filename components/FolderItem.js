@@ -12,12 +12,14 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, theme, pages, on
     setIsExpanded(!isExpanded)
   }
 
+  const expandedBgColor = theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'
+
   return (
-    <div>
+    <div className={`${isExpanded ? expandedBgColor : ''}`}>
       <div className="flex items-center justify-between pt-3 pb-0 px-2 text-sm cursor-pointer" onClick={toggleExpand}>
         <div className="flex items-center pl-2">
           {isExpanded ? (
-            <FolderOpen className="h-4 w- mr-2" />
+            <FolderOpen className="h-4 w-4 mr-2" />
           ) : (
             <Folder className="h-4 w-4 mr-2" />
           )}
