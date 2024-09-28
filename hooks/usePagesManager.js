@@ -248,6 +248,73 @@ export function usePagesManager() {
     updateTag(oldName, updatedTag) // This calls the updateTag function from useTagStore
   }, [currentPage, updateTag])
 
+  const createFolder = useCallback((folderName) => {
+    const newFolder = {
+      id: Date.now().toString(),
+      title: folderName,
+      type: 'folder',
+      pages: []
+    }
+    setPages(prevPages => {
+      const updatedPages = [...prevPages, newFolder]
+      savePagesToStorage(updatedPages)
+      return updatedPages
+    })
+  }, [savePagesToStorage])
+
+  const deleteFolder = useCallback((folderId) => {
+    setPages(prevPages => {
+      const updatedPages = prevPages.filter(item => {
+        if (item.id === folderId && item.type === 'folder') {
+          // Move pages from the deleted folder back to the root
+          item.pages.forEach(pageId => {
+            const page = prevPages.find(p => p.id === pageId)
+            if (page) {
+              delete page.folderId
+            }
+          })
+          return false
+        }
+        return true
+      })
+      savePagesToStorage(updatedPages)
+      return updatedPages
+    })
+  }, [savePagesToStorage])
+
+  const addPageToFolder = useCallback((pageId, folderId) => {
+    setPages(prevPages => {
+      const updatedPages = prevPages.map(item => {
+        if (item.id === folderId && item.type === 'folder') {
+          return { ...item, pages: [...item.pages, pageId] }
+        }
+        if (item.id === pageId) {
+          return { ...item, folderId }
+        }
+        return item
+      })
+      savePagesToStorage(updatedPages)
+      return updatedPages
+    })
+  }, [savePagesToStorage])
+
+  const removePageFromFolder = useCallback((pageId, folderId) => {
+    setPages(prevPages => {
+      const updatedPages = prevPages.map(item => {
+        if (item.id === folderId && item.type === 'folder') {
+          return { ...item, pages: item.pages.filter(id => id !== pageId) }
+        }
+        if (item.id === pageId) {
+          const { folderId, ...pageWithoutFolder } = item
+          return pageWithoutFolder
+        }
+        return item
+      })
+      savePagesToStorage(updatedPages)
+      return updatedPages
+    })
+  }, [savePagesToStorage])
+
   return {
     pages,
     setPages,
@@ -271,6 +338,10 @@ export function usePagesManager() {
     setIsPasswordModalOpen,
     pageToAccess,
     setPageToAccess,
-    updateTagInPages
+    updateTagInPages,
+    createFolder,
+    deleteFolder,
+    addPageToFolder,
+    removePageFromFolder
   }
 }

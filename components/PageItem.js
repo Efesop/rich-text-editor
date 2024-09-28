@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "./ui/button"
-import { MoreVertical, Lock } from 'lucide-react'
+import { MoreVertical, Lock, FolderMinus } from 'lucide-react'
 
-const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, sidebarOpen, theme, tags, tempUnlockedPages }) => {
+const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, onRemoveFromFolder, sidebarOpen, theme, tags, tempUnlockedPages }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
 
@@ -63,6 +63,18 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
       <div className="flex items-center space-x-1">
         {page.password && page.password.hash && !tempUnlockedPages.has(page.id) && (
           <Lock className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`} />
+        )}
+        {onRemoveFromFolder && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation()
+              onRemoveFromFolder()
+            }}
+          >
+            <FolderMinus className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`} />
+          </Button>
         )}
         <div ref={dropdownRef}>
           <Button

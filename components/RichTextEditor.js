@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, X, ChevronDown, Lock } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, X, ChevronDown, Lock, FolderPlus } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Sun, Moon } from 'lucide-react'
 import { RenameModal } from '@/components/RenameModal'
@@ -31,6 +31,9 @@ import ThemeToggle from '@/components/ThemeToggle'
 import SearchInput from '@/components/SearchInput'
 import PageItem from '@/components/PageItem'
 import SortDropdown from '@/components/SortDropdown'
+import { FolderModal } from '@/components/FolderModal'
+import { AddPageToFolderModal } from './AddPageToFolderModal'
+import { FolderItem } from './FolderItem'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
 
@@ -64,7 +67,11 @@ export default function RichTextEditor() {
     setIsPasswordModalOpen,
     pageToAccess,
     setPageToAccess,
-    updateTagInPages
+    updateTagInPages,
+    createFolder,
+    deleteFolder,
+    addPageToFolder,
+    removePageFromFolder,
   } = usePagesManager()
 
   const { theme } = useTheme()
@@ -85,6 +92,9 @@ export default function RichTextEditor() {
   const [sortOption, setSortOption] = useState('newest')
 
   const [isClient, setIsClient] = useState(false)
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false)
+  const [isAddToFolderModalOpen, setIsAddToFolderModalOpen] = useState(false)
+  const [selectedFolderId, setSelectedFolderId] = useState(null)
 
   useEffect(() => {
     setIsClient(true)
@@ -300,6 +310,9 @@ export default function RichTextEditor() {
 
   const filteredPages = useCallback(() => {
     return pages.filter(page => {
+      if (page.type === 'folder') {
+        return page.title.toLowerCase().includes(searchTerm.toLowerCase())
+      }
       if (searchTerm === '') return true;
       
       const lowercaseSearchTerm = searchTerm.toLowerCase();
@@ -352,6 +365,26 @@ export default function RichTextEditor() {
     }
   }, [currentPage, calculateWordCount]);
 
+  const handleCreateFolder = (folderName) => {
+    createFolder(folderName)
+    setIsFolderModalOpen(false)
+  }
+
+  const handleDeleteFolder = (folderId) => {
+    if (window.confirm('Are you sure you want to delete this folder?')) {
+      deleteFolder(folderId)
+    }
+  }
+
+  const handleAddPageToFolder = (pageId, folderId) => {
+    addPageToFolder(pageId, folderId)
+    setIsAddToFolderModalOpen(false)
+  }
+
+  const handleRemovePageFromFolder = (pageId, folderId) => {
+    removePageFromFolder(pageId, folderId)
+  }
+
   if (!isClient) {
     return null // or a loading indicator
   }
@@ -379,6 +412,16 @@ export default function RichTextEditor() {
             >
               <Plus className="h-4 w-4" />
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsFolderModalOpen(true)}
+              className={`hover:bg-gray-200 hover:text-primary-foreground ${
+                theme === 'dark' ? 'hover:bg-gray-700 hover:text-white' : 'hover:bg-gray-200 hover:text-primary-foreground'
+              }`}
+            >
+              <FolderPlus className="h-4 w-4" />
+            </Button>
           </div>
         </div>
         {sidebarOpen && (
@@ -394,21 +437,45 @@ export default function RichTextEditor() {
           </div>
         )}
         <ScrollArea className="flex-grow">
-          {sortPages(filteredPages(), sortOption).map(page => (
-            <PageItem
-              key={page.id}
-              page={page}
-              isActive={currentPage?.id === page.id}
-              onSelect={handlePageSelect}
-              onRename={handleRenamePage}
-              onDelete={handleDeletePage}
-              onToggleLock={handleToggleLock}
-              sidebarOpen={sidebarOpen}
-              theme={theme}
-              tags={tags}
-              tempUnlockedPages={tempUnlockedPages}
-            />
-          ))}
+          {sortPages(filteredPages(), sortOption).map(item => {
+            if (item.type === 'folder') {
+              return (
+                <FolderItem
+                  key={item.id}
+                  folder={item}
+                  onAddPage={() => {
+                    setSelectedFolderId(item.id)
+                    setIsAddToFolderModalOpen(true)
+                  }}
+                  onDeleteFolder={handleDeleteFolder}
+                  theme={theme}
+                  pages={pages}
+                  onSelectPage={handlePageSelect}
+                  currentPageId={currentPage?.id}
+                  onRemovePageFromFolder={handleRemovePageFromFolder}
+                />
+              )
+            }
+            // Only render pages that are not in a folder
+            if (!item.folderId) {
+              return (
+                <PageItem
+                  key={item.id}
+                  page={item}
+                  isActive={currentPage?.id === item.id}
+                  onSelect={handlePageSelect}
+                  onRename={handleRenamePage}
+                  onDelete={handleDeletePage}
+                  onToggleLock={handleToggleLock}
+                  sidebarOpen={sidebarOpen}
+                  theme={theme}
+                  tags={tags}
+                  tempUnlockedPages={tempUnlockedPages}
+                />
+              )
+            }
+            return null
+          })}
         </ScrollArea>
         <Button
           variant="ghost"
@@ -546,6 +613,22 @@ export default function RichTextEditor() {
         password={passwordInput}
         onPasswordChange={setPasswordInput}
         error={passwordError}
+      />
+
+      <FolderModal
+        isOpen={isFolderModalOpen}
+        onClose={() => setIsFolderModalOpen(false)}
+        onConfirm={handleCreateFolder}
+        theme={theme}
+      />
+
+      <AddPageToFolderModal
+        isOpen={isAddToFolderModalOpen}
+        onClose={() => setIsAddToFolderModalOpen(false)}
+        onConfirm={handleAddPageToFolder}
+        pages={pages.filter(page => page.type !== 'folder' && !page.folderId)}
+        currentFolderId={selectedFolderId}
+        theme={theme}
       />
     </div>
   )
