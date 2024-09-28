@@ -36,9 +36,12 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, onRenameFolder, 
   }
 
   return (
-    <div className={`${isExpanded ? expandedBgColor : ''}`}>
-      <div className="flex items-center justify-between pt-3 pb-0 px-2 text-sm cursor-pointer" onClick={toggleExpand}>
-        <div className="flex items-center pl-2">
+    <div className="py-1"> {/* Added padding to the folder container */}
+      <div
+        className="flex items-center justify-between px-2 h-8 cursor-pointer text-sm" // Adjusted height to match PageItem
+        onClick={toggleExpand}
+      >
+        <div className="flex items-center">
           {isExpanded ? (
             <FolderOpen className="h-4 w-4 mr-2" />
           ) : (
@@ -69,7 +72,7 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, onRenameFolder, 
             e.stopPropagation()
             setIsOpen(!isOpen)
           }}
-          //className="h-6 w-6 p-0"
+          className="h-6 w-6 p-0" // Adjusted size to match PageItem
         >
           <MoreVertical className="h-4 w-4" />
         </Button>
@@ -117,21 +120,21 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, onRenameFolder, 
         </div>
       )}
       {isExpanded && (
-        <div className="mt-1">
+        <div> {/* Removed the ml-4 class */}
           {pages.filter(page => page.folderId === folder.id).map(page => (
             <PageItem
               key={page.id}
               page={page}
               isActive={currentPageId === page.id}
               onSelect={onSelectPage}
-              theme={theme}
-              sidebarOpen={sidebarOpen}
+              onRename={onRename}
+              onDelete={onDelete}
+              onToggleLock={onToggleLock}
               onRemoveFromFolder={() => onRemovePageFromFolder(page.id, folder.id)}
+              sidebarOpen={sidebarOpen}
+              theme={theme}
               tags={tags}
               tempUnlockedPages={tempUnlockedPages}
-              onDelete={onDelete}
-              onRename={onRename}
-              onToggleLock={onToggleLock}
             />
           ))}
         </div>

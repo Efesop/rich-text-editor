@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "./ui/button"
 import { FileText, Lock, Unlock, Trash2, MoreVertical } from 'lucide-react'
 
-const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, onRemoveFromFolder, sidebarOpen, theme, tags, tempUnlockedPages }) => {
+const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, onRemoveFromFolder, sidebarOpen, theme, tags, tempUnlockedPages, className }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
 
@@ -21,7 +21,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
 
   return (
     <div
-      className={`flex items-center justify-between py-0.1 px-2 cursor-pointer text-sm w-full ${
+      className={`flex items-center justify-between px-2 cursor-pointer text-sm w-full ${
         isActive
           ? theme === 'dark'
             ? 'bg-gray-700'
@@ -29,7 +29,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
           : theme === 'dark'
           ? 'hover:bg-gray-800'
           : 'hover:bg-gray-200'
-      }`}
+      } ${className}`} // Added className here
       onClick={() => onSelect(page)}
     >
       <div className="flex items-center flex-1 min-w-0 pl-2"> {/* Added pl-2 for indentation */}
