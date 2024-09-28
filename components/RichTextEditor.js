@@ -425,7 +425,7 @@ export default function RichTextEditor() {
           </div>
         </div>
         {sidebarOpen && (
-          <div className="px-4 mb-5 pt-1">
+          <div className="px-4 mb-3 pt-1">
             <SearchInput
               value={searchTerm}
               onChange={setSearchTerm}
@@ -453,6 +453,12 @@ export default function RichTextEditor() {
                   onSelectPage={handlePageSelect}
                   currentPageId={currentPage?.id}
                   onRemovePageFromFolder={handleRemovePageFromFolder}
+                  tags={tags}
+                  tempUnlockedPages={tempUnlockedPages}
+                  sidebarOpen={sidebarOpen}
+                  onDelete={handleDeletePage}
+                  onRename={handleRenamePage}
+                  onToggleLock={handleToggleLock}
                 />
               )
             }

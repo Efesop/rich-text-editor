@@ -32,7 +32,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
       }`}
       onClick={() => onSelect(page)}
     >
-      <div className="flex items-center flex-1 min-w-0 pl-2">
+      <div className="flex items-center flex-1 min-w-0 pl-2"> {/* Added pl-2 for indentation */}
         {sidebarOpen ? (
           <>
             <span className="truncate mr-2">{page.title}</span>
@@ -63,18 +63,6 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
       <div className="flex items-center space-x-1">
         {page.password && page.password.hash && !tempUnlockedPages.has(page.id) && (
           <Lock className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`} />
-        )}
-        {onRemoveFromFolder && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => {
-              e.stopPropagation()
-              onRemoveFromFolder()
-            }}
-          >
-            <FolderMinus className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`} />
-          </Button>
         )}
         <div ref={dropdownRef}>
           <Button
@@ -128,6 +116,21 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
                 >
                   {page.password ? 'Unlock' : 'Lock'}
                 </button>
+                {onRemoveFromFolder && (
+                  <button
+                    className={`block px-4 py-2 text-sm w-full text-left ${
+                      theme === 'dark' ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onRemoveFromFolder()
+                      setIsDropdownOpen(false)
+                    }}
+                  >
+                    <FolderMinus className="h-4 w-4 inline mr-2" />
+                    Remove from Folder
+                  </button>
+                )}
               </div>
             </div>
           )}
