@@ -123,6 +123,11 @@ export default function RichTextEditor() {
     } else {
       setCurrentPage(page)
     }
+
+    const editorContainer = document.getElementById('editorjs')
+    if (editorContainer) {
+      editorContainer.scrollTop = 0
+    }
   }
 
   const calculateWordCount = useCallback((content) => {
@@ -556,6 +561,7 @@ export default function RichTextEditor() {
         <div className={`flex-1 overflow-auto p-6 ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
           {currentPage && (
             <DynamicEditor
+              key={currentPage.id} // Add this line
               data={currentPage.content}
               onChange={handleEditorChange}
               holder="editorjs"
