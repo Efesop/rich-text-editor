@@ -14,28 +14,29 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, theme, pages, on
 
   return (
     <div>
-      <div className="flex items-center justify-between p-2 cursor-pointer" onClick={toggleExpand}>
-        <div className="flex items-center pl-2"> {/* Added pl-2 for indentation */}
+      <div className="flex items-center justify-between pt-3 pb-0 px-2 text-sm cursor-pointer" onClick={toggleExpand}>
+        <div className="flex items-center pl-2">
           {isExpanded ? (
-            <FolderOpen className="h-4 w-4 mr-2" />
+            <FolderOpen className="h-4 w- mr-2" />
           ) : (
             <Folder className="h-4 w-4 mr-2" />
           )}
-          <span>{folder.title}</span>
+          <span className="font-bold text-sm">{folder.title}</span>
         </div>
         <Button
           variant="ghost"
-          size="icon"
+          size="sm"
           onClick={(e) => {
             e.stopPropagation()
             setIsOpen(!isOpen)
           }}
+          //className="h-6 w-6 p-0"
         >
           <MoreVertical className="h-4 w-4" />
         </Button>
       </div>
       {isOpen && (
-        <div className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} ring-1 ring-black ring-opacity-5`}>
+        <div className={`absolute right-2 mt-2 w-48 rounded-md shadow-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} ring-1 ring-black ring-opacity-5`}>
           <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
             <button
               onClick={(e) => {
@@ -65,7 +66,7 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, theme, pages, on
         </div>
       )}
       {isExpanded && (
-        <div>
+        <div className="mt-1">
           {pages.filter(page => page.folderId === folder.id).map(page => (
             <PageItem
               key={page.id}
