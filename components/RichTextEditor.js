@@ -407,17 +407,6 @@ export default function RichTextEditor() {
         <div className={`p-4 flex ${sidebarOpen ? 'justify-between' : 'justify-center'} items-center`}>
           {sidebarOpen && <h1 className="text-2xl font-bold">Pages</h1>}
           <div className="flex items-center space-x-2">
-            {sidebarOpen && <SortDropdown onSort={setSortOption} theme={theme} activeSortOption={sortOption} sidebarOpen={sidebarOpen} />}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleNewPage}
-              className={`hover:bg-gray-200 hover:text-primary-foreground ${
-                theme === 'dark' ? 'hover:bg-gray-700 hover:text-white' : 'hover:bg-gray-200 hover:text-primary-foreground'
-              }`}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -427,6 +416,16 @@ export default function RichTextEditor() {
               }`}
             >
               <FolderPlus className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleNewPage}
+              className={`hover:bg-gray-200 hover:text-primary-foreground ${
+                theme === 'dark' ? 'hover:bg-gray-700 hover:text-white' : 'hover:bg-gray-200 hover:text-primary-foreground'
+              }`}
+            >
+              <Plus className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -490,13 +489,21 @@ export default function RichTextEditor() {
             return null
           })}
         </ScrollArea>
-        <Button
-          variant="ghost"
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="self-start ml-2 mb-4"
-        >
-          {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        </Button>
+        <div className="mt-auto p-2 flex items-center justify-between">
+          <Button
+            variant="ghost"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="self-start"
+            size="sm"
+          >
+            {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </Button>
+          {sidebarOpen && (
+            <div className="pr-3">
+              <SortDropdown onSort={setSortOption} theme={theme} activeSortOption={sortOption} sidebarOpen={sidebarOpen} />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Main Content */}
