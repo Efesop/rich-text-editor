@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "./ui/button"
-import { FileText, Lock, Unlock, Trash2, MoreVertical } from 'lucide-react'
+import { FileText, Lock, Unlock, Trash2, MoreVertical, FolderMinus } from 'lucide-react'
 
 const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, onRemoveFromFolder, sidebarOpen, theme, tags, tempUnlockedPages, className }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
+  const pageItemRef = useRef(null)
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -19,8 +21,48 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
     }
   }, [])
 
+  const positionDropdown = () => {
+    if (pageItemRef.current && dropdownRef.current) {
+      const pageRect = pageItemRef.current.getBoundingClientRect()
+      const dropdownRect = dropdownRef.current.getBoundingClientRect()
+      const viewportHeight = window.innerHeight
+      const viewportWidth = window.innerWidth
+
+      let top = pageRect.bottom
+      let left = pageRect.right - dropdownRect.width
+
+      // Adjust vertical position if dropdown would go off-screen
+      if (top + dropdownRect.height > viewportHeight) {
+        top = pageRect.top - dropdownRect.height
+      }
+
+      // Adjust horizontal position if dropdown would go off-screen
+      if (left < 0) {
+        left = pageRect.left
+      } else if (left + dropdownRect.width > viewportWidth) {
+        left = viewportWidth - dropdownRect.width
+      }
+
+      setDropdownPosition({ top, left })
+    }
+  }
+
+  useEffect(() => {
+    if (isDropdownOpen) {
+      positionDropdown()
+      window.addEventListener('scroll', positionDropdown)
+      window.addEventListener('resize', positionDropdown)
+    }
+
+    return () => {
+      window.removeEventListener('scroll', positionDropdown)
+      window.removeEventListener('resize', positionDropdown)
+    }
+  }, [isDropdownOpen])
+
   return (
     <div
+      ref={pageItemRef}
       className={`flex items-center justify-between px-2 cursor-pointer text-sm w-full ${
         isActive
           ? theme === 'dark'
@@ -29,7 +71,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
           : theme === 'dark'
           ? 'hover:bg-gray-800'
           : 'hover:bg-gray-200'
-      } ${className}`} // Added className here
+      } ${className}`}
       onClick={() => onSelect(page)}
     >
       <div className="flex items-center flex-1 min-w-0 pl-2"> {/* Added pl-2 for indentation */}
@@ -64,7 +106,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
         {page.password && page.password.hash && !tempUnlockedPages.has(page.id) && (
           <Lock className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`} />
         )}
-        <div ref={dropdownRef}>
+        <div>
           <Button
             variant="ghost"
             size="icon"
@@ -76,9 +118,17 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
             <MoreVertical className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`} />
           </Button>
           {isDropdownOpen && (
-            <div className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg ${
-              theme === 'dark' ? 'bg-gray-800' : 'bg-white'
-            } ring-1 ring-black ring-opacity-5`}>
+            <div 
+              ref={dropdownRef}
+              className={`fixed w-48 rounded-md shadow-lg ${
+                theme === 'dark' ? 'bg-gray-800' : 'bg-white'
+              } ring-1 ring-black ring-opacity-5`}
+              style={{
+                top: `${dropdownPosition.top}px`,
+                left: `${dropdownPosition.left}px`,
+                zIndex: 1000
+              }}
+            >
               <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
                 <button
                   className={`block px-4 py-2 text-sm w-full text-left ${

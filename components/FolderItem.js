@@ -9,6 +9,8 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, onRenameFolder, 
   const [isRenaming, setIsRenaming] = useState(false)
   const [newFolderName, setNewFolderName] = useState(folder.title)
   const dropdownRef = useRef(null)
+  const folderRef = useRef(null)
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -35,10 +37,49 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, onRenameFolder, 
     setIsRenaming(false)
   }
 
+  const positionDropdown = () => {
+    if (folderRef.current && dropdownRef.current) {
+      const folderRect = folderRef.current.getBoundingClientRect()
+      const dropdownRect = dropdownRef.current.getBoundingClientRect()
+      const viewportHeight = window.innerHeight
+      const viewportWidth = window.innerWidth
+
+      let top = folderRect.bottom
+      let left = folderRect.right - dropdownRect.width
+
+      // Adjust vertical position if dropdown would go off-screen
+      if (top + dropdownRect.height > viewportHeight) {
+        top = folderRect.top - dropdownRect.height
+      }
+
+      // Adjust horizontal position if dropdown would go off-screen
+      if (left < 0) {
+        left = folderRect.left
+      } else if (left + dropdownRect.width > viewportWidth) {
+        left = viewportWidth - dropdownRect.width
+      }
+
+      setDropdownPosition({ top, left })
+    }
+  }
+
+  useEffect(() => {
+    if (isOpen) {
+      positionDropdown()
+      window.addEventListener('scroll', positionDropdown)
+      window.addEventListener('resize', positionDropdown)
+    }
+
+    return () => {
+      window.removeEventListener('scroll', positionDropdown)
+      window.removeEventListener('resize', positionDropdown)
+    }
+  }, [isOpen])
+
   return (
-    <div className="py-1"> {/* Added padding to the folder container */}
+    <div className="py-1" ref={folderRef}>
       <div
-        className="flex items-center justify-between px-2 h-8 cursor-pointer text-sm" // Adjusted height to match PageItem
+        className={`flex items-center justify-between px-2 h-8 cursor-pointer text-sm ${isExpanded ? expandedBgColor : ''}`}
         onClick={toggleExpand}
       >
         <div className="flex items-center">
@@ -78,7 +119,15 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, onRenameFolder, 
         </Button>
       </div>
       {isOpen && (
-        <div ref={dropdownRef} className={`absolute right-2 mt-2 w-48 rounded-md shadow-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} ring-1 ring-black ring-opacity-5`}>
+        <div 
+          ref={dropdownRef} 
+          className={`fixed w-48 rounded-md shadow-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} ring-1 ring-black ring-opacity-5`}
+          style={{
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+            zIndex: 1000
+          }}
+        >
           <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
             <button
               onClick={(e) => {
