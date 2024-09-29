@@ -104,10 +104,16 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, onRenameFolder, 
               autoFocus
             />
           ) : (
-            <span className="truncate text-sm font-medium">{folder.title}</span>
+            sidebarOpen ? (
+              <span className="truncate text-sm font-medium">{folder.title}</span>
+            ) : (
+              <span className="truncate text-sm font-medium" title={folder.title}>
+                {folder.title.slice(0, 2)}...
+              </span>
+            )
           )}
         </div>
-        {isHovered && (
+        {isHovered && sidebarOpen && (
           <Button
             variant="ghost"
             size="sm"

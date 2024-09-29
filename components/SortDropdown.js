@@ -4,6 +4,8 @@ import { ArrowUpDown, Check } from 'lucide-react'
 const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef(null)
+  const buttonRef = useRef(null)
+  const [dropdownPosition, setDropdownPosition] = useState('bottom')
 
   const sortOptions = [
     { value: 'newest', label: 'Newest' },
@@ -26,6 +28,33 @@ const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
     }
   }, [])
 
+  const calculateDropdownPosition = () => {
+    if (buttonRef.current && dropdownRef.current) {
+      const buttonRect = buttonRef.current.getBoundingClientRect()
+      const dropdownRect = dropdownRef.current.getBoundingClientRect()
+      const viewportHeight = window.innerHeight
+
+      if (buttonRect.bottom + dropdownRect.height > viewportHeight) {
+        setDropdownPosition('top')
+      } else {
+        setDropdownPosition('bottom')
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (isOpen) {
+      calculateDropdownPosition()
+      window.addEventListener('resize', calculateDropdownPosition)
+      window.addEventListener('scroll', calculateDropdownPosition)
+    }
+
+    return () => {
+      window.removeEventListener('resize', calculateDropdownPosition)
+      window.removeEventListener('scroll', calculateDropdownPosition)
+    }
+  }, [isOpen])
+
   const activeSort = sortOptions.find(option => option.value === activeSortOption)
 
   if (!sidebarOpen) {
@@ -33,8 +62,9 @@ const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
   }
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative">
       <button
+        ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
         className={`p-1 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
           theme === 'dark' ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-800 hover:text-white'
@@ -44,9 +74,12 @@ const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
         <ArrowUpDown className="w-4 h-4" />
       </button>
       {isOpen && (
-        <div className={`absolute z-10 mt-1 w-32 rounded-md shadow-lg ${
-          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-        } border`}>
+        <div 
+          ref={dropdownRef}
+          className={`absolute z-10 w-32 rounded-md shadow-lg ${
+            theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+          } border ${dropdownPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'}`}
+        >
           {sortOptions.map((option) => (
             <button
               key={option.value}

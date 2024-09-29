@@ -407,16 +407,18 @@ export default function RichTextEditor() {
         <div className={`p-4 flex ${sidebarOpen ? 'justify-between' : 'justify-center'} items-center`}>
           {sidebarOpen && <h1 className="text-2xl font-bold">Pages</h1>}
           <div className="flex items-center space-x-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsFolderModalOpen(true)}
-              className={`hover:bg-gray-200 hover:text-primary-foreground ${
-                theme === 'dark' ? 'hover:bg-gray-700 hover:text-white' : 'hover:bg-gray-200 hover:text-primary-foreground'
-              }`}
-            >
-              <FolderPlus className="h-4 w-4" />
-            </Button>
+            {sidebarOpen && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsFolderModalOpen(true)}
+                className={`hover:bg-gray-200 hover:text-primary-foreground ${
+                  theme === 'dark' ? 'hover:bg-gray-700 hover:text-white' : 'hover:bg-gray-200 hover:text-primary-foreground'
+                }`}
+              >
+                <FolderPlus className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
