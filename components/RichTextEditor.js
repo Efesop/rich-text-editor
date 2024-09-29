@@ -489,7 +489,7 @@ export default function RichTextEditor() {
             return null
           })}
         </ScrollArea>
-        <div className="mt-auto p-2 flex items-center justify-between">
+        <div className="mt-auto p-2 flex items-center justify-between border-t border-gray-250">
           <Button
             variant="ghost"
             onClick={() => setSidebarOpen(!sidebarOpen)}
