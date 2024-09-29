@@ -121,7 +121,7 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, onRenameFolder, 
               e.stopPropagation()
               setIsOpen(!isOpen)
             }}
-            className="h-6 w-6 p-0 mr-2"
+            className="h-6 w-6 p-0 mr-0"
           >
             <MoreVertical className="h-4 w-4" />
           </Button>

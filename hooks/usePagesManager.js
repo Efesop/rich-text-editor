@@ -45,7 +45,7 @@ export function usePagesManager() {
   const handleNewPage = useCallback(() => {
     const newPage = {
       id: Date.now().toString(),
-      title: 'New Page',
+      title: 'New Page'.slice(0, 15),
       content: {
         time: Date.now(),
         blocks: [],
@@ -169,11 +169,12 @@ export function usePagesManager() {
   }, [setPages, _setCurrentPage, setTempUnlockedPages, savePagesToStorage])
 
   const addTagToPage = useCallback((pageId, tag) => {
-    addTag(tag) // This will only add the tag if it doesn't already exist
+    const trimmedTag = { ...tag, name: tag.name.slice(0, 15) }
+    addTag(trimmedTag) // This will only add the tag if it doesn't already exist
     setPages(prevPages => {
       const updatedPages = prevPages.map(page => 
         page.id === pageId 
-          ? { ...page, tagNames: [...new Set([...(page.tagNames || []), tag.name])] }
+          ? { ...page, tagNames: [...new Set([...(page.tagNames || []), trimmedTag.name])] }
           : page
       )
       // Use a setTimeout to ensure this runs after the state has been updated
@@ -183,7 +184,7 @@ export function usePagesManager() {
     if (currentPage && currentPage.id === pageId) {
       setCurrentPage(prevPage => ({ 
         ...prevPage, 
-        tagNames: [...new Set([...(prevPage.tagNames || []), tag.name])] 
+        tagNames: [...new Set([...(prevPage.tagNames || []), trimmedTag.name])] 
       }))
     }
     // Add this line to save the updated pages

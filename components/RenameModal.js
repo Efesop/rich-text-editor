@@ -5,6 +5,7 @@ export function RenameModal({ isOpen, onClose, onConfirm, title, onTitleChange }
   const { theme } = useTheme();
   const inputRef = useRef(null);
   const modalRef = useRef(null);
+  const maxLength = 20;
 
   useEffect(() => {
     if (isOpen) {
@@ -55,13 +56,17 @@ export function RenameModal({ isOpen, onClose, onConfirm, title, onTitleChange }
           ref={inputRef}
           type="text"
           value={title}
-          onChange={(e) => onTitleChange(e.target.value)}
-          className={`w-full p-2 mb-4 text-sm border rounded ${
+          onChange={(e) => onTitleChange(e.target.value.slice(0, maxLength))}
+          maxLength={maxLength}
+          className={`w-full p-2 mb-1 text-sm border rounded ${
             theme === 'dark' 
               ? 'bg-gray-700 border-gray-600 text-white' 
               : 'bg-white border-gray-300 text-black'
           }`}
         />
+        <p className={`text-xs mb-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+          {title.length}/{maxLength} characters
+        </p>
         <div className="flex justify-end space-x-2">
           <button
             onClick={onClose}

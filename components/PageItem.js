@@ -81,15 +81,15 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
       <div className="flex items-center flex-1 min-w-0 pl-2">
         {sidebarOpen ? (
           <>
-            <span className="truncate mr-2">{page.title}</span>
-            <div className="flex flex-wrap gap-0.5 min-h-[0.5rem]"> {/* Add min-height */}
+            <span className="truncate mr-2 flex-shrink-0 max-w-[60%]">{page.title}</span>
+            <div className="flex flex-wrap gap-0.5 min-h-[0.5rem] flex-shrink overflow-hidden">
               {page.tagNames && page.tagNames.map((tagName, index) => {
                 const tag = tags.find(t => t.name === tagName)
                 if (!tag) return null
                 return (
                   <span
                     key={index}
-                    className={`px-1 rounded text-xs ${
+                    className={`px-1 rounded text-xs truncate max-w-[40%] ${
                       theme === 'dark' ? 'text-gray-900' : 'text-gray-800'
                     }`}
                     style={{ backgroundColor: tag.color.background, border: `1px solid ${tag.color.border}` }}

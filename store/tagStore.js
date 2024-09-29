@@ -5,8 +5,9 @@ const useTagStore = create((set, get) => ({
   isLoaded: false,
   addTag: (tag) => {
     set((state) => {
-      if (!state.tags.some(t => t.name === tag.name)) {
-        const newTags = [...state.tags, tag];
+      const trimmedTag = { ...tag, name: tag.name.slice(0, 15) };
+      if (!state.tags.some(t => t.name === trimmedTag.name)) {
+        const newTags = [...state.tags, trimmedTag];
         get().saveTags(newTags); // Save all tags
         return { tags: newTags };
       }

@@ -34,6 +34,7 @@ import SortDropdown from '@/components/SortDropdown'
 import { FolderModal } from '@/components/FolderModal'
 import { AddPageToFolderModal } from './AddPageToFolderModal'
 import { FolderItem } from './FolderItem'
+import { FolderIcon } from 'lucide-react'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
 
@@ -237,13 +238,13 @@ export default function RichTextEditor() {
 
   const handleRenamePage = useCallback((page) => {
     setPageToRename(page)
-    setNewPageTitle(page.title)
+    setNewPageTitle(page.title.slice(0, 15))
     setIsRenameModalOpen(true)
   }, [])
 
   const confirmRename = useCallback(async () => {
     if (pageToRename && newPageTitle && newPageTitle !== pageToRename.title) {
-      await renamePage(pageToRename, newPageTitle)
+      await renamePage(pageToRename, newPageTitle.slice(0, 15))
     }
     setIsRenameModalOpen(false)
     setPageToRename(null)
@@ -513,12 +514,24 @@ export default function RichTextEditor() {
         {/* Header */}
         <div className={`flex flex-col p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
           <div className="flex items-center justify-between mb-2">
-            <h1 
-              className="text-2xl font-bold cursor-pointer" 
-              onClick={() => handleRenamePage(currentPage)}
-            >
-              {currentPage?.title}
-            </h1>
+            <div className="flex items-center">
+              <h1 
+                className="text-2xl font-bold cursor-pointer" 
+                onClick={() => handleRenamePage(currentPage)}
+              >
+                {currentPage?.title}
+              </h1>
+              {currentPage?.folderId && (
+                <span className={`ml-2 px-1.5 py-0.5 text-xs font-medium rounded-md ${
+                  theme === 'dark' 
+                    ? 'bg-gray-700 text-gray-300 border border-gray-600' 
+                    : 'bg-gray-100 text-gray-600 border border-gray-300'
+                }`}>
+                  <FolderIcon className="w-3 h-3 inline-block mr-1" />
+                  {pages.find(item => item.id === currentPage.folderId)?.title}
+                </span>
+              )}
+            </div>
             <div className="flex items-center space-x-2">
               <ExportDropdown onExport={handleExport} />
               <ThemeToggle />

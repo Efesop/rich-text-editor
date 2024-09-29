@@ -13,6 +13,7 @@ const colors = [
 
 export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, existingTags, deleteTagFromAllPages }) {
   const [tagName, setTagName] = useState(tag?.name || '')
+  const [charCount, setCharCount] = useState(tag?.name?.length || 0)
   const [tagColor, setTagColor] = useState(tag?.color || colors[0])
   const [showDeleteWarning, setShowDeleteWarning] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
@@ -65,7 +66,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
   if (!isOpen) return null
 
   const handleConfirm = () => {
-    if (tagName.trim()) {
+    if (tagName.trim() && tagName.length <= 15) {
       const newTag = { name: tagName.trim(), color: tagColor }
       onConfirm(newTag)
       onClose()
@@ -109,8 +110,9 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
                   placeholder="Enter or select a tag"
                   value={tagName}
                   onChange={(e) => {
-                    const newValue = e.target.value.slice(0, 20);
+                    const newValue = e.target.value.slice(0, 15);
                     setTagName(newValue);
+                    setCharCount(newValue.length);
                     setIsDropdownOpen(true);
                   }}
                   className={`w-full px-3 py-2 border rounded-md ${
@@ -118,8 +120,13 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
                       ? 'bg-gray-700 text-white border-gray-600' 
                       : 'bg-white text-gray-900 border-gray-300'
                   } focus:outline-none focus:ring-2 focus:ring-indigo-500`}
-                  maxLength={20}
+                  maxLength={15}
                 />
+                <span className={`absolute right-3 top-2 text-xs ${
+                  theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                }`}>
+                  {charCount}/15
+                </span>
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-gray-500"
