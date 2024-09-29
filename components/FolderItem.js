@@ -11,6 +11,7 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, onRenameFolder, 
   const dropdownRef = useRef(null)
   const folderRef = useRef(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
+  const [isHovered, setIsHovered] = useState(false)
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -77,7 +78,7 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, onRenameFolder, 
   }, [isOpen])
 
   return (
-    <div className="py-1" ref={folderRef}>
+    <div className="py-1" ref={folderRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
       <div
         className={`flex items-center justify-between px-2 h-8 cursor-pointer text-sm ${isExpanded ? expandedBgColor : ''}`}
         onClick={toggleExpand}
@@ -106,17 +107,19 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, onRenameFolder, 
             <span className="truncate text-sm font-medium">{folder.title}</span>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation()
-            setIsOpen(!isOpen)
-          }}
-          className="h-6 w-6 p-0 mr-2" // Increased ml-4 for more indentation
-        >
-          <MoreVertical className="h-4 w-4" />
-        </Button>
+        {isHovered && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsOpen(!isOpen)
+            }}
+            className="h-6 w-6 p-0 mr-2"
+          >
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        )}
       </div>
       {isOpen && (
         <div 
