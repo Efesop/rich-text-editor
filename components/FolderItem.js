@@ -31,8 +31,6 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, onRenameFolder, 
     setIsExpanded(!isExpanded)
   }
 
-  const expandedBgColor = theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'
-
   const handleRename = () => {
     onRenameFolder(folder.id, newFolderName)
     setIsRenaming(false)
@@ -78,9 +76,11 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, onRenameFolder, 
   }, [isOpen])
 
   return (
-    <div className="py-1" ref={folderRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+    <div className="my-3" ref={folderRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
       <div
-        className={`flex items-center justify-between px-2 h-8 cursor-pointer text-sm ${isExpanded ? expandedBgColor : ''}`}
+        className={`flex items-center justify-between px-2 h-8 cursor-pointer text-sm ${
+          theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-200'
+        }`}
         onClick={toggleExpand}
       >
         <div className="flex items-center flex-grow">

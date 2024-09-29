@@ -67,8 +67,8 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
       className={`flex items-center justify-between px-2 py-2 h-9 cursor-pointer text-sm w-full ${
         isActive
           ? theme === 'dark'
-            ? 'bg-gray-700'
-            : 'bg-gray-200'
+            ? 'bg-blue-700 text-white'
+            : 'bg-gray-200 text-black'
           : theme === 'dark'
           ? 'hover:bg-gray-800'
           : 'hover:bg-gray-200'
