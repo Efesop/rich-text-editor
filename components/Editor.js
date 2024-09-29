@@ -20,8 +20,23 @@ export default function Editor({ data, onChange, holder }) {
       const ImageTool = (await import('@editorjs/image')).default
       const Embed = (await import('@editorjs/embed')).default
       const Delimiter = (await import('@editorjs/delimiter')).default
-      const Paragraph = (await import('@editorjs/paragraph')).default
+      const OriginalParagraph = (await import('@editorjs/paragraph')).default
       const NestedList = (await import('@editorjs/nested-list')).default
+
+      // Custom Paragraph tool that preserves empty paragraphs
+      const Paragraph = class extends OriginalParagraph {
+        static get sanitize() {
+          return {
+            text: {
+              br: true,
+            }
+          }
+        }
+        
+        validate(savedData) {
+          return true
+        }
+      }
 
       if (editorRef.current && typeof editorRef.current.destroy === 'function') {
         editorRef.current.destroy()

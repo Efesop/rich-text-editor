@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
+import { useTheme } from 'next-themes'
 
 export function FolderModal({ isOpen, onClose, onConfirm }) {
   const [folderName, setFolderName] = useState('')
   const inputRef = useRef(null)
+  const { theme } = useTheme()
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -32,10 +34,10 @@ export function FolderModal({ isOpen, onClose, onConfirm }) {
       onClick={handleOverlayClick}
     >
       <div 
-        className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl"
+        className={`${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} p-6 rounded-lg shadow-xl`}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-xl font-bold mb-4 dark:text-white">Add New Folder</h2>
+        <h2 className="text-xl font-bold mb-4">Add New Folder</h2>
         <form onSubmit={handleSubmit}>
           <Input
             ref={inputRef}
@@ -43,7 +45,7 @@ export function FolderModal({ isOpen, onClose, onConfirm }) {
             value={folderName}
             onChange={(e) => setFolderName(e.target.value)}
             placeholder="Enter folder name"
-            className="mb-4"
+            className={`mb-4 ${theme === 'dark' ? 'bg-gray-700 text-white' : 'bg-white text-gray-900'}`}
           />
           <div className="flex justify-end space-x-2">
             <Button type="button" onClick={onClose} variant="outline">
