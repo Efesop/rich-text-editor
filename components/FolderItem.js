@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Folder, FolderOpen, FolderPlus, Trash2, MoreVertical, Pencil } from 'lucide-react'
+import { Folder, FolderOpen, FolderPlus, Trash2, MoreVertical, Pencil, FolderOpenDot, FolderOpenIcon } from 'lucide-react'
 import { Button } from './ui/button'
 import PageItem from './PageItem'
 
@@ -82,11 +82,11 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, onRenameFolder, 
         className={`flex items-center justify-between px-2 h-8 cursor-pointer text-sm ${isExpanded ? expandedBgColor : ''}`}
         onClick={toggleExpand}
       >
-        <div className="flex items-center">
+        <div className="flex items-center flex-grow">
           {isExpanded ? (
-            <FolderOpen className="h-4 w-4 mr-2" />
+            <FolderOpen className="h-4 w-4 mr-2 text-blue-500" strokeWidth={2} />
           ) : (
-            <Folder className="h-4 w-4 mr-2" />
+            <Folder className="h-4 w-4 mr-2" strokeWidth={2} />
           )}
           {isRenaming ? (
             <input
@@ -99,11 +99,11 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, onRenameFolder, 
                   handleRename()
                 }
               }}
-              className="font-bold text-sm bg-transparent"
+              className="bg-transparent outline-none"
               autoFocus
             />
           ) : (
-            <span className="font-bold text-sm">{folder.title}</span>
+            <span className="truncate text-sm font-medium">{folder.title}</span>
           )}
         </div>
         <Button
@@ -113,7 +113,7 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, onRenameFolder, 
             e.stopPropagation()
             setIsOpen(!isOpen)
           }}
-          className="h-6 w-6 p-0" // Adjusted size to match PageItem
+          className="h-6 w-6 p-0 mr-2" // Increased ml-4 for more indentation
         >
           <MoreVertical className="h-4 w-4" />
         </Button>
