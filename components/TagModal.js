@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Button } from './ui/button'
-import { Input } from './ui/input'
 import { X, ChevronDown } from 'lucide-react'
 import useTagStore from '../store/tagStore'
-import { cn } from "@/lib/utils"
+import { useTheme } from 'next-themes'
 
 const colors = [
   { background: '#E3F2FD', border: '#90CAF9' }, // Light Blue
@@ -24,6 +22,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
   const [selectedColorIndex, setSelectedColorIndex] = useState(
     colors.findIndex(c => JSON.stringify(c) === JSON.stringify(tag?.color)) || 0
   )
+  const { theme } = useTheme()
 
   const handleColorSelect = useCallback((color, index) => {
     setTagColor(color)
@@ -85,112 +84,120 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
   }
 
   return (
-    <div className="relative z-10" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-      <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
-
-      <div className="fixed inset-0 z-10 w-screen overflow-y-auto">
-        <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-          <div 
-            className="relative transform overflow-visible rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 w-full sm:max-w-xs"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
-              <button
-                type="button"
-                className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                onClick={onClose}
-              >
-                <span className="sr-only">Close</span>
-                <X className="h-6 w-6" aria-hidden="true" />
-              </button>
-            </div>
-            <div className="bg-white px-4 pb-4 pt-5 sm:p-6">
-              <div>
-                <h3 className="text-base font-semibold leading-6 text-gray-900" id="modal-title">
-                  {tag ? 'Edit Tag' : 'Add Tag'}
-                </h3>
-                <div className="mt-2">
-                  <div className="relative">
-                    <Input
-                      ref={inputRef}
-                      placeholder="Enter or select a tag"
-                      value={tagName}
-                      onChange={(e) => {
-                        const newValue = e.target.value.slice(0, 20);
-                        setTagName(newValue);
-                        setIsDropdownOpen(true);
-                      }}
-                      className="w-full pr-10"
-                      maxLength={20}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                      className="absolute right-0 top-0 h-full"
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                    {isDropdownOpen && filteredTags.length > 0 && (
-                      <div 
-                        ref={dropdownRef}
-                        className="absolute left-0 mt-1 w-full rounded-md shadow-lg bg-white border border-gray-200 z-50 max-h-40 overflow-y-auto"
-                      >
-                        <div className="py-1" role="menu" aria-orientation="vertical">
-                          {filteredTags.map((existingTag, index) => (
-                            <button
-                              key={index}
-                              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                              onClick={() => {
-                                setTagName(existingTag.name)
-                                setTagColor(existingTag.color) // Set the color of the existing tag
-                                setIsDropdownOpen(false)
-                              }}
-                            >
-                              {existingTag.name}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="mt-4">
-                    <h4 className="text-sm font-medium text-gray-900">Select Color</h4>
-                    <div className="flex space-x-2 mt-2">
-                      {colors.map((color, index) => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50">
+      <div className="relative w-full max-w-md p-6 mx-auto">
+        <div className={`relative transform overflow-hidden rounded-lg shadow-xl transition-all ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}>
+          <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
+            <button
+              type="button"
+              className={`rounded-md bg-transparent text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${theme === 'dark' ? 'hover:text-gray-300' : 'hover:text-gray-500'}`}
+              onClick={onClose}
+            >
+              <span className="sr-only">Close</span>
+              <X className="h-6 w-6" aria-hidden="true" />
+            </button>
+          </div>
+          <div className="px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+            <h3 className="text-lg font-medium leading-6" id="modal-title">
+              {tag ? 'Edit Tag' : 'Add Tag'}
+            </h3>
+            <div className="mt-2">
+              <div className="relative">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  placeholder="Enter or select a tag"
+                  value={tagName}
+                  onChange={(e) => {
+                    const newValue = e.target.value.slice(0, 20);
+                    setTagName(newValue);
+                    setIsDropdownOpen(true);
+                  }}
+                  className={`w-full px-3 py-2 border rounded-md ${
+                    theme === 'dark' 
+                      ? 'bg-gray-700 text-white border-gray-600' 
+                      : 'bg-white text-gray-900 border-gray-300'
+                  } focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+                  maxLength={20}
+                />
+                <button
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-gray-500"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+                {isDropdownOpen && filteredTags.length > 0 && (
+                  <div 
+                    ref={dropdownRef}
+                    className={`absolute left-0 mt-1 w-full rounded-md shadow-lg border z-50 max-h-40 overflow-y-auto ${
+                      theme === 'dark' ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
+                    }`}
+                  >
+                    <div className="py-1" role="menu" aria-orientation="vertical">
+                      {filteredTags.map((existingTag, index) => (
                         <button
                           key={index}
-                          className={cn(
-                            "w-6 h-6 rounded-full transition-all duration-200 relative",
-                            "before:content-[''] before:absolute before:inset-0 before:rounded-full before:shadow-[0_0_0_2px_rgba(99,102,241,0.8)] before:opacity-0 before:transition-opacity before:duration-200",
-                            selectedColorIndex === index && "before:opacity-100 scale-110"
-                          )}
-                          style={{ backgroundColor: color.background, border: `2px solid ${color.border}` }}
-                          onClick={() => handleColorSelect(color, index)}
-                        />
+                          className={`block w-full text-left px-4 py-2 text-sm ${
+                            theme === 'dark' 
+                              ? 'text-gray-200 hover:bg-gray-600' 
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                          onClick={() => {
+                            setTagName(existingTag.name)
+                            setTagColor(existingTag.color)
+                            setIsDropdownOpen(false)
+                          }}
+                        >
+                          {existingTag.name}
+                        </button>
                       ))}
                     </div>
                   </div>
+                )}
+              </div>
+              <div className="mt-4">
+                <h4 className="text-sm font-medium">Select Color</h4>
+                <div className="flex space-x-2 mt-2">
+                  {colors.map((color, index) => (
+                    <button
+                      key={index}
+                      className={`w-6 h-6 rounded-full transition-all duration-200 relative ${
+                        selectedColorIndex === index ? 'ring-2 ring-indigo-500 ring-offset-2' : ''
+                      }`}
+                      style={{ backgroundColor: color.background, border: `2px solid ${color.border}` }}
+                      onClick={() => handleColorSelect(color, index)}
+                    />
+                  ))}
                 </div>
               </div>
             </div>
-            <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-              <Button
-                onClick={handleConfirm}
-                disabled={!tagName.trim()}
-                className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:ml-3 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+          </div>
+          <div className={`px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 ${
+            theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'
+          }`}>
+            <button
+              onClick={handleConfirm}
+              disabled={!tagName.trim()}
+              className={`inline-flex w-full justify-center rounded-md px-3 py-2 text-sm font-semibold shadow-sm sm:ml-3 sm:w-auto ${
+                theme === 'dark' 
+                  ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              {isExistingTag ? 'Add' : 'Create'}
+            </button>
+            {tag && (
+              <button
+                onClick={() => setShowDeleteWarning(true)}
+                className={`mt-3 inline-flex w-full justify-center rounded-md px-3 py-2 text-sm font-semibold shadow-sm sm:mt-0 sm:w-auto sm:mr-3 ${
+                  theme === 'dark' 
+                    ? 'bg-red-600 text-white hover:bg-red-700' 
+                    : 'bg-red-600 text-white hover:bg-red-700'
+                }`}
               >
-                {isExistingTag ? 'Add' : 'Create'}
-              </Button>
-              {tag && (
-                <Button
-                  onClick={() => setShowDeleteWarning(true)}
-                  className="mt-3 inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:mt-0 sm:w-auto sm:mr-3"
-                >
-                  Delete
-                </Button>
-              )}
-            </div>
+                Delete
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -198,26 +205,38 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
       {showDeleteWarning && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div 
-            className="bg-white rounded-lg p-6 max-w-sm w-full"
+            className={`relative transform overflow-hidden rounded-lg shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg ${
+              theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
+            }`}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-medium mb-4">Delete Tag</h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Are you sure you want to delete this tag? This action cannot be undone and the tag will be removed from all pages where it's currently being used.
-            </p>
-            <div className="flex justify-end space-x-2">
-              <Button
-                onClick={() => setShowDeleteWarning(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-              >
-                Delete
-              </Button>
+            <div className="px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+              <h3 className="text-lg font-medium leading-6 mb-2">Delete Tag</h3>
+              <p className={`text-sm mb-4 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>
+                Are you sure you want to delete this tag? This action cannot be undone and the tag will be removed from all pages where it's currently being used.
+              </p>
+              <div className="flex justify-end space-x-2">
+                <button
+                  onClick={() => setShowDeleteWarning(false)}
+                  className={`px-4 py-2 rounded ${
+                    theme === 'dark' 
+                      ? 'bg-gray-600 hover:bg-gray-700 text-white' 
+                      : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDelete}
+                  className={`px-4 py-2 rounded ${
+                    theme === 'dark' 
+                      ? 'bg-red-600 hover:bg-red-700 text-white' 
+                      : 'bg-red-600 hover:bg-red-700 text-white'
+                  }`}
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
         </div>
