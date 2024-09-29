@@ -7,6 +7,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
   const dropdownRef = useRef(null)
   const pageItemRef = useRef(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
+  const [isHovered, setIsHovered] = useState(false)
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -63,7 +64,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
   return (
     <div
       ref={pageItemRef}
-      className={`flex items-center justify-between px-2 cursor-pointer text-sm w-full ${
+      className={`flex items-center justify-between px-2 py-2 h-9 cursor-pointer text-sm w-full ${
         isActive
           ? theme === 'dark'
             ? 'bg-gray-700'
@@ -73,8 +74,10 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
           : 'hover:bg-gray-200'
       } ${className}`}
       onClick={() => onSelect(page)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="flex items-center flex-1 min-w-0 pl-2"> {/* Added pl-2 for indentation */}
+      <div className="flex items-center flex-1 min-w-0 pl-2">
         {sidebarOpen ? (
           <>
             <span className="truncate mr-2">{page.title}</span>
@@ -106,7 +109,7 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
         {page.password && page.password.hash && !tempUnlockedPages.has(page.id) && (
           <Lock className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`} />
         )}
-        <div>
+        {isHovered && (
           <Button
             variant="ghost"
             size="icon"
@@ -117,86 +120,86 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
           >
             <MoreVertical className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`} />
           </Button>
-          {isDropdownOpen && (
-            <div 
-              ref={dropdownRef}
-              className={`fixed w-48 rounded-md shadow-lg ${
-                theme === 'dark' ? 'bg-gray-800' : 'bg-white'
-              } ring-1 ring-black ring-opacity-5`}
-              style={{
-                top: `${dropdownPosition.top}px`,
-                left: `${dropdownPosition.left}px`,
-                zIndex: 1000
-              }}
-            >
-              <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
-                <button
-                  className={`block px-4 py-2 text-sm w-full text-left ${
-                    theme === 'dark' ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onRename(page)
-                    setIsDropdownOpen(false)
-                  }}
-                >
-                  <FileText className="h-4 w-4 inline mr-2" />
-                  Rename
-                </button>
-                <button
-                  className={`block px-4 py-2 text-sm w-full text-left ${
-                    theme === 'dark' ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onDelete(page)
-                    setIsDropdownOpen(false)
-                  }}
-                >
-                  <Trash2 className="h-4 w-4 inline mr-2" />
-                  Delete
-                </button>
-                <button
-                  className={`block px-4 py-2 text-sm w-full text-left ${
-                    theme === 'dark' ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onToggleLock(page)
-                    setIsDropdownOpen(false)
-                  }}
-                >
-                  {page.password ? (
-                    <>
-                      <Unlock className="h-4 w-4 inline mr-2" />
-                      Unlock
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="h-4 w-4 inline mr-2" />
-                      Lock
-                    </>
-                  )}
-                </button>
-                {onRemoveFromFolder && (
-                  <button
-                    className={`block px-4 py-2 text-sm w-full text-left ${
-                      theme === 'dark' ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onRemoveFromFolder()
-                      setIsDropdownOpen(false)
-                    }}
-                  >
-                    <FolderMinus className="h-4 w-4 inline mr-2" />
-                    Remove from Folder
-                  </button>
+        )}
+        {isDropdownOpen && (
+          <div 
+            ref={dropdownRef}
+            className={`fixed w-48 rounded-md shadow-lg ${
+              theme === 'dark' ? 'bg-gray-800' : 'bg-white'
+            } ring-1 ring-black ring-opacity-5`}
+            style={{
+              top: `${dropdownPosition.top}px`,
+              left: `${dropdownPosition.left}px`,
+              zIndex: 1000
+            }}
+          >
+            <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
+              <button
+                className={`block px-4 py-2 text-sm w-full text-left ${
+                  theme === 'dark' ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onRename(page)
+                  setIsDropdownOpen(false)
+                }}
+              >
+                <FileText className="h-4 w-4 inline mr-2" />
+                Rename
+              </button>
+              <button
+                className={`block px-4 py-2 text-sm w-full text-left ${
+                  theme === 'dark' ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDelete(page)
+                  setIsDropdownOpen(false)
+                }}
+              >
+                <Trash2 className="h-4 w-4 inline mr-2" />
+                Delete
+              </button>
+              <button
+                className={`block px-4 py-2 text-sm w-full text-left ${
+                  theme === 'dark' ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onToggleLock(page)
+                  setIsDropdownOpen(false)
+                }}
+              >
+                {page.password ? (
+                  <>
+                    <Unlock className="h-4 w-4 inline mr-2" />
+                    Unlock
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-4 w-4 inline mr-2" />
+                    Lock
+                  </>
                 )}
-              </div>
+              </button>
+              {onRemoveFromFolder && (
+                <button
+                  className={`block px-4 py-2 text-sm w-full text-left ${
+                    theme === 'dark' ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onRemoveFromFolder()
+                    setIsDropdownOpen(false)
+                  }}
+                >
+                  <FolderMinus className="h-4 w-4 inline mr-2" />
+                  Remove from Folder
+                </button>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )
