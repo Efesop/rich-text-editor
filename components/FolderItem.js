@@ -220,6 +220,7 @@ export function FolderItem({
               theme={theme}
               tags={tags}
               tempUnlockedPages={tempUnlockedPages}
+              isInsideFolder={true}  // Add this line
             />
           ))}
         </div>

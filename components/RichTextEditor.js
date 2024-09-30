@@ -488,6 +488,7 @@ export default function RichTextEditor() {
                   theme={theme}
                   tags={tags}
                   tempUnlockedPages={tempUnlockedPages}
+                  isInsideFolder={false}  // Add this line
                 />
               )
             }

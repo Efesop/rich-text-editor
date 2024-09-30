@@ -2,7 +2,21 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "./ui/button"
 import { FileText, Lock, Unlock, Trash2, MoreVertical, FolderMinus } from 'lucide-react'
 
-const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, onRemoveFromFolder, sidebarOpen, theme, tags, tempUnlockedPages, className }) => {
+const PageItem = ({ 
+  page, 
+  isActive, 
+  onSelect, 
+  onRename, 
+  onDelete, 
+  onToggleLock, 
+  onRemoveFromFolder, 
+  sidebarOpen, 
+  theme, 
+  tags, 
+  tempUnlockedPages, 
+  className, 
+  isInsideFolder = false  // Add this line with a default value
+}) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
   const pageItemRef = useRef(null)
@@ -73,13 +87,15 @@ const PageItem = ({ page, isActive, onSelect, onRename, onDelete, onToggleLock, 
       ref={pageItemRef}
       className={`flex items-center justify-between px-2 py-2 cursor-pointer text-sm w-full ${
         isActive
-          ? theme === 'dark'
-            ? 'bg-blue-700 text-white'
-            : 'bg-gray-200 text-black'
+          ? isInsideFolder
+            ? 'bg-black text-white'
+            : theme === 'dark'
+              ? 'bg-blue-700 text-white'
+              : 'bg-gray-900 text-white'
           : theme === 'dark'
           ? 'hover:bg-gray-800'
           : 'hover:bg-gray-200'
-      } ${className}`}
+      } ${isInsideFolder && !isActive ? 'text-black bg-gray-200' : ''} ${className}`}
       onClick={() => onSelect(page)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
