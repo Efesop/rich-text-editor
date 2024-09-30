@@ -16,7 +16,7 @@ export function FolderModal({ isOpen, onClose, onConfirm }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    onConfirm(folderName)
+    onConfirm(folderName.slice(0, 20))
     setFolderName('')
   }
 
@@ -24,6 +24,10 @@ export function FolderModal({ isOpen, onClose, onConfirm }) {
     if (e.target === e.currentTarget) {
       onClose()
     }
+  }
+
+  const handleInputChange = (e) => {
+    setFolderName(e.target.value.slice(0, 20))
   }
 
   if (!isOpen) return null
@@ -43,9 +47,10 @@ export function FolderModal({ isOpen, onClose, onConfirm }) {
             ref={inputRef}
             type="text"
             value={folderName}
-            onChange={(e) => setFolderName(e.target.value)}
-            placeholder="Enter folder name"
+            onChange={handleInputChange}
+            placeholder="Enter folder name (max 20 chars)"
             className={`mb-4 ${theme === 'dark' ? 'bg-gray-700 text-white' : 'bg-white text-gray-900'}`}
+            maxLength={20}
           />
           <div className="flex justify-end space-x-2">
             <Button type="button" onClick={onClose} variant="outline">

@@ -447,6 +447,7 @@ export default function RichTextEditor() {
         <ScrollArea className="flex-grow">
           {sortPages(filteredPages(), sortOption).map(item => {
             if (item.type === 'folder') {
+              const folderPagesCount = pages.filter(page => page.folderId === item.id).length;
               return (
                 <FolderItem
                   key={item.id}
@@ -468,6 +469,7 @@ export default function RichTextEditor() {
                   onDelete={handleDeletePage}
                   onRename={handleRenamePage}
                   onToggleLock={handleToggleLock}
+                  pagesCount={folderPagesCount}
                 />
               )
             }

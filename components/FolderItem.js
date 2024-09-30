@@ -3,7 +3,24 @@ import { Folder, FolderOpen, FolderPlus, Trash2, MoreVertical, Pencil, FolderOpe
 import { Button } from './ui/button'
 import PageItem from './PageItem'
 
-export function FolderItem({ folder, onAddPage, onDeleteFolder, onRenameFolder, theme, pages, onSelectPage, currentPageId, onRemovePageFromFolder, tags, tempUnlockedPages, sidebarOpen, onDelete, onRename, onToggleLock }) {
+export function FolderItem({ 
+  folder, 
+  onAddPage, 
+  onDeleteFolder, 
+  onRenameFolder, 
+  theme, 
+  pages, 
+  onSelectPage, 
+  currentPageId, 
+  onRemovePageFromFolder, 
+  tags, 
+  tempUnlockedPages, 
+  sidebarOpen, 
+  onDelete, 
+  onRename, 
+  onToggleLock, 
+  pagesCount  // Add this line
+}) {
   const [isOpen, setIsOpen] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
@@ -93,7 +110,7 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, onRenameFolder, 
             <input
               type="text"
               value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
+              onChange={(e) => setNewFolderName(e.target.value.slice(0, 20))}
               onBlur={handleRename}
               onKeyPress={(e) => {
                 if (e.key === 'Enter') {
@@ -102,10 +119,20 @@ export function FolderItem({ folder, onAddPage, onDeleteFolder, onRenameFolder, 
               }}
               className="bg-transparent outline-none"
               autoFocus
+              maxLength={20}
             />
           ) : (
             sidebarOpen ? (
-              <span className="truncate text-sm font-medium">{folder.title}</span>
+              <div className="flex items-center">
+                <span className="truncate text-sm font-medium mr-1" title={folder.title}>
+                  {folder.title.length > 20 ? `${folder.title.slice(0, 17)}...` : folder.title}
+                </span>
+                {pagesCount > 0 && (
+                  <span className={`text-xs px-1 ml-1 rounded-full ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200 text-gray-900'}`}>
+                    {pagesCount}
+                  </span>
+                )}
+              </div>
             ) : (
               <span className="truncate text-sm font-medium" title={folder.title}>
                 {folder.title.slice(0, 2)}...
