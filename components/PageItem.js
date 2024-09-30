@@ -16,7 +16,6 @@ const PageItem = ({
   tempUnlockedPages, 
   className, 
   isInsideFolder = false,
-  folderTheme = ''
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)

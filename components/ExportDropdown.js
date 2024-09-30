@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "./ui/button";
-import { Download, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useTheme } from 'next-themes';
 
 const ExportDropdown = ({ onExport }) => {

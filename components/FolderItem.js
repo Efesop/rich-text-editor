@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Folder, FolderOpen, FolderPlus, Trash2, MoreVertical, Pencil, FolderOpenDot, FolderOpenIcon } from 'lucide-react'
+import { Folder, FolderOpen, FolderPlus, Trash2, MoreVertical, Pencil } from 'lucide-react'
 import { Button } from './ui/button'
 import PageItem from './PageItem'
 
