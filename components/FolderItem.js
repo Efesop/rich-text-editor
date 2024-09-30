@@ -205,7 +205,7 @@ export function FolderItem({
         </div>
       )}
       {isExpanded && (
-        <div> {/* Removed the ml-4 class */}
+        <div className={`${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'}`}>
           {pages.filter(page => page.folderId === folder.id).map(page => (
             <PageItem
               key={page.id}
@@ -220,7 +220,8 @@ export function FolderItem({
               theme={theme}
               tags={tags}
               tempUnlockedPages={tempUnlockedPages}
-              isInsideFolder={true}  // Add this line
+              isInsideFolder={true}
+              folderTheme={theme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'}
             />
           ))}
         </div>

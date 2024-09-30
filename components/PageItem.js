@@ -15,7 +15,8 @@ const PageItem = ({
   tags, 
   tempUnlockedPages, 
   className, 
-  isInsideFolder = false  // Add this line with a default value
+  isInsideFolder = false,
+  folderTheme = ''
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
@@ -88,14 +89,18 @@ const PageItem = ({
       className={`flex items-center justify-between px-2 py-2 cursor-pointer text-sm w-full ${
         isActive
           ? isInsideFolder
-            ? 'bg-black text-white'
+            ? theme === 'dark'
+              ? 'bg-blue-700 text-white'
+              : 'bg-blue-600 text-white'
             : theme === 'dark'
               ? 'bg-blue-700 text-white'
-              : 'bg-gray-900 text-white'
+              : 'bg-blue-600 text-white'
           : theme === 'dark'
-          ? 'hover:bg-gray-800'
+          ? isInsideFolder
+            ? 'hover:bg-gray-800'
+            : 'hover:bg-gray-800'
           : 'hover:bg-gray-200'
-      } ${isInsideFolder && !isActive ? 'text-black bg-gray-200' : ''} ${className}`}
+      } ${isInsideFolder && !isActive ? theme === 'dark' ? 'text-white bg-gray-800' : 'text-black bg-gray-200' : ''} ${className}`}
       onClick={() => onSelect(page)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -144,9 +149,9 @@ const PageItem = ({
             e.stopPropagation()
             setIsDropdownOpen(!isDropdownOpen)
           }}
-          className={`h-6 w-6 p-0 opacity-0 ${isHovered ? 'opacity-100' : ''} transition-opacity duration-200`}
+          className={`h-6 w-6 p-0 opacity-0 ${isHovered ? 'opacity-100' : ''}`}
         >
-          <MoreVertical className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`} />
+          <MoreVertical className={`h-4 w-4 ${isActive ? 'text-white' : theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`} />
         </Button>
       </div>
       {isDropdownOpen && (
