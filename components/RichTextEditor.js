@@ -401,6 +401,10 @@ export default function RichTextEditor() {
     return <div>No page selected</div> // or some other appropriate UI
   }
 
+  const truncateFolderName = (name) => {
+    return name.length > 15 ? name.slice(0, 15) + '...' : name;
+  };
+
   return (
     <div className={`flex h-screen ${theme === 'dark' ? 'dark bg-gray-900 text-white' : 'bg-white text-black'}`}>
       {/* Sidebar */}
@@ -531,7 +535,7 @@ export default function RichTextEditor() {
                     : 'bg-gray-100 text-gray-600 border border-gray-300'
                 }`}>
                   <FolderIcon className="w-3 h-3 inline-block mr-1" />
-                  {pages.find(item => item.id === currentPage.folderId)?.title}
+                  {truncateFolderName(pages.find(item => item.id === currentPage.folderId)?.title || '')}
                 </span>
               )}
             </div>
