@@ -9,6 +9,7 @@ export default function Editor({ data, onChange, holder }) {
     const initEditor = async () => {
       EditorJS = (await import('@editorjs/editorjs')).default
       const Header = (await import('@editorjs/header')).default
+      const List = (await import('@editorjs/list')).default
       const Checklist = (await import('@editorjs/checklist')).default
       const Quote = (await import('@editorjs/quote')).default
       const CodeTool = (await import('@editorjs/code')).default
@@ -32,7 +33,7 @@ export default function Editor({ data, onChange, holder }) {
           }
         }
         
-        validate() {
+        validate(savedData) {
           return true
         }
       }

@@ -3,9 +3,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
+import { Input } from "./ui/input"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, FolderPlus } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, X, ChevronDown, Lock, FolderPlus } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import { Sun, Moon } from 'lucide-react'
 import { RenameModal } from '@/components/RenameModal'
 import ExportDropdown from '@/components/ExportDropdown'
 import { 
@@ -20,6 +22,8 @@ import {
   downloadFile 
 } from '@/utils/exportUtils'
 import TagModal from '@/components/TagModal'
+import useTagStore from '../store/tagStore'
+import NestedList from '@editorjs/nested-list'
 import { format } from 'date-fns'
 import PasswordModal from '@/components/PasswordModal'
 import { usePagesManager } from '@/hooks/usePagesManager'
@@ -31,7 +35,6 @@ import { FolderModal } from '@/components/FolderModal'
 import { AddPageToFolderModal } from './AddPageToFolderModal'
 import { FolderItem } from './FolderItem'
 import { FolderIcon } from 'lucide-react'
-import { X } from 'lucide-react'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
 
@@ -45,6 +48,7 @@ const searchPlaceholders = {
 export default function RichTextEditor() {
   const {
     pages,
+    setPages,
     currentPage,
     saveStatus,
     setCurrentPage,
@@ -55,6 +59,7 @@ export default function RichTextEditor() {
     lockPage,
     unlockPage,
     addTagToPage,
+    removeTagFromPage,
     deleteTagFromAllPages,
     tags,
     tempUnlockedPages,
@@ -72,6 +77,7 @@ export default function RichTextEditor() {
   } = usePagesManager()
 
   const { theme } = useTheme()
+  const [isEditing, setIsEditing] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [wordCount, setWordCount] = useState(0)
@@ -80,6 +86,7 @@ export default function RichTextEditor() {
   const [newPageTitle, setNewPageTitle] = useState('')
   const [tagToEdit, setTagToEdit] = useState(null)
   const [isTagModalOpen, setIsTagModalOpen] = useState(false)
+  const { addTag, removeTag, deleteTag } = useTagStore()
   const [searchFilter, setSearchFilter] = useState('all')
   const [passwordInput, setPasswordInput] = useState('')
   const [passwordAction, setPasswordAction] = useState('')
@@ -244,6 +251,18 @@ export default function RichTextEditor() {
     setNewPageTitle('')
   }, [pageToRename, newPageTitle, renamePage])
 
+  const handleAddTag = useCallback((tag) => {
+    addTagToPage(currentPage.id, tag)
+  }, [currentPage, addTagToPage])
+
+  const handleRemoveTag = useCallback((tagName) => {
+    removeTagFromPage(currentPage.id, tagName)
+  }, [currentPage, removeTagFromPage])
+
+  const handleDeleteTag = useCallback((tagName) => {
+    deleteTagFromAllPages(tagName)
+  }, [deleteTagFromAllPages])
+
   const handleToggleLock = useCallback((page) => {
     if (page.password && page.password.hash) {
       setPasswordAction('unlock')
@@ -382,6 +401,10 @@ export default function RichTextEditor() {
     return <div>No page selected</div> // or some other appropriate UI
   }
 
+  const truncateFolderName = (name) => {
+    return name.length > 15 ? name.slice(0, 15) + '...' : name;
+  };
+
   return (
     <div className={`flex h-screen ${theme === 'dark' ? 'dark bg-gray-900 text-white' : 'bg-white text-black'}`}>
       {/* Sidebar */}
@@ -512,7 +535,7 @@ export default function RichTextEditor() {
                     : 'bg-gray-100 text-gray-600 border border-gray-300'
                 }`}>
                   <FolderIcon className="w-3 h-3 inline-block mr-1" />
-                  {pages.find(item => item.id === currentPage.folderId)?.title}
+                  {truncateFolderName(pages.find(item => item.id === currentPage.folderId)?.title || '')}
                 </span>
               )}
             </div>

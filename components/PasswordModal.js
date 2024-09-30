@@ -30,6 +30,10 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, password, onPasswor
 		}
 	};
 
+	const handleAction = (actionType) => {
+		onConfirm(actionType, password)
+	}
+
 	const buttonClass = (type) => {
 		const baseClass = 'px-4 py-2 text-sm rounded '
 		switch (type) {

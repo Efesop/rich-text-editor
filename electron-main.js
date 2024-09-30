@@ -3,8 +3,6 @@ const path = require('path');
 const url = require('url');
 const { ipcMain } = require('electron');
 const fs = require('fs').promises;
-const serve = require('electron-serve');
-const loadURL = serve({ directory: 'dist' });
 
 let mainWindow;
 
@@ -19,14 +17,11 @@ function createWindow() {
     }
   });
 
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.loadURL('http://localhost:3000');
-  } else {
-    loadURL(mainWindow);
-  }
+  const startUrl = process.env.ELECTRON_START_URL || 'http://localhost:3000';
+  mainWindow.loadURL(startUrl);
 
   // Open DevTools for debugging
-//  mainWindow.webContents.openDevTools();
+  mainWindow.webContents.openDevTools();
 
   mainWindow.on('closed', function () {
     mainWindow = null;
