@@ -11,7 +11,7 @@ const colors = [
   { background: '#FFEBEE', border: '#EF9A9A' }  // Light Red
 ]
 
-export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, existingTags, deleteTagFromAllPages }) {
+export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, existingTags }) {
   const [tagName, setTagName] = useState(tag?.name || '')
   const [charCount, setCharCount] = useState(tag?.name?.length || 0)
   const [tagColor, setTagColor] = useState(tag?.color || colors[0])
@@ -19,7 +19,6 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const inputRef = useRef(null)
   const dropdownRef = useRef(null)
-  const deleteTag = useTagStore(state => state.deleteTag)
   const [selectedColorIndex, setSelectedColorIndex] = useState(
     colors.findIndex(c => JSON.stringify(c) === JSON.stringify(tag?.color)) || 0
   )

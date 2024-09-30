@@ -1,0 +1,13 @@
+appId: com.yourcompany.yourappname
+productName: Your App Name
+directories:
+  output: dist
+  buildResources: build
+files:
+  - '!{src,docs,build,README.md}'
+  - 'out/**/*'
+  - 'electron-main.js'
+  - 'preload.js'
+extraResources:
+  - from: 'resources'
+    to: 'resources'

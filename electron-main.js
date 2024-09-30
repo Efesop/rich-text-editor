@@ -17,15 +17,16 @@ function createWindow() {
     }
   });
 
-  const startUrl = process.env.ELECTRON_START_URL || 'http://localhost:3000';
+  const startUrl = process.env.ELECTRON_START_URL || url.format({
+    pathname: path.join(__dirname, 'out', 'index.html'),
+    protocol: 'file:',
+    slashes: true
+  });
+  
   mainWindow.loadURL(startUrl);
 
   // Open DevTools for debugging
   mainWindow.webContents.openDevTools();
-
-  mainWindow.on('closed', function () {
-    mainWindow = null;
-  });
 }
 
 const tagsPath = path.join(app.getPath('userData'), 'tags.json');
@@ -72,7 +73,7 @@ ipcMain.handle('save-pages', async (event, pages) => {
   }
 });
 
-app.on('ready', createWindow);
+app.whenReady().then(createWindow);
 
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
