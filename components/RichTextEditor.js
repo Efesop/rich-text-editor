@@ -299,28 +299,29 @@ export default function RichTextEditor() {
   }, [deletePage])
 
   const filteredPages = useCallback(() => {
-    return pages.filter(page => {
-      if (page.type === 'folder') {
-        return page.title.toLowerCase().includes(searchTerm.toLowerCase())
+    return pages.flatMap(item => {
+      if (item.type === 'folder') {
+        const folderPages = pages.filter(page => page.folderId === item.id);
+        const matchingPages = folderPages.filter(page => 
+          (searchFilter === 'all' && (page.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                      page.content.blocks.some(block => block.data.text && block.data.text.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                                      page.tagNames?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))) ||
+          (searchFilter === 'title' && page.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (searchFilter === 'content' && page.content.blocks.some(block => block.data.text && block.data.text.toLowerCase().includes(searchTerm.toLowerCase()))) ||
+          (searchFilter === 'tags' && page.tagNames?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))
+        );
+        return matchingPages.length > 0 ? [{ ...item, matchingPages }] : [];
+      } else if (!item.folderId) {
+        if ((searchFilter === 'all' && (item.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                        item.content.blocks.some(block => block.data.text && block.data.text.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                                        item.tagNames?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))) ||
+            (searchFilter === 'title' && item.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (searchFilter === 'content' && item.content.blocks.some(block => block.data.text && block.data.text.toLowerCase().includes(searchTerm.toLowerCase()))) ||
+            (searchFilter === 'tags' && item.tagNames?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))) {
+          return [item];
+        }
       }
-      if (searchTerm === '') return true;
-      
-      const lowercaseSearchTerm = searchTerm.toLowerCase();
-      
-      switch (searchFilter) {
-        case 'all':
-          return page.title.toLowerCase().includes(lowercaseSearchTerm) ||
-                 JSON.stringify(page.content).toLowerCase().includes(lowercaseSearchTerm) ||
-                 (page.tagNames && page.tagNames.some(tag => tag.toLowerCase().includes(lowercaseSearchTerm)));
-        case 'title':
-          return page.title.toLowerCase().includes(lowercaseSearchTerm);
-        case 'content':
-          return JSON.stringify(page.content).toLowerCase().includes(lowercaseSearchTerm);
-        case 'tags':
-          return page.tagNames && page.tagNames.some(tag => tag.toLowerCase().includes(lowercaseSearchTerm));
-        default:
-          return true;
-      }
+      return [];
     });
   }, [pages, searchTerm, searchFilter]);
 
@@ -428,8 +429,7 @@ export default function RichTextEditor() {
         )}
         <ScrollArea className="flex-grow">
           {sortPages(filteredPages(), sortOption).map(item => {
-            if (item.type === 'folder') {
-              const folderPagesCount = pages.filter(page => page.folderId === item.id).length;
+            if (item.type === 'folder' && item.matchingPages) {
               return (
                 <FolderItem
                   key={item.id}
@@ -441,7 +441,7 @@ export default function RichTextEditor() {
                   onDeleteFolder={handleDeleteFolder}
                   onRenameFolder={renameFolder}
                   theme={theme}
-                  pages={pages}
+                  pages={item.matchingPages}
                   onSelectPage={handlePageSelect}
                   currentPageId={currentPage?.id}
                   onRemovePageFromFolder={handleRemovePageFromFolder}
@@ -451,11 +451,10 @@ export default function RichTextEditor() {
                   onDelete={handleDeletePage}
                   onRename={handleRenamePage}
                   onToggleLock={handleToggleLock}
-                  pagesCount={folderPagesCount}
+                  pagesCount={item.matchingPages.length}
                 />
               )
             }
-            // Only render pages that are not in a folder
             if (!item.folderId) {
               return (
                 <PageItem
@@ -470,7 +469,7 @@ export default function RichTextEditor() {
                   theme={theme}
                   tags={tags}
                   tempUnlockedPages={tempUnlockedPages}
-                  isInsideFolder={false}  // Add this line
+                  isInsideFolder={false}
                 />
               )
             }
