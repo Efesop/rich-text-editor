@@ -299,29 +299,18 @@ export default function RichTextEditor() {
   }, [deletePage])
 
   const filteredPages = useCallback(() => {
-    return pages.flatMap(item => {
+    return pages.filter(item => {
       if (item.type === 'folder') {
-        const folderPages = pages.filter(page => page.folderId === item.id);
-        const matchingPages = folderPages.filter(page => 
-          (searchFilter === 'all' && (page.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                      page.content.blocks.some(block => block.data.text && block.data.text.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                                      page.tagNames?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))) ||
-          (searchFilter === 'title' && page.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (searchFilter === 'content' && page.content.blocks.some(block => block.data.text && block.data.text.toLowerCase().includes(searchTerm.toLowerCase()))) ||
-          (searchFilter === 'tags' && page.tagNames?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))
-        );
-        return matchingPages.length > 0 ? [{ ...item, matchingPages }] : [];
+        return true; // Always include folders
       } else if (!item.folderId) {
-        if ((searchFilter === 'all' && (item.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                        item.content.blocks.some(block => block.data.text && block.data.text.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                                        item.tagNames?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))) ||
-            (searchFilter === 'title' && item.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (searchFilter === 'content' && item.content.blocks.some(block => block.data.text && block.data.text.toLowerCase().includes(searchTerm.toLowerCase()))) ||
-            (searchFilter === 'tags' && item.tagNames?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))) {
-          return [item];
-        }
+        return (searchFilter === 'all' && (item.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                          item.content.blocks.some(block => block.data.text && block.data.text.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                                          item.tagNames?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))) ||
+              (searchFilter === 'title' && item.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+              (searchFilter === 'content' && item.content.blocks.some(block => block.data.text && block.data.text.toLowerCase().includes(searchTerm.toLowerCase()))) ||
+              (searchFilter === 'tags' && item.tagNames?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())));
       }
-      return [];
+      return false;
     });
   }, [pages, searchTerm, searchFilter]);
 
@@ -429,19 +418,19 @@ export default function RichTextEditor() {
         )}
         <ScrollArea className="flex-grow">
           {sortPages(filteredPages(), sortOption).map(item => {
-            if (item.type === 'folder' && item.matchingPages) {
+            if (item.type === 'folder') {
               return (
                 <FolderItem
                   key={item.id}
                   folder={item}
                   onAddPage={() => {
-                    setSelectedFolderId(item.id)
-                    setIsAddToFolderModalOpen(true)
+                    setSelectedFolderId(item.id);
+                    setIsAddToFolderModalOpen(true);
                   }}
                   onDeleteFolder={handleDeleteFolder}
                   onRenameFolder={renameFolder}
                   theme={theme}
-                  pages={item.matchingPages}
+                  pages={pages.filter(page => page.folderId === item.id)}
                   onSelectPage={handlePageSelect}
                   currentPageId={currentPage?.id}
                   onRemovePageFromFolder={handleRemovePageFromFolder}
@@ -451,11 +440,10 @@ export default function RichTextEditor() {
                   onDelete={handleDeletePage}
                   onRename={handleRenamePage}
                   onToggleLock={handleToggleLock}
-                  pagesCount={item.matchingPages.length}
+                  pagesCount={item.pages ? item.pages.length : 0}
                 />
-              )
-            }
-            if (!item.folderId) {
+              );
+            } else {
               return (
                 <PageItem
                   key={item.id}
@@ -471,9 +459,8 @@ export default function RichTextEditor() {
                   tempUnlockedPages={tempUnlockedPages}
                   isInsideFolder={false}
                 />
-              )
+              );
             }
-            return null
           })}
         </ScrollArea>
         <div className={`mt-90 p-2 flex items-center justify-between border-t ${theme === 'dark' ? 'border-gray-700' : 'border-gray-300'}`}>
