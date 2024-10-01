@@ -4,14 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "electron .",
-    "build": "next build && next export",
+    "build": "electron-builder build --mac --windows --linux",
     "start": "next start",
     "lint": "next lint",
     "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
     "electron-pack": "npm run build && electron-builder build --win --mac --linux",
     "electron-start": "electron .",
     "electron:build": "electron-builder build --win --mac --linux",
-    "dist": "npm run build && electron-builder"
+    "dist": "electron-builder --mac --windows --linux"
   },
   "dependencies": {
     "@editorjs/checklist": "^1.6.0",
@@ -72,7 +72,7 @@
   "main": "electron-main.js",
   "build": {
     "appId": "com.yourcompany.yourappname",
-    "productName": "Dash",
+    "productName": "Your App Name",
     "files": [
       "out/**/*",
       "electron-main.js",
@@ -81,6 +81,17 @@
     "directories": {
       "output": "dist",
       "buildResources": "build"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "your.app.category.type"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Development"
     }
   }
 }
