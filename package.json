@@ -72,7 +72,7 @@
   "main": "electron-main.js",
   "build": {
     "appId": "com.yourcompany.yourappname",
-    "productName": "Your App Name",
+    "productName": "Dash",
     "files": [
       "out/**/*",
       "electron-main.js",

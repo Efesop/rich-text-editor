@@ -1,5 +1,5 @@
 appId: com.yourcompany.yourappname
-productName: Your App Name
+productName: Dash
 directories:
   output: dist
   buildResources: build
@@ -11,3 +11,9 @@ files:
 extraResources:
   - from: 'resources'
     to: 'resources'
+mac:
+  icon: icons/Dashmac1024.icns
+win:
+  icon: icons/Dashwin512.ico
+linux:
+  icon: icons/Dashlin512.png

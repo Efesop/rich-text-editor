@@ -26,7 +26,7 @@ function createWindow() {
   mainWindow.loadURL(startUrl);
 
   // Open DevTools for debugging
-  mainWindow.webContents.openDevTools();
+  //mainWindow.webContents.openDevTools();
 }
 
 const tagsPath = path.join(app.getPath('userData'), 'tags.json');
