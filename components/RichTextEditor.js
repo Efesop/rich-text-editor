@@ -33,6 +33,7 @@ import { FolderModal } from '@/components/FolderModal'
 import { AddPageToFolderModal } from './AddPageToFolderModal'
 import { FolderItem } from './FolderItem'
 import { FolderIcon } from 'lucide-react'
+import UpdateNotification from './UpdateNotification';
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
 
@@ -677,6 +678,8 @@ export default function RichTextEditor() {
         currentFolderId={selectedFolderId}
         theme={theme}
       />
+
+      <UpdateNotification />
     </div>
   )
 }

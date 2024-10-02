@@ -3,6 +3,7 @@ const path = require('path');
 const url = require('url');
 const { ipcMain } = require('electron');
 const fs = require('fs').promises;
+const { autoUpdater } = require('electron-updater');
 
 let mainWindow;
 
@@ -78,7 +79,31 @@ ipcMain.handle('save-pages', async (event, pages) => {
   }
 });
 
-app.whenReady().then(createWindow);
+function setupAutoUpdater() {
+  autoUpdater.checkForUpdatesAndNotify();
+
+  autoUpdater.on('update-available', () => {
+    mainWindow.webContents.send('update-available');
+  });
+
+  autoUpdater.on('update-downloaded', () => {
+    mainWindow.webContents.send('update-downloaded');
+  });
+
+  ipcMain.on('restart-app', () => {
+    autoUpdater.quitAndInstall();
+  });
+
+  // Check for updates every 15 minutes
+  setInterval(() => {
+    autoUpdater.checkForUpdatesAndNotify();
+  }, 15 * 60 * 1000);
+}
+
+app.whenReady().then(() => {
+  createWindow();
+  setupAutoUpdater();
+});
 
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();

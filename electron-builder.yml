@@ -17,3 +17,7 @@ win:
   icon: icons/Dashwin512.ico
 linux:
   icon: icons/Dashlin512.png
+publish:
+  provider: github
+  owner: Efesop
+  repo: rich-text-editor
