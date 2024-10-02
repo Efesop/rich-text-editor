@@ -58,8 +58,29 @@ export default function Editor({ data, onChange, holder }) {
           inlineCode: InlineCode,
           marker: Marker,
           table: Table,
-          linkTool: LinkTool,
-          image: ImageTool,
+          image: {
+            class: ImageTool,
+            config: {
+              uploader: {
+                uploadByFile(file) {
+                  return new Promise((resolve) => {
+                    const reader = new FileReader()
+                    reader.onload = function (e) {
+                      resolve({
+                        success: 1,
+                        file: {
+                          url: e.target.result
+                        }
+                      })
+                    }
+                    reader.readAsDataURL(file)
+                  })
+                }
+              },
+              captionPlaceholder: 'Caption (optional)',
+              withCaption: false // This makes the caption optional
+            }
+          },
           embed: Embed,
           delimiter: Delimiter,
           paragraph: {
@@ -83,6 +104,27 @@ export default function Editor({ data, onChange, holder }) {
       }
     }
   }, [data, onChange, holder])
+
+  useEffect(() => {
+    const handleLinkClick = (event) => {
+      const link = event.target.closest('a')
+      if (link) {
+        event.preventDefault()
+        window.open(link.href, '_blank')
+      }
+    }
+
+    const editorElement = document.getElementById(holder)
+    if (editorElement) {
+      editorElement.addEventListener('click', handleLinkClick)
+    }
+
+    return () => {
+      if (editorElement) {
+        editorElement.removeEventListener('click', handleLinkClick)
+      }
+    }
+  }, [holder])
 
   return <div id={holder} />
 }

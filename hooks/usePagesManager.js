@@ -66,14 +66,21 @@ export function usePagesManager() {
 
   const savePage = useCallback(async (pageContent) => {
     if (currentPage) {
-      const updatedPage = { ...currentPage, content: pageContent }
+      const updatedPage = { 
+        ...currentPage, 
+        content: {
+          time: Date.now(),
+          blocks: pageContent.blocks,
+          version: pageContent.version
+        }
+      }
       setPages(prevPages => {
         const updatedPages = prevPages.map(p => p.id === updatedPage.id ? updatedPage : p)
         savePagesToStorage(updatedPages)
         return updatedPages
       })
     }
-  }, [currentPage])
+  }, [currentPage, savePagesToStorage])
 
   const deletePage = useCallback(async (page) => {
     setPages(prevPages => {
