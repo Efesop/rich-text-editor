@@ -206,24 +206,28 @@ export function FolderItem({
       )}
       {isExpanded && (
         <div className={`${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'}`}>
-          {pages.filter(page => page.folderId === folder.id).map(page => (
-            <PageItem
-              key={page.id}
-              page={page}
-              isActive={currentPageId === page.id}
-              onSelect={onSelectPage}
-              onRename={onRename}
-              onDelete={onDelete}
-              onToggleLock={onToggleLock}
-              onRemoveFromFolder={() => onRemovePageFromFolder(page.id, folder.id)}
-              sidebarOpen={sidebarOpen}
-              theme={theme}
-              tags={tags}
-              tempUnlockedPages={tempUnlockedPages}
-              isInsideFolder={true}
-              folderTheme={theme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'}
-            />
-          ))}
+          {folder.pages.map(pageId => {
+            const page = pages.find(p => p.id === pageId);
+            if (!page) return null;
+            return (
+              <PageItem
+                key={page.id}
+                page={page}
+                isActive={currentPageId === page.id}
+                onSelect={onSelectPage}
+                onRename={onRename}
+                onDelete={onDelete}
+                onToggleLock={onToggleLock}
+                onRemoveFromFolder={() => onRemovePageFromFolder(page.id, folder.id)}
+                sidebarOpen={sidebarOpen}
+                theme={theme}
+                tags={tags}
+                tempUnlockedPages={tempUnlockedPages}
+                isInsideFolder={true}
+                folderTheme={theme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'}
+              />
+            );
+          })}
         </div>
       )}
     </div>

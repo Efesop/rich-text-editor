@@ -301,18 +301,43 @@ export default function RichTextEditor() {
   const filteredPages = useCallback(() => {
     return pages.filter(item => {
       if (item.type === 'folder') {
-        return true; // Always include folders
+        const matchingPages = item.pages.filter(pageId => {
+          const page = pages.find(p => p.id === pageId)
+          return page && matchesSearchCriteria(page, searchTerm, searchFilter)
+        })
+        return matchingPages.length > 0 || item.title.toLowerCase().includes(searchTerm.toLowerCase())
       } else if (!item.folderId) {
-        return (searchFilter === 'all' && (item.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                          item.content.blocks.some(block => block.data.text && block.data.text.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                                          item.tagNames?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))) ||
-              (searchFilter === 'title' && item.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
-              (searchFilter === 'content' && item.content.blocks.some(block => block.data.text && block.data.text.toLowerCase().includes(searchTerm.toLowerCase()))) ||
-              (searchFilter === 'tags' && item.tagNames?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())));
+        return matchesSearchCriteria(item, searchTerm, searchFilter)
       }
-      return false;
-    });
-  }, [pages, searchTerm, searchFilter]);
+      return false
+    }).map(item => {
+      if (item.type === 'folder') {
+        const matchingPages = item.pages.filter(pageId => {
+          const page = pages.find(p => p.id === pageId)
+          return page && matchesSearchCriteria(page, searchTerm, searchFilter)
+        })
+        return {
+          ...item,
+          pages: matchingPages
+        }
+      }
+      return item
+    })
+  }, [pages, searchTerm, searchFilter])
+
+  const matchesSearchCriteria = (page, searchTerm, searchFilter) => {
+    const lowercaseSearchTerm = searchTerm.toLowerCase();
+    return (
+      (searchFilter === 'all' && (
+        page.title.toLowerCase().includes(lowercaseSearchTerm) ||
+        page.content.blocks.some(block => block.data.text && block.data.text.toLowerCase().includes(lowercaseSearchTerm)) ||
+        page.tagNames?.some(tag => tag.toLowerCase().includes(lowercaseSearchTerm))
+      )) ||
+      (searchFilter === 'title' && page.title.toLowerCase().includes(lowercaseSearchTerm)) ||
+      (searchFilter === 'content' && page.content.blocks.some(block => block.data.text && block.data.text.toLowerCase().includes(lowercaseSearchTerm))) ||
+      (searchFilter === 'tags' && page.tagNames?.some(tag => tag.toLowerCase().includes(lowercaseSearchTerm)))
+    );
+  };
 
   const sortPages = useCallback((pages, option) => {
     switch (option) {
