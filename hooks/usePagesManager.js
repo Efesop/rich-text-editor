@@ -57,11 +57,12 @@ export function usePagesManager() {
     }
   
     setPages(prevPages => {
-      const updatedPages = [...prevPages, newPage]
+      const updatedPages = [newPage, ...prevPages]
       savePagesToStorage(updatedPages)
       return updatedPages
     })
     setCurrentPage(newPage)
+    return newPage
   }, [])
 
   const savePage = useCallback(async (pageContent) => {
@@ -75,7 +76,8 @@ export function usePagesManager() {
         }
       }
       setPages(prevPages => {
-        const updatedPages = prevPages.map(p => p.id === updatedPage.id ? updatedPage : p)
+        const filteredPages = prevPages.filter(p => p.id !== updatedPage.id)
+        const updatedPages = [updatedPage, ...filteredPages]
         savePagesToStorage(updatedPages)
         return updatedPages
       })
@@ -264,7 +266,7 @@ export function usePagesManager() {
       pages: []
     }
     setPages(prevPages => {
-      const updatedPages = [...prevPages, newFolder]
+      const updatedPages = [newFolder, ...prevPages]
       savePagesToStorage(updatedPages)
       return updatedPages
     })

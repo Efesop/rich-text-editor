@@ -311,18 +311,6 @@ export default function RichTextEditor() {
         return matchesSearchCriteria(item, searchTerm, searchFilter)
       }
       return false
-    }).map(item => {
-      if (item.type === 'folder') {
-        const matchingPages = item.pages.filter(pageId => {
-          const page = pages.find(p => p.id === pageId)
-          return page && matchesSearchCriteria(page, searchTerm, searchFilter)
-        })
-        return {
-          ...item,
-          pages: matchingPages
-        }
-      }
-      return item
     })
   }, [pages, searchTerm, searchFilter])
 
@@ -341,23 +329,33 @@ export default function RichTextEditor() {
   };
 
   const sortPages = useCallback((pages, option) => {
+    const folders = pages.filter(item => item.type === 'folder')
+    const nonFolderPages = pages.filter(item => item.type !== 'folder')
+
+    let sortedPages
     switch (option) {
       case 'a-z':
-        return [...pages].sort((a, b) => a.title.localeCompare(b.title))
+        sortedPages = nonFolderPages.sort((a, b) => a.title.localeCompare(b.title))
+        break
       case 'z-a':
-        return [...pages].sort((a, b) => b.title.localeCompare(a.title))
+        sortedPages = nonFolderPages.sort((a, b) => b.title.localeCompare(a.title))
+        break
       case 'oldest':
-        return [...pages].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+        sortedPages = nonFolderPages.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+        break
       case 'tag':
-        return [...pages].sort((a, b) => {
+        sortedPages = nonFolderPages.sort((a, b) => {
           const aTag = a.tagNames && a.tagNames[0] ? a.tagNames[0] : ''
           const bTag = b.tagNames && b.tagNames[0] ? b.tagNames[0] : ''
           return aTag.localeCompare(bTag)
         })
+        break
       case 'newest':
       default:
-        return [...pages].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        sortedPages = nonFolderPages.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     }
+
+    return [...sortedPages, ...folders]
   }, [])
 
   useEffect(() => {
