@@ -385,6 +385,21 @@ export default function RichTextEditor() {
     removePageFromFolder(pageId, folderId)
   }
 
+  useEffect(() => {
+    const handleLinkClick = (event) => {
+      if (event.target.tagName === 'A' && event.target.href) {
+        event.preventDefault();
+        window.electron.openExternal(event.target.href);
+      }
+    };
+
+    document.addEventListener('click', handleLinkClick);
+
+    return () => {
+      document.removeEventListener('click', handleLinkClick);
+    };
+  }, []);
+
   if (!isClient) {
     return null // or a loading indicator
   }

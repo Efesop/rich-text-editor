@@ -27,6 +27,11 @@ function createWindow() {
 
   // Open DevTools for debugging
   //mainWindow.webContents.openDevTools();
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    require('electron').shell.openExternal(url);
+    return { action: 'deny' };
+  });
 }
 
 const tagsPath = path.join(app.getPath('userData'), 'tags.json');

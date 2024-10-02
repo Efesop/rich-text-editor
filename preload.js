@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, shell } = require('electron');
 
 contextBridge.exposeInMainWorld('electron', {
   invoke: (channel, data) => {
@@ -12,5 +12,6 @@ contextBridge.exposeInMainWorld('electron', {
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, (event, ...args) => func(...args));
     }
-  }
+  },
+  openExternal: (url) => shell.openExternal(url)
 });
