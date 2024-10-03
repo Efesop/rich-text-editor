@@ -11,7 +11,7 @@
     "electron-pack": "npm run build && electron-builder build --win --mac --linux",
     "electron-start": "electron .",
     "electron:build": "electron-builder build --win --mac --linux",
-    "dist": "GH_TOKEN=$GH_TOKEN electron-builder --publish always"
+    "dist": "electron-builder --publish always"
   },
   "dependencies": {
     "@editorjs/checklist": "^1.6.0",

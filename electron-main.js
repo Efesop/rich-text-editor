@@ -7,9 +7,9 @@ const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
 
 // Load environment variables from .env file in development
-if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config();
-}
+// if (process.env.NODE_ENV !== 'production') {
+//   require('dotenv').config();
+// }
 
 // Configure logging
 log.transports.file.level = 'debug'; // Change this to 'debug' for more detailed logs
@@ -17,7 +17,7 @@ autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = 'debug';
 
 // Log the token availability (be careful with this in production!)
-log.info('GH_TOKEN available:', !!token);
+// log.info('GH_TOKEN available:', !!token);
 
 // Configure auto-updater
 autoUpdater.setFeedURL({
