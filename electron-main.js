@@ -11,9 +11,6 @@ if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
 }
 
-// Use the token from the environment variable
-const token = process.env.GH_TOKEN;
-
 // Configure logging
 log.transports.file.level = 'debug'; // Change this to 'debug' for more detailed logs
 autoUpdater.logger = log;
