@@ -7,23 +7,21 @@ const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
 //require('dotenv').config();
 
-// Log the GH_TOKEN (be careful with this in production!)
-log.info('GH_TOKEN available:', !!process.env.GH_TOKEN);
+// Set the GitHub token for auto-updates
+process.env.GH_TOKEN = 'your_github_token_here';
 
 // Configure logging
 log.transports.file.level = 'info';
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = 'info';
 
-// Add this line to enable update checks for private repositories
-const token = process.env.GH_TOKEN || app.getVersion('GH_TOKEN');
-
+// Configure auto-updater
 autoUpdater.setFeedURL({
   provider: 'github',
   owner: 'Efesop',
   repo: 'rich-text-editor',
   private: true,
-  token: token // This will use the GH_TOKEN environment variable or the built-in value
+  token: process.env.GH_TOKEN
 });
 
 let mainWindow;
@@ -158,4 +156,9 @@ app.on('window-all-closed', function () {
 
 app.on('activate', function () {
   if (mainWindow === null) createWindow();
+});
+
+// Check for updates
+app.on('ready', () => {
+  autoUpdater.checkForUpdatesAndNotify();
 });

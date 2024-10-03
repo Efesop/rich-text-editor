@@ -22,5 +22,3 @@ publish:
   owner: Efesop
   repo: rich-text-editor
   private: true
-extraMetadata:
-  GH_TOKEN: ${env.GH_TOKEN}
