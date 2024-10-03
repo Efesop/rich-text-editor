@@ -16,12 +16,14 @@ autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = 'info';
 
 // Add this line to enable update checks for private repositories
+const token = process.env.GH_TOKEN || app.getVersion('GH_TOKEN');
+
 autoUpdater.setFeedURL({
   provider: 'github',
   owner: 'Efesop',
   repo: 'rich-text-editor',
   private: true,
-  token: process.env.GH_TOKEN // This will use the GH_TOKEN environment variable
+  token: token // This will use the GH_TOKEN environment variable or the built-in value
 });
 
 let mainWindow;
