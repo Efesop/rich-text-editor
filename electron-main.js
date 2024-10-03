@@ -5,15 +5,22 @@ const { ipcMain } = require('electron');
 const fs = require('fs').promises;
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
-//require('dotenv').config();
 
-// Set the GitHub token for auto-updates
-process.env.GH_TOKEN = 'your_github_token_here';
+// Load environment variables from .env file in development
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
+
+// Use the token from the environment variable
+const token = process.env.GH_TOKEN;
 
 // Configure logging
-log.transports.file.level = 'info';
+log.transports.file.level = 'debug'; // Change this to 'debug' for more detailed logs
 autoUpdater.logger = log;
-autoUpdater.logger.transports.file.level = 'info';
+autoUpdater.logger.transports.file.level = 'debug';
+
+// Log the token availability (be careful with this in production!)
+log.info('GH_TOKEN available:', !!token);
 
 // Configure auto-updater
 autoUpdater.setFeedURL({
@@ -21,7 +28,7 @@ autoUpdater.setFeedURL({
   owner: 'Efesop',
   repo: 'rich-text-editor',
   private: true,
-  token: process.env.GH_TOKEN
+  token: token
 });
 
 let mainWindow;
@@ -160,5 +167,12 @@ app.on('activate', function () {
 
 // Check for updates
 app.on('ready', () => {
-  autoUpdater.checkForUpdatesAndNotify();
+  autoUpdater.checkForUpdatesAndNotify().catch(error => {
+    log.error('Error checking for updates:', error);
+  });
+});
+
+// Add error listener
+autoUpdater.on('error', (error) => {
+  log.error('AutoUpdater error:', error);
 });
