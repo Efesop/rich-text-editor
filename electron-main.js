@@ -4,6 +4,25 @@ const url = require('url');
 const { ipcMain } = require('electron');
 const fs = require('fs').promises;
 const { autoUpdater } = require('electron-updater');
+const log = require('electron-log');
+//require('dotenv').config();
+
+// Log the GH_TOKEN (be careful with this in production!)
+log.info('GH_TOKEN available:', !!process.env.GH_TOKEN);
+
+// Configure logging
+log.transports.file.level = 'info';
+autoUpdater.logger = log;
+autoUpdater.logger.transports.file.level = 'info';
+
+// Add this line to enable update checks for private repositories
+autoUpdater.setFeedURL({
+  provider: 'github',
+  owner: 'Efesop',
+  repo: 'rich-text-editor',
+  private: true,
+  token: process.env.GH_TOKEN // This will use the GH_TOKEN environment variable
+});
 
 let mainWindow;
 
@@ -80,25 +99,51 @@ ipcMain.handle('save-pages', async (event, pages) => {
 });
 
 function setupAutoUpdater() {
+  autoUpdater.on('checking-for-update', () => {
+    log.info('Checking for update...');
+    mainWindow.webContents.send('checking-for-update');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    log.info('Update available:', info);
+    mainWindow.webContents.send('update-available', info);
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    log.info('Update not available:', info);
+    mainWindow.webContents.send('update-not-available', info);
+  });
+
+  autoUpdater.on('error', (err) => {
+    log.error('Error in auto-updater:', err);
+    mainWindow.webContents.send('error', err.message);
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    let logMessage = `Download speed: ${progressObj.bytesPerSecond}`;
+    logMessage = `${logMessage} - Downloaded ${progressObj.percent}%`;
+    logMessage = `${logMessage} (${progressObj.transferred}/${progressObj.total})`;
+    log.info(logMessage);
+    mainWindow.webContents.send('download-progress', progressObj);
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    log.info('Update downloaded:', info);
+    mainWindow.webContents.send('update-downloaded', info);
+  });
+
   autoUpdater.checkForUpdatesAndNotify();
 
-  autoUpdater.on('update-available', () => {
-    mainWindow.webContents.send('update-available');
-  });
-
-  autoUpdater.on('update-downloaded', () => {
-    mainWindow.webContents.send('update-downloaded');
-  });
-
-  ipcMain.on('restart-app', () => {
-    autoUpdater.quitAndInstall();
-  });
-
-  // Check for updates every 15 minutes
+  // Check for updates every 2 minutes (for testing purposes)
   setInterval(() => {
     autoUpdater.checkForUpdatesAndNotify();
-  }, 15 * 60 * 1000);
+  }, 2 * 60 * 1000);
 }
+
+ipcMain.handle('check-for-updates', () => {
+  log.info('Manually checking for updates...');
+  autoUpdater.checkForUpdatesAndNotify();
+});
 
 app.whenReady().then(() => {
   createWindow();

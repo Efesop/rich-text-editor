@@ -1,22 +1,18 @@
-appId: com.yourcompany.yourappname
+appId: com.filmshape.dash
 productName: Dash
 directories:
   output: dist
   buildResources: build
 files:
-  - '!{src,docs,build,README.md}'
   - 'out/**/*'
   - 'electron-main.js'
   - 'preload.js'
-extraResources:
-  - from: 'resources'
-    to: 'resources'
 mac:
   icon: icons/Dashmac1024.icns
   target: 
     - dmg
     - zip
-  identity: null  // This tells electron-builder to use your default certificate
+  identity: "Filmshape Ltd (9888FL2CQ6)"
 win:
   icon: icons/Dashwin512.ico
 linux:
@@ -25,3 +21,4 @@ publish:
   provider: github
   owner: Efesop
   repo: rich-text-editor
+  private: true

@@ -1,6 +1,6 @@
 {
   "name": "rich-text-editor",
-  "version": "1.0.3",
+  "version": "1.0.6",
   "private": true,
   "scripts": {
     "dev": "electron .",
@@ -11,7 +11,7 @@
     "electron-pack": "npm run build && electron-builder build --win --mac --linux",
     "electron-start": "electron .",
     "electron:build": "electron-builder build --win --mac --linux",
-    "dist": "npm run build && electron-builder"
+    "dist": "electron-builder --publish always"
   },
   "dependencies": {
     "@editorjs/checklist": "^1.6.0",
@@ -38,6 +38,7 @@
     "csv-stringify": "^6.5.1",
     "date-fns": "^4.1.0",
     "docx": "^8.5.0",
+    "electron-log": "^4.4.8",
     "electron-updater": "^6.3.4",
     "html2pdf.js": "^0.10.2",
     "lucide-react": "^0.441.0",
@@ -82,6 +83,13 @@
     "directories": {
       "output": "dist",
       "buildResources": "build"
+    },
+    "mac": {
+      "identity": "Filmshape Ltd (9888FL2CQ6)"
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Efesop/rich-text-editor.git"
   }
 }
