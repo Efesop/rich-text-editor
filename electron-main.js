@@ -25,7 +25,7 @@ autoUpdater.setFeedURL({
   owner: 'Efesop',
   repo: 'rich-text-editor',
   private: true,
-  token: token
+  //token: token
 });
 
 let mainWindow;
