@@ -86,6 +86,12 @@
     },
     "mac": {
       "identity": "Filmshape Ltd (9888FL2CQ6)"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Efesop",
+      "repo": "rich-text-editor",
+      "private": true
     }
   },
   "repository": {
