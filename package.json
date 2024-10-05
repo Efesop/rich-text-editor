@@ -89,7 +89,11 @@
     },
     "mac": {
       "category": "public.app-category.productivity",
-      "icon": "icons/Dashmac1024.icns"
+      "icon": "icons/Dashmac1024.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "publish": {
       "provider": "github",
