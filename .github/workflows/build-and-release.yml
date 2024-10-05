@@ -37,12 +37,6 @@ jobs:
     - name: Verify Certificate
       run: security find-identity -v -p codesigning build.keychain
 
-    - name: Verify Entitlements File
-      run: |
-        ls -l build/entitlements.mac.plist
-        cat build/entitlements.mac.plist
-        chmod 644 build/entitlements.mac.plist
-
     - name: Ensure Entitlements File
       run: |
         mkdir -p build
@@ -67,7 +61,7 @@ jobs:
         CSC_NAME: "Filmshape Ltd (9888FL2CQ6)"
       run: |
         npm run build
-        npm run dist -- --debug
+        npm run dist
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v3
