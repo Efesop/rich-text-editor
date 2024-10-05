@@ -29,9 +29,10 @@ jobs:
 
     - name: Import Certificate
       run: |
-        echo "${{ secrets.MAC_CERTS }}" | base64 --decode > certificate.p12
-        security import certificate.p12 -k build.keychain -P "${{ secrets.P12_PASSWORD }}" -T /usr/bin/codesign
-        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+        echo '${{ secrets.MAC_CERTS }}' | base64 --decode > certificate.p12
+        security import certificate.p12 -k build.keychain -P '${{ secrets.P12_PASSWORD }}' -T /usr/bin/codesign
+        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k '${{ secrets.KEYCHAIN_PASSWORD }}' build.keychain
+      shell: bash
 
     - name: Build and release Electron app
       env:
