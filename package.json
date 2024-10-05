@@ -1,6 +1,6 @@
 {
   "name": "rich-text-editor",
-  "version": "1.2.44",
+  "version": "1.2.45",
   "private": true,
   "main": "electron-main.js",
   "engines": {
@@ -95,12 +95,13 @@
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist"
     },
-    "publish": {
-      "provider": "github",
-      "owner": "Efesop",
-      "repo": "rich-text-editor",
-      "private": true
-    }
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Efesop",
+        "repo": "rich-text-editor"
+      }
+    ]
   },
   "repository": {
     "type": "git",
