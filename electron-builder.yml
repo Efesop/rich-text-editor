@@ -12,7 +12,7 @@ mac:
   target: 
     - dmg
     - zip
-  identity: "Filmshape Ltd (9888FL2CQ6)"
+  identity: "Developer ID Application: Filmshape Ltd (9888FL2CQ6)"
   hardenedRuntime: true
   gatekeeperAssess: false
   entitlements: "build/entitlements.mac.plist"
