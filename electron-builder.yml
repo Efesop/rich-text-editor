@@ -22,3 +22,4 @@ publish:
   owner: Efesop
   repo: rich-text-editor
   private: true
+  token: ${env.GH_TOKEN}  # Ensure this is set in your environment
