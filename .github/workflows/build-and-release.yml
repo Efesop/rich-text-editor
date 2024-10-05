@@ -34,6 +34,32 @@ jobs:
         security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k '${{ secrets.KEYCHAIN_PASSWORD }}' build.keychain
       shell: bash
 
+    - name: Verify Certificate
+      run: security find-identity -v -p codesigning build.keychain
+
+    - name: Verify Entitlements File
+      run: |
+        ls -l build/entitlements.mac.plist
+        cat build/entitlements.mac.plist
+        chmod 644 build/entitlements.mac.plist
+
+    - name: Ensure Entitlements File
+      run: |
+        mkdir -p build
+        echo '<?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+          <dict>
+            <key>com.apple.security.cs.allow-jit</key>
+            <true/>
+            <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+            <true/>
+            <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+            <true/>
+          </dict>
+        </plist>' > build/entitlements.mac.plist
+        cat build/entitlements.mac.plist
+
     - name: Build and release Electron app
       env:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -41,7 +67,7 @@ jobs:
         CSC_NAME: "Filmshape Ltd (9888FL2CQ6)"
       run: |
         npm run build
-        npm run dist
+        npm run dist -- --debug
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v3
