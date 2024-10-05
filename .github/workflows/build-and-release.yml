@@ -24,8 +24,6 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
         CSC_LINK: ${{ secrets.MAC_CERTS }}
-        # Remove or comment out the following line if not needed
-        # CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
       run: |
         npm run build
         npm run dist
