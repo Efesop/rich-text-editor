@@ -120,6 +120,9 @@ function setupAutoUpdater() {
 
   autoUpdater.on('error', (err) => {
     log.error('Error in auto-updater:', err);
+    log.error('Error details:', err.stack);
+    log.error('Current version:', app.getVersion());
+    log.error('Update URL:', autoUpdater.getFeedURL());
     mainWindow.webContents.send('error', err.message);
   });
 
