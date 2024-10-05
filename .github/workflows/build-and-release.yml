@@ -49,4 +49,7 @@ jobs:
         name: dist
         path: dist
 
+    - name: Set Entitlements Permissions
+      run: chmod 644 build/entitlements.mac.plist
+
 # Added a comment to force a fresh run
