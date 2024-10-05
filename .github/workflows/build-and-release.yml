@@ -38,7 +38,7 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
         CSC_KEYCHAIN: build.keychain
-        CSC_NAME: "Developer ID Application: Filmshape Ltd (9888FL2CQ6)"
+        CSC_NAME: "Filmshape Ltd (9888FL2CQ6)"
       run: |
         npm run build
         npm run dist
