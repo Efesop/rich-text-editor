@@ -20,13 +20,13 @@ autoUpdater.logger.transports.file.level = 'debug';
 // log.info('GH_TOKEN available:', !!token);
 
 // Configure auto-updater
-autoUpdater.setFeedURL({
-  provider: 'github',
-  owner: 'Efesop',
-  repo: 'rich-text-editor',
-  private: true,
-  token: process.env.GH_TOKEN
-});
+// autoUpdater.setFeedURL({
+//   provider: 'github',
+//   owner: 'Efesop',
+//   repo: 'rich-text-editor',
+//   private: true,
+//   token: process.env.GH_TOKEN
+// });
 
 let mainWindow;
 
@@ -176,3 +176,5 @@ app.on('ready', () => {
 autoUpdater.on('error', (error) => {
   log.error('AutoUpdater error:', error);
 });
+
+log.info('Update feed URL:', autoUpdater.getFeedURL());
