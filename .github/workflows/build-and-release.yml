@@ -32,7 +32,9 @@ jobs:
         npm run dist
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3  # Update to v3
+      uses: actions/upload-artifact@v3  # Ensure this is v3
       with:
         name: dist
         path: dist
+
+# Added a comment to force a fresh run
