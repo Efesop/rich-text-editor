@@ -22,10 +22,10 @@ jobs:
 
     - name: Setup Keychain
       run: |
-        security create-keychain -p ${{ secrets.KEYCHAIN_PASSWORD }} build.keychain
+        security create-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
         security default-keychain -s build.keychain
-        security unlock-keychain -p ${{ secrets.KEYCHAIN_PASSWORD }} build.keychain
-        security set-keychain-settings -t 3600 -l build.keychain
+        security unlock-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+        security set-keychain-settings -t 3600
 
     - name: Import Certificate
       run: |
