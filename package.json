@@ -1,17 +1,21 @@
 {
   "name": "rich-text-editor",
-  "version": "1.1.4",
+  "version": "1.1.8",
   "private": true,
+  "main": "electron-main.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "electron .",
-    "build": "next build && next export",
-    "start": "next start",
-    "lint": "next lint",
+    "start": "electron .",
+    "build": "next build",
+    "dist": "electron-builder --mac",
+    "release": "electron-builder --mac --publish always",
     "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
     "electron-pack": "npm run build && electron-builder build --win --mac --linux",
     "electron-start": "electron .",
-    "electron:build": "electron-builder build --win --mac --linux",
-    "dist": "electron-builder --publish always"
+    "electron:build": "electron-builder build --win --mac --linux"
   },
   "dependencies": {
     "@editorjs/checklist": "^1.6.0",
@@ -71,9 +75,8 @@
     "@typescript-eslint/no-unused-vars": "off",
     "react-hooks/exhaustive-deps": "off"
   },
-  "main": "electron-main.js",
   "build": {
-    "appId": "com.yourcompany.yourappname",
+    "appId": "com.filmshape.dash",
     "productName": "Dash",
     "files": [
       "out/**/*",
@@ -85,7 +88,8 @@
       "buildResources": "build"
     },
     "mac": {
-      "identity": "Filmshape Ltd (9888FL2CQ6)"
+      "category": "public.app-category.productivity",
+      "icon": "icons/Dashmac1024.icns"
     },
     "publish": {
       "provider": "github",
