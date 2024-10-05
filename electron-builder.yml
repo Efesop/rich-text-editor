@@ -13,6 +13,11 @@ mac:
     - dmg
     - zip
   identity: "Filmshape Ltd (9888FL2CQ6)"
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: "build/entitlements.mac.plist"
+  entitlementsInherit: "build/entitlements.mac.plist"
+afterSign: "scripts/notarize.js"
 win:
   icon: icons/Dashwin512.ico
 linux:
