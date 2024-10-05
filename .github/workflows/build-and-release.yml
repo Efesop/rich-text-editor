@@ -29,7 +29,7 @@ jobs:
 
     - name: Import Certificate
       run: |
-        echo "${{ secrets.MAC_CERTS }}" base64 --decode > certificate.pem
+        echo "${{ secrets.MAC_CERTS }}" | base64 --decode > certificate.pem
         security import certificate.pem -k build.keychain -T /usr/bin/codesign
         security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
 
