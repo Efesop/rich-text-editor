@@ -1,42 +1,32 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Button } from "./ui/button";
 import { ArrowDownCircle, X } from 'lucide-react';
 
-export default function UpdateNotification() {
+export default function UpdateNotification({ onClose }) {
   const [updateStatus, setUpdateStatus] = useState('No updates checked');
   const [updateDownloaded, setUpdateDownloaded] = useState(false);
-  const [isVisible, setIsVisible] = useState(true);
+
+  const handleUpdateAvailable = useCallback(() => setUpdateStatus('Update available. Downloading...'), []);
+  const handleUpdateNotAvailable = useCallback(() => setUpdateStatus('Your app is up to date'), []);
+  const handleUpdateDownloaded = useCallback(() => {
+    setUpdateStatus('Update ready to install');
+    setUpdateDownloaded(true);
+  }, []);
+  const handleError = useCallback(() => setUpdateStatus('Update error. Try again later.'), []);
 
   useEffect(() => {
-    window.electron.on('update-available', (info) => {
-      setUpdateStatus('Update available. Downloading...');
-      setIsVisible(true);
-    });
-
-    window.electron.on('update-not-available', (info) => {
-      setUpdateStatus('Your app is up to date');
-      setIsVisible(true);
-    });
-
-    window.electron.on('update-downloaded', (info) => {
-      setUpdateStatus('Update ready to install');
-      setUpdateDownloaded(true);
-      setIsVisible(true);
-    });
-
-    window.electron.on('error', (error) => {
-      setUpdateStatus('Update error. Try again later.');
-      setIsVisible(true);
-    });
+    window.electron.on('update-available', handleUpdateAvailable);
+    window.electron.on('update-not-available', handleUpdateNotAvailable);
+    window.electron.on('update-downloaded', handleUpdateDownloaded);
+    window.electron.on('error', handleError);
 
     return () => {
-      // Clean up listeners
-      window.electron.removeAllListeners('update-available');
-      window.electron.removeAllListeners('update-not-available');
-      window.electron.removeAllListeners('update-downloaded');
-      window.electron.removeAllListeners('error');
+      window.electron.removeListener('update-available', handleUpdateAvailable);
+      window.electron.removeListener('update-not-available', handleUpdateNotAvailable);
+      window.electron.removeListener('update-downloaded', handleUpdateDownloaded);
+      window.electron.removeListener('error', handleError);
     };
-  }, []);
+  }, [handleUpdateAvailable, handleUpdateNotAvailable, handleUpdateDownloaded, handleError]);
 
   const checkForUpdates = () => {
     setUpdateStatus('Checking for updates...');
@@ -47,10 +37,8 @@ export default function UpdateNotification() {
     window.electron.invoke('install-update');
   };
 
-  if (!isVisible) return null;
-
   return (
-    <div className="fixed bottom-4 right-4 bg-blue-100 bg-opacity-90 rounded shadow-lg overflow-hidden">
+    <div className="fixed bottom-4 right-4 bg-blue-100 bg-opacity-90 rounded-lg shadow-lg overflow-hidden">
       <div className="px-4 py-2 flex items-center justify-between space-x-4">
         <div className="flex items-center">
           <ArrowDownCircle className="h-4 w-4 text-blue-500 mr-2 flex-shrink-0" />
@@ -66,7 +54,7 @@ export default function UpdateNotification() {
             {updateDownloaded ? 'Install' : 'Check for updates'}
           </Button>
           <button
-            onClick={() => setIsVisible(false)}
+            onClick={onClose}
             className="text-blue-500 hover:text-blue-700 focus:outline-none"
           >
             <X className="h-4 w-4" />

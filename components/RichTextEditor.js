@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, X, ChevronDown, Lock, FolderPlus } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, X, ChevronDown, Lock, FolderPlus, RefreshCw, Bell } from 'lucide-react'
 import { useTheme } from 'next-themes'
 //import { Sun, Moon } from 'lucide-react'
 import { RenameModal } from '@/components/RenameModal'
@@ -33,7 +33,7 @@ import { FolderModal } from '@/components/FolderModal'
 import { AddPageToFolderModal } from './AddPageToFolderModal'
 import { FolderItem } from './FolderItem'
 import { FolderIcon } from 'lucide-react'
-import UpdateNotification from './UpdateNotification';
+import UpdateNotification from './UpdateNotification'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
 
@@ -93,6 +93,7 @@ export default function RichTextEditor() {
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false)
   const [isAddToFolderModalOpen, setIsAddToFolderModalOpen] = useState(false)
   const [selectedFolderId, setSelectedFolderId] = useState(null)
+  const [showUpdateNotification, setShowUpdateNotification] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
@@ -399,6 +400,10 @@ export default function RichTextEditor() {
     };
   }, []);
 
+  const toggleUpdateNotification = () => {
+    setShowUpdateNotification(prev => !prev)
+  }
+
   if (!isClient) {
     return null // or a loading indicator
   }
@@ -543,6 +548,14 @@ export default function RichTextEditor() {
               )}
             </div>
             <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleUpdateNotification}
+                title="Show update notification"
+              >
+                <Bell className="h-4 w-4" />
+              </Button>
               <ExportDropdown onExport={handleExport} />
               <ThemeToggle />
             </div>
@@ -677,7 +690,9 @@ export default function RichTextEditor() {
         theme={theme}
       />
 
-      <UpdateNotification />
+      {showUpdateNotification && (
+        <UpdateNotification onClose={toggleUpdateNotification} />
+      )}
     </div>
   )
 }

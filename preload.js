@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, shell } = require('electron');
 
 contextBridge.exposeInMainWorld('electron', {
   invoke: (channel, data) => {
@@ -11,6 +11,12 @@ contextBridge.exposeInMainWorld('electron', {
     let validChannels = ['checking-for-update', 'update-available', 'update-not-available', 'error', 'download-progress', 'update-downloaded'];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, (event, ...args) => func(...args));
+    }
+  },
+  removeListener: (channel, func) => {
+    let validChannels = ['checking-for-update', 'update-available', 'update-not-available', 'error', 'download-progress', 'update-downloaded'];
+    if (validChannels.includes(channel)) {
+      ipcRenderer.removeListener(channel, func);
     }
   },
   openExternal: (url) => shell.openExternal(url)
