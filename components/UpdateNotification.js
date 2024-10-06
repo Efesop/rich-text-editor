@@ -7,35 +7,41 @@ export default function UpdateNotification({ onClose }) {
   const [updateDownloaded, setUpdateDownloaded] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
 
-  const handleUpdateAvailable = useCallback(() => {
-    console.log('Update available');
-    setUpdateStatus('Update available. Downloading...');
-  }, []);
-
-  const handleUpdateNotAvailable = useCallback(() => {
-    console.log('No update available');
-    setUpdateStatus('Your app is up to date');
-  }, []);
-
-  const handleUpdateDownloaded = useCallback(() => {
-    console.log('Update downloaded');
-    setUpdateStatus('Update ready to install');
-    setUpdateDownloaded(true);
-  }, []);
-
-  const handleError = useCallback((err) => {
-    console.error('Update error:', err);
-    setUpdateStatus(`Update error: ${err}`);
-  }, []);
-
-  const handleDownloadProgress = useCallback((progressObj) => {
-    const percent = progressObj.percent.toFixed(2);
-    console.log(`Download progress: ${percent}%`);
-    setDownloadProgress(percent);
-    setUpdateStatus(`Downloading update... ${percent}%`);
-  }, []);
-
   useEffect(() => {
+    const handleCheckingForUpdate = () => {
+      console.log('Checking for update...');
+      setUpdateStatus('Checking for updates...');
+    };
+
+    const handleUpdateAvailable = (info) => {
+      console.log('Update available:', info);
+      setUpdateStatus('Update available. Downloading...');
+    };
+
+    const handleUpdateNotAvailable = (info) => {
+      console.log('Update not available:', info);
+      setUpdateStatus('Your app is up to date');
+    };
+
+    const handleUpdateDownloaded = (info) => {
+      console.log('Update downloaded:', info);
+      setUpdateStatus('Update ready to install');
+      setUpdateDownloaded(true);
+    };
+
+    const handleError = (err) => {
+      console.error('Update error:', err);
+      setUpdateStatus(`Update error: ${err}`);
+    };
+
+    const handleDownloadProgress = (progressObj) => {
+      const percent = progressObj.percent.toFixed(2);
+      console.log(`Download progress: ${percent}%`);
+      setDownloadProgress(percent);
+      setUpdateStatus(`Downloading update... ${percent}%`);
+    };
+
+    window.electron.on('checking-for-update', handleCheckingForUpdate);
     window.electron.on('update-available', handleUpdateAvailable);
     window.electron.on('update-not-available', handleUpdateNotAvailable);
     window.electron.on('update-downloaded', handleUpdateDownloaded);
@@ -43,13 +49,14 @@ export default function UpdateNotification({ onClose }) {
     window.electron.on('download-progress', handleDownloadProgress);
 
     return () => {
+      window.electron.removeListener('checking-for-update', handleCheckingForUpdate);
       window.electron.removeListener('update-available', handleUpdateAvailable);
       window.electron.removeListener('update-not-available', handleUpdateNotAvailable);
       window.electron.removeListener('update-downloaded', handleUpdateDownloaded);
       window.electron.removeListener('error', handleError);
       window.electron.removeListener('download-progress', handleDownloadProgress);
     };
-  }, [handleUpdateAvailable, handleUpdateNotAvailable, handleUpdateDownloaded, handleError, handleDownloadProgress]);
+  }, []);
 
   const checkForUpdates = () => {
     console.log('Checking for updates...');

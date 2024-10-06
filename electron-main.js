@@ -107,39 +107,50 @@ function setupAutoUpdater() {
   autoUpdater.logger = log;
   autoUpdater.logger.transports.file.level = 'info';
 
+  let updateAvailable = false;
+
   autoUpdater.on('checking-for-update', () => {
     log.info('Checking for update...');
+    mainWindow.webContents.send('checking-for-update');
   });
 
   autoUpdater.on('update-available', (info) => {
     log.info('Update available:', info);
+    mainWindow.webContents.send('update-available', info);
   });
 
   autoUpdater.on('update-not-available', (info) => {
     log.info('Update not available:', info);
+    mainWindow.webContents.send('update-not-available', info);
   });
 
   autoUpdater.on('error', (err) => {
     log.error('Error in auto-updater:', err);
+    mainWindow.webContents.send('error', err.toString());
   });
 
   autoUpdater.on('download-progress', (progressObj) => {
-    let log_message = `Download speed: ${progressObj.bytesPerSecond}`;
-    log_message = `${log_message} - Downloaded ${progressObj.percent}%`;
-    log_message = `${log_message} (${progressObj.transferred}/${progressObj.total})`;
-    log.info(log_message);
+    let logMessage = `Download speed: ${progressObj.bytesPerSecond}`;
+    logMessage = `${logMessage} - Downloaded ${progressObj.percent}%`;
+    logMessage = `${logMessage} (${progressObj.transferred}/${progressObj.total})`;
+    log.info(logMessage);
+    mainWindow.webContents.send('download-progress', progressObj);
   });
 
   autoUpdater.on('update-downloaded', (info) => {
     log.info('Update downloaded:', info);
+    mainWindow.webContents.send('update-downloaded', info);
   });
 
-  autoUpdater.checkForUpdatesAndNotify();
+  // Initial check for updates
+  autoUpdater.checkForUpdates();
 
-  // Check for updates every 30 minutes
+  // Check for updates every 6 hours, but only if no update is currently available
   setInterval(() => {
-    autoUpdater.checkForUpdatesAndNotify();
-  }, 30 * 60 * 1000);
+    if (!updateAvailable) {
+      autoUpdater.checkForUpdates();
+    }
+  }, 6 * 60 * 60 * 1000);
 }
 
 ipcMain.handle('check-for-updates', () => {
