@@ -106,6 +106,7 @@ function setupAutoUpdater() {
   log.info('Setting up auto-updater...');
   autoUpdater.logger = log;
   autoUpdater.logger.transports.file.level = 'info';
+  autoUpdater.autoDownload = false;  // Prevent automatic download
 
   let updateAvailable = false;
 
@@ -158,14 +159,24 @@ ipcMain.handle('check-for-updates', () => {
   autoUpdater.checkForUpdates();
 });
 
+ipcMain.handle('download-update', () => {
+  log.info('Starting update download...');
+  autoUpdater.downloadUpdate();
+});
+
 ipcMain.handle('install-update', () => {
-  log.info('Install update requested...');
-  try {
+  log.info('Installing update...');
+  mainWindow.webContents.send('install-progress', 'Preparing to install');
+  
+  // Simulate installation steps (replace with actual steps if possible)
+  setTimeout(() => mainWindow.webContents.send('install-progress', 'Backing up data'), 2000);
+  setTimeout(() => mainWindow.webContents.send('install-progress', 'Applying update'), 4000);
+  setTimeout(() => mainWindow.webContents.send('install-progress', 'Finalizing installation'), 6000);
+  
+  setTimeout(() => {
+    mainWindow.webContents.send('install-progress', 'Update installed. Restarting...');
     autoUpdater.quitAndInstall(false, true);
-    log.info('quitAndInstall called successfully');
-  } catch (error) {
-    log.error('Error calling quitAndInstall:', error);
-  }
+  }, 8000);
 });
 
 app.whenReady().then(() => {

@@ -4,8 +4,10 @@ import { ArrowDownCircle, X } from 'lucide-react';
 
 export default function UpdateNotification({ onClose }) {
   const [updateStatus, setUpdateStatus] = useState('No updates checked');
+  const [updateAvailable, setUpdateAvailable] = useState(false);
   const [updateDownloaded, setUpdateDownloaded] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const [isInstalling, setIsInstalling] = useState(false);
 
   useEffect(() => {
     const handleCheckingForUpdate = () => {
@@ -15,7 +17,8 @@ export default function UpdateNotification({ onClose }) {
 
     const handleUpdateAvailable = (info) => {
       console.log('Update available:', info);
-      setUpdateStatus('Update available. Downloading...');
+      setUpdateStatus(`Update available: ${info.version}`);
+      setUpdateAvailable(true);
     };
 
     const handleUpdateNotAvailable = (info) => {
@@ -25,7 +28,7 @@ export default function UpdateNotification({ onClose }) {
 
     const handleUpdateDownloaded = (info) => {
       console.log('Update downloaded:', info);
-      setUpdateStatus('Update ready to install');
+      setUpdateStatus(`Update ready to install: ${info.version}`);
       setUpdateDownloaded(true);
     };
 
@@ -41,12 +44,18 @@ export default function UpdateNotification({ onClose }) {
       setUpdateStatus(`Downloading update... ${percent}%`);
     };
 
+    const handleInstallProgress = (message) => {
+      console.log('Install progress:', message);
+      setUpdateStatus(`Installing: ${message}`);
+    };
+
     window.electron.on('checking-for-update', handleCheckingForUpdate);
     window.electron.on('update-available', handleUpdateAvailable);
     window.electron.on('update-not-available', handleUpdateNotAvailable);
     window.electron.on('update-downloaded', handleUpdateDownloaded);
     window.electron.on('error', handleError);
     window.electron.on('download-progress', handleDownloadProgress);
+    window.electron.on('install-progress', handleInstallProgress);
 
     return () => {
       window.electron.removeListener('checking-for-update', handleCheckingForUpdate);
@@ -55,6 +64,7 @@ export default function UpdateNotification({ onClose }) {
       window.electron.removeListener('update-downloaded', handleUpdateDownloaded);
       window.electron.removeListener('error', handleError);
       window.electron.removeListener('download-progress', handleDownloadProgress);
+      window.electron.removeListener('install-progress', handleInstallProgress);
     };
   }, []);
 
@@ -64,9 +74,23 @@ export default function UpdateNotification({ onClose }) {
     window.electron.invoke('check-for-updates');
   };
 
-  const installUpdate = () => {
+  const downloadUpdate = () => {
+    console.log('Downloading update...');
+    setUpdateStatus('Starting download...');
+    window.electron.invoke('download-update');
+  };
+
+  const installUpdate = async () => {
     console.log('Installing update...');
-    window.electron.invoke('install-update');
+    setIsInstalling(true);
+    setUpdateStatus('Preparing to install...');
+    try {
+      await window.electron.invoke('install-update');
+    } catch (error) {
+      console.error('Error installing update:', error);
+      setUpdateStatus(`Error installing update: ${error}`);
+      setIsInstalling(false);
+    }
   };
 
   return (
@@ -79,26 +103,47 @@ export default function UpdateNotification({ onClose }) {
           </span>
         </div>
         <div className="flex items-center space-x-2 flex-shrink-0">
-          <Button
-            onClick={updateDownloaded ? installUpdate : checkForUpdates}
-            className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1 rounded whitespace-nowrap z-50"
-            disabled={updateStatus.startsWith('Downloading update...')}
-          >
-            {updateDownloaded ? 'Install' : 'Check for updates'}
-          </Button>
-          <button
-            onClick={onClose}
-            className="text-blue-500 hover:text-blue-700 focus:outline-none p-1 z-50"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          {!updateAvailable && !updateDownloaded && !isInstalling && (
+            <Button
+              onClick={checkForUpdates}
+              className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1 rounded whitespace-nowrap z-50"
+              disabled={updateStatus === 'Checking for updates...'}
+            >
+              Check for updates
+            </Button>
+          )}
+          {updateAvailable && !updateDownloaded && !isInstalling && (
+            <Button
+              onClick={downloadUpdate}
+              className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1 rounded whitespace-nowrap z-50"
+              disabled={updateStatus.startsWith('Downloading update...')}
+            >
+              Download update
+            </Button>
+          )}
+          {updateDownloaded && !isInstalling && (
+            <Button
+              onClick={installUpdate}
+              className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1 rounded whitespace-nowrap z-50"
+            >
+              Install update
+            </Button>
+          )}
+          {!isInstalling && (
+            <button
+              onClick={onClose}
+              className="text-blue-500 hover:text-blue-700 focus:outline-none p-1 z-50"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
-      {updateStatus.startsWith('Downloading... (it will speed up)') && (
+      {(updateStatus.startsWith('Downloading update...') || isInstalling) && (
         <div className="w-full bg-blue-200 h-1">
           <div 
             className="bg-blue-600 h-1" 
-            style={{width: `${downloadProgress}%`}}
+            style={{width: isInstalling ? '100%' : `${downloadProgress}%`}}
           ></div>
         </div>
       )}
