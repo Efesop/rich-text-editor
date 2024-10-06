@@ -70,7 +70,7 @@ export default function UpdateNotification({ onClose }) {
           </button>
         </div>
       </div>
-      {updateStatus.startsWith('Downloading update...') && (
+      {updateStatus.startsWith('Downloading... (it will speed up)') && (
         <div className="w-full bg-blue-200 h-1">
           <div 
             className="bg-blue-600 h-1" 
