@@ -149,18 +149,18 @@ function setupAutoUpdater() {
 
 ipcMain.handle('check-for-updates', () => {
   log.info('Manually checking for updates...');
-  autoUpdater.checkForUpdatesAndNotify();
+  autoUpdater.checkForUpdates();
 });
 
 ipcMain.handle('install-update', () => {
   log.info('Installing update...');
-  autoUpdater.quitAndInstall();
+  autoUpdater.quitAndInstall(true, true);
 });
 
 app.whenReady().then(() => {
   createWindow();
   setupAutoUpdater();
-  autoUpdater.checkForUpdatesAndNotify();
+  autoUpdater.checkForUpdates();
 });
 
 app.on('window-all-closed', function () {
