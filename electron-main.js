@@ -141,10 +141,10 @@ function setupAutoUpdater() {
 
   autoUpdater.checkForUpdatesAndNotify();
 
-  // Check for updates every 2 minutes (for testing purposes)
+  // Check for updates every 30 minutes
   setInterval(() => {
     autoUpdater.checkForUpdatesAndNotify();
-  }, 2 * 60 * 1000);
+  }, 30 * 60 * 1000);
 }
 
 ipcMain.handle('check-for-updates', () => {
@@ -152,9 +152,15 @@ ipcMain.handle('check-for-updates', () => {
   autoUpdater.checkForUpdatesAndNotify();
 });
 
+ipcMain.handle('install-update', () => {
+  log.info('Installing update...');
+  autoUpdater.quitAndInstall();
+});
+
 app.whenReady().then(() => {
   createWindow();
   setupAutoUpdater();
+  autoUpdater.checkForUpdatesAndNotify();
 });
 
 app.on('window-all-closed', function () {
