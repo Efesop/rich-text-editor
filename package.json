@@ -1,6 +1,6 @@
 {
   "name": "rich-text-editor",
-  "version": "1.2.6",
+  "version": "1.2.61",
   "private": true,
   "main": "electron-main.js",
   "engines": {
