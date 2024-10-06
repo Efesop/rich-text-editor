@@ -549,7 +549,6 @@ export default function RichTextEditor() {
             </div>
             <div className="flex items-center space-x-2">
             <ExportDropdown onExport={handleExport} />
-            <ThemeToggle />
               <Button
                 variant="ghost"
                 size="icon"
@@ -558,7 +557,7 @@ export default function RichTextEditor() {
               >
                 <Bell className="h-4 w-4" />
               </Button>
-              
+              <ThemeToggle />
             </div>
           </div>
           <div className="flex items-center flex-wrap gap-2 mt-2">
