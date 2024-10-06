@@ -7,15 +7,30 @@ export default function UpdateNotification({ onClose }) {
   const [updateDownloaded, setUpdateDownloaded] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
 
-  const handleUpdateAvailable = useCallback(() => setUpdateStatus('Update available. Downloading...'), []);
-  const handleUpdateNotAvailable = useCallback(() => setUpdateStatus('Your app is up to date'), []);
+  const handleUpdateAvailable = useCallback(() => {
+    console.log('Update available');
+    setUpdateStatus('Update available. Downloading...');
+  }, []);
+
+  const handleUpdateNotAvailable = useCallback(() => {
+    console.log('No update available');
+    setUpdateStatus('Your app is up to date');
+  }, []);
+
   const handleUpdateDownloaded = useCallback(() => {
+    console.log('Update downloaded');
     setUpdateStatus('Update ready to install');
     setUpdateDownloaded(true);
   }, []);
-  const handleError = useCallback((err) => setUpdateStatus(`Update error: ${err}`), []);
+
+  const handleError = useCallback((err) => {
+    console.error('Update error:', err);
+    setUpdateStatus(`Update error: ${err}`);
+  }, []);
+
   const handleDownloadProgress = useCallback((progressObj) => {
     const percent = progressObj.percent.toFixed(2);
+    console.log(`Download progress: ${percent}%`);
     setDownloadProgress(percent);
     setUpdateStatus(`Downloading update... ${percent}%`);
   }, []);
@@ -37,11 +52,13 @@ export default function UpdateNotification({ onClose }) {
   }, [handleUpdateAvailable, handleUpdateNotAvailable, handleUpdateDownloaded, handleError, handleDownloadProgress]);
 
   const checkForUpdates = () => {
+    console.log('Checking for updates...');
     setUpdateStatus('Checking for updates...');
     window.electron.invoke('check-for-updates');
   };
 
   const installUpdate = () => {
+    console.log('Installing update...');
     window.electron.invoke('install-update');
   };
 

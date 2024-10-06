@@ -12,7 +12,7 @@ const log = require('electron-log');
 // }
 
 // Configure logging
-log.transports.file.level = 'debug'; // Change this to 'debug' for more detailed logs
+log.transports.file.level = 'info'; // Change this to 'debug' for more detailed logs
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = 'info';
 
@@ -103,40 +103,35 @@ ipcMain.handle('save-pages', async (event, pages) => {
 });
 
 function setupAutoUpdater() {
+  log.info('Setting up auto-updater...');
+  autoUpdater.logger = log;
+  autoUpdater.logger.transports.file.level = 'info';
+
   autoUpdater.on('checking-for-update', () => {
     log.info('Checking for update...');
-    mainWindow.webContents.send('checking-for-update');
   });
 
   autoUpdater.on('update-available', (info) => {
     log.info('Update available:', info);
-    mainWindow.webContents.send('update-available', info);
   });
 
   autoUpdater.on('update-not-available', (info) => {
     log.info('Update not available:', info);
-    mainWindow.webContents.send('update-not-available', info);
   });
 
   autoUpdater.on('error', (err) => {
     log.error('Error in auto-updater:', err);
-    log.error('Error details:', err.stack);
-    log.error('Current version:', app.getVersion());
-    log.error('Update URL:', autoUpdater.getFeedURL());
-    mainWindow.webContents.send('error', err.message);
   });
 
   autoUpdater.on('download-progress', (progressObj) => {
-    let logMessage = `Download speed: ${progressObj.bytesPerSecond}`;
-    logMessage = `${logMessage} - Downloaded ${progressObj.percent}%`;
-    logMessage = `${logMessage} (${progressObj.transferred}/${progressObj.total})`;
-    log.info(logMessage);
-    mainWindow.webContents.send('download-progress', progressObj);
+    let log_message = `Download speed: ${progressObj.bytesPerSecond}`;
+    log_message = `${log_message} - Downloaded ${progressObj.percent}%`;
+    log_message = `${log_message} (${progressObj.transferred}/${progressObj.total})`;
+    log.info(log_message);
   });
 
   autoUpdater.on('update-downloaded', (info) => {
     log.info('Update downloaded:', info);
-    mainWindow.webContents.send('update-downloaded', info);
   });
 
   autoUpdater.checkForUpdatesAndNotify();
@@ -153,13 +148,21 @@ ipcMain.handle('check-for-updates', () => {
 });
 
 ipcMain.handle('install-update', () => {
-  log.info('Installing update...');
-  autoUpdater.quitAndInstall(true, true);
+  log.info('Install update requested...');
+  try {
+    autoUpdater.quitAndInstall(false, true);
+    log.info('quitAndInstall called successfully');
+  } catch (error) {
+    log.error('Error calling quitAndInstall:', error);
+  }
 });
 
 app.whenReady().then(() => {
+  log.info('App is ready, creating window...');
   createWindow();
+  log.info('Setting up auto-updater...');
   setupAutoUpdater();
+  log.info('Checking for updates...');
   autoUpdater.checkForUpdates();
 });
 
