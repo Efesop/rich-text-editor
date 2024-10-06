@@ -14,7 +14,7 @@ const log = require('electron-log');
 // Configure logging
 log.transports.file.level = 'debug'; // Change this to 'debug' for more detailed logs
 autoUpdater.logger = log;
-autoUpdater.logger.transports.file.level = 'debug';
+autoUpdater.logger.transports.file.level = 'info';
 
 // Log the token availability (be careful with this in production!)
 // log.info('GH_TOKEN available:', !!token);
@@ -182,5 +182,3 @@ app.on('ready', () => {
 autoUpdater.on('error', (error) => {
   log.error('AutoUpdater error:', error);
 });
-
-log.info('Update feed URL:', autoUpdater.getFeedURL());
