@@ -107,52 +107,54 @@ const PageItem = ({
       style={{ minHeight: '2.5rem' }} // Ensure consistent height
     >
       <div className="flex items-center flex-1 min-w-0 pl-2">
-        {sidebarOpen ? (
-          <>
-            <span className="mr-2" title={page.title}>
-              {truncatePageTitle(page.title)}
-            </span>
-            {page.tagNames && page.tagNames.length > 0 && (
-              <div className="flex flex-wrap gap-0.5 min-h-[0.5rem]">
-                {page.tagNames.map((tagName, index) => {
-                  const tag = tags.find(t => t.name === tagName)
-                  if (!tag) return null
-                  return (
-                    <span
-                      key={index}
-                      className={`px-1 rounded text-xs ${
-                        theme === 'dark' ? 'text-gray-900' : 'text-gray-800'
-                      }`}
-                      style={{ backgroundColor: tag.color.background, border: `1px solid ${tag.color.border}` }}
-                    >
-                      {tag.name}
-                    </span>
-                  )
-                })}
-              </div>
-            )}
-          </>
-        ) : (
-          <span className="truncate mr-2" title={page.title}>
-            {page.title.slice(0, 3)}...
-          </span>
-        )}
-      </div>
+  {sidebarOpen ? (
+    <>
+      <span className="mr-2" title={page.title}>
+        {truncatePageTitle(page.title)}
+      </span>
+      {page.tagNames && page.tagNames.length > 0 && (
+        <div className="flex flex-wrap gap-0.5 min-h-[0.5rem]">
+          {page.tagNames.map((tagName, index) => {
+            const tag = tags.find(t => t.name === tagName)
+            if (!tag) return null
+            return (
+              <span
+                key={index}
+                className={`px-1 rounded text-xs ${
+                  theme === 'dark' ? 'text-gray-900' : 'text-gray-800'
+                }`}
+                style={{ backgroundColor: tag.color.background, border: `1px solid ${tag.color.border}` }}
+              >
+                {tag.name}
+              </span>
+            )
+          })}
+        </div>
+      )}
+    </>
+  ) : (
+    <span className="truncate mr-2" title={page.title}>
+      {page.title.slice(0, 3)}...
+    </span>
+  )}
+</div>
       <div className="flex items-center space-x-1">
         {page.password && page.password.hash && !tempUnlockedPages.has(page.id) && (
           <Lock className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`} />
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={(e) => {
-            e.stopPropagation()
-            setIsDropdownOpen(!isDropdownOpen)
-          }}
-          className={`h-6 w-6 p-0 opacity-0 ${isHovered ? 'opacity-100' : ''}`}
-        >
-          <MoreVertical className={`h-4 w-4 ${isActive ? 'text-white' : theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`} />
-        </Button>
+        {sidebarOpen && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsDropdownOpen(!isDropdownOpen)
+            }}
+            className={`h-6 w-6 p-0 opacity-0 ${isHovered ? 'opacity-100' : ''}`}
+          >
+            <MoreVertical className={`h-4 w-4 ${isActive ? 'text-white' : theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`} />
+          </Button>
+        )}
       </div>
       {isDropdownOpen && (
         <div 

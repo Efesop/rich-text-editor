@@ -1,6 +1,6 @@
 {
-  "name": "rich-text-editor",
-  "version": "1.2.61",
+  "name": "Dash",
+  "version": "1.2.62",
   "private": true,
   "main": "electron-main.js",
   "engines": {
