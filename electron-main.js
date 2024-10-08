@@ -212,3 +212,8 @@ function storeUpdateAvailability(available) {
   const updateFile = path.join(app.getPath('userData'), 'update-available.json');
   fs.writeFileSync(updateFile, JSON.stringify({ available }));
 }
+
+ipcMain.handle('store-update-availability', async (event, available) => {
+  const updateFile = path.join(app.getPath('userData'), 'update-available.json');
+  fs.writeFileSync(updateFile, JSON.stringify({ available }));
+});

@@ -19,6 +19,7 @@ export default function UpdateNotification({ onClose }) {
       console.log('Update available:', info);
       setUpdateStatus(`Update available: ${info.version}`);
       setUpdateAvailable(true);
+      storeUpdateAvailability(true);
     };
 
     const handleUpdateNotAvailable = (info) => {
@@ -91,6 +92,10 @@ export default function UpdateNotification({ onClose }) {
       setUpdateStatus(`Error installing update: ${error}`);
       setIsInstalling(false);
     }
+  };
+
+  const storeUpdateAvailability = async (available) => {
+    await window.electron.invoke('store-update-availability', available);
   };
 
   return (
