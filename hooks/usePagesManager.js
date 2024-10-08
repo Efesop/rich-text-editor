@@ -86,7 +86,21 @@ export function usePagesManager() {
 
   const deletePage = useCallback(async (page) => {
     setPages(prevPages => {
-      const updatedPages = prevPages.filter(p => p.id !== page.id)
+      let updatedPages = prevPages.filter(p => p.id !== page.id)
+      
+      // If the page was in a folder, update the folder's pages array
+      if (page.folderId) {
+        updatedPages = updatedPages.map(item => {
+          if (item.id === page.folderId && item.type === 'folder') {
+            return {
+              ...item,
+              pages: item.pages.filter(pageId => pageId !== page.id)
+            }
+          }
+          return item
+        })
+      }
+
       if (updatedPages.length === 0) {
         // If all pages are deleted, create a new default page
         const newPage = {
@@ -345,6 +359,37 @@ export function usePagesManager() {
     })
   }, [savePagesToStorage])
 
+  const handleDuplicatePage = useCallback((page) => {
+    const newPage = {
+      ...page,
+      id: Date.now().toString(),
+      title: `${page.title} (Copy)`,
+      createdAt: new Date().toISOString(),
+    }
+    setPages(prevPages => {
+      let updatedPages = [...prevPages]
+      const pageIndex = updatedPages.findIndex(p => p.id === page.id)
+      if (pageIndex !== -1) {
+        updatedPages.splice(pageIndex + 1, 0, newPage)
+      } else {
+        updatedPages.unshift(newPage)
+      }
+      if (page.folderId) {
+        const folderIndex = updatedPages.findIndex(item => item.id === page.folderId && item.type === 'folder')
+        if (folderIndex !== -1) {
+          updatedPages[folderIndex] = {
+            ...updatedPages[folderIndex],
+            pages: [...updatedPages[folderIndex].pages, newPage.id]
+          }
+        }
+        newPage.folderId = page.folderId
+      }
+      savePagesToStorage(updatedPages)
+      return updatedPages
+    })
+    setCurrentPage(newPage)
+  }, [savePagesToStorage, setCurrentPage])
+
   return {
     pages,
     setPages,
@@ -373,6 +418,7 @@ export function usePagesManager() {
     deleteFolder,
     addPageToFolder,
     removePageFromFolder,
-    renameFolder
+    renameFolder,
+    handleDuplicatePage,
   }
 }

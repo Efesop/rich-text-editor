@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "./ui/button"
-import { FileText, Lock, Unlock, Trash2, MoreVertical, FolderMinus } from 'lucide-react'
+import { FileText, Lock, Unlock, Trash2, MoreVertical, FolderMinus, Copy } from 'lucide-react'
 
 const PageItem = ({ 
   page, 
@@ -16,6 +16,7 @@ const PageItem = ({
   tempUnlockedPages, 
   className, 
   isInsideFolder = false,
+  onDuplicate,
   //folderTheme = ''
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
@@ -188,12 +189,12 @@ const PageItem = ({
               }`}
               onClick={(e) => {
                 e.stopPropagation()
-                onDelete(page)
+                onDuplicate(page)
                 setIsDropdownOpen(false)
               }}
             >
-              <Trash2 className="h-4 w-4 inline mr-2" />
-              Delete
+              <Copy className="h-4 w-4 inline mr-2" />
+              Duplicate
             </button>
             <button
               className={`block px-4 py-2 text-sm w-full text-left ${
@@ -216,6 +217,19 @@ const PageItem = ({
                   Lock
                 </>
               )}
+            </button>
+            <button
+              className={`block px-4 py-2 text-sm w-full text-left ${
+                theme === 'dark' ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete(page)
+                setIsDropdownOpen(false)
+              }}
+            >
+              <Trash2 className="h-4 w-4 inline mr-2" />
+              Delete
             </button>
             {onRemoveFromFolder && (
               <button

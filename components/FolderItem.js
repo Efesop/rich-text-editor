@@ -18,8 +18,9 @@ export function FolderItem({
   sidebarOpen, 
   onDelete, 
   onRename, 
-  onToggleLock, 
-  pagesCount  // Add this line
+  onToggleLock,
+  onDuplicate, // Add this prop
+  pagesCount 
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
@@ -218,6 +219,7 @@ export function FolderItem({
                 onRename={onRename}
                 onDelete={onDelete}
                 onToggleLock={onToggleLock}
+                onDuplicate={onDuplicate} // Add this line
                 onRemoveFromFolder={() => onRemovePageFromFolder(page.id, folder.id)}
                 sidebarOpen={sidebarOpen}
                 theme={theme}

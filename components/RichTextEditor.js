@@ -47,6 +47,7 @@ const searchPlaceholders = {
 export default function RichTextEditor() {
   const {
     pages,
+    setPages,
     currentPage,
     saveStatus,
     setCurrentPage,
@@ -71,7 +72,8 @@ export default function RichTextEditor() {
     deleteFolder,
     addPageToFolder,
     removePageFromFolder,
-    renameFolder
+    renameFolder,
+    handleDuplicatePage,
   } = usePagesManager()
 
   const { theme } = useTheme()
@@ -512,6 +514,7 @@ export default function RichTextEditor() {
                   onDelete={handleDeletePage}
                   onRename={handleRenamePage}
                   onToggleLock={handleToggleLock}
+                  onDuplicate={handleDuplicatePage}
                   pagesCount={item.pages ? item.pages.length : 0}
                 />
               );
@@ -525,6 +528,7 @@ export default function RichTextEditor() {
                   onRename={handleRenamePage}
                   onDelete={handleDeletePage}
                   onToggleLock={handleToggleLock}
+                  onDuplicate={handleDuplicatePage}
                   sidebarOpen={sidebarOpen}
                   theme={theme}
                   tags={tags}
