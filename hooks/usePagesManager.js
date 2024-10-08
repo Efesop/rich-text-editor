@@ -201,18 +201,25 @@ export function usePagesManager() {
   }, [currentPage, addTag, pages, savePagesToStorage])
 
   const removeTagFromPage = useCallback((pageId, tagName) => {
-    setPages(prevPages => prevPages.map(page => 
-      page.id === pageId 
-        ? { ...page, tagNames: (page.tagNames || []).filter(t => t !== tagName) }
-        : page
-    ))
+    setPages(prevPages => {
+      const updatedPages = prevPages.map(page => 
+        page.id === pageId 
+          ? { ...page, tagNames: (page.tagNames || []).filter(t => t !== tagName) }
+          : page
+      )
+      // Use a setTimeout to ensure this runs after the state has been updated
+      setTimeout(() => savePagesToStorage(updatedPages), 0)
+      return updatedPages
+    })
     if (currentPage && currentPage.id === pageId) {
       setCurrentPage(prevPage => ({ 
         ...prevPage, 
         tagNames: (prevPage.tagNames || []).filter(t => t !== tagName) 
       }))
     }
-  }, [currentPage])
+    // Add this line to save the updated pages
+    savePagesToStorage(pages)
+  }, [currentPage, pages, savePagesToStorage])
 
   const deleteTagFromAllPages = useCallback((tagName) => {
     setPages(prevPages => prevPages.map(page => ({

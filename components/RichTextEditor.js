@@ -57,7 +57,7 @@ export default function RichTextEditor() {
     lockPage,
     unlockPage,
     addTagToPage,
-   // removeTagFromPage,
+    removeTagFromPage,
     deleteTagFromAllPages,
     tags,
     tempUnlockedPages,
@@ -438,6 +438,12 @@ export default function RichTextEditor() {
   const truncateFolderName = (name) => {
     return name.length > 15 ? name.slice(0, 15) + '...' : name;
   };
+
+  const handleRemoveTag = (tagName) => {
+    if (currentPage) {
+      removeTagFromPage(currentPage.id, tagName)
+    }
+  }
 
   return (
     <div className={`flex h-screen ${theme === 'dark' ? 'dark bg-gray-900 text-white' : 'bg-white text-black'}`}>
