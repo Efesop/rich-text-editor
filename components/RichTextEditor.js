@@ -94,10 +94,32 @@ export default function RichTextEditor() {
   const [isAddToFolderModalOpen, setIsAddToFolderModalOpen] = useState(false)
   const [selectedFolderId, setSelectedFolderId] = useState(null)
   const [showUpdateNotification, setShowUpdateNotification] = useState(false)
+  const [updateAvailable, setUpdateAvailable] = useState(false);
 
   useEffect(() => {
     setIsClient(true)
   }, [])
+
+  useEffect(() => {
+    const checkForUpdates = async () => {
+      const result = await window.electron.invoke('check-for-updates');
+      setUpdateAvailable(result.available);
+      setShowUpdateNotification(result.available);
+    };
+
+    checkForUpdates();
+
+    const handleUpdateAvailable = () => {
+      setUpdateAvailable(true);
+      setShowUpdateNotification(true);
+    };
+
+    window.electron.on('update-available', handleUpdateAvailable);
+
+    return () => {
+      window.electron.removeListener('update-available', handleUpdateAvailable);
+    };
+  }, []);
 
   const handleEditorChange = useCallback(async (content) => {
     await savePage(content)
@@ -693,6 +715,8 @@ export default function RichTextEditor() {
       {showUpdateNotification && (
         <UpdateNotification onClose={toggleUpdateNotification} />
       )}
+
+      {updateAvailable && <UpdateNotification onClose={() => setUpdateAvailable(false)} />}
     </div>
   )
 }

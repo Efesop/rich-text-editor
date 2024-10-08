@@ -118,6 +118,8 @@ function setupAutoUpdater() {
   autoUpdater.on('update-available', (info) => {
     log.info('Update available:', info);
     mainWindow.webContents.send('update-available', info);
+    // Store update availability in a file or database
+    storeUpdateAvailability(true);
   });
 
   autoUpdater.on('update-not-available', (info) => {
@@ -146,11 +148,9 @@ function setupAutoUpdater() {
   // Initial check for updates
   autoUpdater.checkForUpdates();
 
-  // Check for updates every 6 hours, but only if no update is currently available
+  // Check for updates every 6 hours
   setInterval(() => {
-    if (!updateAvailable) {
-      autoUpdater.checkForUpdates();
-    }
+    autoUpdater.checkForUpdates();
   }, 6 * 60 * 60 * 1000);
 }
 
@@ -207,3 +207,8 @@ app.on('ready', () => {
 autoUpdater.on('error', (error) => {
   log.error('AutoUpdater error:', error);
 });
+
+function storeUpdateAvailability(available) {
+  const updateFile = path.join(app.getPath('userData'), 'update-available.json');
+  fs.writeFileSync(updateFile, JSON.stringify({ available }));
+}
