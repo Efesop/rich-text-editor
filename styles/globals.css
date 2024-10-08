@@ -54,40 +54,68 @@
   
 /* Editor.js dark mode styles */
 .dark .codex-editor .ce-toolbar__content,
-.dark .codex-editor .ce-block__content {
+.dark .codex-editor .ce-block__content,
+.dark .codex-editor .ce-inline-toolbar,
+.dark .codex-editor .ce-conversion-toolbar,
+.dark .codex-editor .ce-settings {
   color: #ffffff;
   background-color: #1f2937;
 }
 
 .dark .codex-editor .ce-toolbar__plus,
-.dark .codex-editor .ce-toolbar__settings-btn {
+.dark .codex-editor .ce-toolbar__settings-btn,
+.dark .codex-editor .ce-inline-tool,
+.dark .codex-editor .ce-conversion-tool,
+.dark .codex-editor .ce-settings__button {
   color: #ffffff;
   background-color: #374151;
 }
 
 .dark .codex-editor .ce-toolbar__plus:hover,
-.dark .codex-editor .ce-toolbar__settings-btn:hover {
-  background-color: #4b5563;
-}
-
-.dark .codex-editor .ce-inline-toolbar,
-.dark .codex-editor .ce-conversion-toolbar,
-.dark .codex-editor .ce-settings {
-  color: #ffffff;
-  background-color: #374151;
-  border-color: #4b5563;
-}
-
-.dark .codex-editor .ce-inline-tool,
-.dark .codex-editor .ce-conversion-tool,
-.dark .codex-editor .ce-settings__button {
-  color: #ffffff;
-}
-
+.dark .codex-editor .ce-toolbar__settings-btn:hover,
 .dark .codex-editor .ce-inline-tool:hover,
 .dark .codex-editor .ce-conversion-tool:hover,
 .dark .codex-editor .ce-settings__button:hover {
   background-color: #4b5563;
+}
+
+/* Ensure inline toolbar items are visible in dark mode */
+.dark .codex-editor .ce-inline-toolbar__dropdown,
+.dark .codex-editor .ce-inline-toolbar__buttons {
+  color: #ffffff;
+}
+
+.dark .codex-editor .ce-inline-toolbar {
+  background-color: #374151;
+  color: #ffffff;
+}
+
+.dark .codex-editor .ce-inline-toolbar .ce-inline-tool {
+  color: #333;
+  background-color: #fff;
+}
+
+.dark .codex-editor .ce-inline-toolbar .ce-inline-tool:hover {
+  background-color: #f3f4f6;
+}
+
+.dark .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="link"],
+.dark .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="italic"],
+.dark .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="marker"] {
+  color: #0a0909;
+  background-color: #ffffff;
+}
+
+.dark .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="link"]:hover,
+.dark .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="italic"]:hover,
+.dark .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="marker"]:hover {
+  background-color: #f0f0f0;
+}
+
+.dark .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="link"] svg,
+.dark .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="italic"] svg,
+.dark .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="marker"] svg {
+  color: #0a0909;
 }
 
 /* Custom focus styles for input fields */
