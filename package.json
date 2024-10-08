@@ -1,6 +1,6 @@
 {
   "name": "Dash",
-  "version": "1.2.62",
+  "version": "1.2.64",
   "private": true,
   "main": "electron-main.js",
   "engines": {

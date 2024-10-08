@@ -45,7 +45,7 @@ export function usePagesManager() {
   const handleNewPage = useCallback(() => {
     const newPage = {
       id: Date.now().toString(),
-      title: 'New Page'.slice(0, 15),
+      title: 'New Page'.slice(0, 20),
       content: {
         time: Date.now(),
         blocks: [],

@@ -235,13 +235,13 @@ export default function RichTextEditor() {
 
   const handleRenamePage = useCallback((page) => {
     setPageToRename(page)
-    setNewPageTitle(page.title.slice(0, 15))
+    setNewPageTitle(page.title.slice(0, 20))
     setIsRenameModalOpen(true)
   }, [])
 
   const confirmRename = useCallback(async () => {
     if (pageToRename && newPageTitle && newPageTitle !== pageToRename.title) {
-      await renamePage(pageToRename, newPageTitle.slice(0, 15))
+      await renamePage(pageToRename, newPageTitle.slice(0, 20))
     }
     setIsRenameModalOpen(false)
     setPageToRename(null)
