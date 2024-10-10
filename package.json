@@ -1,6 +1,6 @@
 {
   "name": "Dash",
-  "version": "1.2.72",
+  "version": "1.2.73",
   "private": true,
   "main": "electron-main.js",
   "engines": {
@@ -43,6 +43,7 @@
     "csv-stringify": "^6.5.1",
     "date-fns": "^4.1.0",
     "docx": "^8.5.0",
+    "dotenv": "^16.4.5",
     "electron-log": "^4.4.8",
     "electron-updater": "^6.3.4",
     "html2pdf.js": "^0.10.2",

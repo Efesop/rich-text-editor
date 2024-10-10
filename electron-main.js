@@ -6,10 +6,8 @@ const fs = require('fs').promises;
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
 
-// Load environment variables from .env file in development
-if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config();
-}
+// Load environment variables from .env file
+require('dotenv').config();
 
 // Configure logging
 log.transports.file.level = 'info'; // Change this to 'debug' for more detailed logs
