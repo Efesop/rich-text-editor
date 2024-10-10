@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, X, ChevronDown, Lock, FolderPlus, RefreshCw, Bell, BugPlay } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, X, ChevronDown, Lock, FolderPlus, RefreshCw, Bell, Bug } from 'lucide-react'
 import { useTheme } from 'next-themes'
 //import { Sun, Moon } from 'lucide-react'
 import { RenameModal } from '@/components/RenameModal'
@@ -604,7 +604,7 @@ export default function RichTextEditor() {
                 onClick={() => setIsBugReportModalOpen(true)}
                 title="Report a bug or request a feature"
               >
-                <BugPlay className="h-4 w-4" />
+                <Bug className="h-4 w-4" />
               </Button>
               <Button
                 variant="ghost"

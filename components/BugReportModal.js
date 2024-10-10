@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { useTheme } from 'next-themes'
@@ -8,6 +8,23 @@ export function BugReportModal({ isOpen, onClose, onSubmit }) {
   const [description, setDescription] = useState('')
   const [type, setType] = useState('bug')
   const { theme } = useTheme()
+  const modalRef = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (modalRef.current && !modalRef.current.contains(event.target)) {
+        onClose()
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isOpen, onClose])
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -22,7 +39,10 @@ export function BugReportModal({ isOpen, onClose, onSubmit }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className={`${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} p-6 rounded-lg shadow-xl max-w-md w-full`}>
+      <div 
+        ref={modalRef}
+        className={`${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} p-6 rounded-lg shadow-xl max-w-md w-full`}
+      >
         <h2 className="text-xl font-bold mb-4">Report a Bug / Request a Feature</h2>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">

@@ -5,7 +5,6 @@ const { ipcMain } = require('electron');
 const fs = require('fs').promises;
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
-const { Octokit } = require("@octokit/rest")
 
 // Load environment variables from .env file in development
 if (process.env.NODE_ENV !== 'production') {
@@ -219,21 +218,28 @@ ipcMain.handle('store-update-availability', async (event, available) => {
   fs.writeFileSync(updateFile, JSON.stringify({ available }));
 });
 
-const octokit = new Octokit({
-  auth: process.env.GITHUB_TOKEN
-})
-
-ipcMain.handle('create-github-issue', async (event, report) => {
+// Move the Octokit initialization and GitHub issue creation to a separate async function
+async function createGitHubIssue(report) {
   try {
+    const { Octokit } = await import('@octokit/rest');
+    const octokit = new Octokit({
+      auth: process.env.GITHUB_TOKEN
+    });
+
     const response = await octokit.issues.create({
       owner: 'Efesop',
       repo: 'rich-text-editor',
       title: `[${report.type.toUpperCase()}] ${report.title}`,
       body: report.description
-    })
-    return { success: true, issue: response.data }
+    });
+    return { success: true, issue: response.data };
   } catch (error) {
-    console.error('Error creating GitHub issue:', error)
-    return { success: false, error: error.message }
+    console.error('Error creating GitHub issue:', error);
+    return { success: false, error: error.message };
   }
-})
+}
+
+// Update the IPC handler to use the new async function
+ipcMain.handle('create-github-issue', async (event, report) => {
+  return await createGitHubIssue(report);
+});
