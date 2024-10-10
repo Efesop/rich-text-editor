@@ -447,6 +447,14 @@ export default function RichTextEditor() {
     }
   }
 
+  const storeUpdateAvailability = async (available) => {
+    try {
+      await window.electron.invoke('store-update-availability', available);
+    } catch (error) {
+      console.error('Error storing update availability:', error);
+    }
+  };
+
   return (
     <div className={`flex h-screen ${theme === 'dark' ? 'dark bg-gray-900 text-white' : 'bg-white text-black'}`}>
       {/* Sidebar */}

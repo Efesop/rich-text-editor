@@ -218,7 +218,7 @@ function storeUpdateAvailability(available) {
 
 ipcMain.handle('store-update-availability', async (event, available) => {
   const updateFile = path.join(app.getPath('userData'), 'update-available.json');
-  fs.writeFileSync(updateFile, JSON.stringify({ available }));
+  await fs.promises.writeFile(updateFile, JSON.stringify({ available }));
 });
 
 // Move the Octokit initialization and GitHub issue creation to a separate async function
