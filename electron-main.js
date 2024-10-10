@@ -8,6 +8,7 @@ const log = require('electron-log');
 
 // Load environment variables from .env file
 require('dotenv').config();
+console.log('GITHUB_TOKEN available:', !!process.env.GITHUB_TOKEN);
 
 // Configure logging
 log.transports.file.level = 'info'; // Change this to 'debug' for more detailed logs

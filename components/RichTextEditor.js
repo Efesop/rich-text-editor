@@ -431,17 +431,19 @@ export default function RichTextEditor() {
   }
 
   const handleBugReportSubmit = async (report) => {
+    console.log('Submitting bug report:', report);
     try {
       const response = await window.electron.invoke('create-github-issue', report)
       if (response.success) {
-        // Show success message
-        console.log('Issue created successfully')
+        console.log('Issue created successfully:', response.issue);
+        alert(`Issue created successfully! Issue number: ${response.issue.number}`);
       } else {
-        // Show error message
-        console.error('Failed to create issue:', response.error)
+        console.error('Failed to create issue:', response.error);
+        alert(`Failed to create issue: ${response.error}`);
       }
     } catch (error) {
-      console.error('Error creating issue:', error)
+      console.error('Error creating issue:', error);
+      alert(`Error creating issue: ${error.message}`);
     }
   }
 
