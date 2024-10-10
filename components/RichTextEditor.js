@@ -584,7 +584,9 @@ export default function RichTextEditor() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => window.electron.openExternal('https://github.com/Efesop/rich-text-editor/issues/new')}
+                onClick={() => {
+                  window.open('https://github.com/Efesop/rich-text-editor/issues/new', '_blank', 'noopener,noreferrer');
+                }}
                 title="Report a bug or request a feature"
               >
                 <Bug className="h-4 w-4" />
