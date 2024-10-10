@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, X, ChevronDown, Lock, FolderPlus, RefreshCw, Bell } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, X, ChevronDown, Lock, FolderPlus, RefreshCw, Bell, BugPlay } from 'lucide-react'
 import { useTheme } from 'next-themes'
 //import { Sun, Moon } from 'lucide-react'
 import { RenameModal } from '@/components/RenameModal'
@@ -34,6 +34,7 @@ import { AddPageToFolderModal } from './AddPageToFolderModal'
 import { FolderItem } from './FolderItem'
 import { FolderIcon } from 'lucide-react'
 import UpdateNotification from './UpdateNotification'
+import { BugReportModal } from '@/components/BugReportModal'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
 
@@ -97,6 +98,7 @@ export default function RichTextEditor() {
   const [selectedFolderId, setSelectedFolderId] = useState(null)
   const [showUpdateNotification, setShowUpdateNotification] = useState(false)
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [isBugReportModalOpen, setIsBugReportModalOpen] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
@@ -428,6 +430,21 @@ export default function RichTextEditor() {
     setShowUpdateNotification(prev => !prev)
   }
 
+  const handleBugReportSubmit = async (report) => {
+    try {
+      const response = await window.electron.invoke('create-github-issue', report)
+      if (response.success) {
+        // Show success message
+        console.log('Issue created successfully')
+      } else {
+        // Show error message
+        console.error('Failed to create issue:', response.error)
+      }
+    } catch (error) {
+      console.error('Error creating issue:', error)
+    }
+  }
+
   if (!isClient) {
     return null // or a loading indicator
   }
@@ -580,7 +597,15 @@ export default function RichTextEditor() {
               )}
             </div>
             <div className="flex items-center space-x-2">
-            <ExportDropdown onExport={handleExport} />
+              <ExportDropdown onExport={handleExport} />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsBugReportModalOpen(true)}
+                title="Report a bug or request a feature"
+              >
+                <BugPlay className="h-4 w-4" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -727,6 +752,12 @@ export default function RichTextEditor() {
       )}
 
       {updateAvailable && <UpdateNotification onClose={() => setUpdateAvailable(false)} />}
+
+      <BugReportModal
+        isOpen={isBugReportModalOpen}
+        onClose={() => setIsBugReportModalOpen(false)}
+        onSubmit={handleBugReportSubmit}
+      />
     </div>
   )
 }

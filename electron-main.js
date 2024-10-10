@@ -5,11 +5,12 @@ const { ipcMain } = require('electron');
 const fs = require('fs').promises;
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
+const { Octokit } = require("@octokit/rest")
 
 // Load environment variables from .env file in development
-// if (process.env.NODE_ENV !== 'production') {
-//   require('dotenv').config();
-// }
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 
 // Configure logging
 log.transports.file.level = 'info'; // Change this to 'debug' for more detailed logs
@@ -217,3 +218,22 @@ ipcMain.handle('store-update-availability', async (event, available) => {
   const updateFile = path.join(app.getPath('userData'), 'update-available.json');
   fs.writeFileSync(updateFile, JSON.stringify({ available }));
 });
+
+const octokit = new Octokit({
+  auth: process.env.GITHUB_TOKEN
+})
+
+ipcMain.handle('create-github-issue', async (event, report) => {
+  try {
+    const response = await octokit.issues.create({
+      owner: 'Efesop',
+      repo: 'rich-text-editor',
+      title: `[${report.type.toUpperCase()}] ${report.title}`,
+      body: report.description
+    })
+    return { success: true, issue: response.data }
+  } catch (error) {
+    console.error('Error creating GitHub issue:', error)
+    return { success: false, error: error.message }
+  }
+})
