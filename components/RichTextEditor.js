@@ -447,6 +447,17 @@ export default function RichTextEditor() {
     }
   }
 
+  const setGitHubToken = async () => {
+    const token = process.env.NEXT_PUBLIC_GITHUB_TOKEN;
+    if (token) {
+      await window.electron.invoke('set-github-token', token);
+    }
+  };
+
+  useEffect(() => {
+    setGitHubToken();
+  }, []);
+
   if (!isClient) {
     return null // or a loading indicator
   }

@@ -221,8 +221,12 @@ ipcMain.handle('store-update-availability', async (event, available) => {
 async function createGitHubIssue(report) {
   try {
     const { Octokit } = await import('@octokit/rest');
+    const token = app.config.get('githubToken');
+    if (!token) {
+      throw new Error('GitHub token not found');
+    }
     const octokit = new Octokit({
-      auth: process.env.GITHUB_TOKEN
+      auth: token
     });
 
     const response = await octokit.issues.create({
@@ -241,4 +245,8 @@ async function createGitHubIssue(report) {
 // Update the IPC handler to use the new async function
 ipcMain.handle('create-github-issue', async (event, report) => {
   return await createGitHubIssue(report);
+});
+
+ipcMain.handle('set-github-token', async (event, token) => {
+  app.config.set('githubToken', token);
 });

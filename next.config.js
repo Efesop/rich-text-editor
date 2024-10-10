@@ -10,7 +10,16 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true
   },
-  reactStrictMode: true
+  reactStrictMode: true,
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.target = 'electron-renderer';
+    }
+    return config;
+  },
+  env: {
+    NEXT_PUBLIC_GITHUB_TOKEN: process.env.NEXT_PUBLIC_GITHUB_TOKEN,
+  },
 }
 
 module.exports = nextConfig
