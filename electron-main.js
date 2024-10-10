@@ -8,7 +8,6 @@ const log = require('electron-log');
 
 // Load environment variables from .env file
 require('dotenv').config();
-console.log('GITHUB_TOKEN available:', !!process.env.GITHUB_TOKEN);
 
 // Configure logging
 log.transports.file.level = 'info'; // Change this to 'debug' for more detailed logs
@@ -153,9 +152,14 @@ function setupAutoUpdater() {
   }, 6 * 60 * 60 * 1000);
 }
 
-ipcMain.handle('check-for-updates', () => {
-  log.info('Manually checking for updates...');
-  autoUpdater.checkForUpdates();
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    const checkResult = await autoUpdater.checkForUpdates();
+    return { available: checkResult.updateInfo.version !== app.getVersion() };
+  } catch (error) {
+    console.error('Error checking for updates:', error);
+    return { available: false, error: error.message };
+  }
 });
 
 ipcMain.handle('download-update', () => {

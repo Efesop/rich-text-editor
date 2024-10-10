@@ -34,7 +34,6 @@ import { AddPageToFolderModal } from './AddPageToFolderModal'
 import { FolderItem } from './FolderItem'
 import { FolderIcon } from 'lucide-react'
 import UpdateNotification from './UpdateNotification'
-import { BugReportModal } from '@/components/BugReportModal'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
 
@@ -98,7 +97,6 @@ export default function RichTextEditor() {
   const [selectedFolderId, setSelectedFolderId] = useState(null)
   const [showUpdateNotification, setShowUpdateNotification] = useState(false)
   const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [isBugReportModalOpen, setIsBugReportModalOpen] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
@@ -430,34 +428,6 @@ export default function RichTextEditor() {
     setShowUpdateNotification(prev => !prev)
   }
 
-  const handleBugReportSubmit = async (report) => {
-    console.log('Submitting bug report:', report);
-    try {
-      const response = await window.electron.invoke('create-github-issue', report)
-      if (response.success) {
-        console.log('Issue created successfully:', response.issue);
-        alert(`Issue created successfully! Issue number: ${response.issue.number}`);
-      } else {
-        console.error('Failed to create issue:', response.error);
-        alert(`Failed to create issue: ${response.error}`);
-      }
-    } catch (error) {
-      console.error('Error creating issue:', error);
-      alert(`Error creating issue: ${error.message}`);
-    }
-  }
-
-  const setGitHubToken = async () => {
-    const token = process.env.NEXT_PUBLIC_GITHUB_TOKEN;
-    if (token) {
-      await window.electron.invoke('set-github-token', token);
-    }
-  };
-
-  useEffect(() => {
-    setGitHubToken();
-  }, []);
-
   if (!isClient) {
     return null // or a loading indicator
   }
@@ -614,7 +584,7 @@ export default function RichTextEditor() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setIsBugReportModalOpen(true)}
+                onClick={() => window.electron.openExternal('https://github.com/Efesop/rich-text-editor/issues/new')}
                 title="Report a bug or request a feature"
               >
                 <Bug className="h-4 w-4" />
@@ -765,12 +735,6 @@ export default function RichTextEditor() {
       )}
 
       {updateAvailable && <UpdateNotification onClose={() => setUpdateAvailable(false)} />}
-
-      <BugReportModal
-        isOpen={isBugReportModalOpen}
-        onClose={() => setIsBugReportModalOpen(false)}
-        onSubmit={handleBugReportSubmit}
-      />
     </div>
   )
 }

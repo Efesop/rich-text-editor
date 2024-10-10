@@ -69,10 +69,24 @@ export default function UpdateNotification({ onClose }) {
     };
   }, []);
 
-  const checkForUpdates = () => {
-    console.log('Checking for updates...');
-    setUpdateStatus('Checking for updates...');
-    window.electron.invoke('check-for-updates');
+  const checkForUpdates = async () => {
+    try {
+      const result = await window.electron.invoke('check-for-updates');
+      if (result && typeof result.available === 'boolean') {
+        setUpdateAvailable(result.available);
+        if (result.available) {
+          setUpdateStatus('Update available. Click to download.');
+        } else {
+          setUpdateStatus('Your app is up to date.');
+        }
+      } else {
+        console.error('Unexpected result from check-for-updates:', result);
+        setUpdateStatus('Unable to check for updates.');
+      }
+    } catch (error) {
+      console.error('Error checking for updates:', error);
+      setUpdateStatus('Error checking for updates.');
+    }
   };
 
   const downloadUpdate = () => {
@@ -95,7 +109,11 @@ export default function UpdateNotification({ onClose }) {
   };
 
   const storeUpdateAvailability = async (available) => {
-    await window.electron.invoke('store-update-availability', available);
+    try {
+      await window.electron.invoke('store-update-availability', available);
+    } catch (error) {
+      console.error('Error storing update availability:', error);
+    }
   };
 
   return (
