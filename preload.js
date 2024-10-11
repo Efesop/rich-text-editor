@@ -2,12 +2,9 @@ const { contextBridge, ipcRenderer, shell } = require('electron');
 
 contextBridge.exposeInMainWorld('electron', {
   invoke: (channel, data) => {
-    let validChannels = ['read-pages', 'save-pages', 'read-tags', 'save-tags', 'restart-app', 'check-for-updates', 'download-update', 'install-update', 'store-update-availability'];
+    let validChannels = ['read-pages', 'save-pages', 'read-tags', 'save-tags', 'check-for-updates', 'download-update', 'install-update', 'store-update-availability', 'get-app-version'];
     if (validChannels.includes(channel)) {
-      return ipcRenderer.invoke(channel, data).catch(error => {
-        console.error(`Error in channel ${channel}:`, error);
-        throw error;
-      });
+      return ipcRenderer.invoke(channel, data);
     }
   },
   on: (channel, func) => {

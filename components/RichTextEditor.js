@@ -34,6 +34,7 @@ import { AddPageToFolderModal } from './AddPageToFolderModal'
 import { FolderItem } from './FolderItem'
 import { FolderIcon } from 'lucide-react'
 import UpdateNotification from './UpdateNotification'
+import packageJson from '../package.json'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
 
@@ -97,6 +98,7 @@ export default function RichTextEditor() {
   const [selectedFolderId, setSelectedFolderId] = useState(null)
   const [showUpdateNotification, setShowUpdateNotification] = useState(false)
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [appVersion, setAppVersion] = useState('');
 
   useEffect(() => {
     setIsClient(true)
@@ -430,6 +432,19 @@ export default function RichTextEditor() {
     setShowUpdateNotification(prev => !prev)
   }
 
+  useEffect(() => {
+    const fetchAppVersion = async () => {
+      try {
+        const version = await window.electron.invoke('get-app-version');
+        setAppVersion(version);
+      } catch (error) {
+        console.error('Error fetching app version:', error);
+      }
+    };
+
+    fetchAppVersion();
+  }, []);
+
   if (!isClient) {
     return null // or a loading indicator
   }
@@ -549,7 +564,7 @@ export default function RichTextEditor() {
             }
           })}
         </ScrollArea>
-        <div className={`mt-90 p-2 flex items-center justify-between border-t ${theme === 'dark' ? 'border-gray-700' : 'border-gray-300'}`}>
+        <div className={`mt-auto p-2 flex items-center justify-between border-t ${theme === 'dark' ? 'border-gray-700' : 'border-gray-300'}`}>
           <Button
             variant="ghost"
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -559,7 +574,8 @@ export default function RichTextEditor() {
             {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           </Button>
           {sidebarOpen && (
-            <div className="pr-3">
+            <div className="flex items-center space-x-2">
+              <span className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>v{appVersion}</span>
               <SortDropdown onSort={setSortOption} theme={theme} activeSortOption={sortOption} sidebarOpen={sidebarOpen} />
             </div>
           )}

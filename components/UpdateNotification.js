@@ -71,17 +71,13 @@ export default function UpdateNotification({ onClose }) {
 
   const checkForUpdates = async () => {
     try {
+      setUpdateStatus('Checking for updates...');
       const result = await window.electron.invoke('check-for-updates');
-      if (result && typeof result.available === 'boolean') {
-        setUpdateAvailable(result.available);
-        if (result.available) {
-          setUpdateStatus('Update available. Click to download.');
-        } else {
-          setUpdateStatus('Your app is up to date.');
-        }
+      if (result.available) {
+        setUpdateStatus('Update available. Click to download.');
+        setUpdateAvailable(true);
       } else {
-        console.error('Unexpected result from check-for-updates:', result);
-        setUpdateStatus('Unable to check for updates.');
+        setUpdateStatus('Your app is up to date.');
       }
     } catch (error) {
       console.error('Error checking for updates:', error);
@@ -89,10 +85,20 @@ export default function UpdateNotification({ onClose }) {
     }
   };
 
-  const downloadUpdate = () => {
-    console.log('Downloading update...');
-    setUpdateStatus('Starting download...');
-    window.electron.invoke('download-update');
+  const downloadUpdate = async () => {
+    try {
+      setUpdateStatus('Downloading update...');
+      const result = await window.electron.invoke('download-update');
+      if (result.success) {
+        setUpdateStatus('Update downloaded. Ready to install.');
+        setUpdateDownloaded(true);
+      } else {
+        setUpdateStatus('Error downloading update.');
+      }
+    } catch (error) {
+      console.error('Error downloading update:', error);
+      setUpdateStatus('Error downloading update.');
+    }
   };
 
   const installUpdate = async () => {

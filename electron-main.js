@@ -152,19 +152,31 @@ function setupAutoUpdater() {
   }, 6 * 60 * 60 * 1000);
 }
 
+// Replace the existing 'check-for-updates' handler with this:
 ipcMain.handle('check-for-updates', async () => {
   try {
-    const checkResult = await autoUpdater.checkForUpdates();
-    return { available: checkResult.updateInfo.version !== app.getVersion() };
+    log.info('Checking for updates...');
+    const result = await autoUpdater.checkForUpdates();
+    const updateAvailable = result.updateInfo.version !== app.getVersion();
+    log.info(`Update check result: ${updateAvailable ? 'Update available' : 'No update available'}`);
+    return { available: updateAvailable, updateInfo: result.updateInfo };
   } catch (error) {
-    console.error('Error checking for updates:', error);
+    log.error('Error checking for updates:', error);
     return { available: false, error: error.message };
   }
 });
 
-ipcMain.handle('download-update', () => {
-  log.info('Starting update download...');
-  autoUpdater.downloadUpdate();
+// Add a new handler for downloading updates
+ipcMain.handle('download-update', async () => {
+  try {
+    log.info('Starting update download...');
+    const downloadResult = await autoUpdater.downloadUpdate();
+    log.info('Update downloaded successfully');
+    return { success: true };
+  } catch (error) {
+    log.error('Error downloading update:', error);
+    return { success: false, error: error.message };
+  }
 });
 
 ipcMain.handle('install-update', () => {
@@ -253,4 +265,8 @@ ipcMain.handle('create-github-issue', async (event, report) => {
 
 ipcMain.handle('set-github-token', async (event, token) => {
   app.config.set('githubToken', token);
+});
+
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
 });
