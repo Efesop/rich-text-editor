@@ -106,23 +106,23 @@ export default function RichTextEditor() {
 
   useEffect(() => {
     const checkForUpdates = async () => {
-      const result = await window.electron.invoke('check-for-updates');
-      setUpdateAvailable(result.available);
-      setShowUpdateNotification(result.available);
+      try {
+        const result = await window.electron.invoke('check-for-updates');
+        setUpdateAvailable(result.available);
+        setShowUpdateNotification(result.available);
+        if (result.available) {
+          await window.electron.invoke('store-update-availability', true);
+        }
+      } catch (error) {
+        console.error('Error checking for updates:', error);
+      }
     };
 
     checkForUpdates();
 
-    const handleUpdateAvailable = () => {
-      setUpdateAvailable(true);
-      setShowUpdateNotification(true);
-    };
+    const intervalId = setInterval(checkForUpdates, 6 * 60 * 60 * 1000); // Check every 6 hours
 
-    window.electron.on('update-available', handleUpdateAvailable);
-
-    return () => {
-      window.electron.removeListener('update-available', handleUpdateAvailable);
-    };
+    return () => clearInterval(intervalId);
   }, []);
 
   const handleEditorChange = useCallback(async (content) => {
@@ -463,14 +463,6 @@ export default function RichTextEditor() {
       removeTagFromPage(currentPage.id, tagName)
     }
   }
-
-  const storeUpdateAvailability = async (available) => {
-    try {
-      await window.electron.invoke('store-update-availability', available);
-    } catch (error) {
-      console.error('Error storing update availability:', error);
-    }
-  };
 
   return (
     <div className={`flex h-screen ${theme === 'dark' ? 'dark bg-gray-900 text-white' : 'bg-white text-black'}`}>

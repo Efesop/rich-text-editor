@@ -114,13 +114,13 @@ export default function UpdateNotification({ onClose }) {
     }
   };
 
-  const storeUpdateAvailability = async (available) => {
+  /*const storeUpdateAvailability = async (available) => {
     try {
       await window.electron.invoke('store-update-availability', available);
     } catch (error) {
       console.error('Error storing update availability:', error);
     }
-  };
+  };*/
 
   return (
     <div className="fixed bottom-4 right-4 bg-blue-100 bg-opacity-90 rounded-lg shadow-lg overflow-hidden max-w-md z-50">
