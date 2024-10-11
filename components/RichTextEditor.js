@@ -400,8 +400,10 @@ export default function RichTextEditor() {
     }
   }
 
-  const handleAddPageToFolder = (pageId, folderId) => {
-    addPageToFolder(pageId, folderId)
+  const handleAddPageToFolder = (pageIds, folderId) => {
+    pageIds.forEach(pageId => {
+      addPageToFolder(pageId, folderId)
+    })
     setIsAddToFolderModalOpen(false)
   }
 

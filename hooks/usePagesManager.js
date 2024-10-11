@@ -317,7 +317,7 @@ export function usePagesManager() {
     setPages(prevPages => {
       const updatedPages = prevPages.map(item => {
         if (item.id === folderId && item.type === 'folder') {
-          return { ...item, pages: [...item.pages, pageId] }
+          return { ...item, pages: [...new Set([...item.pages, pageId])] }
         }
         if (item.id === pageId) {
           return { ...item, folderId }
