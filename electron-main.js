@@ -146,10 +146,10 @@ function setupAutoUpdater() {
   // Initial check for updates
   autoUpdater.checkForUpdates();
 
-  // Check for updates every 6 hours
+  // Check for updates every 2 hours
   setInterval(() => {
     autoUpdater.checkForUpdates();
-  }, 6 * 60 * 60 * 1000);
+  }, 2 * 60 * 60 * 1000);
 }
 
 // Replace the existing 'check-for-updates' handler with this:
@@ -159,7 +159,11 @@ ipcMain.handle('check-for-updates', async () => {
     const result = await autoUpdater.checkForUpdates();
     const updateAvailable = result.updateInfo.version !== app.getVersion();
     log.info(`Update check result: ${updateAvailable ? 'Update available' : 'No update available'}`);
-    return { available: updateAvailable, updateInfo: result.updateInfo };
+    return { 
+      available: updateAvailable, 
+      currentVersion: app.getVersion(),
+      latestVersion: result.updateInfo.version 
+    };
   } catch (error) {
     log.error('Error checking for updates:', error);
     return { available: false, error: error.message };

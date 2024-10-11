@@ -114,6 +114,18 @@ export default function UpdateNotification({ onClose }) {
     }
   };
 
+  const handleClose = () => {
+    onClose();
+    // Set a timer to show the notification again after 2 hours if an update is still available
+    setTimeout(() => {
+      window.electron.invoke('check-for-updates').then(result => {
+        if (result.available) {
+          setShowUpdateNotification(true);
+        }
+      });
+    }, 2 * 60 * 60 * 1000);
+  };
+
   /*const storeUpdateAvailability = async (available) => {
     try {
       await window.electron.invoke('store-update-availability', available);
@@ -160,7 +172,7 @@ export default function UpdateNotification({ onClose }) {
           )}
           {!isInstalling && (
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="text-blue-500 hover:text-blue-700 focus:outline-none p-1 z-50"
             >
               <X className="h-4 w-4" />

@@ -99,6 +99,7 @@ export default function RichTextEditor() {
   const [showUpdateNotification, setShowUpdateNotification] = useState(false)
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [appVersion, setAppVersion] = useState('');
+  const [updateInfo, setUpdateInfo] = useState(null);
 
   useEffect(() => {
     setIsClient(true)
@@ -109,8 +110,9 @@ export default function RichTextEditor() {
       try {
         const result = await window.electron.invoke('check-for-updates');
         setUpdateAvailable(result.available);
-        setShowUpdateNotification(result.available);
+        setUpdateInfo(result);
         if (result.available) {
+          setShowUpdateNotification(true);
           await window.electron.invoke('store-update-availability', true);
         }
       } catch (error) {
@@ -120,7 +122,7 @@ export default function RichTextEditor() {
 
     checkForUpdates();
 
-    const intervalId = setInterval(checkForUpdates, 6 * 60 * 60 * 1000); // Check every 6 hours
+    const intervalId = setInterval(checkForUpdates, 2 * 60 * 60 * 1000); // Check every 2 hours
 
     return () => clearInterval(intervalId);
   }, []);
@@ -751,10 +753,10 @@ export default function RichTextEditor() {
       />
 
       {showUpdateNotification && (
-        <UpdateNotification onClose={toggleUpdateNotification} />
+        <UpdateNotification onClose={() => setShowUpdateNotification(false)} updateInfo={updateInfo} />
       )}
 
-      {updateAvailable && <UpdateNotification onClose={() => setUpdateAvailable(false)} />}
+      {updateAvailable && <UpdateNotification onClose={() => setUpdateAvailable(false)} updateInfo={updateInfo} />}
     </div>
   )
 }
