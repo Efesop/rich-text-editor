@@ -4,17 +4,27 @@ export function useUpdateManager() {
   const [showUpdateNotification, setShowUpdateNotification] = useState(false);
   const [updateInfo, setUpdateInfo] = useState(null);
   const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
+  const [updateAvailableNotDownloaded, setUpdateAvailableNotDownloaded] = useState(false);
+  const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
 
   useEffect(() => {
     const handleUpdateAvailable = (info) => {
       setUpdateInfo(info);
       setShowUpdateNotification(true);
+      setUpdateAvailableNotDownloaded(true);
+      setIsUpdateAvailable(true);
+    };
+
+    const handleUpdateDownloaded = () => {
+      setUpdateAvailableNotDownloaded(false);
     };
 
     window.electron.on('update-available', handleUpdateAvailable);
+    window.electron.on('update-downloaded', handleUpdateDownloaded);
 
     return () => {
       window.electron.removeListener('update-available', handleUpdateAvailable);
+      window.electron.removeListener('update-downloaded', handleUpdateDownloaded);
     };
   }, []);
 
@@ -48,7 +58,7 @@ export function useUpdateManager() {
     updateInfo,
     isCheckingForUpdates,
     checkForUpdates,
-    handleBellClick
+    handleBellClick,
+    updateAvailableNotDownloaded
   };
 }
-

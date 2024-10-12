@@ -84,7 +84,9 @@ export default function RichTextEditor() {
     updateInfo,
     isCheckingForUpdates,
     checkForUpdates,
-    handleBellClick
+    handleBellClick,
+    updateAvailableNotDownloaded,
+    isUpdateAvailable
   } = useUpdateManager()
 
   const { theme } = useTheme()
@@ -608,9 +610,14 @@ export default function RichTextEditor() {
                 variant="ghost"
                 size="icon"
                 onClick={handleBellClick}
-                title="Show update notification"
+                title={isUpdateAvailable ? "Show update notification" : "No updates available"}
+                className="relative"
+                disabled={!isUpdateAvailable}
               >
-                <Bell className="h-4 w-4" />
+                <Bell className={`h-4 w-4 ${!isUpdateAvailable && 'opacity-50'}`} />
+                {updateAvailableNotDownloaded && (
+                  <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500" />
+                )}
               </Button>
               <ThemeToggle />
             </div>

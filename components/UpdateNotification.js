@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Button } from "./ui/button";
 import { ArrowDownCircle, X } from 'lucide-react';
 
-export default function UpdateNotification({ onClose, updateInfo, isChecking }) {
+export default function UpdateNotification({ onClose, updateInfo, isChecking, onUpdateDownloaded }) {
   const [updateStatus, setUpdateStatus] = useState('');
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -28,6 +28,7 @@ export default function UpdateNotification({ onClose, updateInfo, isChecking }) 
       setIsDownloaded(true);
       setIsDownloading(false);
       setUpdateStatus('Update downloaded. Ready to install.');
+      onUpdateDownloaded(); // Call this new prop
     };
 
     window.electron.on('download-progress', handleDownloadProgress);
@@ -85,9 +86,7 @@ export default function UpdateNotification({ onClose, updateInfo, isChecking }) 
               style={{width: `${downloadProgress}%`}}
             />
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            {downloadProgress > 0 ? `${Math.round(downloadProgress)}% complete` : 'Starting download...'}
-          </p>
+          
         </div>
       )}
       {updateInfo.available && !isDownloading && !isDownloaded && (
