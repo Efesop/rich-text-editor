@@ -305,16 +305,14 @@ ipcMain.handle('get-last-update-check', () => {
 console.log('Initial check for updates');
 log.info('Initial check for updates');
 
-app.on('will-quit', () => {
-  log.info('App is quitting');
-  // We can't use isUpdaterRunning as it's not a standard method
-  // Instead, we'll use a flag that we set when an update is downloaded
-  if (global.isUpdateReady) {
-    log.info('Update is ready, allowing quit for update installation');
+app.on('will-quit', (event) => {
+  if (updateCheckInProgress || downloadInProgress) {
+    log.info('Update is in progress, allowing quit for update installation');
   } else {
-    log.info('No update ready, preventing quit');
-    app.relaunch();
-    app.exit(0);
+    log.info('No update in progress, quitting normally');
+    // Remove the following two lines:
+    // event.preventDefault();
+    // app.relaunch();
   }
 });
 
@@ -326,8 +324,6 @@ autoUpdater.on('update-available', (info) => {
 });
 
 autoUpdater.on('update-downloaded', () => {
-  global.isUpdateReady = true;
-  log.info('Update ready for installation');
   mainWindow.webContents.send('update-downloaded');
 });
 
