@@ -107,6 +107,10 @@ function setupAutoUpdater() {
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
 
+  // Remove existing listeners before adding new ones
+  autoUpdater.removeAllListeners('update-available');
+  autoUpdater.removeAllListeners('error');
+
   autoUpdater.on('update-available', (info) => {
     log.info('Update available:', info);
     mainWindow.webContents.send('update-available', info);
@@ -312,8 +316,10 @@ autoUpdater.on('update-downloaded', () => {
   mainWindow.webContents.send('update-downloaded');
 });
 
-ipcMain.handle('download-update', () => {
-  if (updateAvailable) {
-    autoUpdater.downloadUpdate();
-  }
-});
+if (!ipcMain.listenerCount('download-update')) {
+  ipcMain.handle('download-update', () => {
+    if (updateAvailable) {
+      autoUpdater.downloadUpdate();
+    }
+  });
+}
