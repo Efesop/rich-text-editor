@@ -178,7 +178,16 @@ ipcMain.handle('check-for-updates', async () => {
 });
 
 ipcMain.handle('download-update', async () => {
-  autoUpdater.downloadUpdate();
+  if (!isUpdating) {
+    isUpdating = true
+    try {
+      await autoUpdater.downloadUpdate()
+    } catch (error) {
+      console.error('Error downloading update:', error)
+    } finally {
+      isUpdating = false
+    }
+  }
 });
 
 ipcMain.handle('install-update', () => {
@@ -297,7 +306,7 @@ console.log('Initial check for updates');
 log.info('Initial check for updates');
 
 app.on('will-quit', () => {
-  if (autoUpdater.isUpdaterRunning()) {
+  if (typeof autoUpdater.isUpdaterRunning === 'function' && autoUpdater.isUpdaterRunning()) {
     log.info('Update is in progress, allowing quit for update installation');
   } else {
     log.info('No update in progress, preventing quit');

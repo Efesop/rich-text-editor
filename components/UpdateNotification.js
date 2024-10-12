@@ -45,6 +45,11 @@ export default function UpdateNotification({ onClose, updateInfo, isChecking }) 
     setUpdateStatus('Starting download...');
     try {
       await window.electron.invoke('download-update');
+      // Assume you have a way to listen to progress updates and setDownloadProgress accordingly
+      // Once download is complete, set isDownloaded to true
+      setIsDownloaded(true);
+      setIsDownloading(false);
+      setUpdateStatus('Download complete. Ready to install.');
     } catch (error) {
       console.error('Error downloading update:', error);
       setUpdateStatus('Error downloading update.');
