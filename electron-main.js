@@ -128,6 +128,12 @@ function setupAutoUpdater() {
     log.error('Error in auto-updater:', err);
   });
 
+  autoUpdater.on('download-progress', (progressObj) => {
+    if (mainWindow) {
+      mainWindow.webContents.send('download-progress', progressObj)
+    }
+  });
+
   // Initial check for updates
   autoUpdater.checkForUpdates();
 

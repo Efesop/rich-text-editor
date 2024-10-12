@@ -44,7 +44,7 @@ export default function UpdateNotification({ onClose, updateInfo, isChecking }) 
 
   const downloadUpdate = async () => {
     setIsDownloading(true);
-    setUpdateStatus('Starting download...');
+    setUpdateStatus('Downloading...');
     try {
       await window.electron.invoke('download-update');
       // Assume you have a way to listen to progress updates and setDownloadProgress accordingly
@@ -104,6 +104,12 @@ export default function UpdateNotification({ onClose, updateInfo, isChecking }) 
           Install Update
         </Button>
       )}
+      <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mt-4">
+        <div 
+          className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-in-out" 
+          style={{ width: `${downloadProgress}%` }}
+        ></div>
+      </div>
     </div>
   );
 }
