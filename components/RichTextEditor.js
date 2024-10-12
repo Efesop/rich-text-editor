@@ -435,8 +435,6 @@ export default function RichTextEditor() {
   }, []);
 
   const checkForUpdates = async () => {
-    setIsCheckingForUpdates(true);
-    setUpdateInfo(null);
     try {
       const result = await window.electron.invoke('manual-check-for-updates');
       setUpdateInfo(result);
@@ -444,8 +442,6 @@ export default function RichTextEditor() {
     } catch (error) {
       console.error('Error checking for updates:', error);
       setUpdateInfo({ available: false, error: error.message });
-    } finally {
-      setIsCheckingForUpdates(false);
     }
   };
 

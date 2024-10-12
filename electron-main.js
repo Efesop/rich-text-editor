@@ -316,10 +316,10 @@ autoUpdater.on('update-downloaded', () => {
   mainWindow.webContents.send('update-downloaded');
 });
 
-if (!ipcMain.listenerCount('download-update')) {
+/*if (!ipcMain.listenerCount('download-update')) {
   ipcMain.handle('download-update', () => {
     if (updateAvailable) {
       autoUpdater.downloadUpdate();
     }
   });
-}
+}*/
