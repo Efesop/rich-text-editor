@@ -35,6 +35,7 @@ import { FolderItem } from './FolderItem'
 import { FolderIcon } from 'lucide-react'
 import UpdateNotification from './UpdateNotification'
 import packageJson from '../package.json'
+import { useUpdateManager } from '@/hooks/useUpdateManager'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
 
@@ -77,6 +78,15 @@ export default function RichTextEditor() {
     handleDuplicatePage,
   } = usePagesManager()
 
+  const {
+    showUpdateNotification,
+    setShowUpdateNotification,
+    updateInfo,
+    isCheckingForUpdates,
+    checkForUpdates,
+    handleBellClick
+  } = useUpdateManager()
+
   const { theme } = useTheme()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -96,28 +106,11 @@ export default function RichTextEditor() {
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false)
   const [isAddToFolderModalOpen, setIsAddToFolderModalOpen] = useState(false)
   const [selectedFolderId, setSelectedFolderId] = useState(null)
-  const [showUpdateNotification, setShowUpdateNotification] = useState(false)
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [appVersion, setAppVersion] = useState('');
-  const [updateInfo, setUpdateInfo] = useState(null);
-  const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
+  const [appVersion, setAppVersion] = useState('')
 
   useEffect(() => {
     setIsClient(true)
   }, [])
-
-  useEffect(() => {
-    const handleUpdateAvailable = (info) => {
-      setUpdateInfo(info);
-      setShowUpdateNotification(true); // Show notification automatically
-    };
-
-    window.electron.on('update-available', handleUpdateAvailable);
-
-    return () => {
-      window.electron.removeListener('update-available', handleUpdateAvailable);
-    };
-  }, []);
 
   useEffect(() => {
     const handleFocus = () => {
@@ -129,7 +122,7 @@ export default function RichTextEditor() {
     return () => {
       window.removeEventListener('focus', handleFocus)
     }
-  }, [])
+  }, [checkForUpdates])
 
   const handleEditorChange = useCallback(async (content) => {
     await savePage(content)
@@ -433,30 +426,6 @@ export default function RichTextEditor() {
       document.removeEventListener('click', handleLinkClick);
     };
   }, []);
-
-  const checkForUpdates = async () => {
-    try {
-      const result = await window.electron.invoke('manual-check-for-updates');
-      setUpdateInfo(result);
-      setShowUpdateNotification(true);
-    } catch (error) {
-      console.error('Error checking for updates:', error);
-      setUpdateInfo({ available: false, error: error.message });
-    }
-  };
-
-  const handleBellClick = async () => {
-    setIsCheckingForUpdates(true);
-    try {
-      const result = await window.electron.invoke('manual-check-for-updates');
-      setUpdateInfo(result);
-      setShowUpdateNotification(true);
-    } catch (error) {
-      console.error('Error checking for updates:', error);
-    } finally {
-      setIsCheckingForUpdates(false);
-    }
-  };
 
   useEffect(() => {
     const fetchAppVersion = async () => {
