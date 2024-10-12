@@ -306,11 +306,15 @@ console.log('Initial check for updates');
 log.info('Initial check for updates');
 
 app.on('will-quit', () => {
-  if (typeof autoUpdater.isUpdaterRunning === 'function' && autoUpdater.isUpdaterRunning()) {
-    log.info('Update is in progress, allowing quit for update installation');
+  log.info('App is quitting');
+  // We can't use isUpdaterRunning as it's not a standard method
+  // Instead, we'll use a flag that we set when an update is downloaded
+  if (global.isUpdateReady) {
+    log.info('Update is ready, allowing quit for update installation');
   } else {
-    log.info('No update in progress, preventing quit');
+    log.info('No update ready, preventing quit');
     app.relaunch();
+    app.exit(0);
   }
 });
 
@@ -322,6 +326,8 @@ autoUpdater.on('update-available', (info) => {
 });
 
 autoUpdater.on('update-downloaded', () => {
+  global.isUpdateReady = true;
+  log.info('Update ready for installation');
   mainWindow.webContents.send('update-downloaded');
 });
 

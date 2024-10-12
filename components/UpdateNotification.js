@@ -80,11 +80,16 @@ export default function UpdateNotification({ onClose, updateInfo, isChecking }) 
         )}
       </div>
       {isDownloading && (
-        <div className="w-full bg-gray-200 rounded-full h-2.5 mb-4 dark:bg-gray-700">
-          <div 
-            className="bg-blue-600 h-2.5 rounded-full" 
-            style={{width: `${downloadProgress}%`}}
-          />
+        <div className="mb-4">
+          <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 overflow-hidden">
+            <div 
+              className="bg-blue-600 h-full rounded-full transition-all duration-300 ease-in-out" 
+              style={{width: `${downloadProgress}%`}}
+            />
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            {downloadProgress > 0 ? `${Math.round(downloadProgress)}% complete` : 'Starting download...'}
+          </p>
         </div>
       )}
       {updateInfo && updateInfo.available && !isDownloading && !isDownloaded && (
