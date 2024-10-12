@@ -12,12 +12,10 @@ export default function UpdateNotification({ onClose, updateInfo, isChecking }) 
   useEffect(() => {
     if (updateInfo && updateInfo.available) {
       setUpdateStatus(`Update available: ${updateInfo.latestVersion}`);
+    } else {
+      setUpdateStatus('');
     }
   }, [updateInfo]);
-
-  if (!updateInfo || !updateInfo.available) {
-    return null;
-  }
 
   useEffect(() => {
     const handleDownloadProgress = ({ percent }) => {
@@ -39,6 +37,10 @@ export default function UpdateNotification({ onClose, updateInfo, isChecking }) 
       window.electron.removeListener('update-downloaded', handleUpdateDownloaded);
     };
   }, []);
+
+  if (!updateInfo || !updateInfo.available) {
+    return null;
+  }
 
   const downloadUpdate = async () => {
     setIsDownloading(true);
