@@ -27,6 +27,7 @@ autoUpdater.logger.transports.file.level = 'info';
 // });
 
 let mainWindow;
+let isUpdating = false; // Add this line at the top level of the file
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -186,13 +187,14 @@ ipcMain.handle('check-for-updates', async () => {
 
 ipcMain.handle('download-update', async () => {
   if (!isUpdating) {
-    isUpdating = true
+    isUpdating = true;
     try {
-      await autoUpdater.downloadUpdate()
+      await autoUpdater.downloadUpdate();
     } catch (error) {
-      console.error('Error downloading update:', error)
+      console.error('Error downloading update:', error);
+      log.error('Error downloading update:', error);
     } finally {
-      isUpdating = false
+      isUpdating = false;
     }
   }
 });
