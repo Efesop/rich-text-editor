@@ -149,12 +149,12 @@ function setupAutoUpdater() {
   // Initial check for updates
   autoUpdater.checkForUpdates();
 
-  // Check for updates every 2 minutes
+  // Check for updates every 30 minutes
   setInterval(() => {
     console.log('Periodic update check');
     log.info('Periodic update check');
     autoUpdater.checkForUpdates();
-  }, 2 * 60 * 1000);
+  }, 30 * 60 * 1000); // 30 minutes in milliseconds
 }
 
 let updateCheckInProgress = false;
