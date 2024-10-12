@@ -113,7 +113,14 @@ function setupAutoUpdater() {
 
   autoUpdater.on('update-available', (info) => {
     log.info('Update available:', info);
-    mainWindow.webContents.send('update-available', info);
+    if (mainWindow) {
+      mainWindow.webContents.send('update-available', info);
+    }
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    log.info('Update not available:', info);
+    // Don't send a notification to the renderer process
   });
 
   autoUpdater.on('error', (err) => {

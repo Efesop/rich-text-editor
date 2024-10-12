@@ -10,14 +10,14 @@ export default function UpdateNotification({ onClose, updateInfo, isChecking }) 
   const [isInstalling, setIsInstalling] = useState(false);
 
   useEffect(() => {
-    if (updateInfo) {
-      if (updateInfo.available) {
-        setUpdateStatus(`Update available: ${updateInfo.latestVersion}`);
-      } else {
-        setUpdateStatus('Your app is up to date.');
-      }
+    if (updateInfo && updateInfo.available) {
+      setUpdateStatus(`Update available: ${updateInfo.latestVersion}`);
     }
   }, [updateInfo]);
+
+  if (!updateInfo || !updateInfo.available) {
+    return null;
+  }
 
   useEffect(() => {
     const handleDownloadProgress = ({ percent }) => {
