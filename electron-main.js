@@ -101,6 +101,7 @@ ipcMain.handle('save-pages', async (event, pages) => {
 });
 
 function setupAutoUpdater() {
+  console.log('Setting up auto-updater...');
   log.info('Setting up auto-updater...');
   autoUpdater.logger = log;
   autoUpdater.logger.transports.file.level = 'info';
@@ -144,10 +145,12 @@ function setupAutoUpdater() {
   // Initial check for updates
   autoUpdater.checkForUpdates();
 
-  // Check for updates every 2 hours
+  // Check for updates every 2 minutes
   setInterval(() => {
+    console.log('Periodic update check');
+    log.info('Periodic update check');
     autoUpdater.checkForUpdates();
-  }, 2 * 60 * 60 * 1000);
+  }, 2 * 60 * 1000);
 }
 
 // Replace the existing 'check-for-updates' handler with this:
@@ -203,6 +206,8 @@ app.whenReady().then(() => {
   setupAutoUpdater();
   log.info('Checking for updates...');
   autoUpdater.checkForUpdates();
+  console.log('Initial update check on app ready');
+  log.info('Initial update check on app ready');
 });
 
 app.on('window-all-closed', function () {
@@ -271,3 +276,39 @@ ipcMain.handle('set-github-token', async (event, token) => {
 ipcMain.handle('get-app-version', () => {
   return app.getVersion();
 });
+
+let lastUpdateCheckResult = null;
+
+autoUpdater.on('update-available', (info) => {
+  lastUpdateCheckResult = { available: true, info };
+  mainWindow.webContents.send('update-available', info);
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  lastUpdateCheckResult = { available: false, info };
+  mainWindow.webContents.send('update-not-available', info);
+});
+
+ipcMain.handle('get-last-update-check', () => {
+  return lastUpdateCheckResult;
+});
+
+ipcMain.handle('manual-check-for-updates', async () => {
+  try {
+    log.info('Manually checking for updates...');
+    const result = await autoUpdater.checkForUpdates();
+    const updateAvailable = result.updateInfo.version !== app.getVersion();
+    log.info(`Manual update check result: ${updateAvailable ? 'Update available' : 'No update available'}`);
+    return { 
+      available: updateAvailable, 
+      currentVersion: app.getVersion(),
+      latestVersion: result.updateInfo.version 
+    };
+  } catch (error) {
+    log.error('Error manually checking for updates:', error);
+    return { available: false, error: error.message };
+  }
+});
+
+console.log('Initial check for updates');
+log.info('Initial check for updates');

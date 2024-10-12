@@ -2,18 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { Button } from "./ui/button";
 import { ArrowDownCircle, X } from 'lucide-react';
 
-export default function UpdateNotification({ onClose, updateInfo }) {
+export default function UpdateNotification({ onClose, updateInfo, isChecking }) {
   const [updateStatus, setUpdateStatus] = useState('');
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isInstalling, setIsInstalling] = useState(false);
 
   useEffect(() => {
-    if (updateInfo && updateInfo.available) {
+    if (isChecking) {
+      setUpdateStatus('Checking for updates...');
+    } else if (updateInfo && updateInfo.available) {
       setUpdateStatus(`Update available: ${updateInfo.latestVersion}`);
-    } else {
+    } else if (updateInfo && !updateInfo.available) {
       setUpdateStatus('Your app is up to date.');
     }
-  }, [updateInfo]);
+  }, [updateInfo, isChecking]);
 
   useEffect(() => {
     const handleDownloadProgress = ({ percent }) => {

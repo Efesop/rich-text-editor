@@ -100,28 +100,28 @@ export default function RichTextEditor() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [appVersion, setAppVersion] = useState('');
   const [updateInfo, setUpdateInfo] = useState(null);
+  const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
 
   useEffect(() => {
     setIsClient(true)
   }, [])
 
   useEffect(() => {
-    const checkForUpdates = async () => {
-      try {
-        const result = await window.electron.invoke('check-for-updates');
-        setUpdateAvailable(result.available);
-        setUpdateInfo(result);
-        setShowUpdateNotification(result.available);
-      } catch (error) {
-        console.error('Error checking for updates:', error);
-      }
+    const handleUpdateAvailable = (event, updateInfo) => {
+      setUpdateAvailable(true);
+      setUpdateInfo(updateInfo);
+      setShowUpdateNotification(true);
     };
 
-    checkForUpdates();
+    if (window.electron && window.electron.on) {
+      window.electron.on('update-available', handleUpdateAvailable);
 
-    const intervalId = setInterval(checkForUpdates, 2 * 60 * 60 * 1000); // Check every 2 hours
-
-    return () => clearInterval(intervalId);
+      return () => {
+        if (window.electron && window.electron.removeListener) {
+          window.electron.removeListener('update-available', handleUpdateAvailable);
+        }
+      };
+    }
   }, []);
 
   useEffect(() => {
@@ -439,9 +439,25 @@ export default function RichTextEditor() {
     };
   }, []);
 
-  const toggleUpdateNotification = () => {
-    setShowUpdateNotification(prev => !prev)
-  }
+  const checkForUpdates = async () => {
+    console.log('Manual check for updates initiated from renderer');
+    setIsCheckingForUpdates(true);
+    setUpdateInfo(null);
+    setShowUpdateNotification(true);
+    try {
+      const result = await window.electron.invoke('manual-check-for-updates');
+      setUpdateInfo(result);
+    } catch (error) {
+      console.error('Error checking for updates:', error);
+      setUpdateInfo({ available: false, error: error.message });
+    } finally {
+      setIsCheckingForUpdates(false);
+    }
+  };
+
+  const handleBellClick = () => {
+    checkForUpdates();
+  };
 
   useEffect(() => {
     const fetchAppVersion = async () => {
@@ -623,7 +639,7 @@ export default function RichTextEditor() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={toggleUpdateNotification}
+                onClick={handleBellClick}
                 title="Show update notification"
               >
                 <Bell className="h-4 w-4" />
@@ -762,7 +778,11 @@ export default function RichTextEditor() {
       />
 
       {showUpdateNotification && (
-        <UpdateNotification onClose={() => setShowUpdateNotification(false)} updateInfo={updateInfo} />
+        <UpdateNotification
+          onClose={() => setShowUpdateNotification(false)}
+          updateInfo={updateInfo}
+          isChecking={isCheckingForUpdates}
+        />
       )}
     </div>
   )
