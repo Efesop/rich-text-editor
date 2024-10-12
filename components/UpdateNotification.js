@@ -13,8 +13,6 @@ export default function UpdateNotification({ onClose, updateInfo, isChecking }) 
       setUpdateStatus('Checking for updates...');
     } else if (updateInfo && updateInfo.available) {
       setUpdateStatus(`Update available: ${updateInfo.latestVersion}`);
-    } else if (updateInfo && !updateInfo.available) {
-      setUpdateStatus('Your app is up to date.');
     }
   }, [updateInfo, isChecking]);
 

@@ -107,21 +107,16 @@ export default function RichTextEditor() {
   }, [])
 
   useEffect(() => {
-    const handleUpdateAvailable = (event, updateInfo) => {
-      setUpdateAvailable(true);
-      setUpdateInfo(updateInfo);
+    const handleUpdateAvailable = (info) => {
+      setUpdateInfo(info);
       setShowUpdateNotification(true);
     };
 
-    if (window.electron && window.electron.on) {
-      window.electron.on('update-available', handleUpdateAvailable);
+    window.electron.on('update-available', handleUpdateAvailable);
 
-      return () => {
-        if (window.electron && window.electron.removeListener) {
-          window.electron.removeListener('update-available', handleUpdateAvailable);
-        }
-      };
-    }
+    return () => {
+      window.electron.removeListener('update-available', handleUpdateAvailable);
+    };
   }, []);
 
   useEffect(() => {
@@ -454,8 +449,12 @@ export default function RichTextEditor() {
     }
   };
 
-  const handleBellClick = () => {
-    checkForUpdates();
+  const handleBellClick = async () => {
+    setIsCheckingForUpdates(true);
+    const result = await window.electron.invoke('manual-check-for-updates');
+    setUpdateInfo(result);
+    setShowUpdateNotification(true);
+    setIsCheckingForUpdates(false);
   };
 
   useEffect(() => {
