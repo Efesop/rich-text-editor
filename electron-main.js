@@ -103,8 +103,12 @@ ipcMain.handle('save-pages', async (event, pages) => {
 function setupAutoUpdater() {
   console.log('Setting up auto-updater...');
   log.info('Setting up auto-updater...');
-  autoUpdater.logger = log;
-  autoUpdater.logger.transports.file.level = 'info';
+
+  const server = 'https://github.com/Efesop/rich-text-editor';
+  const url = `${server}/update/${process.platform}/${app.getVersion()}`;
+  
+  autoUpdater.setFeedURL({ url });
+
   autoUpdater.autoDownload = false;
 
   autoUpdater.on('checking-for-update', () => {
@@ -156,16 +160,35 @@ function setupAutoUpdater() {
 // Replace the existing 'check-for-updates' handler with this:
 ipcMain.handle('check-for-updates', async () => {
   try {
-    log.info('Checking for updates...');
+    console.log('Manual check for updates initiated');
+    log.info('Manual check for updates initiated');
+    
     const result = await autoUpdater.checkForUpdates();
+    console.log('Update check result:', result);
+    log.info('Update check result:', result);
+
+    if (!result || !result.updateInfo) {
+      console.log('No update info available');
+      log.info('No update info available');
+      return { 
+        available: false, 
+        currentVersion: app.getVersion(),
+        latestVersion: null,
+        error: 'No update info available'
+      };
+    }
+
     const updateAvailable = result.updateInfo.version !== app.getVersion();
-    log.info(`Update check result: ${updateAvailable ? 'Update available' : 'No update available'}`);
+    console.log(`Update available: ${updateAvailable}, Current version: ${app.getVersion()}, Latest version: ${result.updateInfo.version}`);
+    log.info(`Update available: ${updateAvailable}, Current version: ${app.getVersion()}, Latest version: ${result.updateInfo.version}`);
+
     return { 
       available: updateAvailable, 
       currentVersion: app.getVersion(),
       latestVersion: result.updateInfo.version 
     };
   } catch (error) {
+    console.error('Error checking for updates:', error);
     log.error('Error checking for updates:', error);
     return { available: false, error: error.message };
   }
