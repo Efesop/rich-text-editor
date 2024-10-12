@@ -104,46 +104,16 @@ function setupAutoUpdater() {
   console.log('Setting up auto-updater...');
   log.info('Setting up auto-updater...');
 
-  const server = 'https://github.com/Efesop/rich-text-editor';
-  const url = `${server}/update/${process.platform}/${app.getVersion()}`;
-  
-  autoUpdater.setFeedURL({ url });
-
   autoUpdater.autoDownload = false;
-
-  autoUpdater.on('checking-for-update', () => {
-    log.info('Checking for update...');
-    mainWindow.webContents.send('checking-for-update');
-  });
+  autoUpdater.autoInstallOnAppQuit = false;
 
   autoUpdater.on('update-available', (info) => {
     log.info('Update available:', info);
     mainWindow.webContents.send('update-available', info);
-    storeUpdateAvailability(true);
-  });
-
-  autoUpdater.on('update-not-available', (info) => {
-    log.info('Update not available:', info);
-    mainWindow.webContents.send('update-not-available', info);
-    storeUpdateAvailability(false);
   });
 
   autoUpdater.on('error', (err) => {
     log.error('Error in auto-updater:', err);
-    mainWindow.webContents.send('error', err.toString());
-  });
-
-  autoUpdater.on('download-progress', (progressObj) => {
-    let logMessage = `Download speed: ${progressObj.bytesPerSecond}`;
-    logMessage = `${logMessage} - Downloaded ${progressObj.percent}%`;
-    logMessage = `${logMessage} (${progressObj.transferred}/${progressObj.total})`;
-    log.info(logMessage);
-    mainWindow.webContents.send('download-progress', progressObj);
-  });
-
-  autoUpdater.on('update-downloaded', (info) => {
-    log.info('Update downloaded:', info);
-    mainWindow.webContents.send('update-downloaded', info);
   });
 
   // Initial check for updates
@@ -154,7 +124,7 @@ function setupAutoUpdater() {
     console.log('Periodic update check');
     log.info('Periodic update check');
     autoUpdater.checkForUpdates();
-  }, 30 * 60 * 1000); // 30 minutes in milliseconds
+  }, 30 * 60 * 1000);
 }
 
 let updateCheckInProgress = false;
@@ -204,42 +174,24 @@ ipcMain.handle('check-for-updates', async () => {
 });
 
 ipcMain.handle('download-update', async () => {
-  if (downloadInProgress) {
-    return { inProgress: true };
-  }
-
-  downloadInProgress = true;
-  try {
-    log.info('Starting update download...');
-    const downloadResult = await autoUpdater.downloadUpdate();
-    log.info('Update downloaded successfully');
-    return { success: true };
-  } catch (error) {
-    log.error('Error downloading update:', error);
-    return { success: false, error: error.message };
-  } finally {
-    downloadInProgress = false;
-  }
+  autoUpdater.downloadUpdate();
 });
 
 ipcMain.handle('install-update', () => {
-  log.info('Installing update...');
-  mainWindow.webContents.send('install-progress', 'Preparing to install');
-  
-  // Set a flag to prevent multiple installations
-  let installationInProgress = true;
+  autoUpdater.quitAndInstall();
+});
 
-  autoUpdater.on('before-quit-for-update', () => {
-    log.info('Update is about to be installed');
-    mainWindow.webContents.send('install-progress', 'Update is about to be installed. The app will restart.');
-  });
-
+ipcMain.handle('manual-check-for-updates', async () => {
   try {
-    autoUpdater.quitAndInstall(false, true);
+    const result = await autoUpdater.checkForUpdates();
+    return { 
+      available: result.updateInfo.version !== app.getVersion(),
+      currentVersion: app.getVersion(),
+      latestVersion: result.updateInfo.version 
+    };
   } catch (error) {
-    log.error('Error during installation:', error);
-    mainWindow.webContents.send('install-progress', 'Error during installation. Please try again.');
-    installationInProgress = false;
+    console.error('Error checking for updates:', error);
+    return { available: false, error: error.message };
   }
 });
 
@@ -337,23 +289,6 @@ ipcMain.handle('get-last-update-check', () => {
   return lastUpdateCheckResult;
 });
 
-ipcMain.handle('manual-check-for-updates', async () => {
-  try {
-    log.info('Manually checking for updates...');
-    const result = await autoUpdater.checkForUpdates();
-    const updateAvailable = result.updateInfo.version !== app.getVersion();
-    log.info(`Manual update check result: ${updateAvailable ? 'Update available' : 'No update available'}`);
-    return { 
-      available: updateAvailable, 
-      currentVersion: app.getVersion(),
-      latestVersion: result.updateInfo.version 
-    };
-  } catch (error) {
-    log.error('Error manually checking for updates:', error);
-    return { available: false, error: error.message };
-  }
-});
-
 console.log('Initial check for updates');
 log.info('Initial check for updates');
 
@@ -363,5 +298,22 @@ app.on('will-quit', () => {
   } else {
     log.info('No update in progress, preventing quit');
     app.relaunch();
+  }
+});
+
+let updateAvailable = null;
+
+autoUpdater.on('update-available', (info) => {
+  updateAvailable = info;
+  mainWindow.webContents.send('update-available', info);
+});
+
+autoUpdater.on('update-downloaded', () => {
+  mainWindow.webContents.send('update-downloaded');
+});
+
+ipcMain.handle('download-update', () => {
+  if (updateAvailable) {
+    autoUpdater.downloadUpdate();
   }
 });

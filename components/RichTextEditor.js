@@ -109,7 +109,7 @@ export default function RichTextEditor() {
   useEffect(() => {
     const handleUpdateAvailable = (info) => {
       setUpdateInfo(info);
-      setShowUpdateNotification(true);
+      setShowUpdateNotification(true); // Show notification automatically
     };
 
     window.electron.on('update-available', handleUpdateAvailable);
@@ -451,10 +451,15 @@ export default function RichTextEditor() {
 
   const handleBellClick = async () => {
     setIsCheckingForUpdates(true);
-    const result = await window.electron.invoke('manual-check-for-updates');
-    setUpdateInfo(result);
-    setShowUpdateNotification(true);
-    setIsCheckingForUpdates(false);
+    try {
+      const result = await window.electron.invoke('manual-check-for-updates');
+      setUpdateInfo(result);
+      setShowUpdateNotification(true);
+    } catch (error) {
+      console.error('Error checking for updates:', error);
+    } finally {
+      setIsCheckingForUpdates(false);
+    }
   };
 
   useEffect(() => {
