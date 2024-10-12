@@ -1,89 +1,38 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from "./ui/button";
 import { ArrowDownCircle, X } from 'lucide-react';
 
-export default function UpdateNotification({ onClose }) {
-  const [updateStatus, setUpdateStatus] = useState('No updates checked');
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [updateDownloaded, setUpdateDownloaded] = useState(false);
+export default function UpdateNotification({ onClose, updateInfo }) {
+  const [updateStatus, setUpdateStatus] = useState('');
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isInstalling, setIsInstalling] = useState(false);
 
   useEffect(() => {
-    const handleCheckingForUpdate = () => {
-      console.log('Checking for update...');
-      setUpdateStatus('Checking for updates...');
-    };
+    if (updateInfo && updateInfo.available) {
+      setUpdateStatus(`Update available: ${updateInfo.latestVersion}`);
+    } else {
+      setUpdateStatus('Your app is up to date.');
+    }
+  }, [updateInfo]);
 
-    const handleUpdateAvailable = (info) => {
-      console.log('Update available:', info);
-      setUpdateStatus(`Update available: ${info.version}`);
-      setUpdateAvailable(true);
-      storeUpdateAvailability(true);
-    };
-
-    const handleUpdateNotAvailable = (info) => {
-      console.log('Update not available:', info);
-      setUpdateStatus('Your app is up to date');
-    };
-
-    const handleUpdateDownloaded = (info) => {
-      console.log('Update downloaded:', info);
-      setUpdateStatus(`Update ready to install: ${info.version}`);
-      setUpdateDownloaded(true);
-    };
-
-    const handleError = (err) => {
-      console.error('Update error:', err);
-      setUpdateStatus(`Update error: ${err}`);
-    };
-
-    const handleDownloadProgress = (progressObj) => {
-      const percent = progressObj.percent.toFixed(2);
-      console.log(`Download progress: ${percent}%`);
+  useEffect(() => {
+    const handleDownloadProgress = ({ percent }) => {
       setDownloadProgress(percent);
-      setUpdateStatus(`Downloading update... ${percent}%`);
+      setUpdateStatus(`Downloading update... ${percent.toFixed(2)}%`);
     };
 
     const handleInstallProgress = (message) => {
-      console.log('Install progress:', message);
       setUpdateStatus(`Installing: ${message}`);
     };
 
-    window.electron.on('checking-for-update', handleCheckingForUpdate);
-    window.electron.on('update-available', handleUpdateAvailable);
-    window.electron.on('update-not-available', handleUpdateNotAvailable);
-    window.electron.on('update-downloaded', handleUpdateDownloaded);
-    window.electron.on('error', handleError);
     window.electron.on('download-progress', handleDownloadProgress);
     window.electron.on('install-progress', handleInstallProgress);
 
     return () => {
-      window.electron.removeListener('checking-for-update', handleCheckingForUpdate);
-      window.electron.removeListener('update-available', handleUpdateAvailable);
-      window.electron.removeListener('update-not-available', handleUpdateNotAvailable);
-      window.electron.removeListener('update-downloaded', handleUpdateDownloaded);
-      window.electron.removeListener('error', handleError);
       window.electron.removeListener('download-progress', handleDownloadProgress);
       window.electron.removeListener('install-progress', handleInstallProgress);
     };
   }, []);
-
-  const checkForUpdates = async () => {
-    try {
-      setUpdateStatus('Checking for updates...');
-      const result = await window.electron.invoke('check-for-updates');
-      if (result.available) {
-        setUpdateStatus('Update available. Click to download.');
-        setUpdateAvailable(true);
-      } else {
-        setUpdateStatus('Your app is up to date.');
-      }
-    } catch (error) {
-      console.error('Error checking for updates:', error);
-      setUpdateStatus('Error checking for updates.');
-    }
-  };
 
   const downloadUpdate = async () => {
     try {
@@ -91,7 +40,6 @@ export default function UpdateNotification({ onClose }) {
       const result = await window.electron.invoke('download-update');
       if (result.success) {
         setUpdateStatus('Update downloaded. Ready to install.');
-        setUpdateDownloaded(true);
       } else {
         setUpdateStatus('Error downloading update.');
       }
@@ -102,7 +50,6 @@ export default function UpdateNotification({ onClose }) {
   };
 
   const installUpdate = async () => {
-    console.log('Installing update...');
     setIsInstalling(true);
     setUpdateStatus('Preparing to install...');
     try {
@@ -114,26 +61,6 @@ export default function UpdateNotification({ onClose }) {
     }
   };
 
-  const handleClose = () => {
-    onClose();
-    // Set a timer to show the notification again after 2 hours if an update is still available
-    setTimeout(() => {
-      window.electron.invoke('check-for-updates').then(result => {
-        if (result.available) {
-          setShowUpdateNotification(true);
-        }
-      });
-    }, 2 * 60 * 60 * 1000);
-  };
-
-  /*const storeUpdateAvailability = async (available) => {
-    try {
-      await window.electron.invoke('store-update-availability', available);
-    } catch (error) {
-      console.error('Error storing update availability:', error);
-    }
-  };*/
-
   return (
     <div className="fixed bottom-4 right-4 bg-blue-100 bg-opacity-90 rounded-lg shadow-lg overflow-hidden max-w-md z-50">
       <div className="px-4 py-3 flex items-center justify-between space-x-4">
@@ -144,16 +71,7 @@ export default function UpdateNotification({ onClose }) {
           </span>
         </div>
         <div className="flex items-center space-x-2 flex-shrink-0">
-          {!updateAvailable && !updateDownloaded && !isInstalling && (
-            <Button
-              onClick={checkForUpdates}
-              className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1 rounded whitespace-nowrap z-50"
-              disabled={updateStatus === 'Checking for updates...'}
-            >
-              Check for updates
-            </Button>
-          )}
-          {updateAvailable && !updateDownloaded && !isInstalling && (
+          {updateInfo && updateInfo.available && !isInstalling && (
             <Button
               onClick={downloadUpdate}
               className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1 rounded whitespace-nowrap z-50"
@@ -162,7 +80,7 @@ export default function UpdateNotification({ onClose }) {
               Download update
             </Button>
           )}
-          {updateDownloaded && !isInstalling && (
+          {downloadProgress === 100 && !isInstalling && (
             <Button
               onClick={installUpdate}
               className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1 rounded whitespace-nowrap z-50"
@@ -172,7 +90,7 @@ export default function UpdateNotification({ onClose }) {
           )}
           {!isInstalling && (
             <button
-              onClick={handleClose}
+              onClick={onClose}
               className="text-blue-500 hover:text-blue-700 focus:outline-none p-1 z-50"
             >
               <X className="h-4 w-4" />
@@ -180,14 +98,6 @@ export default function UpdateNotification({ onClose }) {
           )}
         </div>
       </div>
-      {(updateStatus.startsWith('Downloading update...') || isInstalling) && (
-        <div className="w-full bg-blue-200 h-1">
-          <div 
-            className="bg-blue-600 h-1" 
-            style={{width: isInstalling ? '100%' : `${downloadProgress}%`}}
-          ></div>
-        </div>
-      )}
     </div>
   );
 }

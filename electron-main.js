@@ -104,9 +104,7 @@ function setupAutoUpdater() {
   log.info('Setting up auto-updater...');
   autoUpdater.logger = log;
   autoUpdater.logger.transports.file.level = 'info';
-  autoUpdater.autoDownload = false;  // Prevent automatic download
-
-  let updateAvailable = false;
+  autoUpdater.autoDownload = false;
 
   autoUpdater.on('checking-for-update', () => {
     log.info('Checking for update...');
@@ -116,13 +114,13 @@ function setupAutoUpdater() {
   autoUpdater.on('update-available', (info) => {
     log.info('Update available:', info);
     mainWindow.webContents.send('update-available', info);
-    // Store update availability in a file or database
     storeUpdateAvailability(true);
   });
 
   autoUpdater.on('update-not-available', (info) => {
     log.info('Update not available:', info);
     mainWindow.webContents.send('update-not-available', info);
+    storeUpdateAvailability(false);
   });
 
   autoUpdater.on('error', (err) => {

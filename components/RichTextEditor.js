@@ -111,10 +111,7 @@ export default function RichTextEditor() {
         const result = await window.electron.invoke('check-for-updates');
         setUpdateAvailable(result.available);
         setUpdateInfo(result);
-        if (result.available) {
-          setShowUpdateNotification(true);
-          await window.electron.invoke('store-update-availability', true);
-        }
+        setShowUpdateNotification(result.available);
       } catch (error) {
         console.error('Error checking for updates:', error);
       }
@@ -126,6 +123,18 @@ export default function RichTextEditor() {
 
     return () => clearInterval(intervalId);
   }, []);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      checkForUpdates()
+    }
+
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [])
 
   const handleEditorChange = useCallback(async (content) => {
     await savePage(content)
@@ -755,8 +764,6 @@ export default function RichTextEditor() {
       {showUpdateNotification && (
         <UpdateNotification onClose={() => setShowUpdateNotification(false)} updateInfo={updateInfo} />
       )}
-
-      {updateAvailable && <UpdateNotification onClose={() => setUpdateAvailable(false)} updateInfo={updateInfo} />}
     </div>
   )
 }
