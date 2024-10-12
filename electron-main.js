@@ -157,8 +157,15 @@ function setupAutoUpdater() {
   }, 2 * 60 * 1000);
 }
 
-// Replace the existing 'check-for-updates' handler with this:
+let updateCheckInProgress = false;
+let downloadInProgress = false;
+
 ipcMain.handle('check-for-updates', async () => {
+  if (updateCheckInProgress) {
+    return { inProgress: true };
+  }
+
+  updateCheckInProgress = true;
   try {
     console.log('Manual check for updates initiated');
     log.info('Manual check for updates initiated');
@@ -191,11 +198,17 @@ ipcMain.handle('check-for-updates', async () => {
     console.error('Error checking for updates:', error);
     log.error('Error checking for updates:', error);
     return { available: false, error: error.message };
+  } finally {
+    updateCheckInProgress = false;
   }
 });
 
-// Add a new handler for downloading updates
 ipcMain.handle('download-update', async () => {
+  if (downloadInProgress) {
+    return { inProgress: true };
+  }
+
+  downloadInProgress = true;
   try {
     log.info('Starting update download...');
     const downloadResult = await autoUpdater.downloadUpdate();
@@ -204,6 +217,8 @@ ipcMain.handle('download-update', async () => {
   } catch (error) {
     log.error('Error downloading update:', error);
     return { success: false, error: error.message };
+  } finally {
+    downloadInProgress = false;
   }
 });
 
@@ -211,15 +226,21 @@ ipcMain.handle('install-update', () => {
   log.info('Installing update...');
   mainWindow.webContents.send('install-progress', 'Preparing to install');
   
-  // Simulate installation steps (replace with actual steps if possible)
-  setTimeout(() => mainWindow.webContents.send('install-progress', 'Backing up data'), 2000);
-  setTimeout(() => mainWindow.webContents.send('install-progress', 'Applying update'), 4000);
-  setTimeout(() => mainWindow.webContents.send('install-progress', 'Finalizing installation'), 6000);
-  
-  setTimeout(() => {
-    mainWindow.webContents.send('install-progress', 'Update installed. Restarting...');
+  // Set a flag to prevent multiple installations
+  let installationInProgress = true;
+
+  autoUpdater.on('before-quit-for-update', () => {
+    log.info('Update is about to be installed');
+    mainWindow.webContents.send('install-progress', 'Update is about to be installed. The app will restart.');
+  });
+
+  try {
     autoUpdater.quitAndInstall(false, true);
-  }, 8000);
+  } catch (error) {
+    log.error('Error during installation:', error);
+    mainWindow.webContents.send('install-progress', 'Error during installation. Please try again.');
+    installationInProgress = false;
+  }
 });
 
 app.whenReady().then(() => {
@@ -335,3 +356,12 @@ ipcMain.handle('manual-check-for-updates', async () => {
 
 console.log('Initial check for updates');
 log.info('Initial check for updates');
+
+app.on('will-quit', () => {
+  if (autoUpdater.isUpdaterRunning()) {
+    log.info('Update is in progress, allowing quit for update installation');
+  } else {
+    log.info('No update in progress, preventing quit');
+    app.relaunch();
+  }
+});
