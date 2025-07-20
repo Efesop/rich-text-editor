@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { hashPassword, verifyPassword } from '@/utils/passwordUtils'
+import { sanitizeEditorContent, validatePageStructure } from '@/utils/securityUtils'
 import useTagStore from '../store/tagStore'
 
 export function usePagesManager() {
@@ -115,36 +116,46 @@ export function usePagesManager() {
     const currentPageData = currentPageRef.current
     if (!currentPageData || !pageContent) return
 
-    // Validate content structure
-    const validContent = {
-      time: Date.now(),
-      blocks: Array.isArray(pageContent.blocks) ? pageContent.blocks : [],
-      version: pageContent.version || '2.30.6'
-    }
+    try {
+      // Sanitize the content before saving
+      const sanitizedContent = sanitizeEditorContent(pageContent)
 
-    const updatedPage = { 
-      ...currentPageData, 
-      content: validContent
-    }
-
-    // Update pages state atomically
-    setPages(prevPages => {
-      const newPages = prevPages.map(p => 
-        p.id === updatedPage.id ? updatedPage : p
-      )
-      
-      // If page not found, add it (shouldn't happen but safety check)
-      if (!newPages.find(p => p.id === updatedPage.id)) {
-        newPages.unshift(updatedPage)
+      const updatedPage = { 
+        ...currentPageData, 
+        content: sanitizedContent
       }
-      
-      pagesRef.current = newPages
-      savePagesToStorage(newPages)
-      return newPages
-    })
 
-    // Update current page if it's the one being saved
-    _setCurrentPage(updatedPage)
+      // Validate the complete page structure
+      const validation = validatePageStructure(updatedPage)
+      if (!validation.isValid) {
+        console.error('Page validation failed:', validation.errors)
+        throw new Error('Invalid page data structure')
+      }
+
+      // Update pages state atomically
+      setPages(prevPages => {
+        const newPages = prevPages.map(p => 
+          p.id === validation.sanitized.id ? validation.sanitized : p
+        )
+        
+        // If page not found, add it (shouldn't happen but safety check)
+        if (!newPages.find(p => p.id === validation.sanitized.id)) {
+          newPages.unshift(validation.sanitized)
+        }
+        
+        pagesRef.current = newPages
+        savePagesToStorage(newPages)
+        return newPages
+      })
+
+      // Update current page if it's the one being saved
+      _setCurrentPage(validation.sanitized)
+    } catch (error) {
+      console.error('Error saving page:', error)
+      // Show user-friendly error message
+      setSaveStatus('error')
+      setTimeout(() => setSaveStatus('saved'), 3000)
+    }
   }, [savePagesToStorage])
 
   const deletePage = useCallback(async (pageToDelete) => {

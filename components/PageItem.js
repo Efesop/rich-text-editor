@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "./ui/button"
 import { FileText, Lock, Unlock, Trash2, MoreVertical, FolderMinus, Copy } from 'lucide-react'
+import StackedTags from './StackedTags'
 
 const PageItem = ({ 
   page, 
@@ -107,38 +108,29 @@ const PageItem = ({
       onMouseLeave={() => setIsHovered(false)}
       style={{ minHeight: '2.5rem' }} // Ensure consistent height
     >
-      <div className="flex items-center flex-1 min-w-0 pl-2">
-  {sidebarOpen ? (
-    <>
-      <span className="mr-2" title={page.title}>
-        {truncatePageTitle(page.title)}
-      </span>
-      {page.tagNames && page.tagNames.length > 0 && (
-        <div className="flex flex-wrap gap-0.5 min-h-[0.5rem]">
-          {page.tagNames.map((tagName, index) => {
-            const tag = tags.find(t => t.name === tagName)
-            if (!tag) return null
-            return (
-              <span
-                key={index}
-                className={`px-1 rounded text-xs ${
-                  theme === 'dark' ? 'text-gray-900' : 'text-gray-800'
-                }`}
-                style={{ backgroundColor: tag.color.background, border: `1px solid ${tag.color.border}` }}
-              >
-                {tag.name}
-              </span>
-            )
-          })}
-        </div>
-      )}
-    </>
-  ) : (
-    <span className="truncate mr-2" title={page.title}>
-      {page.title.slice(0, 3)}...
-    </span>
-  )}
-</div>
+      <div className="flex items-center flex-1 min-w-0">
+        {sidebarOpen ? (
+          <>
+            <FileText className={`h-4 w-4 mr-2 flex-shrink-0 ${
+              isActive ? 'text-white' : theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+            }`} />
+            <span className="mr-2 truncate" title={page.title}>
+              {page.title}
+            </span>
+            {page.tagNames && page.tagNames.length > 0 && (
+              <StackedTags 
+                tags={page.tagNames}
+                maxVisible={2}
+                className="ml-auto flex-shrink-0"
+              />
+            )}
+          </>
+        ) : (
+          <span className="truncate mr-2" title={page.title}>
+            {page.title.slice(0, 3)}...
+          </span>
+        )}
+      </div>
       <div className="flex items-center space-x-1">
         {page.password && page.password.hash && !tempUnlockedPages.has(page.id) && (
           <Lock className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`} />

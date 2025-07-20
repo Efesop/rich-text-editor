@@ -6,6 +6,32 @@ const fs = require('fs').promises;
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
 
+// Rate limiting for security
+const rateLimiter = new Map();
+const SAVE_LIMIT = 100; // saves per minute
+const RATE_WINDOW = 60 * 1000; // 1 minute
+
+function checkRateLimit(key) {
+  const now = Date.now();
+  const windowStart = now - RATE_WINDOW;
+  
+  if (!rateLimiter.has(key)) {
+    rateLimiter.set(key, []);
+  }
+  
+  const requests = rateLimiter.get(key);
+  // Remove old requests outside the window
+  const validRequests = requests.filter(time => time > windowStart);
+  
+  if (validRequests.length >= SAVE_LIMIT) {
+    return false; // Rate limit exceeded
+  }
+  
+  validRequests.push(now);
+  rateLimiter.set(key, validRequests);
+  return true;
+}
+
 // Load environment variables from .env file
 require('dotenv').config();
 
@@ -31,13 +57,20 @@ let isUpdating = false; // Add this line at the top level of the file
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1200,
+    height: 800,
+    minWidth: 800,
+    minHeight: 600,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true, // Enable sandbox for security
+      enableRemoteModule: false,
+      allowRunningInsecureContent: false,
+      experimentalFeatures: false,
       preload: path.join(__dirname, 'preload.js')
-    }
+    },
+    show: false // Don't show until ready
   });
 
   const startUrl = process.env.ELECTRON_START_URL || url.format({
@@ -46,14 +79,49 @@ function createWindow() {
     slashes: true
   });
   
+  // Security: Set CSP headers
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self'; " +
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+          "style-src 'self' 'unsafe-inline'; " +
+          "img-src 'self' data: https:; " +
+          "font-src 'self' data:; " +
+          "connect-src 'self'; " +
+          "frame-src 'none'; " +
+          "object-src 'none';"
+        ]
+      }
+    })
+  })
+
   mainWindow.loadURL(startUrl);
+
+  // Show window when ready to prevent visual flash
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show()
+  })
 
   // Open DevTools for debugging
   //mainWindow.webContents.openDevTools();
 
+  // Security: Prevent new window creation and redirect to external browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     require('electron').shell.openExternal(url);
     return { action: 'deny' };
+  });
+
+  // Security: Block navigation to external sites
+  mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+    const parsedUrl = new URL(navigationUrl)
+    
+    if (parsedUrl.origin !== startUrl && !navigationUrl.startsWith('file://')) {
+      event.preventDefault()
+      require('electron').shell.openExternal(navigationUrl)
+    }
   });
 }
 
@@ -94,9 +162,50 @@ ipcMain.handle('read-pages', async () => {
 });
 
 ipcMain.handle('save-pages', async (event, pages) => {
+  // Rate limiting check
+  if (!checkRateLimit('save-pages')) {
+    throw new Error('Rate limit exceeded. Too many save requests.');
+  }
+
   try {
-    await fs.writeFile(path.join(app.getPath('userData'), 'pages.json'), JSON.stringify(pages, null, 2));
+    // Validate data structure before saving
+    if (!Array.isArray(pages)) {
+      throw new Error('Invalid data: pages must be an array');
+    }
+
+    // Sanitize and validate each page
+    const sanitizedPages = pages.map(page => {
+      if (!page.id || typeof page.id !== 'string') {
+        throw new Error('Invalid page: missing or invalid id');
+      }
+      if (!page.title || typeof page.title !== 'string') {
+        throw new Error('Invalid page: missing or invalid title');
+      }
+      if (!page.content || typeof page.content !== 'object') {
+        throw new Error('Invalid page: missing or invalid content');
+      }
+
+      return {
+        id: page.id,
+        title: page.title.slice(0, 200), // Limit title length
+        content: {
+          time: page.content.time || Date.now(),
+          blocks: Array.isArray(page.content.blocks) ? page.content.blocks : [],
+          version: page.content.version || '2.30.6'
+        },
+        tags: Array.isArray(page.tags) ? page.tags : [],
+        tagNames: Array.isArray(page.tagNames) ? page.tagNames : [],
+        createdAt: page.createdAt || new Date().toISOString(),
+        password: page.password || null,
+        folderId: page.folderId || null,
+        type: page.type || undefined
+      };
+    });
+
+    await fs.writeFile(path.join(app.getPath('userData'), 'pages.json'), JSON.stringify(sanitizedPages, null, 2));
+    return { success: true };
   } catch (error) {
+    console.error('Error saving pages:', error);
     throw error;
   }
 });
@@ -212,6 +321,16 @@ ipcMain.handle('install-update', () => {
 ipcMain.handle('manual-check-for-updates', async () => {
   try {
     const result = await autoUpdater.checkForUpdates();
+    
+    if (!result || !result.updateInfo) {
+      return { 
+        available: false, 
+        currentVersion: app.getVersion(),
+        latestVersion: null,
+        error: 'No update info available'
+      };
+    }
+    
     return { 
       available: result.updateInfo.version !== app.getVersion(),
       currentVersion: app.getVersion(),

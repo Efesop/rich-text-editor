@@ -3,8 +3,22 @@ import { Input } from "./ui/input"
 import { Button } from "./ui/button"
 import { ChevronDown } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import SearchDropdown from './SearchDropdown'
 
-const SearchInput = ({ value, onChange, filter, onFilterChange, placeholder }) => {
+const SearchInput = ({ 
+  value, 
+  onChange, 
+  filter, 
+  onFilterChange, 
+  placeholder,
+  pages = [],
+  folders = [],
+  tags = [],
+  onSelectPage,
+  onSelectFolder,
+  onSelectTag,
+  showDropdown = true
+}) => {
   const [isOpen, setIsOpen] = React.useState(false)
   const dropdownRef = React.useRef(null)
   const { theme } = useTheme()
@@ -31,6 +45,24 @@ const SearchInput = ({ value, onChange, filter, onFilterChange, placeholder }) =
 
   const borderColor = theme === 'dark' ? 'border-gray-700' : 'border-gray-300'
 
+  // If showDropdown is enabled, use the new SearchDropdown component
+  if (showDropdown) {
+    return (
+      <SearchDropdown
+        searchTerm={value}
+        onSearchTermChange={onChange}
+        pages={pages}
+        folders={folders}
+        tags={tags}
+        onSelectPage={onSelectPage}
+        onSelectFolder={onSelectFolder}
+        onSelectTag={onSelectTag}
+        className="w-full"
+      />
+    )
+  }
+
+  // Fallback to original search input with filter dropdown
   return (
     <div className="relative" ref={dropdownRef}>
       <div className="flex">

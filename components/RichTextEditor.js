@@ -36,6 +36,9 @@ import { FolderIcon } from 'lucide-react'
 import UpdateNotification from './UpdateNotification'
 import packageJson from '../package.json'
 import { useUpdateManager } from '@/hooks/useUpdateManager'
+import { EditorErrorBoundary, SidebarErrorBoundary } from './ErrorBoundary'
+import { useKeyboardNavigation, useScreenReader, useSkipNavigation } from '@/hooks/useKeyboardNavigation'
+import TagsFilter from './TagsFilter'
 // import ModeDropdown from './ModeDropdown'  // Comment out this import
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
@@ -90,6 +93,10 @@ export default function RichTextEditor() {
 
   const { theme } = useTheme()
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  
+  // Accessibility hooks
+  const announce = useScreenReader()
+  useSkipNavigation()
   const [searchTerm, setSearchTerm] = useState('')
   const [wordCount, setWordCount] = useState(0)
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false)
@@ -98,6 +105,7 @@ export default function RichTextEditor() {
   const [tagToEdit, setTagToEdit] = useState(null)
   const [isTagModalOpen, setIsTagModalOpen] = useState(false)
   const [searchFilter, setSearchFilter] = useState('all')
+  const [selectedTagsFilter, setSelectedTagsFilter] = useState([])
   const [passwordInput, setPasswordInput] = useState('')
   const [passwordAction, setPasswordAction] = useState('')
   const [passwordError, setPasswordError] = useState('')
@@ -361,15 +369,15 @@ export default function RichTextEditor() {
       if (item.type === 'folder') {
         const matchingPages = item.pages.filter(pageId => {
           const page = pages.find(p => p.id === pageId)
-          return page && matchesSearchCriteria(page, searchTerm, searchFilter)
+          return page && matchesSearchCriteria(page, searchTerm, searchFilter) && matchesTagFilter(page, selectedTagsFilter)
         })
         return matchingPages.length > 0 || item.title.toLowerCase().includes(searchTerm.toLowerCase())
       } else if (!item.folderId) {
-        return matchesSearchCriteria(item, searchTerm, searchFilter)
+        return matchesSearchCriteria(item, searchTerm, searchFilter) && matchesTagFilter(item, selectedTagsFilter)
       }
       return false
     })
-  }, [pages, searchTerm, searchFilter])
+  }, [pages, searchTerm, searchFilter, selectedTagsFilter])
 
   const matchesSearchCriteria = (page, searchTerm, searchFilter) => {
     const lowercaseSearchTerm = searchTerm.toLowerCase();
@@ -383,6 +391,11 @@ export default function RichTextEditor() {
       (searchFilter === 'content' && page.content.blocks.some(block => block.data.text && block.data.text.toLowerCase().includes(lowercaseSearchTerm))) ||
       (searchFilter === 'tags' && page.tagNames?.some(tag => tag.toLowerCase().includes(lowercaseSearchTerm)))
     );
+  };
+
+  const matchesTagFilter = (page, selectedTags) => {
+    if (selectedTags.length === 0) return true; // No tag filter applied
+    return selectedTags.every(tag => page.tagNames?.includes(tag));
   };
 
   const sortPages = useCallback((pages, option) => {
@@ -471,15 +484,6 @@ export default function RichTextEditor() {
     fetchAppVersion();
   }, []);
 
-  if (!isClient) {
-    return null // or a loading indicator
-  }
-
-  // Add this check
-  if (!currentPage) {
-    return <div>No page selected</div> // or some other appropriate UI
-  }
-
   const truncateFolderName = (name) => {
     return name.length > 15 ? name.slice(0, 15) + '...' : name;
   };
@@ -490,11 +494,92 @@ export default function RichTextEditor() {
     }
   }
 
+  // Tag filter handlers
+  const handleTagToggle = (tag) => {
+    setSelectedTagsFilter(prev => 
+      prev.includes(tag) 
+        ? prev.filter(t => t !== tag)
+        : [...prev, tag]
+    )
+  }
+
+  const handleClearAllTagsFilter = () => {
+    setSelectedTagsFilter([])
+  }
+
+  // Search dropdown handlers
+  const handleSelectPageFromSearch = (page) => {
+    handlePageSelect(page)
+    announce(`Navigated to page: ${page.title}`)
+  }
+
+  const handleSelectFolderFromSearch = (folder) => {
+    // You could implement folder navigation here if needed
+    console.log('Selected folder:', folder)
+  }
+
+  const handleSelectTagFromSearch = (tag) => {
+    // Add tag to filter
+    if (!selectedTagsFilter.includes(tag)) {
+      setSelectedTagsFilter(prev => [...prev, tag])
+    }
+    announce(`Added tag filter: ${tag}`)
+  }
+
+  // Initialize keyboard navigation after all functions are defined
+  useKeyboardNavigation({
+    onNewPage: handleNewPage,
+    onSavePage: () => savePage(currentPage?.content),
+    onSearch: () => {
+      const searchInput = document.querySelector('input[placeholder*="Search"]')
+      if (searchInput) {
+        searchInput.focus()
+        announce('Search field focused')
+      }
+    },
+    onToggleSidebar: () => {
+      setSidebarOpen(!sidebarOpen)
+      announce(sidebarOpen ? 'Sidebar collapsed' : 'Sidebar expanded')
+    },
+    onDeletePage: handleDeletePage,
+    onDuplicatePage: handleDuplicatePage,
+    currentPage,
+    pages: pages.filter(page => page.type !== 'folder'), // Use pages directly instead of filteredPages()
+    onSelectPage: handlePageSelect
+  })
+
+  // Handle loading states - these returns must come AFTER all hooks
+  if (!isClient) {
+    return (
+      <div className={`flex h-screen items-center justify-center ${theme === 'dark' ? 'dark bg-gray-900 text-white' : 'bg-white text-black'}`}>
+        <div>Loading...</div>
+      </div>
+    )
+  }
+
+  if (!currentPage) {
+    return (
+      <div className={`flex h-screen items-center justify-center ${theme === 'dark' ? 'dark bg-gray-900 text-white' : 'bg-white text-black'}`}>
+        <div>No page selected</div>
+      </div>
+    )
+  }
+
   return (
-    <div className={`flex h-screen ${theme === 'dark' ? 'dark bg-gray-900 text-white' : 'bg-white text-black'}`}>
+    <div 
+      className={`flex h-screen ${theme === 'dark' ? 'dark bg-gray-900 text-white' : 'bg-white text-black'}`}
+      role="application"
+      aria-label="Rich Text Note Editor"
+    >
       {/* Sidebar */}
-      <div className={`${sidebarOpen ? 'w-64' : 'w-16'} flex flex-col transition-all duration-300 ease-in-out ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'} relative overflow-visible`}>
-        <div className={`p-4 flex ${sidebarOpen ? 'justify-between' : 'justify-center'} items-center`}>
+      <SidebarErrorBoundary>
+        <nav 
+          className={`${sidebarOpen ? 'w-64' : 'w-16'} flex flex-col transition-all duration-300 ease-in-out ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'} relative overflow-visible`}
+          role="navigation"
+          aria-label="Page navigation"
+          aria-expanded={sidebarOpen}
+        >
+        <header className={`p-4 flex ${sidebarOpen ? 'justify-between' : 'justify-center'} items-center`}>
           {sidebarOpen && <h1 className="text-2xl font-bold">Pages</h1>}
           <div className="flex items-center space-x-2">
             {sidebarOpen && (
@@ -520,16 +605,29 @@ export default function RichTextEditor() {
               <Plus className="h-4 w-4" />
             </Button>
           </div>
-        </div>
+        </header>
         {sidebarOpen && (
-          <div className="px-4 mb-3 pt-1">
+          <div className="px-4 mb-3 pt-1 space-y-3">
             <SearchInput
               value={searchTerm}
               onChange={setSearchTerm}
               filter={searchFilter}
               onFilterChange={setSearchFilter}
-              placeholder={searchPlaceholders[searchFilter]}
-              theme={theme}
+                              placeholder="Search everything"
+              pages={pages.filter(p => p.type !== 'folder')}
+              folders={pages.filter(p => p.type === 'folder')}
+              tags={tags.map(t => t.name)}
+              onSelectPage={handleSelectPageFromSearch}
+              onSelectFolder={handleSelectFolderFromSearch}
+              onSelectTag={handleSelectTagFromSearch}
+              showDropdown={true}
+            />
+            
+            <TagsFilter
+              tags={tags.map(t => t.name)}
+              selectedTags={selectedTagsFilter}
+              onTagToggle={handleTagToggle}
+              onClearAllTags={handleClearAllTagsFilter}
             />
           </div>
         )}
@@ -598,10 +696,16 @@ export default function RichTextEditor() {
             </div>
           )}
         </div>
-      </div>
+      </nav>
+      </SidebarErrorBoundary>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <main 
+        className="flex-1 flex flex-col overflow-hidden"
+        id="main-content"
+        role="main"
+        aria-label="Note editor"
+      >
         {/* Header */}
         <div className={`flex flex-col p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
           <div className="flex items-center justify-between mb-2">
@@ -694,12 +798,14 @@ export default function RichTextEditor() {
         {/* Editor */}
         <div className={`flex-1 overflow-auto p-6 ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
           {currentPage && (
-            <DynamicEditor
-              key={currentPage.id} // Add this line
-              data={currentPage.content}
-              onChange={handleEditorChange}
-              holder="editorjs"
-            />
+            <EditorErrorBoundary>
+              <DynamicEditor
+                key={currentPage.id} // Add this line
+                data={currentPage.content}
+                onChange={handleEditorChange}
+                holder="editorjs"
+              />
+            </EditorErrorBoundary>
           )}
         </div>
 
@@ -717,7 +823,7 @@ export default function RichTextEditor() {
             </span>
           </div>
         </div>
-      </div>
+      </main>
 
       <RenameModal
         isOpen={isRenameModalOpen}
