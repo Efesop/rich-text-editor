@@ -15,9 +15,13 @@
     "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
     "electron-pack": "npm run build && electron-builder build --win --mac --linux",
     "electron-start": "electron .",
-    "electron:build": "electron-builder build --win --mac --linux"
+    "electron:build": "electron-builder build --win --mac --linux",
+    "build:win": "electron-builder --win"
   },
   "dependencies": {
+    "@capacitor/cli": "^6.1.2",
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/ios": "^6.1.2",
     "@editorjs/checklist": "^1.6.0",
     "@editorjs/code": "^2.9.0",
     "@editorjs/delimiter": "^1.4.2",

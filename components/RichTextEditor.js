@@ -36,6 +36,7 @@ import { FolderIcon } from 'lucide-react'
 import UpdateNotification from './UpdateNotification'
 import packageJson from '../package.json'
 import { useUpdateManager } from '@/hooks/useUpdateManager'
+// import ModeDropdown from './ModeDropdown'  // Comment out this import
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
 
@@ -107,6 +108,36 @@ export default function RichTextEditor() {
   const [isAddToFolderModalOpen, setIsAddToFolderModalOpen] = useState(false)
   const [selectedFolderId, setSelectedFolderId] = useState(null)
   const [appVersion, setAppVersion] = useState('')
+  // Comment out or remove these mode-related states and functions
+  /*
+  const [currentMode, setCurrentMode] = useState('default')
+  const [audioPlayer, setAudioPlayer] = useState(null)
+
+  const handleModeChange = (mode) => {
+    setCurrentMode(mode)
+    if (mode === 'cafe') {
+      playLofiMusic()
+    } else {
+      stopLofiMusic()
+    }
+  }
+
+  const playLofiMusic = () => {
+    if (!audioPlayer) {
+      const audio = new Audio('https://example.com/lofi-stream.mp3') // Replace with actual stream URL
+      audio.loop = true
+      setAudioPlayer(audio)
+    }
+    audioPlayer?.play()
+  }
+
+  const stopLofiMusic = () => {
+    audioPlayer?.pause()
+    if (audioPlayer) {
+      audioPlayer.currentTime = 0
+    }
+  }
+  */
 
   useEffect(() => {
     setIsClient(true)
@@ -593,25 +624,28 @@ export default function RichTextEditor() {
               )}
             </div>
             <div className="flex items-center space-x-2">
+              {/* <ModeDropdown onModeChange={handleModeChange} theme={theme} /> */}
               <ExportDropdown onExport={handleExport} />
-              <Button
-                variant="ghost"
-                size="icon"
+              <button
                 onClick={() => {
                   window.open('https://github.com/Efesop/rich-text-editor/issues/new', '_blank', 'noopener,noreferrer');
                 }}
+                className={`p-2 rounded-md ${
+                  theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                }`}
                 title="Report a bug or request a feature"
               >
                 <Bug className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
+              </button>
+              <button
                 onClick={handleBellClick}
+                className={`p-2 rounded-md ${
+                  theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                }`}
                 title="Show update notification"
               >
                 <Bell className="h-4 w-4" />
-              </Button>
+              </button>
               <ThemeToggle />
             </div>
           </div>
