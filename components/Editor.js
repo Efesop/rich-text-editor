@@ -1,33 +1,115 @@
-import React, { useEffect, useRef } from 'react'
+ import React, { useEffect, useRef, useCallback, useMemo } from 'react'
 
 export default function Editor({ data, onChange, holder }) {
   const editorRef = useRef(null)
+  const isInitializedRef = useRef(false)
+  const dataRef = useRef(data)
+  const onChangeRef = useRef(onChange)
 
+  // Update refs when props change
   useEffect(() => {
-    let EditorJS
+    dataRef.current = data
+    onChangeRef.current = onChange
+  }, [data, onChange])
 
-    const initEditor = async () => {
-      EditorJS = (await import('@editorjs/editorjs')).default
-      const Header = (await import('@editorjs/header')).default
-      const Checklist = (await import('@editorjs/checklist')).default
-      const Quote = (await import('@editorjs/quote')).default
-      const CodeTool = (await import('@editorjs/code')).default
-      const InlineCode = (await import('@editorjs/inline-code')).default
-      const Marker = (await import('@editorjs/marker')).default
-      const Table = (await import('@editorjs/table')).default
-      const LinkTool = (await import('@editorjs/link')).default
-      const ImageTool = (await import('@editorjs/image')).default
-      const Embed = (await import('@editorjs/embed')).default
-      const Delimiter = (await import('@editorjs/delimiter')).default
-      const OriginalParagraph = (await import('@editorjs/paragraph')).default
-      const NestedList = (await import('@editorjs/nested-list')).default
+  // Memoize editor configuration to prevent unnecessary re-initializations
+  const editorConfig = useMemo(() => ({
+    holder: holder,
+    placeholder: 'Start writing...',
+    minHeight: 100,
+    autofocus: true,
+    defaultBlock: 'paragraph',
+    sanitizer: {
+      p: true,
+      b: true,
+      i: true,
+      strong: true,
+      em: true,
+      u: true,
+      s: true,
+      mark: true,
+      code: true,
+      a: {
+        href: true,
+        target: '_blank',
+        rel: 'noopener noreferrer'
+      },
+      br: true
+    },
+    onChange: async (api, event) => {
+      try {
+        // Debounce the onChange to prevent excessive saves
+        if (editorRef.current?.onChange) {
+          clearTimeout(editorRef.current.onChange)
+        }
+        editorRef.current.onChange = setTimeout(async () => {
+          try {
+            const content = await api.saver.save()
+            onChangeRef.current?.(content)
+          } catch (error) {
+            console.error('Error saving editor content:', error)
+          }
+        }, 300)
+      } catch (error) {
+        console.error('Error in editor onChange:', error)
+      }
+    }
+  }), [holder])
 
-      // Custom Paragraph tool that preserves empty paragraphs
+  // Initialize editor tools
+  const initializeTools = useCallback(async () => {
+    try {
+      const [
+        EditorJS,
+        Header,
+        Checklist,
+        Quote,
+        CodeTool,
+        InlineCode,
+        Marker,
+        Table,
+        LinkTool,
+        ImageTool,
+        Embed,
+        Delimiter,
+        OriginalParagraph,
+        NestedList
+      ] = await Promise.all([
+        import('@editorjs/editorjs').then(m => m.default),
+        import('@editorjs/header').then(m => m.default),
+        import('@editorjs/checklist').then(m => m.default),
+        import('@editorjs/quote').then(m => m.default),
+        import('@editorjs/code').then(m => m.default),
+        import('@editorjs/inline-code').then(m => m.default),
+        import('@editorjs/marker').then(m => m.default),
+        import('@editorjs/table').then(m => m.default),
+        import('@editorjs/link').then(m => m.default),
+        import('@editorjs/image').then(m => m.default),
+        import('@editorjs/embed').then(m => m.default),
+        import('@editorjs/delimiter').then(m => m.default),
+        import('@editorjs/paragraph').then(m => m.default),
+        import('@editorjs/nested-list').then(m => m.default)
+      ])
+
+      // Enhanced Paragraph tool that preserves empty paragraphs and improves formatting
       const Paragraph = class extends OriginalParagraph {
         static get sanitize() {
           return {
             text: {
               br: true,
+              b: true,
+              strong: true,
+              i: true,
+              em: true,
+              u: true,
+              s: true,
+              mark: true,
+              code: true,
+              a: {
+                href: true,
+                target: '_blank',
+                rel: 'noopener noreferrer'
+              }
             }
           }
         }
@@ -35,35 +117,80 @@ export default function Editor({ data, onChange, holder }) {
         validate(savedData) {
           return true
         }
+
+        render() {
+          const wrapper = super.render()
+          wrapper.style.lineHeight = '1.6'
+          wrapper.style.fontSize = '16px'
+          return wrapper
+        }
       }
 
-      if (editorRef.current && typeof editorRef.current.destroy === 'function') {
-        editorRef.current.destroy()
-      }
-
-      editorRef.current = new EditorJS({
-        holder: holder,
-        tools: {
-          header: Header,
-          nestedlist: {
-            class: NestedList,
-            inlineToolbar: true,
-            config: {
-              defaultStyle: 'unordered'
-            },
-          },
-          checklist: Checklist,
-          quote: Quote,
-          code: CodeTool,
-          inlineCode: InlineCode,
-          marker: Marker,
-          table: Table,
-          image: {
-            class: ImageTool,
-            config: {
-              uploader: {
-                uploadByFile(file) {
-                  return new Promise((resolve) => {
+      const tools = {
+        header: {
+          class: Header,
+          inlineToolbar: ['marker', 'inlineCode'],
+          config: {
+            placeholder: 'Enter a header',
+            levels: [2, 3, 4],
+            defaultLevel: 2
+          }
+        },
+        nestedlist: {
+          class: NestedList,
+          inlineToolbar: true,
+          config: {
+            defaultStyle: 'unordered'
+          }
+        },
+        checklist: {
+          class: Checklist,
+          inlineToolbar: true
+        },
+        quote: {
+          class: Quote,
+          inlineToolbar: true,
+          config: {
+            quotePlaceholder: 'Enter a quote',
+            captionPlaceholder: 'Quote\'s author'
+          }
+        },
+        code: {
+          class: CodeTool,
+          config: {
+            placeholder: 'Enter code'
+          }
+        },
+        inlineCode: {
+          class: InlineCode,
+          shortcut: 'CMD+SHIFT+M'
+        },
+        marker: {
+          class: Marker,
+          shortcut: 'CMD+SHIFT+H'
+        },
+        table: {
+          class: Table,
+          inlineToolbar: true,
+          config: {
+            rows: 2,
+            cols: 3,
+            withHeadings: true
+          }
+        },
+        linkTool: {
+          class: LinkTool,
+          config: {
+            endpoint: '/api/fetchUrl' // You might want to implement this for better link previews
+          }
+        },
+        image: {
+          class: ImageTool,
+          config: {
+            uploader: {
+              uploadByFile(file) {
+                return new Promise((resolve, reject) => {
+                  try {
                     const reader = new FileReader()
                     reader.onload = function (e) {
                       resolve({
@@ -73,44 +200,124 @@ export default function Editor({ data, onChange, holder }) {
                         }
                       })
                     }
+                    reader.onerror = () => {
+                      reject(new Error('Failed to read file'))
+                    }
                     reader.readAsDataURL(file)
-                  })
-                }
-              },
-              captionPlaceholder: 'Caption (optional)',
-              withCaption: false // This makes the caption optional
+                  } catch (error) {
+                    reject(error)
+                  }
+                })
+              }
+            },
+            captionPlaceholder: 'Caption (optional)',
+            withCaption: false
+          }
+        },
+        embed: {
+          class: Embed,
+          config: {
+            services: {
+              youtube: true,
+              vimeo: true,
+              github: true,
+              twitter: true
             }
-          },
-          embed: Embed,
-          delimiter: Delimiter,
-          paragraph: {
-            class: Paragraph,
-            inlineToolbar: true,
-          },
+          }
         },
-        data: data || {},
-        onChange: async () => {
-          const content = await editorRef.current.save()
-          onChange(content)
-        },
-      })
+        delimiter: Delimiter,
+        paragraph: {
+          class: Paragraph,
+          inlineToolbar: true
+        }
+      }
+
+      return { EditorJS, tools }
+    } catch (error) {
+      console.error('Error loading Editor.js tools:', error)
+      throw error
     }
+  }, [])
 
-    initEditor()
+  // Initialize editor
+  useEffect(() => {
+    let isCancelled = false
 
-    return () => {
-      if (editorRef.current && typeof editorRef.current.destroy === 'function') {
-        editorRef.current.destroy()
+    const initEditor = async () => {
+      try {
+        // Clean up existing editor first
+        if (editorRef.current && typeof editorRef.current.destroy === 'function') {
+          await editorRef.current.destroy()
+          editorRef.current = null
+        }
+
+        if (isCancelled) return
+
+        const { EditorJS, tools } = await initializeTools()
+        
+        if (isCancelled) return
+
+        // Validate data structure
+        const validData = data && typeof data === 'object' && Array.isArray(data.blocks) 
+          ? data 
+          : { time: Date.now(), blocks: [], version: '2.30.6' }
+
+        editorRef.current = new EditorJS({
+          ...editorConfig,
+          tools,
+          data: validData
+        })
+
+        await editorRef.current.isReady
+        isInitializedRef.current = true
+
+      } catch (error) {
+        console.error('Error initializing Editor.js:', error)
+        // Show fallback UI or retry logic could go here
       }
     }
-  }, [data, onChange, holder])
 
+    if (!isInitializedRef.current) {
+      initEditor()
+    }
+
+    return () => {
+      isCancelled = true
+    }
+  }, [editorConfig, initializeTools]) // Only re-init if config changes
+
+  // Update editor data when data prop changes (without re-initializing)
+  useEffect(() => {
+    const updateEditorData = async () => {
+      if (editorRef.current && isInitializedRef.current && data !== dataRef.current) {
+        try {
+          await editorRef.current.isReady
+          const validData = data && typeof data === 'object' && Array.isArray(data.blocks) 
+            ? data 
+            : { time: Date.now(), blocks: [], version: '2.30.6' }
+          
+          await editorRef.current.render(validData)
+          dataRef.current = data
+        } catch (error) {
+          console.error('Error updating editor data:', error)
+        }
+      }
+    }
+
+    updateEditorData()
+  }, [data])
+
+  // Handle link clicks
   useEffect(() => {
     const handleLinkClick = (event) => {
       const link = event.target.closest('a')
-      if (link) {
+      if (link && link.href) {
         event.preventDefault()
-        window.open(link.href, '_blank')
+        if (window.electron?.openExternal) {
+          window.electron.openExternal(link.href)
+        } else {
+          window.open(link.href, '_blank', 'noopener,noreferrer')
+        }
       }
     }
 
@@ -126,5 +333,29 @@ export default function Editor({ data, onChange, holder }) {
     }
   }, [holder])
 
-  return <div id={holder} />
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (editorRef.current) {
+        if (editorRef.current.onChange) {
+          clearTimeout(editorRef.current.onChange)
+        }
+        if (typeof editorRef.current.destroy === 'function') {
+          editorRef.current.destroy()
+        }
+      }
+    }
+  }, [])
+
+  return (
+    <div 
+      id={holder} 
+      className="editor-container"
+      style={{
+        minHeight: '200px',
+        fontSize: '16px',
+        lineHeight: '1.6'
+      }}
+    />
+  )
 }
