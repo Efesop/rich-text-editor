@@ -13,7 +13,11 @@ function MyApp({ Component, pageProps }) {
 
   return (
     <AppErrorBoundary>
-      <ThemeProvider attribute="class">
+      <ThemeProvider 
+        attribute="class" 
+        themes={['light', 'dark', 'fallout']}
+        defaultTheme="light"
+      >
         <Component {...pageProps} />
       </ThemeProvider>
     </AppErrorBoundary>

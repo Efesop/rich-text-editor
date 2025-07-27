@@ -2,9 +2,129 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import a monospace font for terminal effect */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 @layer base {
   body {
     @apply bg-white text-black dark:bg-gray-900 dark:text-white;
+  }
+
+  /* Fallout 4 Terminal Theme */
+  .fallout {
+    --background: 0 0% 8%; /* Very dark background */
+    --foreground: 120 100% 70%; /* Bright green */
+    --card: 0 0% 12%;
+    --card-foreground: 120 100% 70%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 120 100% 70%;
+    --primary: 120 100% 50%; /* Pure green */
+    --primary-foreground: 0 0% 8%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 120 80% 60%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 120 60% 50%;
+    --accent: 120 100% 40%;
+    --accent-foreground: 0 0% 8%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 120 50% 25%;
+    --input: 0 0% 20%;
+    --ring: 120 100% 50%;
+  }
+
+  .fallout body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'JetBrains Mono', 'Courier New', monospace !important;
+  }
+
+  /* Terminal glow effects */
+  .fallout * {
+    text-shadow: 0 0 3px currentColor;
+  }
+
+  .fallout h1, .fallout h2, .fallout h3, .fallout h4, .fallout h5, .fallout h6 {
+    text-shadow: 0 0 5px currentColor, 0 0 10px currentColor;
+  }
+
+  /* Terminal-style borders and inputs */
+  .fallout input,
+  .fallout textarea,
+  .fallout select,
+  .fallout button {
+    border-color: hsl(var(--border));
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'JetBrains Mono', 'Courier New', monospace !important;
+  }
+
+  .fallout button {
+    box-shadow: 0 0 5px hsla(120, 100%, 50%, 0.3);
+    transition: all 0.2s ease;
+  }
+
+  .fallout button:hover {
+    box-shadow: 0 0 10px hsla(120, 100%, 50%, 0.5);
+    text-shadow: 0 0 5px currentColor;
+  }
+
+  /* Terminal-style scrollbars */
+  .fallout ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .fallout ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+
+  .fallout ::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary));
+    border-radius: 4px;
+    box-shadow: 0 0 3px hsla(120, 100%, 50%, 0.5);
+  }
+
+  .fallout ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--accent));
+    box-shadow: 0 0 5px hsla(120, 100%, 50%, 0.8);
+  }
+
+  /* Terminal animation effect for text cursor */
+  .fallout .terminal-cursor::after {
+    content: '█';
+    animation: blink 1s infinite;
+    color: hsl(var(--primary));
+  }
+
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+
+  /* Enhance the terminal feel for the editor */
+  .fallout .codex-editor {
+    font-family: 'JetBrains Mono', 'Courier New', monospace !important;
+  }
+
+  .fallout .codex-editor .ce-block__content,
+  .fallout .codex-editor .ce-toolbar__content {
+    color: hsl(var(--foreground));
+    background-color: transparent;
+    text-shadow: 0 0 2px currentColor;
+  }
+
+  .fallout .codex-editor .ce-toolbar__plus,
+  .fallout .codex-editor .ce-toolbar__settings-btn {
+    color: hsl(var(--primary));
+    background-color: hsl(var(--background));
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 0 3px hsla(120, 100%, 50%, 0.3);
+  }
+
+  .fallout .codex-editor .ce-toolbar__plus:hover,
+  .fallout .codex-editor .ce-toolbar__settings-btn:hover {
+    background-color: hsl(var(--accent));
+    box-shadow: 0 0 8px hsla(120, 100%, 50%, 0.6);
   }
 }
 
@@ -135,6 +255,15 @@ input:focus,
   border-color: rgba(129, 140, 248, 0.5);
 }
 
+/* Fallout theme focus styles */
+.fallout input:focus,
+.fallout .ce-block__content:focus,
+.fallout .cdx-input:focus {
+  box-shadow: 0 0 0 2px hsla(120, 100%, 50%, 0.5);
+  border-color: hsl(var(--primary));
+  text-shadow: 0 0 5px currentColor;
+}
+
 /* Global focus styles */
 *:focus {
   outline: none;
@@ -152,6 +281,13 @@ button:focus {
 .dark select:focus,
 .dark button:focus {
   box-shadow: 0 0 0 2px rgba(75, 85, 99, 0.5);
+}
+
+.fallout input:focus,
+.fallout textarea:focus,
+.fallout select:focus,
+.fallout button:focus {
+  box-shadow: 0 0 0 2px hsla(120, 100%, 50%, 0.5);
 }
 
 /* Screen reader only utility class */
@@ -187,6 +323,12 @@ button:focus {
 
 .dark *:focus-visible {
   outline-color: #60a5fa;
+}
+
+.fallout *:focus-visible {
+  outline-color: hsl(var(--primary));
+  outline-width: 2px;
+  text-shadow: 0 0 5px currentColor;
 }
 
 /* Reduced motion support */
