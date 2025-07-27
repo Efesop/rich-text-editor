@@ -87,35 +87,174 @@ export default function RichTextEditor() {
     setShowUpdateNotification,
     updateInfo,
     isCheckingForUpdates,
+    isDownloading,
+    isInstalling,
+    downloadProgress,
+    error,
+    canCheckForUpdates,
     checkForUpdates,
-    handleBellClick
+    downloadUpdate,
+    installUpdate,
+    handleBellClick,
+    dismissError
   } = useUpdateManager()
 
   const { theme } = useTheme()
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  
-  // Accessibility hooks
-  const announce = useScreenReader()
-  useSkipNavigation()
   const [searchTerm, setSearchTerm] = useState('')
-  const [wordCount, setWordCount] = useState(0)
+  const [selectedTags, setSelectedTags] = useState([])
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false)
+  const [editingTag, setEditingTag] = useState(null)
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [sortBy, setSortBy] = useState('lastModified')
+  const [sortOrder, setSortOrder] = useState('desc')
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false)
+  const [isAddToFolderModalOpen, setIsAddToFolderModalOpen] = useState(false)
+  const [pageToAddToFolder, setPageToAddToFolder] = useState(null)
+  const [tagToDeleteId, setTagToDeleteId] = useState(null)
+  const [contextMenu, setContextMenu] = useState(null)
+  const [passwordAction, setPasswordAction] = useState('lock')
+  const [password, setPassword] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+  const [searchMode, setSearchMode] = useState('all')
+  const [isBugReportModalOpen, setIsBugReportModalOpen] = useState(false)
+  const [isClient, setIsClient] = useState(false)
+  const [wordCount, setWordCount] = useState(0)
   const [pageToRename, setPageToRename] = useState(null)
   const [newPageTitle, setNewPageTitle] = useState('')
   const [tagToEdit, setTagToEdit] = useState(null)
-  const [isTagModalOpen, setIsTagModalOpen] = useState(false)
   const [searchFilter, setSearchFilter] = useState('all')
   const [selectedTagsFilter, setSelectedTagsFilter] = useState([])
   const [passwordInput, setPasswordInput] = useState('')
-  const [passwordAction, setPasswordAction] = useState('')
-  const [passwordError, setPasswordError] = useState('')
   const [sortOption, setSortOption] = useState('newest')
-
-  const [isClient, setIsClient] = useState(false)
-  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false)
-  const [isAddToFolderModalOpen, setIsAddToFolderModalOpen] = useState(false)
   const [selectedFolderId, setSelectedFolderId] = useState(null)
   const [appVersion, setAppVersion] = useState('')
+
+  // Theme helper functions
+  const getMainContainerClasses = () => {
+    switch (theme) {
+      case 'fallout':
+        return 'fallout flex h-screen bg-gray-900 text-green-400 font-mono'
+      case 'dark':
+        return 'dark flex h-screen bg-gray-900 text-white'
+      default:
+        return 'flex h-screen bg-white text-black'
+    }
+  }
+
+  const getSidebarClasses = () => {
+    switch (theme) {
+      case 'fallout':
+        return 'bg-gray-900 border-r border-green-600'
+      case 'dark':
+        return 'bg-gray-900'
+      default:
+        return 'bg-gray-100'
+    }
+  }
+
+  const getButtonHoverClasses = () => {
+    switch (theme) {
+      case 'fallout':
+        return 'hover:bg-gray-700 hover:text-green-400 hover:shadow-[0_0_5px_rgba(0,255,0,0.4)]'
+      case 'dark':
+        return 'hover:bg-gray-700 hover:text-white'
+      default:
+        return 'hover:bg-gray-200 hover:text-primary-foreground'
+    }
+  }
+
+  const getHeaderClasses = () => {
+    switch (theme) {
+      case 'fallout':
+        return 'bg-gray-800 border-green-600 text-green-400'
+      case 'dark':
+        return 'bg-gray-800 border-gray-700 text-white'
+      default:
+        return 'bg-white border-gray-200 text-black'
+    }
+  }
+
+  const getMainContentClasses = () => {
+    switch (theme) {
+      case 'fallout':
+        return 'bg-gray-900 text-green-400'
+      case 'dark':
+        return 'bg-gray-800 text-white'
+      default:
+        return 'bg-white text-black'
+    }
+  }
+
+  const getFooterClasses = () => {
+    switch (theme) {
+      case 'fallout':
+        return 'bg-gray-800 text-green-300 border-t border-green-600'
+      case 'dark':
+        return 'bg-gray-800 text-gray-300'
+      default:
+        return 'bg-white text-gray-600'
+    }
+  }
+
+  const getBorderClasses = () => {
+    switch (theme) {
+      case 'fallout':
+        return 'border-green-600'
+      case 'dark':
+        return 'border-gray-700'
+      default:
+        return 'border-gray-300'
+    }
+  }
+
+  const getTextClasses = () => {
+    switch (theme) {
+      case 'fallout':
+        return 'text-green-400'
+      case 'dark':
+        return 'text-gray-400'
+      default:
+        return 'text-gray-600'
+    }
+  }
+
+  const getIconClasses = () => {
+    switch (theme) {
+      case 'fallout':
+        return 'text-green-400'
+      case 'dark':
+        return 'text-gray-200'
+      default:
+        return 'text-gray-700'
+    }
+  }
+
+  const getFolderBadgeClasses = () => {
+    switch (theme) {
+      case 'fallout':
+        return 'bg-gray-700 text-green-300 border border-green-600'
+      case 'dark':
+        return 'bg-gray-700 text-gray-300 border border-gray-600'
+      default:
+        return 'bg-gray-100 text-gray-600 border border-gray-300'
+    }
+  }
+
+  // Essential useEffects
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  useEffect(() => {
+    if (currentPage && currentPage.content) {
+      setWordCount(calculateWordCount(currentPage.content))
+    }
+  }, [currentPage])
+
   // Comment out or remove these mode-related states and functions
   /*
   const [currentMode, setCurrentMode] = useState('default')
@@ -365,10 +504,12 @@ export default function RichTextEditor() {
   }, [deletePage])
 
   const filteredPages = useCallback(() => {
+    if (!Array.isArray(pages)) return []
+    
     return pages.filter(item => {
       if (item.type === 'folder') {
-        const matchingPages = item.pages.filter(pageId => {
-          const page = pages.find(p => p.id === pageId)
+        const matchingPages = (item.pages || []).filter(pageId => {
+          const page = (pages || []).find(p => p.id === pageId)
           return page && matchesSearchCriteria(page, searchTerm, searchFilter) && matchesTagFilter(page, selectedTagsFilter)
         })
         return matchingPages.length > 0 || item.title.toLowerCase().includes(searchTerm.toLowerCase())
@@ -394,11 +535,13 @@ export default function RichTextEditor() {
   };
 
   const matchesTagFilter = (page, selectedTags) => {
-    if (selectedTags.length === 0) return true; // No tag filter applied
+    if (!selectedTags || selectedTags.length === 0) return true; // No tag filter applied
     return selectedTags.every(tag => page.tagNames?.includes(tag));
   };
 
   const sortPages = useCallback((pages, option) => {
+    if (!Array.isArray(pages)) return []
+    
     const folders = pages.filter(item => item.type === 'folder')
     const nonFolderPages = pages.filter(item => item.type !== 'folder')
 
@@ -544,14 +687,14 @@ export default function RichTextEditor() {
     onDeletePage: handleDeletePage,
     onDuplicatePage: handleDuplicatePage,
     currentPage,
-    pages: pages.filter(page => page.type !== 'folder'), // Use pages directly instead of filteredPages()
+    pages: (pages || []).filter(page => page.type !== 'folder'), // Use pages directly instead of filteredPages()
     onSelectPage: handlePageSelect
   })
 
   // Handle loading states - these returns must come AFTER all hooks
   if (!isClient) {
     return (
-      <div className={`flex h-screen items-center justify-center ${theme === 'dark' ? 'dark bg-gray-900 text-white' : 'bg-white text-black'}`}>
+      <div className={`flex h-screen items-center justify-center ${getMainContainerClasses()}`}>
         <div>Loading...</div>
       </div>
     )
@@ -559,7 +702,7 @@ export default function RichTextEditor() {
 
   if (!currentPage) {
     return (
-      <div className={`flex h-screen items-center justify-center ${theme === 'dark' ? 'dark bg-gray-900 text-white' : 'bg-white text-black'}`}>
+      <div className={`flex h-screen items-center justify-center ${getMainContainerClasses()}`}>
         <div>No page selected</div>
       </div>
     )
@@ -567,14 +710,14 @@ export default function RichTextEditor() {
 
   return (
     <div 
-      className={`flex h-screen ${theme === 'dark' ? 'dark bg-gray-900 text-white' : 'bg-white text-black'}`}
+      className={getMainContainerClasses()}
       role="application"
       aria-label="Rich Text Note Editor"
     >
       {/* Sidebar */}
       <SidebarErrorBoundary>
         <nav 
-          className={`${sidebarOpen ? 'w-64' : 'w-16'} flex flex-col transition-all duration-300 ease-in-out ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'} relative overflow-visible`}
+          className={`${sidebarOpen ? 'w-64' : 'w-16'} flex flex-col transition-all duration-300 ease-in-out ${getSidebarClasses()} relative overflow-visible`}
           role="navigation"
           aria-label="Page navigation"
           aria-expanded={sidebarOpen}
@@ -587,9 +730,7 @@ export default function RichTextEditor() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsFolderModalOpen(true)}
-                className={`hover:bg-gray-200 hover:text-primary-foreground ${
-                  theme === 'dark' ? 'hover:bg-gray-700 hover:text-white' : 'hover:bg-gray-200 hover:text-primary-foreground'
-                }`}
+                className={getButtonHoverClasses()}
               >
                 <FolderPlus className="h-4 w-4" />
               </Button>
@@ -598,9 +739,7 @@ export default function RichTextEditor() {
               variant="ghost"
               size="sm"
               onClick={handleNewPage}
-              className={`hover:bg-gray-200 hover:text-primary-foreground ${
-                theme === 'dark' ? 'hover:bg-gray-700 hover:text-white' : 'hover:bg-gray-200 hover:text-primary-foreground'
-              }`}
+              className={getButtonHoverClasses()}
             >
               <Plus className="h-4 w-4" />
             </Button>
@@ -614,9 +753,9 @@ export default function RichTextEditor() {
               filter={searchFilter}
               onFilterChange={setSearchFilter}
                               placeholder="Search everything"
-              pages={pages.filter(p => p.type !== 'folder')}
-              folders={pages.filter(p => p.type === 'folder')}
-              tags={tags.map(t => t.name)}
+              pages={(pages || []).filter(p => p.type !== 'folder')}
+              folders={(pages || []).filter(p => p.type === 'folder')}
+              tags={(tags || []).map(t => t.name)}
               onSelectPage={handleSelectPageFromSearch}
               onSelectFolder={handleSelectFolderFromSearch}
               onSelectTag={handleSelectTagFromSearch}
@@ -624,7 +763,7 @@ export default function RichTextEditor() {
             />
             
             <TagsFilter
-              tags={tags.map(t => t.name)}
+              tags={(tags || []).map(t => t.name)}
               selectedTags={selectedTagsFilter}
               onTagToggle={handleTagToggle}
               onClearAllTags={handleClearAllTagsFilter}
@@ -645,7 +784,7 @@ export default function RichTextEditor() {
                   onDeleteFolder={handleDeleteFolder}
                   onRenameFolder={renameFolder}
                   theme={theme}
-                  pages={pages.filter(page => page.folderId === item.id)}
+                  pages={(pages || []).filter(page => page.folderId === item.id)}
                   onSelectPage={handlePageSelect}
                   currentPageId={currentPage?.id}
                   onRemovePageFromFolder={handleRemovePageFromFolder}
@@ -680,7 +819,7 @@ export default function RichTextEditor() {
             }
           })}
         </ScrollArea>
-        <div className={`mt-auto p-2 flex items-center justify-between border-t ${theme === 'dark' ? 'border-gray-700' : 'border-gray-300'}`}>
+        <div className={`mt-auto p-2 flex items-center justify-between border-t ${getBorderClasses()}`}>
           <Button
             variant="ghost"
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -691,7 +830,7 @@ export default function RichTextEditor() {
           </Button>
           {sidebarOpen && (
             <div className="flex items-center space-x-2">
-              <span className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>v{appVersion}</span>
+              <span className={`text-xs ${getTextClasses()}`}>v{appVersion}</span>
               <SortDropdown onSort={setSortOption} theme={theme} activeSortOption={sortOption} sidebarOpen={sidebarOpen} />
             </div>
           )}
@@ -707,7 +846,7 @@ export default function RichTextEditor() {
         aria-label="Note editor"
       >
         {/* Header */}
-        <div className={`flex flex-col p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+        <div className={`flex flex-col p-4 border-b ${getHeaderClasses()}`}>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center">
               <h1 
@@ -717,13 +856,9 @@ export default function RichTextEditor() {
                 {currentPage?.title}
               </h1>
               {currentPage?.folderId && (
-                <span className={`ml-2 px-1.5 py-0.5 text-xs font-medium rounded-md ${
-                  theme === 'dark' 
-                    ? 'bg-gray-700 text-gray-300 border border-gray-600' 
-                    : 'bg-gray-100 text-gray-600 border border-gray-300'
-                }`}>
+                <span className={`ml-2 px-1.5 py-0.5 text-xs font-medium rounded-md ${getFolderBadgeClasses()}`}>
                   <FolderIcon className="w-3 h-3 inline-block mr-1" />
-                  {truncateFolderName(pages.find(item => item.id === currentPage.folderId)?.title || '')}
+                  {truncateFolderName((pages || []).find(item => item.id === currentPage.folderId)?.title || '')}
                 </span>
               )}
             </div>
@@ -734,28 +869,25 @@ export default function RichTextEditor() {
                 onClick={() => {
                   window.open('https://github.com/Efesop/rich-text-editor/issues/new', '_blank', 'noopener,noreferrer');
                 }}
-                className={`p-2 rounded-md ${
-                  theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                }`}
+                className={`p-2 rounded-md ${getButtonHoverClasses()}`}
                 title="Report a bug or request a feature"
               >
                 <Bug className="h-4 w-4" />
               </button>
               <button
                 onClick={handleBellClick}
-                className={`p-2 rounded-md ${
-                  theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                }`}
-                title="Show update notification"
+                disabled={!canCheckForUpdates}
+                className={`p-2 rounded-md ${getButtonHoverClasses()} ${!canCheckForUpdates ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title={isCheckingForUpdates ? "Checking for updates..." : "Check for updates"}
               >
-                <Bell className="h-4 w-4" />
+                <Bell className={`h-4 w-4 ${isCheckingForUpdates ? 'animate-pulse' : ''}`} />
               </button>
               <ThemeToggle />
             </div>
           </div>
           <div className="flex items-center flex-wrap gap-2 mt-2">
             {currentPage.tagNames && currentPage.tagNames.map((tagName, index) => {
-              const tag = tags.find(t => t.name === tagName)
+              const tag = (tags || []).find(t => t.name === tagName)
               if (!tag) return null
               return (
                 <span
@@ -790,13 +922,13 @@ export default function RichTextEditor() {
                 setIsTagModalOpen(true)
               }}
             >
-              <Plus className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`} />
+              <Plus className={`h-4 w-4 ${getIconClasses()}`} />
             </Button>
           </div>
         </div>
         
         {/* Editor */}
-        <div className={`flex-1 overflow-auto p-6 ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
+        <div className={`flex-1 overflow-auto p-6 ${getMainContentClasses()}`}>
           {currentPage && (
             <EditorErrorBoundary>
               <DynamicEditor
@@ -810,7 +942,7 @@ export default function RichTextEditor() {
         </div>
 
         {/* Footer */}
-        <div className={`footer-fixed flex justify-between items-center p-3 text-sm ${theme === 'dark' ? 'bg-gray-800 text-gray-300' : 'bg-white text-gray-600'}`}>
+        <div className={`footer-fixed flex justify-between items-center p-3 text-sm ${getFooterClasses()}`}>
           {currentPage.createdAt && (
             <span>Created {format(new Date(currentPage.createdAt), 'MMM d, yyyy')}</span>
           )}
@@ -880,16 +1012,26 @@ export default function RichTextEditor() {
         isOpen={isAddToFolderModalOpen}
         onClose={() => setIsAddToFolderModalOpen(false)}
         onConfirm={handleAddPageToFolder}
-        pages={pages.filter(page => page.type !== 'folder' && !page.folderId)}
+        pages={(pages || []).filter(page => page.type !== 'folder' && !page.folderId)}
         currentFolderId={selectedFolderId}
         theme={theme}
       />
 
-      {showUpdateNotification && (
+      {(showUpdateNotification || error) && (
         <UpdateNotification
-          onClose={() => setShowUpdateNotification(false)}
+          onClose={() => {
+            setShowUpdateNotification(false)
+            if (error) dismissError()
+          }}
           updateInfo={updateInfo}
           isChecking={isCheckingForUpdates}
+          error={error}
+          downloadProgress={downloadProgress}
+          isDownloading={isDownloading}
+          isInstalling={isInstalling}
+          onDownload={downloadUpdate}
+          onInstall={installUpdate}
+          onRetry={checkForUpdates}
         />
       )}
     </div>

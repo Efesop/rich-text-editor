@@ -40,20 +40,7 @@ log.transports.file.level = 'info'; // Change this to 'debug' for more detailed 
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = 'info';
 
-// Log the token availability (be careful with this in production!)
-// log.info('GH_TOKEN available:', !!token);
-
-// Configure auto-updater
-// autoUpdater.setFeedURL({
-//   provider: 'github',
-//   owner: 'Efesop',
-//   repo: 'rich-text-editor',
-//   private: true,
-//   token: process.env.GH_TOKEN
-// });
-
 let mainWindow;
-let isUpdating = false; // Add this line at the top level of the file
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -162,10 +149,7 @@ ipcMain.handle('read-pages', async () => {
 });
 
 ipcMain.handle('save-pages', async (event, pages) => {
-  // Rate limiting check
-  if (!checkRateLimit('save-pages')) {
-    throw new Error('Rate limit exceeded. Too many save requests.');
-  }
+  // Note: Rate limiting removed for save-pages as it has its own debouncing in the frontend
 
   try {
     // Validate data structure before saving
@@ -174,15 +158,22 @@ ipcMain.handle('save-pages', async (event, pages) => {
     }
 
     // Sanitize and validate each page
-    const sanitizedPages = pages.map(page => {
+    const sanitizedPages = pages.map((page, index) => {
       if (!page.id || typeof page.id !== 'string') {
+        log.error(`Page ${index}: Invalid or missing ID`, { page: { id: page.id, title: page.title } });
         throw new Error('Invalid page: missing or invalid id');
       }
       if (!page.title || typeof page.title !== 'string') {
+        log.error(`Page ${index}: Invalid or missing title`, { page: { id: page.id, title: page.title } });
         throw new Error('Invalid page: missing or invalid title');
       }
+      // Fix corrupted content automatically (fallback safety check)
       if (!page.content || typeof page.content !== 'object') {
-        throw new Error('Invalid page: missing or invalid content');
+        page.content = {
+          time: Date.now(),
+          blocks: [],
+          version: '2.30.6'
+        };
       }
 
       return {
@@ -210,147 +201,253 @@ ipcMain.handle('save-pages', async (event, pages) => {
   }
 });
 
+// Update system state management
+class UpdateManager {
+  constructor() {
+    this.isCheckingForUpdates = false
+    this.isDownloading = false
+    this.isInstalling = false
+    this.lastUpdateCheck = null
+    this.updateInfo = null
+    this.retryCount = 0
+    this.maxRetries = 3
+    this.lastCheckTime = 0
+    this.minCheckInterval = 30 * 1000 // 30 seconds between manual checks
+  }
+
+  async checkForUpdates(isManual = false) {
+    // Rate limiting for manual checks
+    if (isManual) {
+      const now = Date.now()
+      if (now - this.lastCheckTime < this.minCheckInterval) {
+        const waitTime = Math.ceil((this.minCheckInterval - (now - this.lastCheckTime)) / 1000)
+        return {
+          available: false,
+          error: `Please wait ${waitTime} seconds before checking again`,
+          rateLimited: true,
+          canRetry: true,
+          waitTime: waitTime
+        }
+      }
+      this.lastCheckTime = now
+    }
+
+    if (this.isCheckingForUpdates) {
+      return { inProgress: true }
+    }
+
+    this.isCheckingForUpdates = true
+    try {
+      log.info('Checking for updates...', { manual: isManual })
+      
+      const result = await autoUpdater.checkForUpdates()
+      
+      if (!result?.updateInfo) {
+        throw new Error('No update information available')
+      }
+
+      const updateAvailable = result.updateInfo.version !== app.getVersion()
+      
+      this.updateInfo = {
+        available: updateAvailable,
+        currentVersion: app.getVersion(),
+        latestVersion: result.updateInfo.version,
+        releaseNotes: result.updateInfo.releaseNotes,
+        releaseDate: result.updateInfo.releaseDate
+      }
+      
+      this.lastUpdateCheck = new Date().toISOString()
+      this.retryCount = 0 // Reset retry count on success
+      
+      log.info('Update check completed', this.updateInfo)
+      return this.updateInfo
+      
+    } catch (error) {
+      log.error('Update check failed', { error: error.message, retryCount: this.retryCount })
+      
+      // Handle development mode - silently return for auto checks
+      if (error.message.includes('application is not packed')) {
+        return {
+          available: false,
+          error: isManual ? 'Updates are not available in development mode.' : null,
+          isDevelopment: true,
+          canRetry: false
+        }
+      }
+      
+      // Handle network errors gracefully
+      if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
+        return {
+          available: false,
+          error: 'Unable to check for updates. Please check your internet connection.',
+          offline: true,
+          canRetry: true
+        }
+      }
+      
+      return {
+        available: false,
+        error: error.message,
+        canRetry: this.retryCount < this.maxRetries
+      }
+    } finally {
+      this.isCheckingForUpdates = false
+    }
+  }
+
+  async downloadUpdate() {
+    if (this.isDownloading || !this.updateInfo?.available) {
+      return { inProgress: this.isDownloading }
+    }
+
+    this.isDownloading = true
+    try {
+      log.info('Starting update download...')
+      await autoUpdater.downloadUpdate()
+      return { success: true }
+    } catch (error) {
+      log.error('Update download failed', { error: error.message })
+      this.isDownloading = false
+      throw error
+    }
+  }
+
+  installUpdate() {
+    if (this.isInstalling) return
+    
+    this.isInstalling = true
+    log.info('Installing update...')
+    autoUpdater.quitAndInstall()
+  }
+
+  getStatus() {
+    return {
+      isCheckingForUpdates: this.isCheckingForUpdates,
+      isDownloading: this.isDownloading,
+      isInstalling: this.isInstalling,
+      lastUpdateCheck: this.lastUpdateCheck,
+      updateInfo: this.updateInfo
+    }
+  }
+}
+
+const updateManager = new UpdateManager()
+
 function setupAutoUpdater() {
-  console.log('Setting up auto-updater...');
-  log.info('Setting up auto-updater...');
+  log.info('Setting up auto-updater...')
 
-  autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = false;
+  // Configure auto-updater
+  autoUpdater.autoDownload = false
+  autoUpdater.autoInstallOnAppQuit = false
+  
+  // Remove any existing listeners to prevent duplicates
+  autoUpdater.removeAllListeners()
 
-  // Remove existing listeners before adding new ones
-  autoUpdater.removeAllListeners('update-available');
-  autoUpdater.removeAllListeners('error');
+  // Set up event handlers
+  autoUpdater.on('checking-for-update', () => {
+    log.info('Checking for update...')
+    if (mainWindow) {
+      mainWindow.webContents.send('checking-for-update')
+    }
+  })
 
   autoUpdater.on('update-available', (info) => {
-    log.info('Update available:', info);
-    if (mainWindow) {
-      mainWindow.webContents.send('update-available', info);
+    log.info('Update available:', info)
+    updateManager.updateInfo = {
+      available: true,
+      currentVersion: app.getVersion(),
+      latestVersion: info.version,
+      releaseNotes: info.releaseNotes,
+      releaseDate: info.releaseDate
     }
-  });
+    
+    if (mainWindow) {
+      mainWindow.webContents.send('update-available', updateManager.updateInfo)
+    }
+  })
 
   autoUpdater.on('update-not-available', (info) => {
-    log.info('Update not available:', info);
-    // Don't send a notification to the renderer process
-  });
+    log.info('Update not available:', info)
+    updateManager.updateInfo = {
+      available: false,
+      currentVersion: app.getVersion(),
+      latestVersion: info.version
+    }
+    
+    if (mainWindow) {
+      mainWindow.webContents.send('update-not-available', updateManager.updateInfo)
+    }
+  })
 
-  autoUpdater.on('error', (err) => {
-    log.error('Error in auto-updater:', err);
-  });
+  autoUpdater.on('error', (error) => {
+    log.error('AutoUpdater error:', error)
+    updateManager.isCheckingForUpdates = false
+    updateManager.isDownloading = false
+    
+    if (mainWindow) {
+      mainWindow.webContents.send('update-error', {
+        message: error.message,
+        canRetry: updateManager.retryCount < updateManager.maxRetries
+      })
+    }
+  })
 
   autoUpdater.on('download-progress', (progressObj) => {
+    log.info('Download progress:', progressObj.percent.toFixed(2))
     if (mainWindow) {
       mainWindow.webContents.send('download-progress', progressObj)
     }
-  });
+  })
 
-  // Initial check for updates
-  autoUpdater.checkForUpdates();
+  autoUpdater.on('update-downloaded', (info) => {
+    log.info('Update downloaded:', info)
+    updateManager.isDownloading = false
+    
+    if (mainWindow) {
+      mainWindow.webContents.send('update-downloaded', info)
+    }
+  })
 
-  // Check for updates every 30 minutes
+  // Initial update check
+  setTimeout(() => {
+    updateManager.checkForUpdates(false)
+  }, 3000) // Wait 3 seconds after app start
+
+  // Periodic checks every 30 minutes
   setInterval(() => {
-    console.log('Periodic update check');
-    log.info('Periodic update check');
-    autoUpdater.checkForUpdates();
-  }, 30 * 60 * 1000);
+    if (!updateManager.isCheckingForUpdates && !updateManager.isDownloading) {
+      log.info('Periodic update check')
+      updateManager.checkForUpdates(false)
+    }
+  }, 30 * 60 * 1000)
 }
 
-let updateCheckInProgress = false;
-let downloadInProgress = false;
-
+// IPC Handlers
 ipcMain.handle('check-for-updates', async () => {
-  if (updateCheckInProgress) {
-    return { inProgress: true };
-  }
-
-  updateCheckInProgress = true;
-  try {
-    console.log('Manual check for updates initiated');
-    log.info('Manual check for updates initiated');
-    
-    const result = await autoUpdater.checkForUpdates();
-    console.log('Update check result:', result);
-    log.info('Update check result:', result);
-
-    if (!result || !result.updateInfo) {
-      console.log('No update info available');
-      log.info('No update info available');
-      return { 
-        available: false, 
-        currentVersion: app.getVersion(),
-        latestVersion: null,
-        error: 'No update info available'
-      };
-    }
-
-    const updateAvailable = result.updateInfo.version !== app.getVersion();
-    console.log(`Update available: ${updateAvailable}, Current version: ${app.getVersion()}, Latest version: ${result.updateInfo.version}`);
-    log.info(`Update available: ${updateAvailable}, Current version: ${app.getVersion()}, Latest version: ${result.updateInfo.version}`);
-
-    return { 
-      available: updateAvailable, 
-      currentVersion: app.getVersion(),
-      latestVersion: result.updateInfo.version 
-    };
-  } catch (error) {
-    console.error('Error checking for updates:', error);
-    log.error('Error checking for updates:', error);
-    return { available: false, error: error.message };
-  } finally {
-    updateCheckInProgress = false;
-  }
-});
+  return await updateManager.checkForUpdates(true)
+})
 
 ipcMain.handle('download-update', async () => {
-  if (!isUpdating) {
-    isUpdating = true;
-    try {
-      await autoUpdater.downloadUpdate();
-    } catch (error) {
-      console.error('Error downloading update:', error);
-      log.error('Error downloading update:', error);
-    } finally {
-      isUpdating = false;
-    }
-  }
-});
+  return await updateManager.downloadUpdate()
+})
 
 ipcMain.handle('install-update', () => {
-  autoUpdater.quitAndInstall();
-});
+  updateManager.installUpdate()
+})
 
-ipcMain.handle('manual-check-for-updates', async () => {
-  try {
-    const result = await autoUpdater.checkForUpdates();
-    
-    if (!result || !result.updateInfo) {
-      return { 
-        available: false, 
-        currentVersion: app.getVersion(),
-        latestVersion: null,
-        error: 'No update info available'
-      };
-    }
-    
-    return { 
-      available: result.updateInfo.version !== app.getVersion(),
-      currentVersion: app.getVersion(),
-      latestVersion: result.updateInfo.version 
-    };
-  } catch (error) {
-    console.error('Error checking for updates:', error);
-    return { available: false, error: error.message };
-  }
-});
+ipcMain.handle('get-update-status', () => {
+  return updateManager.getStatus()
+})
+
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion()
+})
 
 app.whenReady().then(() => {
   log.info('App is ready, creating window...');
   createWindow();
   log.info('Setting up auto-updater...');
   setupAutoUpdater();
-  log.info('Checking for updates...');
-  autoUpdater.checkForUpdates();
-  console.log('Initial update check on app ready');
-  log.info('Initial update check on app ready');
 });
 
 app.on('window-all-closed', function () {
@@ -361,32 +458,11 @@ app.on('activate', function () {
   if (mainWindow === null) createWindow();
 });
 
-// Check for updates
-app.on('ready', () => {
-  autoUpdater.checkForUpdatesAndNotify().catch(error => {
-    log.error('Error checking for updates:', error);
-  });
-});
-
-// Add error listener
-autoUpdater.on('error', (error) => {
-  log.error('AutoUpdater error:', error);
-});
-
-function storeUpdateAvailability(available) {
-  const updateFile = path.join(app.getPath('userData'), 'update-available.json');
-  fs.writeFileSync(updateFile, JSON.stringify({ available }));
-}
-
-ipcMain.handle('store-update-availability', async (event, available) => {
-  storeUpdateAvailability(available);
-});
-
-// Move the Octokit initialization and GitHub issue creation to a separate async function
+// GitHub issue creation functionality
 async function createGitHubIssue(report) {
   try {
     const { Octokit } = await import('@octokit/rest');
-    const token = app.config.get('githubToken');
+    const token = app.config?.get('githubToken');
     if (!token) {
       throw new Error('GitHub token not found');
     }
@@ -407,64 +483,21 @@ async function createGitHubIssue(report) {
   }
 }
 
-// Update the IPC handler to use the new async function
 ipcMain.handle('create-github-issue', async (event, report) => {
   return await createGitHubIssue(report);
 });
 
 ipcMain.handle('set-github-token', async (event, token) => {
-  app.config.set('githubToken', token);
-});
-
-ipcMain.handle('get-app-version', () => {
-  return app.getVersion();
-});
-
-let lastUpdateCheckResult = null;
-
-autoUpdater.on('update-available', (info) => {
-  lastUpdateCheckResult = { available: true, info };
-  mainWindow.webContents.send('update-available', info);
-});
-
-autoUpdater.on('update-not-available', (info) => {
-  lastUpdateCheckResult = { available: false, info };
-  mainWindow.webContents.send('update-not-available', info);
-});
-
-ipcMain.handle('get-last-update-check', () => {
-  return lastUpdateCheckResult;
-});
-
-console.log('Initial check for updates');
-log.info('Initial check for updates');
-
-app.on('will-quit', (event) => {
-  if (updateCheckInProgress || downloadInProgress) {
-    log.info('Update is in progress, allowing quit for update installation');
-  } else {
-    log.info('No update in progress, quitting normally');
-    // Remove the following two lines:
-    // event.preventDefault();
-    // app.relaunch();
+  if (app.config) {
+    app.config.set('githubToken', token);
   }
 });
 
-let updateAvailable = null;
-
-autoUpdater.on('update-available', (info) => {
-  updateAvailable = info;
-  mainWindow.webContents.send('update-available', info);
+// Graceful shutdown handling
+app.on('will-quit', (event) => {
+  if (updateManager.isCheckingForUpdates || updateManager.isDownloading || updateManager.isInstalling) {
+    log.info('Update operation in progress, allowing graceful quit');
+  } else {
+    log.info('App quitting normally');
+  }
 });
-
-autoUpdater.on('update-downloaded', () => {
-  mainWindow.webContents.send('update-downloaded');
-});
-
-/*if (!ipcMain.listenerCount('download-update')) {
-  ipcMain.handle('download-update', () => {
-    if (updateAvailable) {
-      autoUpdater.downloadUpdate();
-    }
-  });
-}*/
