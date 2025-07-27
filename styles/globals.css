@@ -53,25 +53,25 @@
 
   /* Fallout 4 Terminal Theme */
   .fallout {
-    --background: 0 0% 8%; /* Very dark background */
-    --foreground: 120 100% 70%; /* Bright green */
-    --card: 0 0% 12%;
-    --card-foreground: 120 100% 70%;
-    --popover: 0 0% 12%;
-    --popover-foreground: 120 100% 70%;
-    --primary: 120 100% 50%; /* Pure green */
-    --primary-foreground: 0 0% 8%;
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 120 80% 60%;
-    --muted: 0 0% 15%;
-    --muted-foreground: 120 60% 50%;
-    --accent: 120 100% 40%;
-    --accent-foreground: 0 0% 8%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 120 50% 25%;
-    --input: 0 0% 20%;
-    --ring: 120 100% 50%;
+    --background: 0 0% 8%; /* Very dark background - consistent everywhere */
+    --foreground: 120 100% 70%; /* Bright green text */
+    --card: 0 0% 8%; /* Same dark background for cards/modals */
+    --card-foreground: 120 100% 70%; /* Green text on cards */
+    --popover: 0 0% 8%; /* Dark popover background */
+    --popover-foreground: 120 100% 70%; /* Green popover text */
+    --primary: 120 100% 50%; /* Pure green for primary elements */
+    --primary-foreground: 0 0% 8%; /* Dark text on green backgrounds */
+    --secondary: 0 0% 12%; /* Slightly lighter dark for secondary elements */
+    --secondary-foreground: 120 80% 60%; /* Slightly dimmer green */
+    --muted: 0 0% 12%; /* Muted backgrounds */
+    --muted-foreground: 120 60% 50%; /* Muted green text */
+    --accent: 120 100% 40%; /* Darker green for accents */
+    --accent-foreground: 120 100% 90%; /* Light green on dark green */
+    --destructive: 0 84% 60%; /* Red for destructive actions */
+    --destructive-foreground: 0 0% 98%; /* White text on red */
+    --border: 120 50% 25%; /* Green borders */
+    --input: 0 0% 12%; /* Dark input backgrounds */
+    --ring: 120 100% 50%; /* Green focus rings */
     --radius: 0.5rem;
   }
 
@@ -92,16 +92,24 @@
     font-family: 'JetBrains Mono', 'Courier New', monospace !important;
   }
 
-  /* Terminal glow effects */
+  /* Reduced glow effects - only subtle glow on interactive elements */
+  .fallout h1, .fallout h2, .fallout h3, .fallout h4, .fallout h5, .fallout h6 {
+    text-shadow: none; /* Remove glow from headings */
+  }
+
+  /* Remove glow from all text by default */
   .fallout * {
+    text-shadow: none;
+  }
+
+  /* Only add subtle glow to interactive elements */
+  .fallout button:hover,
+  .fallout [role="button"]:hover,
+  .fallout .interactive:hover {
     text-shadow: 0 0 3px currentColor;
   }
 
-  .fallout h1, .fallout h2, .fallout h3, .fallout h4, .fallout h5, .fallout h6 {
-    text-shadow: 0 0 5px currentColor, 0 0 10px currentColor;
-  }
-
-  /* All modals, popups, and dropdowns */
+  /* All modals, popups, and dropdowns - consistent dark background */
   .fallout [role="dialog"],
   .fallout [data-radix-popper-content-wrapper],
   .fallout [data-state="open"],
@@ -111,7 +119,7 @@
     background-color: hsl(var(--card)) !important;
     border: 1px solid hsl(var(--border)) !important;
     color: hsl(var(--card-foreground)) !important;
-    box-shadow: 0 0 10px hsla(120, 100%, 50%, 0.3) !important;
+    box-shadow: 0 0 10px hsla(120, 100%, 50%, 0.2) !important;
   }
 
   /* Terminal-style borders and inputs */
@@ -126,29 +134,38 @@
   }
 
   .fallout button {
-    box-shadow: 0 0 5px hsla(120, 100%, 50%, 0.3);
+    box-shadow: 0 0 3px hsla(120, 100%, 50%, 0.2);
     transition: all 0.2s ease;
   }
 
   .fallout button:hover {
-    box-shadow: 0 0 10px hsla(120, 100%, 50%, 0.5);
-    text-shadow: 0 0 5px currentColor;
+    box-shadow: 0 0 5px hsla(120, 100%, 50%, 0.3);
     background-color: hsl(var(--accent)) !important;
   }
 
-  /* Tag styling */
+  /* Consistent page/item hover states */
+  .fallout .page-item:hover,
+  .fallout .folder-item:hover,
+  .fallout [data-page-item]:hover {
+    background-color: hsl(var(--secondary)) !important;
+    color: hsl(var(--secondary-foreground)) !important;
+  }
+
+  /* Tag styling - consistent everywhere */
   .fallout .tag,
-  .fallout [class*="tag"] {
+  .fallout [class*="tag"],
+  .fallout [data-tag] {
     background-color: hsl(var(--secondary)) !important;
     color: hsl(var(--secondary-foreground)) !important;
     border: 1px solid hsl(var(--border)) !important;
-    box-shadow: 0 0 3px hsla(120, 100%, 50%, 0.3);
+    box-shadow: none; /* Remove glow from tags */
   }
 
   .fallout .tag:hover,
-  .fallout [class*="tag"]:hover {
-    box-shadow: 0 0 8px hsla(120, 100%, 50%, 0.6);
+  .fallout [class*="tag"]:hover,
+  .fallout [data-tag]:hover {
     background-color: hsl(var(--accent)) !important;
+    color: hsl(var(--accent-foreground)) !important;
   }
 
   /* Folder styling */
@@ -162,7 +179,7 @@
   .fallout .folder:hover,
   .fallout [class*="folder"]:hover {
     background-color: hsl(var(--accent)) !important;
-    box-shadow: 0 0 5px hsla(120, 100%, 50%, 0.4);
+    color: hsl(var(--accent-foreground)) !important;
   }
 
   /* Terminal-style scrollbars */
@@ -177,50 +194,101 @@
   .fallout ::-webkit-scrollbar-thumb {
     background: hsl(var(--primary));
     border-radius: 4px;
-    box-shadow: 0 0 3px hsla(120, 100%, 50%, 0.5);
   }
 
   .fallout ::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--accent));
-    box-shadow: 0 0 5px hsla(120, 100%, 50%, 0.8);
-  }
-
-  /* Terminal animation effect for text cursor */
-  .fallout .terminal-cursor::after {
-    content: '█';
-    animation: blink 1s infinite;
-    color: hsl(var(--primary));
-  }
-
-  @keyframes blink {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0; }
   }
 
   /* Enhance the terminal feel for the editor */
   .fallout .codex-editor {
     font-family: 'JetBrains Mono', 'Courier New', monospace !important;
+    background-color: hsl(var(--background)) !important;
   }
 
   .fallout .codex-editor .ce-block__content,
   .fallout .codex-editor .ce-toolbar__content {
     color: hsl(var(--foreground)) !important;
-    background-color: transparent !important;
-    text-shadow: 0 0 2px currentColor;
+    background-color: hsl(var(--background)) !important;
+  }
+
+  /* Force main content area to have consistent background */
+  .fallout .flex-1.overflow-auto,
+  .fallout main .flex-1.overflow-auto,
+  .fallout [role="main"] .flex-1.overflow-auto {
+    background-color: hsl(var(--background)) !important;
+  }
+
+  /* Force header and footer to use correct fallout colors */
+  .fallout .flex.flex-col.p-4.border-b,
+  .fallout .footer-fixed,
+  .fallout [role="main"] > .flex.flex-col.p-4.border-b,
+  .fallout [role="main"] > .footer-fixed {
+    background-color: hsl(var(--background)) !important;
+    color: hsl(var(--foreground)) !important;
+    border-color: hsl(var(--border)) !important;
+  }
+
+  /* Specific targeting for header elements */
+  .fallout header,
+  .fallout .header,
+  .fallout [role="banner"] {
+    background-color: hsl(var(--background)) !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* Specific targeting for footer elements */
+  .fallout footer,
+  .fallout .footer,
+  .fallout [role="contentinfo"] {
+    background-color: hsl(var(--background)) !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* Fix tag styling specifically */
+  .fallout .tag,
+  .fallout [class*="tag"],
+  .fallout [data-tag],
+  .fallout span[style*="background"],
+  .fallout .px-1\.5.py-0\.5,
+  .fallout .px-2.py-1 {
+    background-color: hsl(var(--secondary)) !important;
+    color: hsl(var(--secondary-foreground)) !important;
+    border: 1px solid hsl(var(--border)) !important;
+    box-shadow: none !important;
+  }
+
+  /* Force any blue backgrounds to use fallout colors */
+  .fallout .bg-blue-600,
+  .fallout .bg-blue-700,
+  .fallout .bg-blue-800,
+  .fallout .bg-blue-900,
+  .fallout [style*="background-color: rgb(37, 99, 235)"],
+  .fallout [style*="background-color: rgb(29, 78, 216)"],
+  .fallout [style*="background-color: rgb(30, 64, 175)"],
+  .fallout [style*="background-color: rgb(30, 58, 138)"] {
+    background-color: hsl(var(--background)) !important;
+  }
+
+  /* Override any remaining blue text */
+  .fallout .text-blue-600,
+  .fallout .text-blue-700,
+  .fallout .text-blue-800,
+  .fallout .text-blue-900 {
+    color: hsl(var(--foreground)) !important;
   }
 
   .fallout .codex-editor .ce-toolbar__plus,
   .fallout .codex-editor .ce-toolbar__settings-btn {
     color: hsl(var(--primary)) !important;
-    background-color: hsl(var(--background)) !important;
+    background-color: hsl(var(--input)) !important;
     border: 1px solid hsl(var(--border)) !important;
-    box-shadow: 0 0 3px hsla(120, 100%, 50%, 0.3);
   }
 
   .fallout .codex-editor .ce-toolbar__plus:hover,
   .fallout .codex-editor .ce-toolbar__settings-btn:hover {
     background-color: hsl(var(--accent)) !important;
-    box-shadow: 0 0 8px hsla(120, 100%, 50%, 0.6);
+    color: hsl(var(--accent-foreground)) !important;
   }
 
   /* Dropdown and menu items */
@@ -236,14 +304,32 @@
   .fallout [role="option"]:hover,
   .fallout .dropdown-item:hover {
     background-color: hsl(var(--accent)) !important;
-    box-shadow: 0 0 5px hsla(120, 100%, 50%, 0.4);
+    color: hsl(var(--accent-foreground)) !important;
   }
 
-  /* Sidebar and navigation */
+  /* Sidebar and navigation - consistent dark background */
   .fallout .sidebar,
   .fallout nav {
-    background-color: hsl(var(--card)) !important;
+    background-color: hsl(var(--background)) !important;
     border-right: 1px solid hsl(var(--border)) !important;
+  }
+
+  /* Remove hover effects from icons in sidebar */
+  .fallout nav svg,
+  .fallout .sidebar svg,
+  .fallout nav .lucide,
+  .fallout .sidebar .lucide {
+    transition: none !important;
+  }
+
+  .fallout nav svg:hover,
+  .fallout .sidebar svg:hover,
+  .fallout nav .lucide:hover,
+  .fallout .sidebar .lucide:hover {
+    color: inherit !important;
+    background-color: transparent !important;
+    transform: none !important;
+    box-shadow: none !important;
   }
 
   /* Search and filter inputs */
@@ -257,6 +343,140 @@
   .fallout input[type="search"]::placeholder,
   .fallout .search-input::placeholder {
     color: hsl(var(--muted-foreground)) !important;
+  }
+
+  /* Fix text visibility in all dropdowns and popovers */
+  .fallout .dropdown-menu,
+  .fallout .popover-content,
+  .fallout [data-radix-dropdown-content],
+  .fallout [data-radix-popover-content] {
+    background-color: hsl(var(--card)) !important;
+    color: hsl(var(--card-foreground)) !important;
+    border: 1px solid hsl(var(--border)) !important;
+  }
+
+  /* Fix specific editor dropdowns */
+  .fallout .ce-popover,
+  .fallout .ce-toolbar__settings,
+  .fallout .ce-conversion-toolbar,
+  .fallout .ce-inline-toolbar {
+    background-color: hsl(var(--card)) !important;
+    color: hsl(var(--card-foreground)) !important;
+    border: 1px solid hsl(var(--border)) !important;
+  }
+
+  .fallout .ce-popover *,
+  .fallout .ce-toolbar__settings *,
+  .fallout .ce-conversion-toolbar *,
+  .fallout .ce-inline-toolbar * {
+    color: hsl(var(--card-foreground)) !important;
+  }
+
+  /* More comprehensive Editor.js styling fixes */
+  .fallout .ce-popover,
+  .fallout .ce-popover-item,
+  .fallout .ce-conversion-tool,
+  .fallout .ce-conversion-toolbar,
+  .fallout .ce-inline-toolbar,
+  .fallout .ce-settings,
+  .fallout .ce-settings__button,
+  .fallout .ce-toolbar__settings-btn,
+  .fallout .ce-toolbox,
+  .fallout .ce-block-settings,
+  .fallout .cdx-search-field,
+  .fallout .cdx-input,
+  .fallout .cdx-button {
+    background-color: hsl(var(--card)) !important;
+    color: hsl(var(--card-foreground)) !important;
+    border: 1px solid hsl(var(--border)) !important;
+    box-shadow: 0 0 10px hsla(120, 100%, 50%, 0.2) !important;
+  }
+
+  /* Editor.js dropdown items and buttons */
+  .fallout .ce-popover-item:hover,
+  .fallout .ce-conversion-tool:hover,
+  .fallout .ce-settings__button:hover,
+  .fallout .cdx-button:hover {
+    background-color: hsl(var(--accent)) !important;
+    color: hsl(var(--accent-foreground)) !important;
+  }
+
+  /* Force all white backgrounds to use terminal colors in fallout theme */
+  .fallout [style*="background-color: white"],
+  .fallout [style*="background-color: #fff"],
+  .fallout [style*="background-color: #ffffff"],
+  .fallout [style*="background: white"],
+  .fallout [style*="background: #fff"],
+  .fallout [style*="background: #ffffff"] {
+    background-color: hsl(var(--card)) !important;
+    color: hsl(var(--card-foreground)) !important;
+  }
+
+  /* Force all black text on white backgrounds to use terminal colors */
+  .fallout [style*="color: black"],
+  .fallout [style*="color: #000"],
+  .fallout [style*="color: #000000"] {
+    color: hsl(var(--card-foreground)) !important;
+  }
+
+  /* Fix any remaining popover, dropdown, modal backgrounds */
+  .fallout .popover,
+  .fallout .dropdown,
+  .fallout .modal,
+  .fallout .tooltip,
+  .fallout [role="tooltip"],
+  .fallout [role="dialog"],
+  .fallout [role="menu"],
+  .fallout [role="listbox"],
+  .fallout [data-state="open"],
+  .fallout [data-side],
+  .fallout [data-align] {
+    background-color: hsl(var(--card)) !important;
+    color: hsl(var(--card-foreground)) !important;
+    border: 1px solid hsl(var(--border)) !important;
+  }
+
+  /* Fix search and filter elements specifically */
+  .fallout input[placeholder*="Filter"],
+  .fallout input[placeholder*="Search"],
+  .fallout .search-field,
+  .fallout .filter-field {
+    background-color: hsl(var(--input)) !important;
+    color: hsl(var(--foreground)) !important;
+    border: 1px solid hsl(var(--border)) !important;
+  }
+
+  /* Override any remaining white elements */
+  .fallout .bg-white,
+  .fallout .bg-gray-50,
+  .fallout .bg-gray-100 {
+    background-color: hsl(var(--card)) !important;
+  }
+
+  .fallout .text-black,
+  .fallout .text-gray-900,
+  .fallout .text-gray-800 {
+    color: hsl(var(--card-foreground)) !important;
+  }
+
+  /* Specific fixes for editor toolbar elements */
+  .fallout .codex-editor__redactor {
+    background-color: hsl(var(--background)) !important;
+  }
+
+  .fallout .ce-toolbar {
+    background-color: hsl(var(--background)) !important;
+  }
+
+  .fallout .ce-block {
+    background-color: hsl(var(--background)) !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* Fix any remaining border colors */
+  .fallout .border-gray-200,
+  .fallout .border-gray-300 {
+    border-color: hsl(var(--border)) !important;
   }
 }
 
@@ -393,7 +613,6 @@ input:focus,
 .fallout .cdx-input:focus {
   box-shadow: 0 0 0 2px hsla(120, 100%, 50%, 0.5);
   border-color: hsl(var(--primary));
-  text-shadow: 0 0 5px currentColor;
 }
 
 /* Global focus styles */
@@ -460,7 +679,6 @@ button:focus {
 .fallout *:focus-visible {
   outline-color: hsl(var(--primary));
   outline-width: 2px;
-  text-shadow: 0 0 5px currentColor;
 }
 
 /* Reduced motion support */
@@ -472,3 +690,64 @@ button:focus {
     scroll-behavior: auto !important;
   }
 }
+
+  /* Targeted fixes for specific blue elements */
+  .fallout .bg-blue-600,
+  .fallout .bg-blue-700,
+  .fallout .bg-blue-800,
+  .fallout .bg-blue-900 {
+    background-color: hsl(var(--background)) !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* Fix any inline tag styles */
+  .fallout span[style*="background-color"] {
+    background-color: hsl(var(--secondary)) !important;
+    color: hsl(var(--secondary-foreground)) !important;
+    border: 1px solid hsl(var(--border)) !important;
+  }
+
+  /* Comprehensive Tailwind class overrides for fallout theme */
+  .fallout .bg-gray-50 { background-color: hsl(var(--background)) !important; }
+  .fallout .bg-gray-100 { background-color: hsl(var(--secondary)) !important; }
+  .fallout .bg-gray-200 { background-color: hsl(var(--secondary)) !important; }
+  .fallout .bg-gray-300 { background-color: hsl(var(--secondary)) !important; }
+  .fallout .bg-gray-400 { background-color: hsl(var(--secondary)) !important; }
+  .fallout .bg-gray-500 { background-color: hsl(var(--secondary)) !important; }
+  .fallout .bg-gray-600 { background-color: hsl(var(--secondary)) !important; }
+  .fallout .bg-gray-700 { background-color: hsl(var(--secondary)) !important; }
+  .fallout .bg-gray-800 { background-color: hsl(var(--background)) !important; }
+  .fallout .bg-gray-900 { background-color: hsl(var(--background)) !important; }
+
+  /* Override gray text colors */
+  .fallout .text-gray-50 { color: hsl(var(--foreground)) !important; }
+  .fallout .text-gray-100 { color: hsl(var(--foreground)) !important; }
+  .fallout .text-gray-200 { color: hsl(var(--secondary-foreground)) !important; }
+  .fallout .text-gray-300 { color: hsl(var(--secondary-foreground)) !important; }
+  .fallout .text-gray-400 { color: hsl(var(--muted-foreground)) !important; }
+  .fallout .text-gray-500 { color: hsl(var(--muted-foreground)) !important; }
+  .fallout .text-gray-600 { color: hsl(var(--foreground)) !important; }
+  .fallout .text-gray-700 { color: hsl(var(--foreground)) !important; }
+  .fallout .text-gray-800 { color: hsl(var(--foreground)) !important; }
+  .fallout .text-gray-900 { color: hsl(var(--foreground)) !important; }
+
+  /* Override blue classes that might be interfering */
+  .fallout .bg-blue-50,
+  .fallout .bg-blue-100,
+  .fallout .bg-blue-200,
+  .fallout .bg-blue-300,
+  .fallout .bg-blue-400,
+  .fallout .bg-blue-500,
+  .fallout .bg-blue-600,
+  .fallout .bg-blue-700,
+  .fallout .bg-blue-800,
+  .fallout .bg-blue-900 {
+    background-color: hsl(var(--background)) !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* Fix border colors */
+  .fallout .border-gray-200 { border-color: hsl(var(--border)) !important; }
+  .fallout .border-gray-300 { border-color: hsl(var(--border)) !important; }
+  .fallout .border-gray-700 { border-color: hsl(var(--border)) !important; }
+  .fallout .border-blue-600 { border-color: hsl(var(--border)) !important; }

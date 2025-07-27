@@ -159,7 +159,7 @@ export default function RichTextEditor() {
   const getButtonHoverClasses = () => {
     switch (theme) {
       case 'fallout':
-        return 'hover:bg-gray-700 hover:text-green-400 hover:shadow-[0_0_5px_rgba(0,255,0,0.4)]'
+        return 'hover:bg-gray-800 hover:text-green-400'
       case 'dark':
         return 'hover:bg-gray-700 hover:text-white'
       default:
@@ -170,7 +170,7 @@ export default function RichTextEditor() {
   const getHeaderClasses = () => {
     switch (theme) {
       case 'fallout':
-        return 'bg-gray-800 border-green-600 text-green-400'
+        return 'bg-gray-900 border-green-600 text-green-400'
       case 'dark':
         return 'bg-gray-800 border-gray-700 text-white'
       default:
@@ -192,7 +192,7 @@ export default function RichTextEditor() {
   const getFooterClasses = () => {
     switch (theme) {
       case 'fallout':
-        return 'bg-gray-800 text-green-300 border-t border-green-600'
+        return 'bg-gray-900 text-green-300 border-t border-green-600'
       case 'dark':
         return 'bg-gray-800 text-gray-300'
       default:
@@ -236,7 +236,7 @@ export default function RichTextEditor() {
   const getFolderBadgeClasses = () => {
     switch (theme) {
       case 'fallout':
-        return 'bg-gray-700 text-green-300 border border-green-600'
+        return 'bg-gray-800 text-green-300 border border-green-600'
       case 'dark':
         return 'bg-gray-700 text-gray-300 border border-gray-600'
       default:
