@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-    darkMode: ["class"],
+    darkMode: ["class", '[data-theme="dark"]'],
     content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -48,6 +48,18 @@ const config: Config = {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
+  		},
+  		fontFamily: {
+  			'terminal': ['JetBrains Mono', 'Courier New', 'monospace'],
+  		},
+  		animation: {
+  			'terminal-blink': 'blink 1s infinite',
+  		},
+  		keyframes: {
+  			blink: {
+  				'0%, 50%': { opacity: '1' },
+  				'51%, 100%': { opacity: '0' },
+  			},
   		}
   	}
   },
