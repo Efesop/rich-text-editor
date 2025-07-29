@@ -691,6 +691,104 @@ export default function RichTextEditor() {
     onSelectPage: handlePageSelect
   })
 
+  // Force override Editor.js styles for fallout theme
+  useEffect(() => {
+    if (theme === 'fallout') {
+      // Remove any existing override styles
+      const existingOverride = document.getElementById('fallout-editor-override')
+      if (existingOverride) {
+        existingOverride.remove()
+      }
+
+      // Create and inject override styles
+      const style = document.createElement('style')
+      style.id = 'fallout-editor-override'
+      style.innerHTML = `
+        /* ULTIMATE fallout theme overrides - injected after Editor.js loads */
+        .fallout .codex-editor .ce-block:hover .ce-block__content,
+        .fallout .codex-editor .ce-block--selected .ce-block__content,
+        .fallout .codex-editor .ce-block:focus .ce-block__content {
+          background: transparent !important;
+          background-color: transparent !important;
+          box-shadow: none !important;
+          border: none !important;
+          outline: none !important;
+        }
+        
+        .fallout .codex-editor .ce-block:hover::before,
+        .fallout .codex-editor .ce-block:hover::after,
+        .fallout .codex-editor .ce-block::before,
+        .fallout .codex-editor .ce-block::after,
+        .fallout .codex-editor .ce-block--selected::before,
+        .fallout .codex-editor .ce-block--selected::after {
+          display: none !important;
+          visibility: hidden !important;
+          opacity: 0 !important;
+          content: none !important;
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+        
+        /* Clean Editor.js dropdown menus */
+        .fallout .ce-popover,
+        .fallout .ce-popover.ce-popover--opened,
+        .fallout .ce-conversion-toolbar {
+          background: #111111 !important;
+          border: 1px solid #16a34a !important;
+          color: #16a34a !important;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important;
+        }
+        
+        .fallout .ce-popover__item,
+        .fallout .ce-conversion-tool {
+          background: transparent !important;
+          color: #16a34a !important;
+          border: none !important;
+          box-shadow: none !important;
+          outline: none !important;
+          padding: 10px 16px !important;
+          margin: 0 !important;
+        }
+        
+        .fallout .ce-popover__item:hover,
+        .fallout .ce-conversion-tool:hover {
+          background: #1a2e1a !important;
+          color: #16a34a !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+        
+        /* Force remove ALL borders from dropdown items */
+        .fallout .fixed.w-48.rounded-md.shadow-lg button,
+        .fallout [role="menuitem"] {
+          border: none !important;
+          border-top: none !important;
+          border-bottom: none !important;
+          border-left: none !important;
+          border-right: none !important;
+          box-shadow: none !important;
+          outline: none !important;
+          background: transparent !important;
+        }
+        
+        .fallout .ring-1,
+        .fallout .ring-black,
+        .fallout .ring-opacity-5 {
+          box-shadow: none !important;
+          border: none !important;
+        }
+      `
+      document.head.appendChild(style)
+    } else {
+      // Remove fallout overrides when not in fallout theme
+      const existingOverride = document.getElementById('fallout-editor-override')
+      if (existingOverride) {
+        existingOverride.remove()
+      }
+    }
+  }, [theme])
+
   // Handle loading states - these returns must come AFTER all hooks
   if (!isClient) {
     return (

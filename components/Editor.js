@@ -333,6 +333,90 @@ export default function Editor({ data, onChange, holder }) {
     }
   }, [holder])
 
+  // Inject custom CSS after Editor.js loads to override default styles
+  useEffect(() => {
+    const injectCustomCSS = () => {
+      // Remove existing custom styles if any
+      const existingStyle = document.getElementById('editorjs-fallout-override')
+      if (existingStyle) {
+        existingStyle.remove()
+      }
+
+      // Get current theme from body class
+      const isFallout = document.body.classList.contains('fallout')
+      
+      if (isFallout) {
+        const style = document.createElement('style')
+        style.id = 'editorjs-fallout-override'
+        style.textContent = `
+          /* FORCE override Editor.js hover effects */
+          .fallout .codex-editor .ce-block:hover .ce-block__content,
+          .fallout .codex-editor .ce-block--selected .ce-block__content {
+            background: transparent !important;
+            box-shadow: none !important;
+            border: none !important;
+            outline: none !important;
+          }
+          
+          .fallout .codex-editor .ce-block:hover::before,
+          .fallout .codex-editor .ce-block:hover::after,
+          .fallout .codex-editor .ce-block::before,
+          .fallout .codex-editor .ce-block::after {
+            display: none !important;
+            content: none !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
+          
+          /* Force clean dropdown styling */
+          .fallout .ce-popover,
+          .fallout .ce-popover.ce-popover--opened {
+            background: #1a1a1a !important;
+            border: 1px solid #22c55e !important;
+            color: #22c55e !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+          }
+          
+          .fallout .ce-popover__item {
+            background: transparent !important;
+            color: #22c55e !important;
+            border: none !important;
+            box-shadow: none !important;
+            outline: none !important;
+            padding: 8px 12px !important;
+          }
+          
+          .fallout .ce-popover__item:hover {
+            background: #2a2a2a !important;
+            color: #22c55e !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
+        `
+        document.head.appendChild(style)
+      }
+    }
+
+    // Inject CSS after a short delay to ensure Editor.js has loaded
+    const timer = setTimeout(injectCustomCSS, 100)
+    
+    // Also inject on theme changes
+    const observer = new MutationObserver(() => {
+      injectCustomCSS()
+    })
+    
+    observer.observe(document.body, { 
+      attributes: true, 
+      attributeFilter: ['class'] 
+    })
+
+    return () => {
+      clearTimeout(timer)
+      observer.disconnect()
+    }
+  }, [])
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {

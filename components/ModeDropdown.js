@@ -47,7 +47,7 @@ const ModeDropdown = ({ onModeChange, theme }) => {
         <div
           className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg ${
             theme === 'dark' ? 'bg-gray-800' : 'bg-white'
-          } ring-1 ring-black ring-opacity-5 z-10`}
+          } z-10`}
         >
           <div className="py-1" role="menu" aria-orientation="vertical">
             <button

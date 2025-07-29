@@ -196,7 +196,7 @@ const PageItem = ({
       {isDropdownOpen && (
         <div 
           ref={dropdownRef}
-          className={`fixed w-48 rounded-md shadow-lg ${getDropdownClasses()} ring-1 ring-black ring-opacity-5`}
+          className={`fixed w-48 rounded-md shadow-lg ${getDropdownClasses()}`}
           style={{
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`,
