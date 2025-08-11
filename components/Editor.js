@@ -369,16 +369,21 @@ export default function Editor({ data, onChange, holder }) {
             box-shadow: none !important;
           }
           
-          /* Force clean dropdown styling */
-          .fallout .ce-popover,
-          .fallout .ce-popover.ce-popover--opened {
+          /* Force clean dropdown styling - REMOVE ALL ITEM BORDERS */
+          .ce-popover,
+          .ce-popover.ce-popover--opened,
+          .ce-conversion-toolbar {
             background: #1a1a1a !important;
             border: 1px solid #22c55e !important;
             color: #22c55e !important;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
           }
           
-          .fallout .ce-popover__item {
+          .ce-popover__item,
+          .ce-popover__item-icon,
+          .ce-popover__item-label,
+          .ce-conversion-tool,
+          .ce-conversion-tool__icon {
             background: transparent !important;
             color: #22c55e !important;
             border: none !important;
@@ -387,11 +392,75 @@ export default function Editor({ data, onChange, holder }) {
             padding: 8px 12px !important;
           }
           
-          .fallout .ce-popover__item:hover {
+          .ce-popover__item:hover,
+          .ce-conversion-tool:hover {
             background: #2a2a2a !important;
             color: #22c55e !important;
             border: none !important;
             box-shadow: none !important;
+          }
+          
+          /* Remove ALL inner elements borders */
+          .ce-popover *,
+          .ce-conversion-toolbar * {
+            border: none !important;
+            box-shadow: none !important;
+            outline: none !important;
+          }
+          
+          /* Specifically target the icon containers that might have borders */
+          .ce-popover__item-icon,
+          .ce-conversion-tool__icon {
+            border: none !important;
+            box-shadow: none !important;
+            background: transparent !important;
+          }
+        `
+        document.head.appendChild(style)
+      }
+      
+      // Also inject for dark theme
+      const isDark = document.body.classList.contains('dark')
+      if (isDark) {
+        const darkStyle = document.getElementById('editorjs-dark-override')
+        if (darkStyle) {
+          darkStyle.remove()
+        }
+        
+        const style = document.createElement('style')
+        style.id = 'editorjs-dark-override'
+        style.textContent = `
+          /* Dark theme dropdown styling */
+          .dark .ce-popover,
+          .dark .ce-popover.ce-popover--opened,
+          .dark .ce-conversion-toolbar {
+            background: #1f2937 !important;
+            border: 1px solid #374151 !important;
+            color: #f3f4f6 !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.45) !important;
+          }
+          
+          .dark .ce-popover__item,
+          .dark .ce-conversion-tool {
+            background: transparent !important;
+            color: #f3f4f6 !important;
+            border: none !important;
+            box-shadow: none !important;
+            outline: none !important;
+          }
+          
+          .dark .ce-popover__item:hover,
+          .dark .ce-conversion-tool:hover {
+            background: #374151 !important;
+            color: #ffffff !important;
+          }
+          
+          /* Remove ALL inner borders in dark theme */
+          .dark .ce-popover *,
+          .dark .ce-conversion-toolbar * {
+            border: none !important;
+            box-shadow: none !important;
+            outline: none !important;
           }
         `
         document.head.appendChild(style)

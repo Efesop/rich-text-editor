@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { hashPassword, verifyPassword } from '@/utils/passwordUtils'
 import { sanitizeEditorContent, validatePageStructure } from '@/utils/securityUtils'
 import useTagStore from '../store/tagStore'
+import { readPages, savePages as savePagesToFallback } from '@/lib/storage'
 
 export function usePagesManager() {
   const [pages, setPages] = useState([])
@@ -41,14 +42,22 @@ export function usePagesManager() {
       try {
         // Use the latest pages if no specific pages provided
         const pagesToSave = updatedPages || pagesRef.current
-        await window.electron.invoke('save-pages', pagesToSave)
+        if (typeof window !== 'undefined' && window.electron?.invoke) {
+          await window.electron.invoke('save-pages', pagesToSave)
+        } else {
+          await savePagesToFallback(pagesToSave)
+        }
         setSaveStatus('saved')
       } catch (error) {
         console.error('Error saving pages:', error)
         setSaveStatus('error')
         // Retry once after a delay
         setTimeout(() => {
-          window.electron.invoke('save-pages', updatedPages || pagesRef.current)
+          const toSave = updatedPages || pagesRef.current
+          const op = (typeof window !== 'undefined' && window.electron?.invoke)
+            ? window.electron.invoke('save-pages', toSave)
+            : savePagesToFallback(toSave)
+          Promise.resolve(op)
             .then(() => setSaveStatus('saved'))
             .catch(() => setSaveStatus('error'))
         }, 1000)
@@ -58,7 +67,7 @@ export function usePagesManager() {
 
   const fetchPages = useCallback(async () => {
     try {
-      const data = await window.electron.invoke('read-pages')
+      const data = await readPages()
       const validPages = Array.isArray(data) ? data : []
       
       setPages(validPages)

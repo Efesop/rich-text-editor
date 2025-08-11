@@ -1120,6 +1120,10 @@ html body .fallout .codex-editor .ce-block:focus {
   position: relative !important;
 }
 
+/* Mobile safe-area helpers outside @layer to ensure availability */
+.safe-area-top { padding-top: calc(env(safe-area-inset-top) + 1rem); }
+.safe-area-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + 0.75rem); }
+
 /* Remove ALL pseudo-elements that might create hover lines */
 html body .fallout .codex-editor .ce-block:hover::before,
 html body .fallout .codex-editor .ce-block:hover::after,
@@ -1197,3 +1201,203 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   border: none !important;
   outline: none !important;
 }
+
+/* Editor.js: kill any residual block hover line/border */
+.fallout .codex-editor .ce-block,
+.fallout .codex-editor .ce-block__content {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+.fallout .codex-editor .ce-block.ce-block--selected,
+.fallout .codex-editor .ce-block.ce-block--selected .ce-block__content,
+.fallout .codex-editor .ce-block.ce-block--selected::before,
+.fallout .codex-editor .ce-block.ce-block--selected::after {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Editor.js: dropdown menu items – remove per-item boxes completely */
+.fallout .codex-editor .ce-popover__item,
+.fallout .codex-editor .ce-popover__item *,
+.fallout .codex-editor .ce-conversion-toolbar .ce-conversion-tool,
+.fallout .codex-editor .ce-conversion-toolbar .ce-conversion-tool *,
+.fallout .codex-editor .ce-settings__button,
+.fallout .codex-editor .ce-settings__button *,
+.fallout .codex-editor .cdx-button,
+.fallout .codex-editor .cdx-button * {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  background: transparent !important;
+}
+.fallout .codex-editor .ce-popover__item::before,
+.fallout .codex-editor .ce-popover__item::after,
+.fallout .codex-editor .ce-conversion-toolbar .ce-conversion-tool::before,
+.fallout .codex-editor .ce-conversion-toolbar .ce-conversion-tool::after,
+.fallout .codex-editor .ce-settings__button::before,
+.fallout .codex-editor .ce-settings__button::after {
+  content: none !important;
+  display: none !important;
+}
+.fallout .codex-editor .ce-popover__item:hover,
+.fallout .codex-editor .ce-conversion-toolbar .ce-conversion-tool:hover,
+.fallout .codex-editor .ce-settings__button:hover {
+  background: hsl(var(--secondary)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+  /* Editor.js: remove any toolbar borders/lines that can render as a horizontal rule */
+  .fallout .codex-editor .ce-toolbar,
+  .fallout .codex-editor .ce-toolbar__content {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+  .fallout .codex-editor .ce-toolbar::before,
+  .fallout .codex-editor .ce-toolbar::after,
+  .fallout .codex-editor .ce-toolbar__content::before,
+  .fallout .codex-editor .ce-toolbar__content::after {
+    content: none !important;
+    display: none !important;
+  }
+
+  /* Editor.js dropdowns: strip borders on all inner elements (buttons, icons, separators) */
+  .fallout .codex-editor .ce-popover,
+  .fallout .codex-editor .ce-conversion-toolbar {
+    border: 1px solid hsl(var(--border)) !important; /* keep only outer border */
+  }
+  .fallout .codex-editor .ce-popover button,
+  .fallout .codex-editor .ce-popover [role="button"],
+  .fallout .codex-editor .ce-conversion-toolbar button,
+  .fallout .codex-editor .ce-conversion-toolbar [role="button"],
+  .fallout .codex-editor .ce-conversion-tool,
+  .fallout .codex-editor .ce-popover__item {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    outline: none !important;
+  }
+  .fallout .codex-editor .ce-conversion-tool__icon,
+  .fallout .codex-editor .ce-popover__item .ce-popover__item-icon {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+  .fallout .codex-editor .ce-popover__item + .ce-popover__item,
+  .fallout .codex-editor .ce-conversion-tool + .ce-conversion-tool {
+    border-top: none !important; /* remove separators between items */
+  }
+  .fallout .codex-editor .ce-popover *,
+  .fallout .codex-editor .ce-conversion-toolbar * {
+    box-shadow: none !important; /* nuke any nested shadows */
+  }
+
+  /* Editor.js popovers appended to body: Fallout theme */
+  .fallout .ce-popover,
+  .fallout .ce-inline-toolbar,
+  .fallout .ce-conversion-toolbar {
+    background: hsl(var(--background)) !important;
+    color: hsl(var(--foreground)) !important;
+    border: 1px solid hsl(var(--border)) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+  }
+  .fallout .ce-popover__item,
+  .fallout .ce-conversion-tool,
+  .fallout .ce-popover button,
+  .fallout .ce-conversion-toolbar button,
+  .fallout .ce-popover [role="button"],
+  .fallout .ce-conversion-toolbar [role="button"],
+  .fallout .cdx-button {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+  .fallout .ce-popover__item + .ce-popover__item,
+  .fallout .ce-conversion-tool + .ce-conversion-tool {
+    border-top: none !important;
+  }
+  .fallout .ce-popover__item:hover,
+  .fallout .ce-conversion-tool:hover {
+    background: hsl(var(--secondary)) !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* Editor.js popovers appended to body: Dark theme */
+  .dark .ce-popover,
+  .dark .ce-inline-toolbar,
+  .dark .ce-conversion-toolbar {
+    background: #1f2937 !important; /* gray-800 */
+    color: #f9fafb !important;      /* gray-50 */
+    border: 1px solid #374151 !important; /* gray-700 */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.45) !important;
+  }
+  .dark .ce-popover__item,
+  .dark .ce-conversion-tool,
+  .dark .ce-popover button,
+  .dark .ce-conversion-toolbar button,
+  .dark .ce-popover [role="button"],
+  .dark .ce-conversion-toolbar [role="button"],
+  .dark .cdx-button {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    color: #f3f4f6 !important; /* gray-100 */
+  }
+  .dark .ce-popover__item:hover,
+  .dark .ce-conversion-tool:hover {
+    background: #374151 !important; /* gray-700 */
+    color: #ffffff !important;
+}
+
+  /* Strong nuke of inner borders/shadows in Editor.js dropdowns (Fallout) */
+  .fallout .ce-popover *,
+  .fallout .ce-conversion-toolbar *,
+  .fallout .ce-inline-toolbar * {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+  .fallout .ce-popover__items,
+  .fallout .ce-popover__item,
+  .fallout .ce-popover__item-icon,
+  .fallout .ce-popover__item-content,
+  .fallout .ce-conversion-tool,
+  .fallout .ce-conversion-tool__icon,
+  .fallout .ce-conversion-tool__title {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  .fallout .ce-popover hr,
+  .fallout .ce-popover [role="separator"] {
+    display: none !important;
+  }
+
+  /* Strong nuke for dark theme as well */
+  .dark .ce-popover *,
+  .dark .ce-conversion-toolbar *,
+  .dark .ce-inline-toolbar * {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+  .dark .ce-popover__items,
+  .dark .ce-popover__item,
+  .dark .ce-popover__item-icon,
+  .dark .ce-popover__item-content,
+  .dark .ce-conversion-tool,
+  .dark .ce-conversion-tool__icon,
+  .dark .ce-conversion-tool__title {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  .dark .ce-popover hr,
+  .dark .ce-popover [role="separator"] {
+    display: none !important;
+  }

@@ -9,6 +9,16 @@ function MyApp({ Component, pageProps }) {
 
   useEffect(() => {
     loadTags()
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      const register = async () => {
+        try {
+          await navigator.serviceWorker.register('/sw.js')
+        } catch (err) {
+          console.error('SW registration failed', err)
+        }
+      }
+      register()
+    }
   }, [loadTags])
 
   return (

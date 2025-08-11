@@ -1,14 +1,17 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, X, ChevronDown, Lock, FolderPlus, RefreshCw, Bell, Bug } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, Upload, X, ChevronDown, Lock, FolderPlus, RefreshCw, Bell, Bug, Smartphone, QrCode, Menu } from 'lucide-react'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
+import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
 //import { Sun, Moon } from 'lucide-react'
 import { RenameModal } from '@/components/RenameModal'
 import ExportDropdown from '@/components/ExportDropdown'
+import { InstallOnMobileModal } from '@/components/InstallOnMobileModal'
 import { 
   exportToPDF, 
   exportToMarkdown, 
@@ -101,6 +104,7 @@ export default function RichTextEditor() {
 
   const { theme } = useTheme()
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [isSmallScreen, setIsSmallScreen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedTags, setSelectedTags] = useState([])
   const [isTagModalOpen, setIsTagModalOpen] = useState(false)
@@ -132,6 +136,11 @@ export default function RichTextEditor() {
   const [sortOption, setSortOption] = useState('newest')
   const [selectedFolderId, setSelectedFolderId] = useState(null)
   const [appVersion, setAppVersion] = useState('')
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
+  const fileInputRef = useRef(null)
+  const [isPassphraseOpen, setIsPassphraseOpen] = useState(false)
+  const [pendingAction, setPendingAction] = useState(null) // 'export' | 'import'
 
   // Theme helper functions
   const getMainContainerClasses = () => {
@@ -247,6 +256,19 @@ export default function RichTextEditor() {
   // Essential useEffects
   useEffect(() => {
     setIsClient(true)
+  }, [])
+
+  // Responsive: detect small screens and default to collapsed sidebar
+  useEffect(() => {
+    const mq = typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)') : null
+    const apply = () => {
+      const small = mq ? mq.matches : false
+      setIsSmallScreen(small)
+      if (small) setSidebarOpen(false)
+    }
+    apply()
+    mq && mq.addEventListener('change', apply)
+    return () => { mq && mq.removeEventListener('change', apply) }
   }, [])
 
   useEffect(() => {
@@ -428,6 +450,11 @@ export default function RichTextEditor() {
           const xml = exportToXML(content)
           downloadFile(xml, `${fileName}.xml`, 'application/xml')
           break
+        case 'dashpack': {
+          setPendingAction('export')
+          setIsPassphraseOpen(true)
+          break
+        }
         default:
           console.error('Unsupported export type:', exportType)
       }
@@ -435,6 +462,65 @@ export default function RichTextEditor() {
       console.error('Error exporting content:', error)
     }
   }, [isClient, currentPage])
+
+  const handleExportBundle = useCallback(async () => {
+    try {
+      setPendingAction('export')
+      setIsPassphraseOpen(true)
+    } catch (err) {
+      console.error('Failed exporting bundle', err)
+    }
+  }, [pages, tags])
+
+  const handleImportBundleClick = useCallback(() => {
+    fileInputRef.current?.click()
+  }, [])
+
+  const handleImportBundle = useCallback(async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      setPendingAction({ type: 'import', file })
+      setIsPassphraseOpen(true)
+      return
+    } catch (err) {
+      console.error('Failed importing bundle', err)
+    } finally {
+      e.target.value = ''
+    }
+  }, [setPages, tags])
+
+  const handlePassphraseConfirm = useCallback(async (passphrase) => {
+    setIsPassphraseOpen(false)
+    try {
+      if (pendingAction === 'export') {
+        const { exportEncryptedBundle } = await import('@/utils/exportUtils')
+        const allPages = (pages || []).filter(p => p.type !== 'folder')
+        await exportEncryptedBundle(allPages, tags, passphrase)
+        return
+      }
+      if (pendingAction && pendingAction.type === 'import') {
+        const file = pendingAction.file
+        setIsImporting(true)
+        const { importEncryptedBundle } = await import('@/utils/exportUtils')
+        const { pages: importedPages, tags: importedTags } = await importEncryptedBundle(file, passphrase)
+      // Merge: simplest newest-wins by createdAt if ids match else append
+      setPages(prev => {
+        const map = new Map(prev.map(p => [p.id, p]))
+        importedPages.forEach(p => { map.set(p.id, p) })
+        return Array.from(map.values())
+      })
+      // Tags: union by name
+      const existing = new Set((tags || []).map(t => t.name))
+      importedTags?.forEach(t => { if (!existing.has(t.name)) useTagStore.getState().addTag(t) })
+      }
+    } catch (err) {
+      console.error('Bundle action failed', err)
+    } finally {
+      setIsImporting(false)
+      setPendingAction(null)
+    }
+  }, [pendingAction, pages, tags, setPages])
 
   const handleRenamePage = useCallback((page) => {
     setPageToRename(page)
@@ -601,18 +687,27 @@ export default function RichTextEditor() {
 
   useEffect(() => {
     const handleLinkClick = (event) => {
-      if (event.target.tagName === 'A' && event.target.href) {
-        event.preventDefault();
-        window.electron.openExternal(event.target.href);
+      const link = event.target?.closest && event.target.closest('a')
+      if (!link) return
+      const href = link.getAttribute('href')
+      if (!href) return
+      // Ignore programmatic clicks or downloads (used by export)
+      if (!event.isTrusted || link.hasAttribute('download')) return
+      try {
+        const url = new URL(href, window.location.href)
+        const isHttp = url.protocol === 'http:' || url.protocol === 'https:'
+        if (isHttp && window.electron?.openExternal) {
+          event.preventDefault()
+          window.electron.openExternal(url.toString())
+        }
+      } catch (_) {
+        // ignore invalid URLs
       }
-    };
+    }
 
-    document.addEventListener('click', handleLinkClick);
-
-    return () => {
-      document.removeEventListener('click', handleLinkClick);
-    };
-  }, []);
+    document.addEventListener('click', handleLinkClick)
+    return () => document.removeEventListener('click', handleLinkClick)
+  }, [])
 
   useEffect(() => {
     const fetchAppVersion = async () => {
@@ -812,10 +907,23 @@ export default function RichTextEditor() {
       role="application"
       aria-label="Rich Text Note Editor"
     >
+      {/* Mobile overlay */}
+      {isSmallScreen && sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Sidebar */}
       <SidebarErrorBoundary>
         <nav 
-          className={`${sidebarOpen ? 'w-64' : 'w-16'} flex flex-col transition-all duration-300 ease-in-out ${getSidebarClasses()} relative overflow-visible`}
+          className={`${getSidebarClasses()} ${
+            isSmallScreen
+              ? `fixed z-50 inset-y-0 left-0 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-200 w-3/4 max-w-xs`
+              : `${sidebarOpen ? 'w-64' : 'w-16'} relative transition-all duration-300`
+          } flex flex-col overflow-visible`}
           role="navigation"
           aria-label="Page navigation"
           aria-expanded={sidebarOpen}
@@ -938,15 +1046,25 @@ export default function RichTextEditor() {
 
       {/* Main Content */}
       <main 
-        className="flex-1 flex flex-col overflow-hidden"
+        className="flex-1 flex flex-col overflow-hidden md:ml-0"
         id="main-content"
         role="main"
         aria-label="Note editor"
       >
         {/* Header */}
-        <div className={`flex flex-col p-4 border-b ${getHeaderClasses()}`}>
+        <div className={`flex flex-col p-4 border-b ${getHeaderClasses()} safe-area-top`}>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center">
+              {isSmallScreen && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSidebarOpen(true)}
+                  className="mr-1"
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
+              )}
               <h1 
                 className="text-2xl font-bold cursor-pointer" 
                 onClick={() => handleRenamePage(currentPage)}
@@ -961,26 +1079,69 @@ export default function RichTextEditor() {
               )}
             </div>
             <div className="flex items-center space-x-2">
-              {/* <ModeDropdown onModeChange={handleModeChange} theme={theme} /> */}
               <ExportDropdown onExport={handleExport} />
-              <button
-                onClick={() => {
-                  window.open('https://github.com/Efesop/rich-text-editor/issues/new', '_blank', 'noopener,noreferrer');
-                }}
-                className={`p-2 rounded-md ${getButtonHoverClasses()}`}
-                title="Report a bug or request a feature"
-              >
-                <Bug className="h-4 w-4" />
-              </button>
-              <button
-                onClick={handleBellClick}
-                disabled={!canCheckForUpdates}
-                className={`p-2 rounded-md ${getButtonHoverClasses()} ${!canCheckForUpdates ? 'opacity-50 cursor-not-allowed' : ''}`}
-                title={isCheckingForUpdates ? "Checking for updates..." : "Check for updates"}
-              >
-                <Bell className={`h-4 w-4 ${isCheckingForUpdates ? 'animate-pulse' : ''}`} />
-              </button>
-              <ThemeToggle />
+              {isSmallScreen ? (
+                <>
+                  <ThemeToggle />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        className={`p-2 rounded-md ${getButtonHoverClasses()}`}
+                        aria-label="More"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setIsInstallModalOpen(true)}>
+                        Use on your phone
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleImportBundleClick}>
+                        Import encrypted bundle
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => window.open('https://github.com/Efesop/rich-text-editor/issues/new', '_blank', 'noopener,noreferrer')}>
+                        Report a bug
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setIsInstallModalOpen(true)}
+                    className={`p-2 rounded-md ${getButtonHoverClasses()}`}
+                    title="Use on your phone"
+                  >
+                    <Smartphone className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={handleImportBundleClick}
+                    className={`p-2 rounded-md ${getButtonHoverClasses()}`}
+                    title={isImporting ? 'Importing…' : 'Import encrypted bundle'}
+                    disabled={isImporting}
+                  >
+                    <Upload className={`h-4 w-4 ${isImporting ? 'animate-pulse' : ''}`} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      window.open('https://github.com/Efesop/rich-text-editor/issues/new', '_blank', 'noopener,noreferrer');
+                    }}
+                    className={`p-2 rounded-md ${getButtonHoverClasses()}`}
+                    title="Report a bug or request a feature"
+                  >
+                    <Bug className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={handleBellClick}
+                    disabled={!canCheckForUpdates}
+                    className={`p-2 rounded-md ${getButtonHoverClasses()} ${!canCheckForUpdates ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    title={isCheckingForUpdates ? 'Checking for updates...' : 'Check for updates'}
+                  >
+                    <Bell className={`h-4 w-4 ${isCheckingForUpdates ? 'animate-pulse' : ''}`} />
+                  </button>
+                  <ThemeToggle />
+                </>
+              )}
             </div>
           </div>
           <div className="flex items-center flex-wrap gap-2 mt-2">
@@ -1040,7 +1201,7 @@ export default function RichTextEditor() {
         </div>
 
         {/* Footer */}
-        <div className={`footer-fixed flex justify-between items-center p-3 text-sm ${getFooterClasses()}`}>
+        <div className={`footer-fixed flex justify-between items-center p-3 text-sm ${getFooterClasses()} safe-area-bottom`}>
           {currentPage.createdAt && (
             <span>Created {format(new Date(currentPage.createdAt), 'MMM d, yyyy')}</span>
           )}
@@ -1132,6 +1293,28 @@ export default function RichTextEditor() {
           onRetry={checkForUpdates}
         />
       )}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".dashpack,application/json,application/octet-stream,*/*"
+        onChange={handleImportBundle}
+        className="hidden"
+      />
+
+      <InstallOnMobileModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+        pwaUrl={process.env.NEXT_PUBLIC_PWA_URL || (typeof window !== 'undefined' ? window.location.origin : '')}
+      />
+
+      <PassphraseModal
+        isOpen={isPassphraseOpen}
+        onClose={() => setIsPassphraseOpen(false)}
+        onConfirm={handlePassphraseConfirm}
+        title={pendingAction === 'export' ? 'Set a passphrase (store safely)' : 'Enter passphrase'}
+        confirmLabel={pendingAction === 'export' ? 'Encrypt & Export' : 'Decrypt & Import'}
+      />
     </div>
   )
 }

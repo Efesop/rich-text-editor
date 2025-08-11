@@ -17,6 +17,7 @@ const ExportDropdown = ({ onExport }) => {
     { label: 'Export as CSV', value: 'csv' },
     { label: 'Export as JSON', value: 'json' },
     { label: 'Export as XML', value: 'xml' },
+    { label: 'Export Encrypted Bundle (.dashpack)', value: 'dashpack' }
   ];
 
   const getDropdownClasses = () => {

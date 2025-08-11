@@ -114,7 +114,7 @@ export default function TagsFilter({
       <div className={`overflow-hidden transition-all duration-200 ease-in-out ${
         isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
       }`}>
-        <div className="p-2 pt-0">
+        <div className="p-2 pt-3">
           {/* Selected tags summary */}
           {selectedTags.length > 0 && (
             <div className="mb-3">
