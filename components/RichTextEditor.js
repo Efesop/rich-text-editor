@@ -549,39 +549,31 @@ export default function RichTextEditor() {
   }, [])
 
   const handlePasswordConfirm = async (actionType, password) => {
-    setPasswordError('') // Clear any previous errors
+    setPasswordError('')
+    let success = false
     switch (actionType) {
-      case 'lock':
-        const lockSuccess = await lockPage(pageToAccess, password)
-        if (lockSuccess) {
-          setIsPasswordModalOpen(false)
-          setPasswordInput('')
-        } else {
-          setPasswordError('Failed to lock the page. Please try again.')
-        }
+      case 'lock': {
+        success = await lockPage(pageToAccess, password)
+        if (!success) setPasswordError('Failed to lock the page. Please try again.')
         break
-      case 'open':
-        const unlockSuccess = await unlockPage(pageToAccess, password, true) // Pass true for temporary unlock
-        if (unlockSuccess) {
-          setIsPasswordModalOpen(false)
-          setPasswordInput('')
-          // The page is now set as current in the unlockPage function
-        } else {
-          setPasswordError('Incorrect password. Please try again.')
-        }
+      }
+      case 'open': {
+        success = await unlockPage(pageToAccess, password, true)
+        if (!success) setPasswordError('Incorrect password. Please try again.')
         break
-      case 'removeLock':
-        const removeLockSuccess = await unlockPage(pageToAccess, password, false)
-        if (removeLockSuccess) {
-          setIsPasswordModalOpen(false)
-          setPasswordInput('')
-          // The page is now set as current and unlocked in the unlockPage function
-        } else {
-          setPasswordError('Incorrect password. Unable to remove lock.')
-        }
+      }
+      case 'removeLock': {
+        success = await unlockPage(pageToAccess, password, false)
+        if (!success) setPasswordError('Incorrect password. Unable to remove lock.')
         break
+      }
     }
-    setPageToAccess(null)
+
+    if (success) {
+      setIsPasswordModalOpen(false)
+      setPasswordInput('')
+      setPageToAccess(null)
+    }
   }
 
   const handleDeletePage = useCallback((page) => {

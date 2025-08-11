@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "./ui/button"
-import { FileText, Lock, Unlock, Trash2, MoreVertical, FolderMinus, Copy } from 'lucide-react'
+import { FileText, Lock, Unlock, Trash2, MoreVertical, FolderMinus, Copy, Edit3 } from 'lucide-react'
 import StackedTags from './StackedTags'
 
 const PageItem = ({ 
@@ -167,6 +167,7 @@ const PageItem = ({
                 className="ml-auto flex-shrink-0"
                 theme={theme}
                 tagColorMap={(tags || []).reduce((acc, t) => { acc[t.name] = t.color; return acc }, {})}
+                hovered={isHovered}
               />
             )}
           </>
@@ -213,6 +214,7 @@ const PageItem = ({
                 setIsDropdownOpen(false)
               }}
             >
+              <Edit3 className="h-4 w-4 inline mr-2" />
               Rename
             </button>
             <button

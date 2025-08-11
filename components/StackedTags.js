@@ -10,7 +10,8 @@ export default function StackedTags({
   showRemove = false,
   className = '',
   theme, // Accept theme as prop
-  tagColorMap = {}
+  tagColorMap = {},
+  hovered = false
 }) {
   const { theme: contextTheme } = useTheme()
   const currentTheme = theme || contextTheme // Use prop theme if provided, otherwise context theme
@@ -101,7 +102,7 @@ export default function StackedTags({
   const getTagClasses = (tag, index, isHidden = false) => {
     const baseClasses = `
       inline-flex items-center rounded-lg font-medium
-      border transition-all duration-200 ease-in-out
+      border transition-all duration-150 ease-out
       ${size === 'xs' ? 'px-1.5 py-0.5 text-xs' : size === 'lg' ? 'px-3 py-1.5 text-sm' : 'px-2 py-1 text-xs'}
     `
 
@@ -113,9 +114,13 @@ export default function StackedTags({
     return { classes: `${baseClasses} ${colorClasses} ${overlapClasses}`, style: colorToken.style }
   }
 
+  const fanStep = 2
   const getTagStyles = (index) => ({
-    marginLeft: index === 0 ? 0 : -12,
-    zIndex: 10 + index
+    marginLeft: index === 0 ? 0 : -16,
+    // First tag should be frontmost; later tags progressively behind
+    zIndex: 100 - index,
+    transform: hovered ? `translateX(${index * fanStep}px)` : 'none',
+    transition: 'transform 120ms ease-out'
   })
 
   const getContainerHeight = () => {
@@ -156,7 +161,14 @@ export default function StackedTags({
                 : 'bg-gray-200 text-gray-600 border-gray-300'
             }
           `}
-          style={{ zIndex: 15, marginLeft: visibleTags.length === 0 ? 0 : -12, lineHeight: '1.25rem' }}
+          style={{ 
+            // Put count chip at the very back of the stack
+            zIndex: 0,
+            marginLeft: visibleTags.length === 0 ? 0 : -14,
+            lineHeight: '1.25rem',
+            transform: hovered ? `translateX(${visibleTags.length * fanStep}px)` : 'none',
+            transition: 'transform 120ms ease-out'
+          }}
           onClick={() => setIsPopupOpen(v => !v)}
         >
           +{hiddenTags.length}
