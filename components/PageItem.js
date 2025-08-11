@@ -160,12 +160,13 @@ const PageItem = ({
             <span className="mr-2 truncate" title={page.title}>
               {page.title}
             </span>
-            {page.tagNames && page.tagNames.length > 0 && (
+            {Array.isArray(page.tagNames) && page.tagNames.length > 0 && (
               <StackedTags 
                 tags={page.tagNames}
-                maxVisible={2}
+                maxVisible={3}
                 className="ml-auto flex-shrink-0"
                 theme={theme}
+                tagColorMap={(tags || []).reduce((acc, t) => { acc[t.name] = t.color; return acc }, {})}
               />
             )}
           </>

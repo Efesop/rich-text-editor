@@ -42,6 +42,7 @@ import { useUpdateManager } from '@/hooks/useUpdateManager'
 import { EditorErrorBoundary, SidebarErrorBoundary } from './ErrorBoundary'
 import { useKeyboardNavigation, useScreenReader, useSkipNavigation } from '@/hooks/useKeyboardNavigation'
 import TagsFilter from './TagsFilter'
+import { getTagChipStyle } from '@/utils/colorUtils'
 // import ModeDropdown from './ModeDropdown'  // Comment out this import
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
@@ -590,15 +591,14 @@ export default function RichTextEditor() {
   }, [deletePage])
 
   const filteredPages = useCallback(() => {
-    if (!Array.isArray(pages)) return []
-    
-    return pages.filter(item => {
+    const safePages = Array.isArray(pages) ? pages : []
+    return safePages.filter(item => {
       if (item.type === 'folder') {
-        const matchingPages = (item.pages || []).filter(pageId => {
-          const page = (pages || []).find(p => p.id === pageId)
+        const matchingPages = (Array.isArray(item.pages) ? item.pages : []).filter(pageId => {
+          const page = (safePages || []).find(p => p.id === pageId)
           return page && matchesSearchCriteria(page, searchTerm, searchFilter) && matchesTagFilter(page, selectedTagsFilter)
         })
-        return matchingPages.length > 0 || item.title.toLowerCase().includes(searchTerm.toLowerCase())
+        return matchingPages.length > 0 || String(item.title || '').toLowerCase().includes(String(searchTerm || '').toLowerCase())
       } else if (!item.folderId) {
         return matchesSearchCriteria(item, searchTerm, searchFilter) && matchesTagFilter(item, selectedTagsFilter)
       }
@@ -607,29 +607,28 @@ export default function RichTextEditor() {
   }, [pages, searchTerm, searchFilter, selectedTagsFilter])
 
   const matchesSearchCriteria = (page, searchTerm, searchFilter) => {
-    const lowercaseSearchTerm = searchTerm.toLowerCase();
+    const lowercaseSearchTerm = String(searchTerm || '').toLowerCase()
     return (
       (searchFilter === 'all' && (
-        page.title.toLowerCase().includes(lowercaseSearchTerm) ||
-        page.content.blocks.some(block => block.data.text && block.data.text.toLowerCase().includes(lowercaseSearchTerm)) ||
+        String(page.title || '').toLowerCase().includes(lowercaseSearchTerm) ||
+        (Array.isArray(page.content?.blocks) ? page.content.blocks : []).some(block => block?.data?.text && String(block.data.text).toLowerCase().includes(lowercaseSearchTerm)) ||
         page.tagNames?.some(tag => tag.toLowerCase().includes(lowercaseSearchTerm))
       )) ||
-      (searchFilter === 'title' && page.title.toLowerCase().includes(lowercaseSearchTerm)) ||
-      (searchFilter === 'content' && page.content.blocks.some(block => block.data.text && block.data.text.toLowerCase().includes(lowercaseSearchTerm))) ||
+      (searchFilter === 'title' && String(page.title || '').toLowerCase().includes(lowercaseSearchTerm)) ||
+      (searchFilter === 'content' && (Array.isArray(page.content?.blocks) ? page.content.blocks : []).some(block => block?.data?.text && String(block.data.text).toLowerCase().includes(lowercaseSearchTerm))) ||
       (searchFilter === 'tags' && page.tagNames?.some(tag => tag.toLowerCase().includes(lowercaseSearchTerm)))
-    );
+    )
   };
 
   const matchesTagFilter = (page, selectedTags) => {
-    if (!selectedTags || selectedTags.length === 0) return true; // No tag filter applied
-    return selectedTags.every(tag => page.tagNames?.includes(tag));
-  };
+    if (!Array.isArray(selectedTags) || selectedTags.length === 0) return true
+    return selectedTags.every(tag => Array.isArray(page.tagNames) && page.tagNames.includes(tag))
+  }
 
   const sortPages = useCallback((pages, option) => {
-    if (!Array.isArray(pages)) return []
-    
-    const folders = pages.filter(item => item.type === 'folder')
-    const nonFolderPages = pages.filter(item => item.type !== 'folder')
+    const list = Array.isArray(pages) ? pages : []
+    const folders = list.filter(item => item.type === 'folder')
+    const nonFolderPages = list.filter(item => item.type !== 'folder')
 
     let sortedPages
     switch (option) {
@@ -782,7 +781,7 @@ export default function RichTextEditor() {
     onDeletePage: handleDeletePage,
     onDuplicatePage: handleDuplicatePage,
     currentPage,
-    pages: (pages || []).filter(page => page.type !== 'folder'), // Use pages directly instead of filteredPages()
+     pages: (Array.isArray(pages) ? pages : []).filter(page => page.type !== 'folder'), // Use pages directly instead of filteredPages()
     onSelectPage: handlePageSelect
   })
 
@@ -990,7 +989,7 @@ export default function RichTextEditor() {
                   onDeleteFolder={handleDeleteFolder}
                   onRenameFolder={renameFolder}
                   theme={theme}
-                  pages={(pages || []).filter(page => page.folderId === item.id)}
+                  pages={(Array.isArray(pages) ? pages : []).filter(page => page.folderId === item.id)}
                   onSelectPage={handlePageSelect}
                   currentPageId={currentPage?.id}
                   onRemovePageFromFolder={handleRemovePageFromFolder}
@@ -1017,7 +1016,7 @@ export default function RichTextEditor() {
                   onDuplicate={handleDuplicatePage}
                   sidebarOpen={sidebarOpen}
                   theme={theme}
-                  tags={tags}
+                   tags={tags}
                   tempUnlockedPages={tempUnlockedPages}
                   isInsideFolder={false}
                 />
@@ -1151,11 +1150,11 @@ export default function RichTextEditor() {
               return (
                 <span
                   key={index}
-                  className="flex items-center px-2 py-1 rounded text-xs text-gray-700"
-                  style={{ backgroundColor: tag.color.background, border: `1px solid ${tag.color.border}` }}
+                  className="inline-flex items-center rounded-lg font-medium border px-2 py-1 text-xs"
+                  style={getTagChipStyle(tag.color, theme)}
                 >
                   <span
-                    className="cursor-pointer text-gray-700"
+                    className="cursor-pointer"
                     onClick={() => {
                       setTagToEdit(tag)
                       setIsTagModalOpen(true)
@@ -1172,7 +1171,7 @@ export default function RichTextEditor() {
                 </span>
               )
             })}
-            <Button
+             <Button
               variant="ghost"
               size="icon"
               className="h-6 w-6"

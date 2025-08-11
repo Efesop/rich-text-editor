@@ -20,7 +20,7 @@ export function AddPageToFolderModal({ isOpen, onClose, onConfirm, pages, curren
 
   if (!isOpen) return null
 
-  const availablePages = pages.filter(page => page.type !== 'folder' && !page.folderId)
+  const availablePages = (Array.isArray(pages) ? pages : []).filter(page => page && page.type !== 'folder' && !page.folderId)
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

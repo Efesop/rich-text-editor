@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { getTagChipStyle, ensureHex } from '@/utils/colorUtils'
 import { X } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
@@ -13,7 +14,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
     if (isOpen) {
       if (tag) {
         setTagName(tag.name)
-        setTagColor(tag.color)
+        setTagColor(ensureHex(tag.color))
       } else {
         setTagName('')
         setTagColor('#3B82F6')
@@ -163,22 +164,28 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
                       <label className={`block text-sm font-medium mb-2 ${theme === 'fallout' ? 'text-green-300 font-mono' : ''}`}>
                         Color
                       </label>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-2 items-center">
                         {colors.map((color) => (
                           <button
                             key={color}
                             type="button"
                             onClick={() => handleColorChange(color)}
-                            className={`w-8 h-8 rounded-full border-2 transition-all ${
+                            className={`w-7 h-7 rounded-full border-2 transition-all ${
                               tagColor === color 
                                 ? 'border-gray-900 scale-110' 
                                 : theme === 'fallout' 
                                   ? 'border-green-600 hover:border-green-400' 
                                   : 'border-gray-300 hover:border-gray-400'
                             } ${theme === 'fallout' ? 'shadow-[0_0_3px_rgba(0,255,0,0.3)]' : ''}`}
-                            style={{ backgroundColor: color }}
+                            style={{ backgroundColor: ensureHex(color) }}
                           />
                         ))}
+                        <span
+                          className="ml-3 inline-flex items-center px-2 py-1 rounded text-xs border"
+                          style={getTagChipStyle(tagColor, theme)}
+                        >
+                          {tagName || 'Example'}
+                        </span>
                       </div>
                     </div>
                   </form>

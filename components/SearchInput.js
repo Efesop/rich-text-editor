@@ -72,14 +72,14 @@ const SearchInput = ({
   }
 
   // If showDropdown is enabled, use the new SearchDropdown component
-  if (showDropdown) {
+   if (showDropdown) {
     return (
       <SearchDropdown
         searchTerm={value}
         onSearchTermChange={onChange}
-        pages={pages}
-        folders={folders}
-        tags={tags}
+         pages={Array.isArray(pages) ? pages : []}
+         folders={Array.isArray(folders) ? folders : []}
+         tags={Array.isArray(tags) ? tags : []}
         onSelectPage={onSelectPage}
         onSelectFolder={onSelectFolder}
         onSelectTag={onSelectTag}

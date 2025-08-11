@@ -172,12 +172,12 @@ export function usePagesManager() {
       let updatedPages = prevPages.filter(p => p.id !== pageToDelete.id)
       
       // Handle folder cleanup
-      if (pageToDelete.folderId) {
+       if (pageToDelete.folderId) {
         updatedPages = updatedPages.map(item => {
           if (item.id === pageToDelete.folderId && item.type === 'folder') {
             return {
               ...item,
-              pages: item.pages.filter(pageId => pageId !== pageToDelete.id)
+               pages: (Array.isArray(item.pages) ? item.pages : []).filter(pageId => pageId !== pageToDelete.id)
             }
           }
           return item
@@ -205,7 +205,7 @@ export function usePagesManager() {
 
     // Handle current page cleanup
     if (currentPageRef.current?.id === pageToDelete.id) {
-      const remainingPages = pagesRef.current.filter(p => p.type !== 'folder')
+       const remainingPages = (Array.isArray(pagesRef.current) ? pagesRef.current : []).filter(p => p.type !== 'folder')
       setCurrentPage(remainingPages[0] || null)
     }
   }, [savePagesToStorage])
@@ -454,7 +454,7 @@ export function usePagesManager() {
     setPages(prevPages => {
       const folderToDelete = prevPages.find(item => item.id === folderId && item.type === 'folder')
       
-      if (folderToDelete) {
+         if (folderToDelete) {
         // Move pages out of folder before deleting
         const updatedPages = prevPages.map(item => {
           if (folderToDelete.pages.includes(item.id)) {
@@ -478,8 +478,9 @@ export function usePagesManager() {
 
     setPages(prevPages => {
       const newPages = prevPages.map(item => {
-        if (item.id === folderId && item.type === 'folder') {
-          const updatedPages = [...new Set([...item.pages, pageId])]
+         if (item.id === folderId && item.type === 'folder') {
+           const existing = Array.isArray(item.pages) ? item.pages : []
+           const updatedPages = [...new Set([...existing, pageId])]
           return { ...item, pages: updatedPages }
         }
         if (item.id === pageId && item.type !== 'folder') {

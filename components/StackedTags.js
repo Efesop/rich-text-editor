@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useTheme } from 'next-themes'
+import { getTagChipStyle, ensureHex } from '@/utils/colorUtils'
 
 export default function StackedTags({ 
   tags = [], 
@@ -8,11 +9,13 @@ export default function StackedTags({
   size = 'sm',
   showRemove = false,
   className = '',
-  theme // Accept theme as prop
+  theme, // Accept theme as prop
+  tagColorMap = {}
 }) {
   const { theme: contextTheme } = useTheme()
   const currentTheme = theme || contextTheme // Use prop theme if provided, otherwise context theme
-  const [isHovered, setIsHovered] = useState(false)
+  const [isPopupOpen, setIsPopupOpen] = useState(false)
+  const popupRef = useRef(null)
 
   if (tags.length === 0) return null
 
@@ -20,11 +23,30 @@ export default function StackedTags({
   const hiddenTags = tags.slice(maxVisible)
   const hasHiddenTags = hiddenTags.length > 0
   
-  // Only enable hover effects if there are multiple tags
-  const shouldFanOut = tags.length > 1
 
-  // Generate colors for tags
+  // Utils
+  // using shared color helpers via colorUtils
+
+  // Close popup when clicking outside
+  useEffect(() => {
+    const handler = (e) => {
+      if (!popupRef.current) return
+      if (!popupRef.current.contains(e.target)) setIsPopupOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  // Resolve color for a tag. Prefer explicit color map; otherwise fall back to theme palette hashing.
   const getTagColor = (tag, index) => {
+    const explicit = tagColorMap && typeof tagColorMap[tag] === 'string' ? ensureHex(tagColorMap[tag]) : null
+    if (explicit) {
+      return {
+        classes: `${currentTheme === 'dark' ? 'text-gray-100' : 'text-gray-800'}`,
+        style: getTagChipStyle(explicit, currentTheme)
+      }
+    }
+
     const colors = [
       // Light mode colors, Dark mode colors, Fallout mode colors
       { 
@@ -72,14 +94,8 @@ export default function StackedTags({
     // Use tag name to generate consistent color
     const colorIndex = tag.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length
     const colorSet = colors[colorIndex]
-    
-    if (currentTheme === 'fallout') {
-      return colorSet.fallout
-    } else if (currentTheme === 'dark') {
-      return colorSet.dark
-    } else {
-      return colorSet.light
-    }
+    const classes = currentTheme === 'fallout' ? colorSet.fallout : currentTheme === 'dark' ? colorSet.dark : colorSet.light
+    return { classes, style: undefined }
   }
 
   const getTagClasses = (tag, index, isHidden = false) => {
@@ -88,94 +104,88 @@ export default function StackedTags({
       border transition-all duration-200 ease-in-out
       ${size === 'xs' ? 'px-1.5 py-0.5 text-xs' : size === 'lg' ? 'px-3 py-1.5 text-sm' : 'px-2 py-1 text-xs'}
     `
-    
-    const colorClasses = getTagColor(tag, index)
 
-    const positionClasses = shouldFanOut && !isHovered && !isHidden && index > 0
-      ? 'absolute left-0'
-      : 'relative'
+    const colorToken = getTagColor(tag, index)
+    const colorClasses = typeof colorToken === 'string' ? colorToken : colorToken.classes
 
-    const hoverClasses = shouldFanOut && isHovered
-      ? 'transform shadow-md'
-      : ''
-
-    return `${baseClasses} ${colorClasses} ${positionClasses} ${hoverClasses}`
+    // Overlap via negative left margin, newest on top
+    const overlapClasses = 'relative'
+    return { classes: `${baseClasses} ${colorClasses} ${overlapClasses}`, style: colorToken.style }
   }
 
-  const getTagStyles = (index, isHidden = false) => {
-    if (!shouldFanOut) return {}
-    
-    if (!isHovered && !isHidden && index > 0) {
-      // Better stacked positioning - smaller offsets
-      return {
-        transform: `translateX(${index * 6}px) translateY(${-index * 1}px)`,
-        zIndex: 10 - index
-      }
-    } else if (isHovered) {
-      // Nicer fanned out positioning
-      return {
-        transform: `translateX(${index * 52}px) translateY(0px)`,
-        zIndex: 20 + index
-      }
-    }
-    return {}
-  }
+  const getTagStyles = (index) => ({
+    marginLeft: index === 0 ? 0 : -12,
+    zIndex: 10 + index
+  })
 
   const getContainerHeight = () => {
     if (tags.length <= 1) return 'h-6'
-    if (shouldFanOut && isHovered) return 'h-8' // More space when fanned out
-    return shouldFanOut ? 'h-7' : 'h-6' // Account for stacked offset only if multiple tags
+    return 'h-7'
   }
 
   return (
     <div 
-      className={`relative flex items-start ${getContainerHeight()} ${className}`}
-      onMouseEnter={() => shouldFanOut && setIsHovered(true)}
-      onMouseLeave={() => shouldFanOut && setIsHovered(false)}
-      style={{ 
-        width: shouldFanOut && isHovered ? `${Math.max(tags.length * 52, 120)}px` : 'auto',
-        minWidth: hasHiddenTags ? '80px' : 'auto'
-      }}
+      className={`relative inline-flex items-center ${getContainerHeight()} ${className}`}
+      style={{ minWidth: hasHiddenTags ? '80px' : 'auto' }}
     >
       {/* Visible tags */}
-      {visibleTags.map((tag, index) => (
-        <span
-          key={`${tag}-${index}`}
-          className={getTagClasses(tag, index)}
-          style={getTagStyles(index)}
-        >
-          {tag}
-        </span>
-      ))}
+      {visibleTags.map((tag, index) => {
+        const token = getTagClasses(tag, index)
+        return (
+          <span
+            key={`${tag}-${index}`}
+            className={token.classes}
+            style={{ ...(token.style || {}), ...getTagStyles(index) }}
+          >
+            {tag}
+          </span>
+        )
+      })}
 
       {/* Hidden tags - show on hover */}
-      {hasHiddenTags && shouldFanOut && isHovered && hiddenTags.map((tag, index) => (
-        <span
-          key={`hidden-${tag}-${index}`}
-          className={getTagClasses(tag, visibleTags.length + index, true)}
-          style={getTagStyles(visibleTags.length + index, true)}
-        >
-          {tag}
-        </span>
-      ))}
-
-      {/* Show count indicator for hidden tags when not hovered - without plus */}
-      {hasHiddenTags && (!shouldFanOut || !isHovered) && (
+      {/* Count indicator and popup for hidden tags */}
+      {hasHiddenTags && (
         <span
           className={`
-            inline-flex items-center justify-center min-w-[20px] h-5 rounded-lg text-xs font-medium
+            inline-flex items-center justify-center rounded-lg text-xs font-medium border h-6 px-2
             ml-1 transition-all duration-200 relative
             ${currentTheme === 'fallout' 
-              ? 'bg-gray-800 text-green-400 border border-green-600'
+              ? 'bg-gray-800 text-green-400 border-green-600'
               : currentTheme === 'dark' 
-                ? 'bg-gray-700 text-gray-300 border border-gray-600' 
-                : 'bg-gray-200 text-gray-600 border border-gray-300'
+                ? 'bg-gray-700 text-gray-300 border-gray-600' 
+                : 'bg-gray-200 text-gray-600 border-gray-300'
             }
           `}
-          style={{ zIndex: 15 }}
+          style={{ zIndex: 15, marginLeft: visibleTags.length === 0 ? 0 : -12, lineHeight: '1.25rem' }}
+          onClick={() => setIsPopupOpen(v => !v)}
         >
-          {hiddenTags.length}
+          +{hiddenTags.length}
         </span>
+      )}
+
+      {isPopupOpen && (
+        <div
+          ref={popupRef}
+          className={`absolute top-full left-0 mt-1 rounded-md border shadow-lg z-50 p-2 ${
+            currentTheme === 'fallout' ? 'bg-gray-900 border-green-600' : currentTheme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+          }`}
+          role="dialog"
+        >
+          <div className="flex flex-wrap gap-1 max-w-xs max-h-40 overflow-auto">
+            {hiddenTags.map((tag, index) => {
+              const token = getTagClasses(tag, visibleTags.length + index, true)
+              return (
+                <span
+                  key={`popup-${tag}-${index}`}
+                  className={token.classes}
+                  style={token.style}
+                >
+                  {tag}
+                </span>
+              )
+            })}
+          </div>
+        </div>
       )}
     </div>
   )

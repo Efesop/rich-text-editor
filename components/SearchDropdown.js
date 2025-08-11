@@ -28,12 +28,18 @@ export default function SearchDropdown({
     const searchLower = searchTerm.toLowerCase()
     const results = []
 
+    // Defensive: coerce inputs to arrays in case persisted data shape differs
+    const safePages = Array.isArray(pages) ? pages : []
+    const safeFolders = Array.isArray(folders) ? folders : []
+    const safeTags = Array.isArray(tags) ? tags : []
+    const safeSuggestions = Array.isArray(suggestions) ? suggestions : []
+
     // Add page suggestions
-    const matchingPages = pages
+    const matchingPages = safePages
       .filter(page => 
-        page.title.toLowerCase().includes(searchLower) ||
-        (page.content?.blocks || []).some(block => 
-          block.data?.text?.toLowerCase().includes(searchLower)
+        String(page.title || '').toLowerCase().includes(searchLower) ||
+        (Array.isArray(page.content?.blocks) ? page.content.blocks : []).some(block => 
+          String(block?.data?.text || '').toLowerCase().includes(searchLower)
         )
       )
       .slice(0, 3)
@@ -46,8 +52,8 @@ export default function SearchDropdown({
       }))
 
     // Add folder suggestions
-    const matchingFolders = folders
-      .filter(folder => folder.title.toLowerCase().includes(searchLower))
+    const matchingFolders = safeFolders
+      .filter(folder => String(folder.title || '').toLowerCase().includes(searchLower))
       .slice(0, 2)
       .map(folder => ({
         type: 'folder',
@@ -58,8 +64,8 @@ export default function SearchDropdown({
       }))
 
     // Add tag suggestions
-    const matchingTags = tags
-      .filter(tag => tag.toLowerCase().includes(searchLower))
+    const matchingTags = safeTags
+      .filter(tag => String(tag || '').toLowerCase().includes(searchLower))
       .slice(0, 3)
       .map(tag => ({
         type: 'tag',
@@ -70,8 +76,8 @@ export default function SearchDropdown({
       }))
 
     // Add word suggestions (from suggestions prop)
-    const wordSuggestions = suggestions
-      .filter(suggestion => suggestion.toLowerCase().includes(searchLower))
+    const wordSuggestions = safeSuggestions
+      .filter(suggestion => String(suggestion || '').toLowerCase().includes(searchLower))
       .slice(0, 2)
       .map(suggestion => ({
         type: 'word',
