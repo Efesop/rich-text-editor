@@ -19,7 +19,6 @@ mac:
   gatekeeperAssess: false
   entitlements: "build/entitlements.mac.plist"
   entitlementsInherit: "build/entitlements.mac.plist"
-  afterSign: "scripts/notarize.js"
 win:
   icon: icons/Dashwin512.ico
 linux:
@@ -28,3 +27,4 @@ publish:
   provider: github
   owner: Efesop
   repo: rich-text-editor
+afterSign: scripts/notarize.js
