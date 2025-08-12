@@ -13,8 +13,8 @@ mac:
   target: 
     - dmg
     - zip
-  # For local builds without signing; override with build:signed script
-  identity: null
+  # Code signing identity for macOS
+  identity: "Filmshape Ltd (9888FL2CQ6)"
   hardenedRuntime: true
   gatekeeperAssess: false
   entitlements: "build/entitlements.mac.plist"
