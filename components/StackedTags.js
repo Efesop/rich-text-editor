@@ -48,55 +48,14 @@ export default function StackedTags({
       }
     }
 
-    const colors = [
-      // Light mode colors, Dark mode colors, Fallout mode colors
-      { 
-        light: 'bg-blue-100 text-blue-800 border-blue-200', 
-        dark: 'bg-blue-900 text-blue-200 border-blue-700',
-        fallout: 'bg-gray-800 text-green-400 border-green-600'
-      },
-      { 
-        light: 'bg-green-100 text-green-800 border-green-200', 
-        dark: 'bg-green-900 text-green-200 border-green-700',
-        fallout: 'bg-gray-800 text-green-300 border-green-600'
-      },
-      { 
-        light: 'bg-purple-100 text-purple-800 border-purple-200', 
-        dark: 'bg-purple-900 text-purple-200 border-purple-700',
-        fallout: 'bg-gray-800 text-green-400 border-green-600'
-      },
-      { 
-        light: 'bg-orange-100 text-orange-800 border-orange-200', 
-        dark: 'bg-orange-900 text-orange-200 border-orange-700',
-        fallout: 'bg-gray-800 text-green-300 border-green-600'
-      },
-      { 
-        light: 'bg-pink-100 text-pink-800 border-pink-200', 
-        dark: 'bg-pink-900 text-pink-200 border-pink-700',
-        fallout: 'bg-gray-800 text-green-400 border-green-600'
-      },
-      { 
-        light: 'bg-indigo-100 text-indigo-800 border-indigo-200', 
-        dark: 'bg-indigo-900 text-indigo-200 border-indigo-700',
-        fallout: 'bg-gray-800 text-green-300 border-green-600'
-      },
-      { 
-        light: 'bg-teal-100 text-teal-800 border-teal-200', 
-        dark: 'bg-teal-900 text-teal-200 border-teal-700',
-        fallout: 'bg-gray-800 text-green-400 border-green-600'
-      },
-      { 
-        light: 'bg-red-100 text-red-800 border-red-200', 
-        dark: 'bg-red-900 text-red-200 border-red-700',
-        fallout: 'bg-gray-800 text-green-300 border-green-600'
-      },
-    ]
-    
-    // Use tag name to generate consistent color
-    const colorIndex = tag.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length
-    const colorSet = colors[colorIndex]
-    const classes = currentTheme === 'fallout' ? colorSet.fallout : currentTheme === 'dark' ? colorSet.dark : colorSet.light
-    return { classes, style: undefined }
+    // Fallback: generate a pleasant deterministic color from the tag name
+    const palette = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EC4899', '#06B6D4', '#84CC16', '#F97316']
+    const colorIndex = tag.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % palette.length
+    const hex = palette[colorIndex]
+    return {
+      classes: '',
+      style: getTagChipStyle(hex, currentTheme)
+    }
   }
 
   const getTagClasses = (tag, index, isHidden = false) => {

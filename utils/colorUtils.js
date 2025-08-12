@@ -34,11 +34,22 @@ export function lightenHex (hex, percent = 78) {
   return `#${toHex(lr)}${toHex(lg)}${toHex(lb)}`
 }
 
+function luminance (hex) {
+  const rgb = hexToRgb(hex)
+  if (!rgb) return 1
+  const srgb = [rgb.r, rgb.g, rgb.b].map(v => {
+    const c = v / 255
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+  })
+  return 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2]
+}
+
 export function getTagChipStyle (hex, theme) {
   const base = normalizeHex(hex) || '#a3a3a3'
   const bg = lightenHex(base, 78)
-  // With these pastels, dark text is almost always fine. Keep simple.
-  const textColor = theme === 'dark' || theme === 'fallout' ? '#e5e7eb' : '#111827'
+  const lum = luminance(bg)
+  // Choose readable text color based on background luminance
+  const textColor = lum > 0.6 ? '#111827' : '#F9FAFB'
   return { backgroundColor: bg, borderColor: base, color: textColor }
 }
 
