@@ -13,12 +13,13 @@ mac:
   target: 
     - dmg
     - zip
-  identity: "Filmshape Ltd (9888FL2CQ6)"
+  # For local builds without signing; override with build:signed script
+  identity: null
   hardenedRuntime: true
   gatekeeperAssess: false
   entitlements: "build/entitlements.mac.plist"
   entitlementsInherit: "build/entitlements.mac.plist"
-afterSign: "scripts/notarize.js"
+  afterSign: "scripts/notarize.js"
 win:
   icon: icons/Dashwin512.ico
 linux:
