@@ -13,8 +13,8 @@ mac:
   target: 
     - dmg
     - zip
-  # Code signing identity for macOS
-  identity: "Filmshape Ltd (9888FL2CQ6)"
+  # Code signing identity for macOS (using specific hash to avoid duplicates)
+  identity: "C053DCBE9C63D1FB93EE1C3C838617EADF61F2AA"
   hardenedRuntime: true
   gatekeeperAssess: false
   entitlements: "build/entitlements.mac.plist"
