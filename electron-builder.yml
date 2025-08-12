@@ -27,4 +27,4 @@ publish:
   provider: github
   owner: Efesop
   repo: rich-text-editor
-afterSign: scripts/notarize.js
+# afterSign: scripts/notarize.js  # Enable later for notarization
