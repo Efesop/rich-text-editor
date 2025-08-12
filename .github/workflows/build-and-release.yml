@@ -73,11 +73,19 @@ jobs:
         run: |
           # Ensure app-builder binaries are executable BEFORE any build
           find node_modules -name "app-builder*" -type f -exec chmod +x {} \; 2>/dev/null || true
+          chmod -R +x node_modules/app-builder-bin 2>/dev/null || true
+          # Remove quarantine attribute which can block execution on macOS runners
+          xattr -dr com.apple.quarantine node_modules/app-builder-bin 2>/dev/null || true
+          xattr -dr com.apple.quarantine node_modules/electron* 2>/dev/null || true
+          xattr -dr com.apple.quarantine node_modules/@electron* 2>/dev/null || true
+          xattr -dr com.apple.quarantine node_modules/7zip-bin* 2>/dev/null || true
 
           npm run build
 
           # Keep chmod here too in case dependencies were altered
           find node_modules -name "app-builder*" -type f -exec chmod +x {} \; 2>/dev/null || true
+          chmod -R +x node_modules/app-builder-bin 2>/dev/null || true
+          xattr -dr com.apple.quarantine node_modules/app-builder-bin 2>/dev/null || true
           npm run dist || {
             echo "Build completed but with some errors - checking if files were uploaded..."
             if [ -f "dist/latest.yml" ] && [ -f "dist/latest-mac.yml" ]; then
