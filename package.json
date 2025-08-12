@@ -1,6 +1,6 @@
 {
   "name": "dash",
-  "version": "1.3.40",
+  "version": "1.3.42",
   "private": true,
   "main": "electron-main.js",
   "description": "Dash – a private, offline-first notes app built with Electron + Next.js + Editor.js.",
