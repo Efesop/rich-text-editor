@@ -10,15 +10,15 @@ files:
   - '.env'
 mac:
   icon: icons/Dashmac1024.icns
-  target: 
+  target:
     - dmg
     - zip
   # Code signing identity for macOS (trying different certificate)
-  identity: "07F0DFD10005F2C88CAFDF1B2C31580C8A61D921"
+  identity: '07F0DFD10005F2C88CAFDF1B2C31580C8A61D921'
   hardenedRuntime: true
   gatekeeperAssess: false
-  entitlements: "build/entitlements.mac.plist"
-  entitlementsInherit: "build/entitlements.mac.plist"
+  entitlements: 'build/entitlements.mac.plist'
+  entitlementsInherit: 'build/entitlements.mac.plist'
 win:
   icon: icons/Dashwin512.ico
 linux:
@@ -27,4 +27,7 @@ publish:
   provider: github
   owner: Efesop
   repo: rich-text-editor
+  releaseType: release
+  draft: false
+  prerelease: false
 # afterSign: scripts/notarize.js  # Enable later for notarization
