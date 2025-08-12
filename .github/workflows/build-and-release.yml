@@ -75,16 +75,24 @@ jobs:
         npm run build
         # Fix app-builder permissions before running dist
         find node_modules -name "app-builder*" -type f -exec chmod +x {} \; 2>/dev/null || true
-        npm run dist || {
-          echo "Build completed but with some errors - checking if files were uploaded..."
-          if [ -f "dist/latest.yml" ] && [ -f "dist/latest-mac.yml" ]; then
-            echo "Release files exist, treating as successful"
-            exit 0
-          else
-            echo "Critical files missing, failing build"
-            exit 1
-          fi
-        }
+        set +e  # Don't exit on error
+        npm run dist
+        BUILD_EXIT_CODE=$?
+        set -e  # Re-enable exit on error
+        
+        echo "Build exit code: $BUILD_EXIT_CODE"
+        
+        # Check if critical files were created regardless of exit code
+        if [ -f "dist/latest.yml" ] && [ -f "dist/latest-mac.yml" ]; then
+          echo "✅ Release files exist - build was successful!"
+          exit 0
+        elif [ $BUILD_EXIT_CODE -eq 0 ]; then
+          echo "✅ Build completed successfully"
+          exit 0
+        else
+          echo "❌ Build failed and no release files found"
+          exit 1
+        fi
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
