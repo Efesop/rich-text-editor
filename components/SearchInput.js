@@ -3,8 +3,22 @@ import { Input } from "./ui/input"
 import { Button } from "./ui/button"
 import { ChevronDown } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import SearchDropdown from './SearchDropdown'
 
-const SearchInput = ({ value, onChange, filter, onFilterChange, placeholder }) => {
+const SearchInput = ({ 
+  value, 
+  onChange, 
+  filter, 
+  onFilterChange, 
+  placeholder,
+  pages = [],
+  folders = [],
+  tags = [],
+  onSelectPage,
+  onSelectFolder,
+  onSelectTag,
+  showDropdown = true
+}) => {
   const [isOpen, setIsOpen] = React.useState(false)
   const dropdownRef = React.useRef(null)
   const { theme } = useTheme()
@@ -29,8 +43,52 @@ const SearchInput = ({ value, onChange, filter, onFilterChange, placeholder }) =
     }
   }, [])
 
-  const borderColor = theme === 'dark' ? 'border-gray-700' : 'border-gray-300'
+  const borderColor = theme === 'fallout' ? 'border-green-600' : theme === 'dark' ? 'border-gray-700' : 'border-gray-300'
 
+  const getDropdownClasses = () => {
+    switch (theme) {
+      case 'fallout':
+        return 'bg-gray-900 border-green-600 text-green-400'
+      case 'dark':
+        return 'bg-gray-800 border-gray-700 text-white'
+      default:
+        return 'bg-white border-gray-200 text-gray-900'
+    }
+  }
+
+  const getDropdownItemClasses = (isActive = false) => {
+    const activeClasses = isActive 
+      ? (theme === 'fallout' ? 'bg-gray-800 text-green-300' : theme === 'dark' ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-900')
+      : ''
+    
+    switch (theme) {
+      case 'fallout':
+        return `block w-full text-left px-4 py-2 text-sm text-green-400 hover:bg-gray-800 hover:text-green-300 ${activeClasses}`
+      case 'dark':
+        return `block w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-700 hover:text-white ${activeClasses}`
+      default:
+        return `block w-full text-left px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 hover:text-gray-900 ${activeClasses}`
+    }
+  }
+
+  // If showDropdown is enabled, use the new SearchDropdown component
+   if (showDropdown) {
+    return (
+      <SearchDropdown
+        searchTerm={value}
+        onSearchTermChange={onChange}
+         pages={Array.isArray(pages) ? pages : []}
+         folders={Array.isArray(folders) ? folders : []}
+         tags={Array.isArray(tags) ? tags : []}
+        onSelectPage={onSelectPage}
+        onSelectFolder={onSelectFolder}
+        onSelectTag={onSelectTag}
+        className="w-full"
+      />
+    )
+  }
+
+  // Fallback to original search input with filter dropdown
   return (
     <div className="relative" ref={dropdownRef}>
       <div className="flex">
@@ -50,14 +108,12 @@ const SearchInput = ({ value, onChange, filter, onFilterChange, placeholder }) =
         </Button>
       </div>
       {isOpen && (
-        <div className="absolute mt-2 w-48 rounded-md shadow-lg bg-white border border-gray-200 z-10">
+        <div className={`absolute mt-2 w-48 rounded-md shadow-lg border z-10 ${getDropdownClasses()}`}>
           <div className="py-1" role="menu" aria-orientation="vertical">
             {filters.map((f) => (
               <button
                 key={f.value}
-                className={`block w-full text-left px-4 py-2 text-sm ${
-                  filter === f.value ? 'bg-gray-100 text-gray-900' : 'text-gray-900'
-                } hover:bg-gray-100 hover:text-gray-900`}
+                className={getDropdownItemClasses(filter === f.value)}
                 role="menuitem"
                 onClick={() => {
                   onFilterChange(f.value)

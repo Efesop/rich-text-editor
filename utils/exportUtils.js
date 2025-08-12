@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell } from 'docx';
 import { create } from 'xmlbuilder2';
 import { stringify } from 'csv-stringify/sync';
+import { encryptJsonWithPassphrase, decryptJsonWithPassphrase } from './cryptoUtils';
 
 export const exportToPDF = (content, title) => {
   const doc = new jsPDF();
@@ -439,3 +440,17 @@ export const downloadFile = (content, fileName, contentType) => {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 };
+
+export const exportEncryptedBundle = async (pages, tags, passphrase) => {
+  const payload = { pages, tags, createdAt: new Date().toISOString() }
+  const encrypted = await encryptJsonWithPassphrase(payload, passphrase)
+  const json = JSON.stringify(encrypted)
+  downloadFile(json, 'dash-notes.dashpack', 'application/json')
+}
+
+export const importEncryptedBundle = async (file, passphrase) => {
+  const text = await file.text()
+  const parsed = JSON.parse(text)
+  const { pages, tags } = await decryptJsonWithPassphrase(parsed, passphrase)
+  return { pages, tags }
+}

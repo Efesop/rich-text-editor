@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { readTags as readTagsFallback, saveTags as saveTagsFallback } from '@/lib/storage'
 
 const useTagStore = create((set, get) => ({
   tags: [],
@@ -30,7 +31,9 @@ const useTagStore = create((set, get) => ({
   },
   loadTags: async () => {
     try {
-      const loadedTags = await window.electron.invoke('read-tags');
+      const loadedTags = (typeof window !== 'undefined' && window.electron?.invoke)
+        ? await window.electron.invoke('read-tags')
+        : await readTagsFallback()
       set({ tags: loadedTags, isLoaded: true });
     } catch (error) {
       console.error('Error loading tags:', error);
@@ -39,8 +42,10 @@ const useTagStore = create((set, get) => ({
   },
   saveTags: async (tags) => {
     try {
-      console.log('Saving tags:', tags); // Add this line
-      await window.electron.invoke('save-tags', tags);
+      const op = (typeof window !== 'undefined' && window.electron?.invoke)
+        ? window.electron.invoke('save-tags', tags)
+        : saveTagsFallback(tags)
+      await op
     } catch (error) {
       console.error('Error saving tags:', error);
     }

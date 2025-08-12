@@ -61,24 +61,52 @@ const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
     return null
   }
 
+  const getDropdownClasses = () => {
+    switch (theme) {
+      case 'fallout':
+        return 'bg-gray-900 border-green-600 text-green-400'
+      case 'dark':
+        return 'bg-gray-800 border-gray-700 text-white'
+      default:
+        return 'bg-white border-gray-200 text-gray-900'
+    }
+  }
+
+  const getDropdownItemClasses = (isActive = false) => {
+    const activeClasses = isActive 
+      ? (theme === 'fallout' ? 'bg-gray-800' : theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100')
+      : ''
+    
+    switch (theme) {
+      case 'fallout':
+        return `text-green-400 hover:bg-gray-800 ${activeClasses}`
+      case 'dark':
+        return `text-gray-300 hover:bg-gray-700 ${activeClasses}`
+      default:
+        return `text-gray-700 hover:bg-gray-100 ${activeClasses}`
+    }
+  }
+
   return (
     <div className="relative">
-      <button
+      <button 
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
-        className={`p-1 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-          theme === 'dark' ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-800 hover:text-white'
-        } ${activeSortOption !== 'default' ? 'bg-blue-500 text-white' : ''}`}
-        title={`Sort pages (${activeSort ? activeSort.label : 'Default'})`}
+        className={`flex items-center px-2 py-1 rounded-md text-xs ${
+          theme === 'fallout' 
+            ? 'bg-gray-800 text-green-400 hover:bg-gray-700' 
+            : theme === 'dark' 
+              ? 'bg-gray-800 text-gray-200 hover:bg-gray-700' 
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+        }`}
       >
-        <ArrowUpDown className="w-4 h-4" />
+        <ArrowUpDown className="w-3 h-3 mr-1" />
+        {activeSort ? activeSort.label : 'Sort'}
       </button>
       {isOpen && (
         <div 
           ref={dropdownRef}
-          className={`absolute z-10 w-32 rounded-md shadow-lg ${
-            theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-          } border ${dropdownPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'}`}
+          className={`absolute right-0 w-32 rounded-md shadow-lg ${getDropdownClasses()} border ${dropdownPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'}`}
         >
           {sortOptions.map((option) => (
             <button
@@ -87,15 +115,11 @@ const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
                 onSort(option.value)
                 setIsOpen(false)
               }}
-              className={`block w-full px-4 py-2 text-sm text-left ${
-                theme === 'dark'
-                  ? 'text-gray-300 hover:bg-gray-700'
-                  : 'text-gray-700 hover:bg-gray-100'
-              } ${activeSortOption === option.value ? (theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100') : ''} focus:outline-none flex justify-between items-center`}
+              className={`block w-full px-4 py-2 text-sm text-left ${getDropdownItemClasses(activeSortOption === option.value)} focus:outline-none flex justify-between items-center`}
             >
               {option.label}
               {activeSortOption === option.value && (
-                <Check className="w-4 h-4 text-blue-500" />
+                <Check className={`w-4 h-4 ${theme === 'fallout' ? 'text-green-400' : 'text-blue-500'}`} />
               )}
             </button>
           ))}

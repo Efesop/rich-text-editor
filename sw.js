@@ -1,9 +1,8 @@
-const CACHE_NAME = 'my-app-cache-v1'
+const CACHE_NAME = 'my-app-cache-v2'
 const urlsToCache = [
   '/',
   '/index.html',
-  '/styles/main.css',
-  '/scripts/main.js'
+  '/styles/globals.css'
   // Add other critical resources
 ]
 

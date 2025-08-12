@@ -1,19 +1,29 @@
-appId: com.yourcompany.yourappname
+appId: com.filmshape.dash
 productName: Dash
 directories:
   output: dist
   buildResources: build
 files:
-  - '!{src,docs,build,README.md}'
   - 'out/**/*'
   - 'electron-main.js'
   - 'preload.js'
-extraResources:
-  - from: 'resources'
-    to: 'resources'
+  - '.env'
 mac:
   icon: icons/Dashmac1024.icns
+  target: 
+    - dmg
+    - zip
+  identity: "Filmshape Ltd (9888FL2CQ6)"
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: "build/entitlements.mac.plist"
+  entitlementsInherit: "build/entitlements.mac.plist"
+afterSign: "scripts/notarize.js"
 win:
   icon: icons/Dashwin512.ico
 linux:
   icon: icons/Dashlin512.png
+publish:
+  provider: github
+  owner: Efesop
+  repo: rich-text-editor

@@ -1,54 +1,90 @@
-import React from 'react';
-import { useTheme } from 'next-themes';
+import React, { useState, useEffect, useRef } from 'react'
+import { useTheme } from 'next-themes'
 
-const PasswordModal = ({ isOpen, onClose, onConfirm, action, password, onPasswordChange, error }) => {
-	const { theme } = useTheme();
+const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordChange, password }) => {
+	const { theme } = useTheme()
+	const inputRef = useRef(null)
 
-	if (!isOpen) return null;
+	useEffect(() => {
+		if (isOpen && inputRef.current) {
+			inputRef.current.focus()
+		}
+	}, [isOpen])
 
 	const getTitle = () => {
-		switch (action) {
-			case 'lock':
-				return 'Set Password'
-			case 'unlock':
-			case 'access':
-				return 'Locked Page'
-			default:
-				return 'Password Required'
-		}
-	};
+		return action === 'lock' ? 'Lock Page' : 'Unlock/Manage Page'
+	}
 
 	const getDescription = () => {
-		switch (action) {
-			case 'lock':
-				return 'Enter a password to lock this page:'
-			case 'unlock':
-			case 'access':
-				return 'This page is locked. Enter the password to proceed:'
-			default:
-				return 'Please enter the password:'
+		if (action === 'lock') {
+			return 'Enter a password to lock this page. You\'ll need it to view or edit the page later.'
+		} else {
+			return 'Enter the password to access this locked page.'
 		}
-	};
+	}
+
+	const getModalClasses = () => {
+		if (theme === 'fallout') {
+			return 'bg-gray-900 border-green-600 text-green-400 shadow-[0_0_20px_rgba(0,255,0,0.3)]'
+		} else if (theme === 'dark') {
+			return 'bg-gray-800 border-gray-700 text-white'
+		} else {
+			return 'bg-white border-gray-200 text-black'
+		}
+	}
+
+	const getInputClasses = () => {
+		if (theme === 'fallout') {
+			return 'bg-gray-800 border-green-600 text-green-400 shadow-[0_0_5px_rgba(0,255,0,0.3)] font-mono'
+		} else if (theme === 'dark') {
+			return 'bg-gray-700 border-gray-600 text-white'
+		} else {
+			return 'bg-white border-gray-300 text-black'
+		}
+	}
 
 	const buttonClass = (type) => {
-		const baseClass = 'px-4 py-2 text-sm rounded '
-		switch (type) {
-			case 'cancel':
-				return baseClass + (theme === 'dark'
-					? 'bg-gray-700 hover:bg-gray-600 text-white'
-					: 'bg-gray-200 hover:bg-gray-300 text-black')
-			case 'primary':
-				return baseClass + (theme === 'dark'
-					? 'bg-blue-600 hover:bg-blue-700 text-white'
-					: 'bg-blue-500 hover:bg-blue-600 text-white')
-			case 'danger':
-				return baseClass + (theme === 'dark'
-					? 'bg-red-900 hover:bg-red-800 text-white border border-red-700'
-					: 'bg-red-100 hover:bg-red-200 text-red-800 border border-red-300')
-			default:
-				return baseClass
+		const baseClasses = 'px-4 py-2 text-sm font-medium rounded transition-all duration-200'
+		
+		if (theme === 'fallout') {
+			switch (type) {
+				case 'primary':
+					return `${baseClasses} bg-green-600 hover:bg-green-700 text-gray-900 shadow-[0_0_5px_rgba(0,255,0,0.4)] font-mono`
+				case 'danger':
+					return `${baseClasses} bg-red-600 hover:bg-red-700 text-white shadow-[0_0_5px_rgba(255,0,0,0.4)] font-mono`
+				default:
+					return `${baseClasses} bg-gray-700 hover:bg-gray-600 text-green-400 border border-green-600 font-mono`
+			}
+		} else if (theme === 'dark') {
+			switch (type) {
+				case 'primary':
+					return `${baseClasses} bg-blue-600 hover:bg-blue-700 text-white`
+				case 'danger':
+					return `${baseClasses} bg-red-600 hover:bg-red-700 text-white`
+				default:
+					return `${baseClasses} bg-gray-600 hover:bg-gray-500 text-white`
+			}
+		} else {
+			switch (type) {
+				case 'primary':
+					return `${baseClasses} bg-blue-500 hover:bg-blue-600 text-white`
+				case 'danger':
+					return `${baseClasses} bg-red-500 hover:bg-red-600 text-white`
+				default:
+					return `${baseClasses} bg-gray-300 hover:bg-gray-400 text-gray-700`
+			}
 		}
-	};
+	}
+
+	const getErrorClasses = () => {
+		if (theme === 'fallout') {
+			return 'text-red-400 font-mono'
+		} else if (theme === 'dark') {
+			return 'text-red-400'
+		} else {
+			return 'text-red-600'
+		}
+	}
 
 	const renderButtons = () => {
 		if (action === 'lock') {
@@ -69,28 +105,27 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, password, onPasswor
 		}
 	}
 
+	if (!isOpen) return null
+
 	return (
 		<div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
-			<div className={`rounded-lg shadow-xl border p-6 w-96 ${
-				theme === 'dark' 
-					? 'bg-gray-800 border-gray-700 text-white' 
-					: 'bg-white border-gray-200 text-black'
-			}`}>
-				<h2 className="mb-4 text-xl font-semibold">{getTitle()}</h2>
-				<p className="mb-4 text-sm">{getDescription()}</p>
+			<div className={`rounded-lg shadow-xl border p-6 w-96 ${getModalClasses()}`}>
+				<h2 className={`mb-4 text-xl font-semibold ${theme === 'fallout' ? 'font-mono text-green-400' : ''}`}>
+					{getTitle()}
+				</h2>
+				<p className={`mb-4 text-sm ${theme === 'fallout' ? 'font-mono text-green-300' : ''}`}>
+					{getDescription()}
+				</p>
 				<input
+					ref={inputRef}
 					type="password"
 					value={password}
 					onChange={(e) => onPasswordChange(e.target.value)}
-					className={`w-full p-2 mb-2 text-sm border rounded ${
-						theme === 'dark' 
-							? 'bg-gray-700 border-gray-600 text-white' 
-							: 'bg-white border-gray-300 text-black'
-					}`}
+					className={`w-full p-2 mb-2 text-sm border rounded ${getInputClasses()}`}
 					placeholder="Enter password"
 				/>
 				{error && (
-					<p className={`text-sm mb-4 ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>
+					<p className={`text-sm mb-4 ${getErrorClasses()}`}>
 						{error}
 					</p>
 				)}
@@ -100,6 +135,6 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, password, onPasswor
 			</div>
 		</div>
 	)
-};
+}
 
-export default PasswordModal;
+export default PasswordModal

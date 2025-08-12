@@ -30,6 +30,26 @@ export function FolderModal({ isOpen, onClose, onConfirm }) {
     setFolderName(e.target.value.slice(0, 20))
   }
 
+  const getModalClasses = () => {
+    if (theme === 'fallout') {
+      return 'bg-gray-900 text-green-400 border border-green-600 shadow-[0_0_20px_rgba(0,255,0,0.3)]'
+    } else if (theme === 'dark') {
+      return 'bg-gray-800 text-white'
+    } else {
+      return 'bg-white text-gray-900'
+    }
+  }
+
+  const getInputClasses = () => {
+    if (theme === 'fallout') {
+      return 'bg-gray-800 text-green-400 border border-green-600 shadow-[0_0_5px_rgba(0,255,0,0.3)] font-mono'
+    } else if (theme === 'dark') {
+      return 'bg-gray-700 text-white'
+    } else {
+      return 'bg-white text-gray-900'
+    }
+  }
+
   if (!isOpen) return null
 
   return (
@@ -38,10 +58,12 @@ export function FolderModal({ isOpen, onClose, onConfirm }) {
       onClick={handleOverlayClick}
     >
       <div 
-        className={`${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} p-6 rounded-lg shadow-xl`}
+        className={`${getModalClasses()} p-6 rounded-lg shadow-xl`}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-xl font-bold mb-4">Add New Folder</h2>
+        <h2 className={`text-xl font-bold mb-4 ${theme === 'fallout' ? 'font-mono text-green-400' : ''}`}>
+          Add New Folder
+        </h2>
         <form onSubmit={handleSubmit}>
           <Input
             ref={inputRef}
@@ -49,7 +71,7 @@ export function FolderModal({ isOpen, onClose, onConfirm }) {
             value={folderName}
             onChange={handleInputChange}
             placeholder="Enter folder name (max 20 chars)"
-            className={`mb-4 ${theme === 'dark' ? 'bg-gray-700 text-white' : 'bg-white text-gray-900'}`}
+            className={`mb-4 ${getInputClasses()}`}
             maxLength={20}
           />
           <div className="flex justify-end space-x-2">
