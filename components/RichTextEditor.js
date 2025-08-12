@@ -583,39 +583,30 @@ export default function RichTextEditor() {
   }, [deletePage])
 
   const filteredPages = useCallback(() => {
-    const safePages = Array.isArray(pages) ? pages : []
-    return safePages.filter(item => {
-      if (item.type === 'folder') {
-        const matchingPages = (Array.isArray(item.pages) ? item.pages : []).filter(pageId => {
-          const page = (safePages || []).find(p => p.id === pageId)
-          return page && matchesSearchCriteria(page, searchTerm, searchFilter) && matchesTagFilter(page, selectedTagsFilter)
-        })
-        return matchingPages.length > 0 || String(item.title || '').toLowerCase().includes(String(searchTerm || '').toLowerCase())
-      } else if (!item.folderId) {
-        return matchesSearchCriteria(item, searchTerm, searchFilter) && matchesTagFilter(item, selectedTagsFilter)
+    return pages.filter(page => {
+      if (page.type === 'folder') {
+        return page.title.toLowerCase().includes(searchTerm.toLowerCase())
       }
-      return false
-    })
-  }, [pages, searchTerm, searchFilter, selectedTagsFilter])
-
-  const matchesSearchCriteria = (page, searchTerm, searchFilter) => {
-    const lowercaseSearchTerm = String(searchTerm || '').toLowerCase()
-    return (
-      (searchFilter === 'all' && (
-        String(page.title || '').toLowerCase().includes(lowercaseSearchTerm) ||
-        (Array.isArray(page.content?.blocks) ? page.content.blocks : []).some(block => block?.data?.text && String(block.data.text).toLowerCase().includes(lowercaseSearchTerm)) ||
-        page.tagNames?.some(tag => tag.toLowerCase().includes(lowercaseSearchTerm))
-      )) ||
-      (searchFilter === 'title' && String(page.title || '').toLowerCase().includes(lowercaseSearchTerm)) ||
-      (searchFilter === 'content' && (Array.isArray(page.content?.blocks) ? page.content.blocks : []).some(block => block?.data?.text && String(block.data.text).toLowerCase().includes(lowercaseSearchTerm))) ||
-      (searchFilter === 'tags' && page.tagNames?.some(tag => tag.toLowerCase().includes(lowercaseSearchTerm)))
-    )
-  };
-
-  const matchesTagFilter = (page, selectedTags) => {
-    if (!Array.isArray(selectedTags) || selectedTags.length === 0) return true
-    return selectedTags.every(tag => Array.isArray(page.tagNames) && page.tagNames.includes(tag))
-  }
+      if (searchTerm === '') return true;
+      
+      const lowercaseSearchTerm = searchTerm.toLowerCase();
+      
+      switch (searchFilter) {
+        case 'all':
+          return page.title.toLowerCase().includes(lowercaseSearchTerm) ||
+                 JSON.stringify(page.content).toLowerCase().includes(lowercaseSearchTerm) ||
+                 (page.tagNames && page.tagNames.some(tag => tag.toLowerCase().includes(lowercaseSearchTerm)));
+        case 'title':
+          return page.title.toLowerCase().includes(lowercaseSearchTerm);
+        case 'content':
+          return JSON.stringify(page.content).toLowerCase().includes(lowercaseSearchTerm);
+        case 'tags':
+          return page.tagNames && page.tagNames.some(tag => tag.toLowerCase().includes(lowercaseSearchTerm));
+        default:
+          return true;
+      }
+    });
+  }, [pages, searchTerm, searchFilter]);
 
   const sortPages = useCallback((pages, option) => {
     const list = Array.isArray(pages) ? pages : []
@@ -970,6 +961,7 @@ export default function RichTextEditor() {
         <ScrollArea className="flex-grow">
           {sortPages(filteredPages(), sortOption).map(item => {
             if (item.type === 'folder') {
+              const folderPagesCount = pages.filter(page => page.folderId === item.id).length;
               return (
                 <FolderItem
                   key={item.id}
@@ -981,7 +973,7 @@ export default function RichTextEditor() {
                   onDeleteFolder={handleDeleteFolder}
                   onRenameFolder={renameFolder}
                   theme={theme}
-                  pages={(Array.isArray(pages) ? pages : []).filter(page => page.folderId === item.id)}
+                  pages={pages}
                   onSelectPage={handlePageSelect}
                   currentPageId={currentPage?.id}
                   onRemovePageFromFolder={handleRemovePageFromFolder}
@@ -991,11 +983,12 @@ export default function RichTextEditor() {
                   onDelete={handleDeletePage}
                   onRename={handleRenamePage}
                   onToggleLock={handleToggleLock}
-                  onDuplicate={handleDuplicatePage}
-                  pagesCount={item.pages ? item.pages.length : 0}
+                  pagesCount={folderPagesCount}
                 />
-              );
-            } else {
+              )
+            }
+            // Only render pages that are not in a folder
+            if (!item.folderId) {
               return (
                 <PageItem
                   key={item.id}
@@ -1010,7 +1003,7 @@ export default function RichTextEditor() {
                   theme={theme}
                    tags={tags}
                   tempUnlockedPages={tempUnlockedPages}
-                  isInsideFolder={false}
+                  isInsideFolder={false}  // Add this line
                 />
               );
             }

@@ -8,16 +8,14 @@
   },
   "scripts": {
     "dev": "electron .",
-    "web": "next dev",
-    "start": "electron .",
-    "build": "next build",
-    "dist": "electron-builder --mac",
-    "release": "electron-builder --mac --publish always",
-    "electron-dev": "concurrently \"next dev\" \"wait-on http://localhost:3000 && ELECTRON_START_URL=http://localhost:3000 electron .\"",
+    "build": "electron-builder build --mac --windows --linux",
+    "start": "next start",
+    "lint": "next lint",
+    "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
     "electron-pack": "npm run build && electron-builder build --win --mac --linux",
     "electron-start": "electron .",
     "electron:build": "electron-builder build --win --mac --linux",
-    "build:win": "electron-builder --win"
+    "dist": "electron-builder --mac --windows --linux"
   },
   "dependencies": {
     "@capacitor/cli": "^6.1.2",
@@ -91,8 +89,8 @@
     "react-hooks/exhaustive-deps": "off"
   },
   "build": {
-    "appId": "com.filmshape.dash",
-    "productName": "Dash",
+    "appId": "com.yourcompany.yourappname",
+    "productName": "Your App Name",
     "files": [
       "out/**/*",
       "electron-main.js",
@@ -103,23 +101,15 @@
       "buildResources": "build"
     },
     "mac": {
-      "category": "public.app-category.productivity",
-      "icon": "icons/Dashmac1024.icns",
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
+      "target": "dmg",
+      "category": "your.app.category.type"
     },
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "Efesop",
-        "repo": "rich-text-editor"
-      }
-    ]
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Efesop/rich-text-editor.git"
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Development"
+    }
   }
 }
