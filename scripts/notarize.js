@@ -1,5 +1,4 @@
 const { notarize } = require('@electron/notarize');
-const { build } = require('../package.json');
 
 exports.default = async function notarizing(context) {
   const { electronPlatformName, appOutDir } = context;
@@ -9,9 +8,13 @@ exports.default = async function notarizing(context) {
 
   const appName = context.packager.appInfo.productFilename;
 
+  // Skip notarization entirely if identity is null (unsigned local builds)
+  const identity = context.packager.platformSpecificBuildOptions.identity;
+  if (!identity) return;
+
   return await notarize({
     tool: 'notarytool',
-    appBundleId: build.appId,
+    appBundleId: context.packager.appInfo.appId,
     appPath: `${appOutDir}/${appName}.app`,
     appleId: process.env.APPLE_ID,
     appleIdPassword: process.env.APPLE_ID_PASSWORD,
