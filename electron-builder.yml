@@ -13,8 +13,6 @@ mac:
   target:
     - dmg
     - zip
-  # Code signing identity for macOS (trying different certificate)
-  identity: '07F0DFD10005F2C88CAFDF1B2C31580C8A61D921'
   hardenedRuntime: true
   gatekeeperAssess: false
   entitlements: 'build/entitlements.mac.plist'
@@ -28,4 +26,4 @@ publish:
   owner: Efesop
   repo: rich-text-editor
   releaseType: release
-# afterSign: scripts/notarize.js  # Enable later for notarization
+afterSign: scripts/notarize.js
