@@ -28,6 +28,4 @@ publish:
   owner: Efesop
   repo: rich-text-editor
   releaseType: release
-  draft: false
-  prerelease: false
 # afterSign: scripts/notarize.js  # Enable later for notarization
