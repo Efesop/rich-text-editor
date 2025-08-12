@@ -23,16 +23,6 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
-    - name: Fix app-builder permissions
-      run: |
-        chmod +x node_modules/.bin/app-builder
-        if [ -f "node_modules/app-builder-bin/mac/app-builder" ]; then
-          chmod +x node_modules/app-builder-bin/mac/app-builder
-        fi
-        if [ -f "node_modules/app-builder-bin/mac/app-builder_arm64" ]; then
-          chmod +x node_modules/app-builder-bin/mac/app-builder_arm64
-        fi
-
     - name: Setup Keychain
       run: |
         security create-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
@@ -83,6 +73,8 @@ jobs:
         DEBUG: electron-builder
       run: |
         npm run build
+        # Fix app-builder permissions before running dist
+        find node_modules -name "app-builder*" -type f -exec chmod +x {} \; 2>/dev/null || true
         npm run dist
 
     - name: Upload artifacts
