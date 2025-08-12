@@ -1,21 +1,25 @@
 {
-  "name": "Dash",
+  "name": "dash",
   "version": "1.3.33",
   "private": true,
   "main": "electron-main.js",
+  "description": "Dash – a private, offline-first notes app built with Electron + Next.js + Editor.js.",
+  "author": "Filmshape Ltd",
   "engines": {
     "node": ">=20.0.0"
   },
   "scripts": {
     "dev": "electron .",
-    "build": "electron-builder build --mac --windows --linux",
+    "build": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder -c electron-builder.yml --mac --windows --linux",
+    "build:signed": "electron-builder -c electron-builder.yml --mac --windows --linux",
     "start": "next start",
     "lint": "next lint",
     "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
     "electron-pack": "npm run build && electron-builder build --win --mac --linux",
     "electron-start": "electron .",
     "electron:build": "electron-builder build --win --mac --linux",
-    "dist": "electron-builder --mac --windows --linux"
+    "dist": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder -c electron-builder.yml --mac --windows --linux",
+    "release": "electron-builder -c electron-builder.yml --mac --windows --linux --publish always"
   },
   "dependencies": {
     "@capacitor/cli": "^6.1.2",
@@ -88,28 +92,5 @@
     "@typescript-eslint/no-unused-vars": "off",
     "react-hooks/exhaustive-deps": "off"
   },
-  "build": {
-    "appId": "com.yourcompany.yourappname",
-    "productName": "Your App Name",
-    "files": [
-      "out/**/*",
-      "electron-main.js",
-      "preload.js"
-    ],
-    "directories": {
-      "output": "dist",
-      "buildResources": "build"
-    },
-    "mac": {
-      "target": "dmg",
-      "category": "your.app.category.type"
-    },
-    "win": {
-      "target": "nsis"
-    },
-    "linux": {
-      "target": "AppImage",
-      "category": "Development"
-    }
-  }
+  
 }
