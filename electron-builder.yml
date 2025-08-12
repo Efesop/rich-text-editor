@@ -13,8 +13,8 @@ mac:
   target: 
     - dmg
     - zip
-  # Code signing identity for macOS (using specific hash to avoid duplicates)
-  identity: "C053DCBE9C63D1FB93EE1C3C838617EADF61F2AA"
+  # Code signing identity for macOS (trying different certificate)
+  identity: "07F0DFD10005F2C88CAFDF1B2C31580C8A61D921"
   hardenedRuntime: true
   gatekeeperAssess: false
   entitlements: "build/entitlements.mac.plist"
