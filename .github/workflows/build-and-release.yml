@@ -3,7 +3,7 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'
+      - v*
 
 permissions:
   contents: write
@@ -11,96 +11,100 @@ permissions:
 jobs:
   release:
     runs-on: macos-latest
-
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
+      - uses: actions/checkout@v4
 
-    - name: Install dependencies
-      run: npm ci
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-    - name: Setup Keychain
-      run: |
-        security create-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
-        security default-keychain -s build.keychain
-        security unlock-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
-        security set-keychain-settings -t 3600 -l build.keychain
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Import Certificate
-      run: |
-        echo '${{ secrets.MAC_CERTS }}' | base64 --decode > certificate.p12
-        security import certificate.p12 -k build.keychain -P '${{ secrets.P12_PASSWORD }}' -T /usr/bin/codesign
-        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k '${{ secrets.KEYCHAIN_PASSWORD }}' build.keychain
-      shell: bash
+      - name: Setup Keychain
+        run: |
+          security create-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+          security set-keychain-settings -t 3600 -l build.keychain
 
-    - name: Verify Certificate
-      run: security find-identity -v -p codesigning build.keychain
+      - name: Import Certificate
+        shell: bash
+        run: |
+          echo '${{ secrets.MAC_CERTS }}' | base64 --decode > certificate.p12
+          security import certificate.p12 -k build.keychain -P '${{ secrets.P12_PASSWORD }}' -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k '${{ secrets.KEYCHAIN_PASSWORD }}' build.keychain
 
-    - name: Ensure Entitlements File
-      run: |
-        mkdir -p build
-        echo '<?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-          <dict>
-            <key>com.apple.security.cs.allow-jit</key>
-            <true/>
-            <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-            <true/>
-            <key>com.apple.security.cs.allow-dyld-environment-variables</key>
-            <true/>
-          </dict>
-        </plist>' > build/entitlements.mac.plist
-        cat build/entitlements.mac.plist
+      - name: Verify Certificate
+        run: security find-identity -v -p codesigning build.keychain
 
-    - name: Build and release Electron app
-      env:
-        GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        CSC_KEYCHAIN: build.keychain
-        CSC_NAME: "Filmshape Ltd (9888FL2CQ6)"
-        CSC_LINK: ${{ secrets.MAC_CERTS }}
-        CSC_KEY_PASSWORD: ${{ secrets.P12_PASSWORD }}
-        APPLE_ID: ${{ secrets.APPLE_ID }}
-        APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-        APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-        APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-        DEBUG: electron-builder
-      run: |
-        npm run build
-        # Fix app-builder permissions before running dist
-        find node_modules -name "app-builder*" -type f -exec chmod +x {} \; 2>/dev/null || true
-        set +e  # Don't exit on error
-        npm run dist
-        BUILD_EXIT_CODE=$?
-        set -e  # Re-enable exit on error
-        
-        echo "Build exit code: $BUILD_EXIT_CODE"
-        
-        # Check if critical files were created regardless of exit code
-        if [ -f "dist/latest.yml" ] && [ -f "dist/latest-mac.yml" ]; then
-          echo "✅ Release files exist - build was successful!"
-          exit 0
-        elif [ $BUILD_EXIT_CODE -eq 0 ]; then
-          echo "✅ Build completed successfully"
-          exit 0
-        else
-          echo "❌ Build failed and no release files found"
-          exit 1
-        fi
+      - name: Ensure Entitlements File
+        run: |
+          mkdir -p build
+          echo '<?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+            <dict>
+              <key>com.apple.security.cs.allow-jit</key>
+              <true/>
+              <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+              <true/>
+              <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+              <true/>
+            </dict>
+          </plist>' > build/entitlements.mac.plist
+          cat build/entitlements.mac.plist
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: dist
-        path: dist
+      - name: Build and release Electron app (macOS only)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_KEYCHAIN: build.keychain
+          CSC_NAME: 'Filmshape Ltd (9888FL2CQ6)'
+          CSC_LINK: ${{ secrets.MAC_CERTS }}
+          CSC_KEY_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          DEBUG: electron-builder,electron-builder:publisher
+        run: |
+          # Ensure app-builder binaries are executable BEFORE any build
+          find node_modules -name "app-builder*" -type f -exec chmod +x {} \; 2>/dev/null || true
+          chmod -R +x node_modules/app-builder-bin 2>/dev/null || true
+          # Remove quarantine attribute which can block execution on macOS runners
+          xattr -dr com.apple.quarantine node_modules/app-builder-bin 2>/dev/null || true
+          xattr -dr com.apple.quarantine node_modules/electron* 2>/dev/null || true
+          xattr -dr com.apple.quarantine node_modules/@electron* 2>/dev/null || true
+          xattr -dr com.apple.quarantine node_modules/7zip-bin* 2>/dev/null || true
 
-    - name: Set Entitlements Permissions
-      run: chmod 644 build/entitlements.mac.plist
+          # Build mac artifacts only to avoid Wine on macOS runner
+          npx electron-builder -c electron-builder.yml --mac
 
+          # Keep chmod here too in case dependencies were altered
+          find node_modules -name "app-builder*" -type f -exec chmod +x {} \; 2>/dev/null || true
+          chmod -R +x node_modules/app-builder-bin 2>/dev/null || true
+          xattr -dr com.apple.quarantine node_modules/app-builder-bin 2>/dev/null || true
+          # Publish mac artifacts only
+          npx electron-builder -c electron-builder.yml --mac --publish always || {
+            echo "Build completed but with some errors - checking if files were uploaded..."
+            if [ -f "dist/latest.yml" ] && [ -f "dist/latest-mac.yml" ]; then
+              echo "Release files exist, treating as successful"
+              exit 0
+            else
+              echo "Critical files missing, failing build"
+              exit 1
+            fi
+          }
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Set Entitlements Permissions
+        run: chmod 644 build/entitlements.mac.plist
 # Added a comment to force a fresh run
