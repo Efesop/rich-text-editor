@@ -81,7 +81,7 @@ jobs:
           xattr -dr com.apple.quarantine node_modules/7zip-bin* 2>/dev/null || true
 
           # Build mac artifacts only to avoid Wine on macOS runner
-          npx electron-builder -c electron-builder.yml --mac
+          npm run build
 
           # Keep chmod here too in case dependencies were altered
           find node_modules -name "app-builder*" -type f -exec chmod +x {} \; 2>/dev/null || true
