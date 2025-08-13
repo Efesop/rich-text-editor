@@ -1,6 +1,6 @@
 {
   "name": "dash",
-  "version": "1.3.36",
+  "version": "1.3.37",
   "private": true,
   "main": "electron-main.js",
   "description": "Dash – a private, offline-first notes app built with Electron + Next.js + Editor.js.",
@@ -9,17 +9,17 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "dev": "electron .",
-    "build": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder -c electron-builder.yml --mac --windows --linux",
-    "build:signed": "electron-builder -c electron-builder.yml --mac --windows --linux",
+    "dev": "next dev",
+    "build": "next build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder -c electron-builder.yml --mac --windows --linux",
+    "build:signed": "next build && electron-builder -c electron-builder.yml --mac --windows --linux",
     "start": "next start",
     "lint": "next lint",
     "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
     "electron-pack": "npm run build && electron-builder build --win --mac --linux",
     "electron-start": "electron .",
-    "electron:build": "electron-builder build --win --mac --linux",
-    "dist": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder -c electron-builder.yml --mac --windows --linux",
-    "release": "electron-builder -c electron-builder.yml --mac --windows --linux --publish always"
+    "electron:build": "next build && electron-builder build --win --mac --linux",
+    "dist": "next build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder -c electron-builder.yml --mac --windows --linux",
+    "release": "next build && electron-builder -c electron-builder.yml --mac --windows --linux --publish always"
   },
   "dependencies": {
     "@capacitor/cli": "^6.1.2",
