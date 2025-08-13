@@ -87,8 +87,8 @@ jobs:
           find node_modules -name "app-builder*" -type f -exec chmod +x {} \; 2>/dev/null || true
           chmod -R +x node_modules/app-builder-bin 2>/dev/null || true
           xattr -dr com.apple.quarantine node_modules/app-builder-bin 2>/dev/null || true
-          # Publish mac artifacts only
-          npx electron-builder -c electron-builder.yml --mac --publish always || {
+          # Publish mac artifacts only using npm script (ensures Next build + same config)
+          npm run release:mac || {
             echo "Build completed but with some errors - checking if files were uploaded..."
             if [ -f "dist/latest.yml" ] && [ -f "dist/latest-mac.yml" ]; then
               echo "Release files exist, treating as successful"
