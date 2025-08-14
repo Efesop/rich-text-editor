@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { getTagChipStyle, ensureHex } from '@/utils/colorUtils'
-import { X } from 'lucide-react'
+import { X, Plus, ArrowLeft } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
 export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, existingTags }) {
   const [tagName, setTagName] = useState('')
   const [tagColor, setTagColor] = useState('#3B82F6')
   const [isDeleting, setIsDeleting] = useState(false)
+  const [showCreateNew, setShowCreateNew] = useState(false)
   const { theme } = useTheme()
   const inputRef = useRef(null)
 
@@ -15,9 +16,11 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
       if (tag) {
         setTagName(tag.name)
         setTagColor(ensureHex(tag.color))
+        setShowCreateNew(true)
       } else {
         setTagName('')
         setTagColor('#3B82F6')
+        setShowCreateNew(false)
       }
       setIsDeleting(false)
     }
@@ -92,7 +95,13 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
       })
       setTagName('')
       setTagColor('#3B82F6')
+      setShowCreateNew(false)
     }
+  }
+
+  const handleExistingTagSelect = (existingTag) => {
+    onConfirm(existingTag)
+    onClose()
   }
 
   const handleDelete = () => {
@@ -120,10 +129,10 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50">
-      <div className="relative w-full max-w-md p-6 mx-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-4">
+      <div className="relative w-full max-w-lg mx-auto">
         <div className={`relative transform overflow-hidden rounded-lg shadow-xl transition-all ${getModalClasses()}`}>
-          <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
+          <div className="absolute right-0 top-0 pr-6 pt-6">
             <button
               type="button"
               className={`rounded-md bg-transparent text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${theme === 'dark' ? 'hover:text-gray-300' : 'hover:text-gray-500'} ${theme === 'fallout' ? 'text-green-400 hover:text-green-300 focus:ring-green-500 font-mono' : ''}`}
@@ -133,15 +142,67 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
               <X className="h-6 w-6" aria-hidden="true" />
             </button>
           </div>
-          <div className="px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
-            <div className="sm:flex sm:items-start">
-              <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
-                <h3 className={`text-lg font-medium leading-6 ${theme === 'fallout' ? 'text-green-400 font-mono' : ''}`}>
-                  {tag ? 'Edit Tag' : 'Create New Tag'}
-                </h3>
-                <div className="mt-4">
-                  <form onSubmit={handleSubmit}>
-                    <div className="mb-4">
+          <div className="px-6 pb-4 pt-6">
+            <div className="w-full">
+              <div className="w-full">
+                <div className="flex items-center mb-4">
+                  {!tag && showCreateNew && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateNew(false)}
+                      className={`mr-3 p-1 rounded-md transition-colors ${theme === 'fallout' ? 'hover:bg-gray-800 text-green-400' : theme === 'dark' ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </button>
+                  )}
+                  <h3 className={`text-lg font-semibold ${theme === 'fallout' ? 'text-green-400 font-mono' : ''}`}>
+                    {tag ? 'Edit Tag' : showCreateNew ? 'Create New Tag' : 'Add Tag to Page'}
+                  </h3>
+                </div>
+                <div className="space-y-4">
+                  {!tag && !showCreateNew && existingTags && existingTags.length > 0 && (
+                    <div>
+                      <label className={`block text-sm font-medium mb-3 ${theme === 'fallout' ? 'text-green-300 font-mono' : ''}`}>
+                        Select an existing tag
+                      </label>
+                      <div className="flex flex-wrap gap-2 mb-6 max-h-48 overflow-y-auto">
+                        {existingTags.map((existingTag) => (
+                          <button
+                            key={existingTag.id}
+                            type="button"
+                            onClick={() => handleExistingTagSelect(existingTag)}
+                            className="inline-flex items-center rounded-md font-medium border px-2 py-1 text-xs transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                            style={getTagChipStyle(existingTag.color, theme)}
+                          >
+                            {existingTag.name}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className={`w-full border-t ${theme === 'fallout' ? 'border-green-600' : theme === 'dark' ? 'border-gray-600' : 'border-gray-300'}`} />
+                        </div>
+                        <div className="relative flex justify-center text-xs">
+                          <span className={`px-3 ${theme === 'fallout' ? 'bg-gray-900 text-green-300 font-mono' : theme === 'dark' ? 'bg-gray-800 text-gray-400' : 'bg-white text-gray-600'}`}>
+                            or create a new one
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex justify-center mt-4">
+                        <button
+                          type="button"
+                          onClick={() => setShowCreateNew(true)}
+                          className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ${getButtonClasses('primary')}`}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Create New Tag
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {(tag || showCreateNew) && (
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
                       <label className={`block text-sm font-medium mb-2 ${theme === 'fallout' ? 'text-green-300 font-mono' : ''}`}>
                         Tag Name
                       </label>
@@ -150,7 +211,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
                         type="text"
                         value={tagName}
                         onChange={(e) => setTagName(e.target.value)}
-                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 ${getInputClasses()}`}
+                        className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 ${getInputClasses()}`}
                         placeholder="Enter tag name"
                         maxLength={20}
                       />
@@ -160,55 +221,93 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
                         </p>
                       )}
                     </div>
-                    <div className="mb-6">
-                      <label className={`block text-sm font-medium mb-2 ${theme === 'fallout' ? 'text-green-300 font-mono' : ''}`}>
-                        Color
+                    <div>
+                      <label className={`block text-sm font-medium mb-3 ${theme === 'fallout' ? 'text-green-300 font-mono' : ''}`}>
+                        Choose Color
                       </label>
-                      <div className="flex flex-wrap gap-2 items-center">
-                        {colors.map((color) => (
-                          <button
-                            key={color}
-                            type="button"
-                            onClick={() => handleColorChange(color)}
-                            className={`w-7 h-7 rounded-full border-2 transition-all ${
-                              tagColor === color 
-                                ? 'border-gray-900 scale-110' 
-                                : theme === 'fallout' 
-                                  ? 'border-green-600 hover:border-green-400' 
-                                  : 'border-gray-300 hover:border-gray-400'
-                            } ${theme === 'fallout' ? 'shadow-[0_0_3px_rgba(0,255,0,0.3)]' : ''}`}
-                            style={{ backgroundColor: ensureHex(color) }}
-                          />
-                        ))}
-                        <span
-                          className="ml-3 inline-flex items-center px-2 py-1 rounded text-xs border"
-                          style={getTagChipStyle(tagColor, theme)}
-                        >
-                          {tagName || 'Example'}
-                        </span>
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap gap-3">
+                          {colors.map((color) => {
+                            const tagStyle = getTagChipStyle(color, theme)
+                            const isSelected = tagColor === color
+                            return (
+                              <button
+                                key={color}
+                                type="button"
+                                onClick={() => handleColorChange(color)}
+                                className={`w-8 h-8 rounded-full transition-all ${
+                                  isSelected 
+                                    ? 'scale-110' 
+                                    : 'hover:scale-105'
+                                }`}
+                                style={{ 
+                                  backgroundColor: tagStyle.backgroundColor,
+                                  ...(isSelected && {
+                                    boxShadow: `0 0 0 2px ${tagStyle.borderColor}, 0 0 0 4px rgba(0,0,0,0.1)`
+                                  })
+                                }}
+                              />
+                            )
+                          })}
+                        </div>
+                        <div className="flex items-center">
+                          <span className={`text-xs mr-2 ${theme === 'fallout' ? 'text-green-300 font-mono' : theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                            Preview:
+                          </span>
+                          <span
+                            className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border"
+                            style={getTagChipStyle(tagColor, theme)}
+                          >
+                            {tagName || 'Example Tag'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </form>
+                  )}
+                  {!tag && !showCreateNew && (!existingTags || existingTags.length === 0) && (
+                    <div className="text-center py-8">
+                      <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 ${theme === 'fallout' ? 'bg-gray-800 border border-green-600' : theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                        <Plus className={`h-8 w-8 ${theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`} />
+                      </div>
+                      <h4 className={`text-base font-medium mb-2 ${theme === 'fallout' ? 'text-green-400 font-mono' : theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                        No tags yet
+                      </h4>
+                      <p className={`text-sm mb-6 ${theme === 'fallout' ? 'text-green-300 font-mono' : theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Create your first tag to start organizing your pages.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setShowCreateNew(true)}
+                        className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ${getButtonClasses('primary')}`}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Your First Tag
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           </div>
-          <div className={`px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 ${theme === 'fallout' ? 'border-t border-green-600' : theme === 'dark' ? 'bg-gray-750' : 'bg-gray-50'}`}>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!tagName.trim() || isNameTaken}
-              className={`w-full justify-center sm:ml-3 sm:w-auto ${getButtonClasses('primary')} ${
-                (!tagName.trim() || isNameTaken) ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              {tag ? 'Update Tag' : 'Create Tag'}
-            </button>
+          <div className={`px-6 py-4 flex flex-col sm:flex-row-reverse gap-2 ${theme === 'fallout' ? 'border-t border-green-600' : theme === 'dark' ? 'bg-gray-750' : 'bg-gray-50'}`}>
+            {(tag || showCreateNew) && (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!tagName.trim() || isNameTaken}
+                className={`px-4 py-2 text-sm font-medium rounded-md ${getButtonClasses('primary')} ${
+                  (!tagName.trim() || isNameTaken) ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                {tag ? 'Update Tag' : 'Create Tag'}
+              </button>
+            )}
             {tag && (
               <button
                 type="button"
                 onClick={handleDelete}
-                className={`mt-3 w-full justify-center sm:mt-0 sm:ml-3 sm:w-auto ${getButtonClasses('delete')}`}
+                className={`px-4 py-2 text-sm font-medium rounded-md ${getButtonClasses('delete')}`}
               >
                 {isDeleting ? 'Confirm Delete' : 'Delete Tag'}
               </button>
@@ -216,7 +315,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
             <button
               type="button"
               onClick={onClose}
-              className={`mt-3 w-full justify-center sm:mt-0 sm:w-auto ${getButtonClasses('cancel')}`}
+              className={`px-4 py-2 text-sm font-medium rounded-md ${getButtonClasses('cancel')}`}
             >
               Cancel
             </button>

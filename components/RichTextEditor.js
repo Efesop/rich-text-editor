@@ -37,6 +37,7 @@ import { AddPageToFolderModal } from './AddPageToFolderModal'
 import { FolderItem } from './FolderItem'
 import { FolderIcon } from 'lucide-react'
 import UpdateNotification from './UpdateNotification'
+import EncryptionStatusIndicator from './EncryptionStatusIndicator'
 import packageJson from '../package.json'
 import { useUpdateManager } from '@/hooks/useUpdateManager'
 import { EditorErrorBoundary, SidebarErrorBoundary } from './ErrorBoundary'
@@ -587,6 +588,16 @@ export default function RichTextEditor() {
       if (page.type === 'folder') {
         return page.title.toLowerCase().includes(searchTerm.toLowerCase())
       }
+      
+      // Apply tag filter first
+      if (selectedTagsFilter.length > 0) {
+        const pageHasSelectedTag = selectedTagsFilter.some(selectedTag => 
+          page.tagNames && page.tagNames.includes(selectedTag)
+        )
+        if (!pageHasSelectedTag) return false
+      }
+      
+      // Apply search filter
       if (searchTerm === '') return true;
       
       const lowercaseSearchTerm = searchTerm.toLowerCase();
@@ -606,7 +617,7 @@ export default function RichTextEditor() {
           return true;
       }
     });
-  }, [pages, searchTerm, searchFilter]);
+  }, [pages, searchTerm, searchFilter, selectedTagsFilter]);
 
   const sortPages = useCallback((pages, option) => {
     const list = Array.isArray(pages) ? pages : []
@@ -1135,7 +1146,7 @@ export default function RichTextEditor() {
               return (
                 <span
                   key={index}
-                  className="inline-flex items-center rounded-lg font-medium border px-2 py-1 text-xs"
+                  className="inline-flex items-center rounded-md font-medium border px-2 py-1 text-xs"
                   style={getTagChipStyle(tag.color, theme)}
                 >
                   <span
@@ -1151,7 +1162,16 @@ export default function RichTextEditor() {
                     className="ml-1 focus:outline-none"
                     onClick={() => handleRemoveTag(tag.name)}
                   >
-                    <X className="h-3 w-3 text-gray-700" />
+                    <X 
+                      className="h-3 w-3 transition-opacity hover:opacity-75" 
+                      style={{ 
+                        color: theme === 'dark' 
+                          ? getTagChipStyle(tag.color, theme).color 
+                          : theme === 'light' 
+                            ? '#6b7280' 
+                            : getTagChipStyle(tag.color, theme).color 
+                      }} 
+                    />
                   </button>
                 </span>
               )
@@ -1186,9 +1206,12 @@ export default function RichTextEditor() {
 
         {/* Footer */}
         <div className={`footer-fixed flex justify-between items-center p-3 text-sm ${getFooterClasses()} safe-area-bottom`}>
-          {currentPage.createdAt && (
-            <span>Created {format(new Date(currentPage.createdAt), 'MMM d, yyyy')}</span>
-          )}
+          <div className="flex items-center space-x-4">
+            {currentPage.createdAt && (
+              <span>Created {format(new Date(currentPage.createdAt), 'MMM d, yyyy')}</span>
+            )}
+            <EncryptionStatusIndicator />
+          </div>
           <div className="flex items-center space-x-4">
             <span>{wordCount} words</span>
             <span>

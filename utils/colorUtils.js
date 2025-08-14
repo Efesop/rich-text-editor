@@ -44,13 +44,38 @@ function luminance (hex) {
   return 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2]
 }
 
+function darkenHex (hex, percent = 20) {
+  const rgb = hexToRgb(hex)
+  if (!rgb) return hex
+  const p = Math.max(0, Math.min(100, percent)) / 100
+  const dr = rgb.r * (1 - p)
+  const dg = rgb.g * (1 - p)
+  const db = rgb.b * (1 - p)
+  return `#${toHex(dr)}${toHex(dg)}${toHex(db)}`
+}
+
 export function getTagChipStyle (hex, theme) {
   const base = normalizeHex(hex) || '#a3a3a3'
-  const bg = lightenHex(base, 78)
-  const lum = luminance(bg)
-  // Choose readable text color based on background luminance
-  const textColor = lum > 0.6 ? '#111827' : '#F9FAFB'
-  return { backgroundColor: bg, borderColor: base, color: textColor }
+  
+  if (theme === 'fallout') {
+    // Fallout theme - keep existing green-tinted styling for consistency
+    const bg = lightenHex(base, 78)
+    const lum = luminance(bg)
+    const textColor = lum > 0.6 ? '#111827' : '#F9FAFB'
+    return { backgroundColor: bg, borderColor: base, color: textColor }
+  } else if (theme === 'dark') {
+    // Dark theme - dark background with bright text (like encryption indicator)
+    const darkBg = darkenHex(base, 60) // Dark background
+    const brightText = lightenHex(base, 40) // Bright vibrant text
+    const subtleBorder = lightenHex(base, 10) // More subtle border
+    return { backgroundColor: darkBg, borderColor: subtleBorder, color: brightText }
+  } else {
+    // Light theme - light background with vibrant text/border (like encryption indicator)
+    const lightBg = lightenHex(base, 85) // Very light background  
+    const vibrantText = darkenHex(base, 20) // Vibrant dark text
+    const vibrantBorder = darkenHex(base, 10) // Vibrant border
+    return { backgroundColor: lightBg, borderColor: vibrantBorder, color: vibrantText }
+  }
 }
 
 export function ensureHex (hex, fallback = '#a3a3a3') {

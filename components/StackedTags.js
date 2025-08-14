@@ -60,9 +60,9 @@ export default function StackedTags({
 
   const getTagClasses = (tag, index, isHidden = false) => {
     const baseClasses = `
-      inline-flex items-center rounded-lg font-medium
+      inline-flex items-center rounded-md font-medium
       border transition-all duration-150 ease-out
-      ${size === 'xs' ? 'px-1.5 py-0.5 text-xs' : size === 'lg' ? 'px-3 py-1.5 text-sm' : 'px-2 py-1 text-xs'}
+      ${size === 'xs' ? 'px-1 py-0.5 text-xs' : size === 'lg' ? 'px-3 py-1.5 text-sm' : 'px-1.5 py-0.5 text-xs'}
     `
 
     const colorToken = getTagColor(tag, index)
@@ -73,9 +73,9 @@ export default function StackedTags({
     return { classes: `${baseClasses} ${colorClasses} ${overlapClasses}`, style: colorToken.style }
   }
 
-  const fanStep = 2
+  const fanStep = 1
   const getTagStyles = (index) => ({
-    marginLeft: index === 0 ? 0 : -16,
+    marginLeft: index === 0 ? 0 : -20,
     // First tag should be frontmost; later tags progressively behind
     zIndex: 100 - index,
     transform: hovered ? `translateX(${index * fanStep}px)` : 'none',
@@ -83,8 +83,8 @@ export default function StackedTags({
   })
 
   const getContainerHeight = () => {
-    if (tags.length <= 1) return 'h-6'
-    return 'h-7'
+    if (tags.length <= 1) return 'h-5'
+    return 'h-6'
   }
 
   return (
@@ -111,7 +111,7 @@ export default function StackedTags({
       {hasHiddenTags && (
         <span
           className={`
-            inline-flex items-center justify-center rounded-lg text-xs font-medium border h-6 px-2
+            inline-flex items-center justify-center rounded-md text-xs font-medium border h-5 px-1.5
             ml-1 transition-all duration-200 relative
             ${currentTheme === 'fallout' 
               ? 'bg-gray-800 text-green-400 border-green-600'
@@ -123,7 +123,7 @@ export default function StackedTags({
           style={{ 
             // Put count chip at the very back of the stack
             zIndex: 0,
-            marginLeft: visibleTags.length === 0 ? 0 : -14,
+            marginLeft: visibleTags.length === 0 ? 0 : -6,
             lineHeight: '1.25rem',
             transform: hovered ? `translateX(${visibleTags.length * fanStep}px)` : 'none',
             transition: 'transform 120ms ease-out'

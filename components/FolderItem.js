@@ -200,7 +200,9 @@ export function FolderItem({
       </div>
       {isExpanded && (
         <div className="ml-6 border-l border-gray-300 dark:border-gray-600">
-          {(pages || []).map((page) => (
+          {(pages || [])
+            .filter(page => page.folderId === folder.id)
+            .map((page) => (
             <PageItem
               key={page.id}
               page={page}

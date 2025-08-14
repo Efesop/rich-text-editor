@@ -163,7 +163,7 @@ const PageItem = ({
             {Array.isArray(page.tagNames) && page.tagNames.length > 0 && (
               <StackedTags 
                 tags={page.tagNames}
-                maxVisible={3}
+                maxVisible={2}
                 className="ml-auto flex-shrink-0"
                 theme={theme}
                 tagColorMap={(tags || []).reduce((acc, t) => { acc[t.name] = t.color; return acc }, {})}

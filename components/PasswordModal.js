@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useTheme } from 'next-themes'
+import PasswordStrengthMeter from './PasswordStrengthMeter'
 
 const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordChange, password }) => {
 	const { theme } = useTheme()
@@ -124,6 +125,9 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
 					className={`w-full p-2 mb-2 text-sm border rounded ${getInputClasses()}`}
 					placeholder="Enter password"
 				/>
+				{action === 'lock' && (
+					<PasswordStrengthMeter password={password} />
+				)}
 				{error && (
 					<p className={`text-sm mb-4 ${getErrorClasses()}`}>
 						{error}

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useTheme } from 'next-themes'
 import { ChevronDown, ChevronRight, Tag, X } from 'lucide-react'
 import { Button } from './ui/button'
+import { getTagChipStyle } from '@/utils/colorUtils'
 
 export default function TagsFilter({ 
   tags = [], 
@@ -22,40 +23,30 @@ export default function TagsFilter({
     onTagToggle?.(tag)
   }
 
-  // Generate colors for tags - same as StackedTags
-  const getTagColor = (tag, index) => {
-    const colors = [
-      // Light mode colors, Dark mode colors
-      { light: 'bg-blue-100 text-blue-800 border-blue-200', dark: 'bg-blue-900 text-blue-200 border-blue-700' },
-      { light: 'bg-green-100 text-green-800 border-green-200', dark: 'bg-green-900 text-green-200 border-green-700' },
-      { light: 'bg-purple-100 text-purple-800 border-purple-200', dark: 'bg-purple-900 text-purple-200 border-purple-700' },
-      { light: 'bg-orange-100 text-orange-800 border-orange-200', dark: 'bg-orange-900 text-orange-200 border-orange-700' },
-      { light: 'bg-pink-100 text-pink-800 border-pink-200', dark: 'bg-pink-900 text-pink-200 border-pink-700' },
-      { light: 'bg-indigo-100 text-indigo-800 border-indigo-200', dark: 'bg-indigo-900 text-indigo-200 border-indigo-700' },
-      { light: 'bg-teal-100 text-teal-800 border-teal-200', dark: 'bg-teal-900 text-teal-200 border-teal-700' },
-      { light: 'bg-red-100 text-red-800 border-red-200', dark: 'bg-red-900 text-red-200 border-red-700' },
-    ]
-    
-    // Use tag name to generate consistent color
-    const colorIndex = tag.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length
-    const colorSet = colors[colorIndex]
-    
-    return theme === 'dark' ? colorSet.dark : colorSet.light
+  // Generate colors for tags - consistent with StackedTags
+  const getTagColor = (tag) => {
+    const palette = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EC4899', '#06B6D4', '#84CC16', '#F97316']
+    const colorIndex = tag.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % palette.length
+    return palette[colorIndex]
   }
 
   const getTagClasses = (tag) => {
     const isSelected = selectedTags.includes(tag)
-    const baseColorClasses = getTagColor(tag)
     
     return `
-      inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium
+      inline-flex items-center px-2 py-1 rounded-md text-xs font-medium
       border cursor-pointer transition-all duration-150 ease-in-out
       hover:scale-105 active:scale-95
       ${isSelected 
-        ? `${baseColorClasses} opacity-75 ring-2 ${theme === 'dark' ? 'ring-white/20' : 'ring-black/10'}`
-        : baseColorClasses
+        ? `opacity-75 ring-2 ${theme === 'dark' ? 'ring-white/20' : 'ring-black/10'}`
+        : ''
       }
     `
+  }
+
+  const getTagStyle = (tag) => {
+    const color = getTagColor(tag)
+    return getTagChipStyle(color, theme)
   }
 
   return (
@@ -129,6 +120,7 @@ export default function TagsFilter({
                     key={tag}
                     onClick={() => handleTagClick(tag)}
                     className={getTagClasses(tag)}
+                    style={getTagStyle(tag)}
                   >
                     {tag}
                     <X className="ml-1 h-3 w-3" />
@@ -146,6 +138,7 @@ export default function TagsFilter({
                   key={tag}
                   onClick={() => handleTagClick(tag)}
                   className={getTagClasses(tag)}
+                  style={getTagStyle(tag)}
                   title={`${selectedTags.includes(tag) ? 'Remove' : 'Add'} ${tag} filter`}
                 >
                   {tag}
