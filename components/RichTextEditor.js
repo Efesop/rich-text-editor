@@ -12,6 +12,7 @@ import { useTheme } from 'next-themes'
 import { RenameModal } from '@/components/RenameModal'
 import ExportDropdown from '@/components/ExportDropdown'
 import { InstallOnMobileModal } from '@/components/InstallOnMobileModal'
+import { MobileInstallGuide } from '@/components/MobileInstallGuide'
 import { 
   exportToPDF, 
   exportToMarkdown, 
@@ -1314,6 +1315,8 @@ export default function RichTextEditor() {
         onClose={() => setIsInstallModalOpen(false)}
         pwaUrl={process.env.NEXT_PUBLIC_PWA_URL || (typeof window !== 'undefined' ? window.location.origin : '')}
       />
+
+      <MobileInstallGuide />
 
       <PassphraseModal
         isOpen={isPassphraseOpen}
