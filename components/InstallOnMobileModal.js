@@ -8,20 +8,36 @@ export function InstallOnMobileModal ({ isOpen, onClose, pwaUrl }) {
   if (!isOpen) return null
 
   // Always use GitHub Pages URL for QR code (works from Electron and web)
-  const url = pwaUrl || 'https://efesop.github.io/rich-text-editor'
+  const url = pwaUrl || 'https://efesop.github.io/rich-text-editor/'
   const [qr, setQr] = useState('')
 
   useEffect(() => {
     let mounted = true
     const gen = async () => {
       try {
-        const dataUrl = await QRCode.toDataURL(url, { margin: 1, scale: 4 })
-        if (mounted) setQr(dataUrl)
+        console.log('Generating QR code for URL:', url)
+        const dataUrl = await QRCode.toDataURL(url, { 
+          margin: 1, 
+          scale: 4,
+          errorCorrectionLevel: 'M',
+          type: 'image/png',
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          }
+        })
+        if (mounted) {
+          setQr(dataUrl)
+          console.log('QR code generated successfully')
+        }
       } catch (e) {
-        // ignore
+        console.error('QR code generation failed:', e)
       }
     }
-    gen()
+    
+    if (url) {
+      gen()
+    }
     return () => { mounted = false }
   }, [url])
 

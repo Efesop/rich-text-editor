@@ -1313,7 +1313,7 @@ export default function RichTextEditor() {
       <InstallOnMobileModal
         isOpen={isInstallModalOpen}
         onClose={() => setIsInstallModalOpen(false)}
-        pwaUrl={process.env.NEXT_PUBLIC_PWA_URL || (typeof window !== 'undefined' ? window.location.origin : '')}
+        pwaUrl="https://efesop.github.io/rich-text-editor/"
       />
 
       <MobileInstallGuide />
