@@ -21,7 +21,9 @@
     "electron-start": "electron .",
     "electron:build": "next build && electron-builder build --win --mac --linux",
     "dist": "next build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder -c electron-builder.yml --mac --windows --linux",
-    "release": "next build && electron-builder -c electron-builder.yml --mac --windows --linux --publish always"
+    "release": "next build && electron-builder -c electron-builder.yml --mac --windows --linux --publish always",
+    "build:pwa": "DEPLOY_TARGET=github next build",
+    "export": "next export"
   },
   "dependencies": {
     "@capacitor/cli": "^6.1.2",

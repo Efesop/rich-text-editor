@@ -1,0 +1,27 @@
+{
+  "name": "Dash Notes - Privacy-First Notes",
+  "short_name": "Dash",
+  "description": "Secure, offline-first note-taking. No data collection, no tracking, complete privacy.",
+  "start_url": "/rich-text-editor/",
+  "scope": "/rich-text-editor/",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#111827",
+  "orientation": "portrait-primary",
+  "icons": [
+    { 
+      "src": "/rich-text-editor/icons/icon-192.png", 
+      "sizes": "192x192", 
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "features": [
+    "Offline-first",
+    "End-to-end encryption",
+    "No data collection",
+    "No account required",
+    "No internet required"
+  ]
+}

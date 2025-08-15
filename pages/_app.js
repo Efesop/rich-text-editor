@@ -12,7 +12,8 @@ function MyApp({ Component, pageProps }) {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       const register = async () => {
         try {
-          await navigator.serviceWorker.register('/sw.js')
+          const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
+          await navigator.serviceWorker.register(`${basePath}/sw.js`)
         } catch (err) {
           console.error('SW registration failed', err)
         }

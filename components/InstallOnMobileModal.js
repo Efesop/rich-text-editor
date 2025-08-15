@@ -5,7 +5,10 @@ import QRCode from 'qrcode'
 export function InstallOnMobileModal ({ isOpen, onClose, pwaUrl }) {
   if (!isOpen) return null
 
-  const url = pwaUrl || (typeof window !== 'undefined' ? window.location.origin : '')
+  // PWA URL - GitHub Pages for privacy (no tracking, just static files)
+  const url = pwaUrl || (typeof window !== 'undefined' && !window.location.origin.startsWith('file://') 
+    ? window.location.origin 
+    : 'https://efesop.github.io/rich-text-editor') // GitHub Pages URL
   const [qr, setQr] = useState('')
 
   useEffect(() => {
