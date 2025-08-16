@@ -51,41 +51,4 @@ export async function decryptJsonWithPassphrase (payload, passphrase) {
   return json
 }
 
-// Additional crypto functions for local sync
-export async function generateKey() {
-  return crypto.subtle.generateKey(
-    { name: 'AES-GCM', length: 256 },
-    true,
-    ['encrypt', 'decrypt']
-  )
-}
-
-export async function encrypt(data, key) {
-  const iv = crypto.getRandomValues(new Uint8Array(12))
-  const encodedData = textEncoder.encode(JSON.stringify(data))
-  const encrypted = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    encodedData
-  )
-  
-  return {
-    iv: Array.from(iv),
-    data: Array.from(new Uint8Array(encrypted))
-  }
-}
-
-export async function decrypt(encryptedData, key) {
-  const iv = new Uint8Array(encryptedData.iv)
-  const data = new Uint8Array(encryptedData.data)
-  
-  const decrypted = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    data
-  )
-  
-  return JSON.parse(textDecoder.decode(new Uint8Array(decrypted)))
-}
-
 

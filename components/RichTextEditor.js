@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, Upload, X, ChevronDown, Lock, FolderPlus, RefreshCw, Bell, Bug, Smartphone, QrCode, Menu, Wifi } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, Upload, X, ChevronDown, Lock, FolderPlus, RefreshCw, Bell, Bug, Smartphone, QrCode, Menu } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
@@ -13,7 +13,6 @@ import { RenameModal } from '@/components/RenameModal'
 import ExportDropdown from '@/components/ExportDropdown'
 import { InstallOnMobileModal } from '@/components/InstallOnMobileModal'
 import { MobileInstallGuide } from '@/components/MobileInstallGuide'
-import { LocalSyncModal } from '@/components/LocalSyncModal'
 import { 
   exportToPDF, 
   exportToMarkdown, 
@@ -106,8 +105,6 @@ export default function RichTextEditor() {
     dismissError
   } = useUpdateManager()
 
-  const { addTag } = useTagStore()
-
   const { theme } = useTheme()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isSmallScreen, setIsSmallScreen] = useState(false)
@@ -147,7 +144,6 @@ export default function RichTextEditor() {
   const fileInputRef = useRef(null)
   const [isPassphraseOpen, setIsPassphraseOpen] = useState(false)
   const [pendingAction, setPendingAction] = useState(null) // 'export' | 'import'
-  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false)
 
   // Theme helper functions
   const getMainContainerClasses = () => {
@@ -482,48 +478,6 @@ export default function RichTextEditor() {
   const handleImportBundleClick = useCallback(() => {
     fileInputRef.current?.click()
   }, [])
-
-  const handleSyncComplete = useCallback(async (syncData) => {
-    try {
-      setIsImporting(true)
-      
-      if (syncData.pages && Array.isArray(syncData.pages)) {
-        // Merge received pages with existing ones
-        setPages(prevPages => {
-          const existingIds = new Set(prevPages.map(p => p.id))
-          const newPages = syncData.pages.filter(p => !existingIds.has(p.id))
-          const updatedPages = syncData.pages.filter(p => existingIds.has(p.id))
-          
-          // Update existing pages if received version is newer
-          const mergedPages = prevPages.map(existingPage => {
-            const receivedPage = updatedPages.find(p => p.id === existingPage.id)
-            if (receivedPage && receivedPage.lastModified > existingPage.lastModified) {
-              return receivedPage
-            }
-            return existingPage
-          })
-          
-          return [...mergedPages, ...newPages]
-        })
-      }
-      
-      if (syncData.tags && Array.isArray(syncData.tags)) {
-        // Merge received tags
-        const existingTagNames = new Set(tags.map(t => t.name))
-        syncData.tags.forEach(tag => {
-          if (!existingTagNames.has(tag.name)) {
-            addTag(tag)
-          }
-        })
-      }
-      
-      console.log('Sync completed successfully')
-    } catch (error) {
-      console.error('Failed to apply sync data:', error)
-    } finally {
-      setIsImporting(false)
-    }
-  }, [tags, addTag, setPages])
 
   const handleImportBundle = useCallback(async (e) => {
     const file = e.target.files?.[0]
@@ -1138,9 +1092,6 @@ export default function RichTextEditor() {
                       <DropdownMenuItem onClick={() => setIsInstallModalOpen(true)}>
                         Use on your phone
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setIsSyncModalOpen(true)}>
-                        Sync with nearby devices
-                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={handleImportBundleClick}>
                         Import encrypted bundle
                       </DropdownMenuItem>
@@ -1158,13 +1109,6 @@ export default function RichTextEditor() {
                     title="Use on your phone"
                   >
                     <Smartphone className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => setIsSyncModalOpen(true)}
-                    className={`p-2 rounded-md ${getButtonHoverClasses()}`}
-                    title="Sync with nearby devices"
-                  >
-                    <Wifi className="h-4 w-4" />
                   </button>
                   <button
                     onClick={handleImportBundleClick}
@@ -1373,12 +1317,6 @@ export default function RichTextEditor() {
       />
 
       <MobileInstallGuide />
-
-      <LocalSyncModal
-        isOpen={isSyncModalOpen}
-        onClose={() => setIsSyncModalOpen(false)}
-        onSyncComplete={handleSyncComplete}
-      />
 
       <PassphraseModal
         isOpen={isPassphraseOpen}
