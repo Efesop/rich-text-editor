@@ -106,6 +106,8 @@ export default function RichTextEditor() {
     dismissError
   } = useUpdateManager()
 
+  const { addTag } = useTagStore()
+
   const { theme } = useTheme()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isSmallScreen, setIsSmallScreen] = useState(false)
