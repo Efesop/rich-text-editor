@@ -81,9 +81,53 @@ self.addEventListener('fetch', event => {
   )
 })
 
-// Message event - allow cache updates
+// Message event - handle cache updates and user data
 self.addEventListener('message', event => {
   if (event.data.action === 'skipWaiting') {
     self.skipWaiting()
+  } else if (event.data.type === 'CACHE_USER_DATA') {
+    // Cache user data for extra persistence
+    cacheUserData(event.data.key, event.data.data, event.data.timestamp)
   }
 })
+
+// Cache user data in service worker for extra persistence
+async function cacheUserData(key, data, timestamp) {
+  try {
+    const cache = await caches.open(CACHE_NAME + '-userdata')
+    const dataUrl = `/userdata/${key}`
+    
+    // Create a response with the user data
+    const response = new Response(JSON.stringify({
+      data: data,
+      timestamp: timestamp,
+      version: 1
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache'
+      }
+    })
+    
+    await cache.put(dataUrl, response)
+    console.log('User data cached in service worker:', key)
+  } catch (e) {
+    console.error('Failed to cache user data in service worker:', e)
+  }
+}
+
+// Function to retrieve cached user data
+async function getCachedUserData(key) {
+  try {
+    const cache = await caches.open(CACHE_NAME + '-userdata')
+    const response = await cache.match(`/userdata/${key}`)
+    
+    if (response) {
+      const data = await response.json()
+      return data
+    }
+  } catch (e) {
+    console.error('Failed to retrieve cached user data:', e)
+  }
+  return null
+}

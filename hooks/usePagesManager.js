@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { hashPassword, verifyPassword } from '@/utils/passwordUtils'
 import { sanitizeEditorContent, validatePageStructure } from '@/utils/securityUtils'
 import useTagStore from '../store/tagStore'
-import { readPages, savePages as savePagesToFallback } from '@/lib/storage'
+import { readPages, savePages as savePagesToFallback } from '@/lib/persistentStorage'
 
 export function usePagesManager() {
   const [pages, setPages] = useState([])

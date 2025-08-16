@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { readTags as readTagsFallback, saveTags as saveTagsFallback } from '@/lib/storage'
+import { readTags as readTagsFallback, saveTags as saveTagsFallback } from '@/lib/persistentStorage'
 
 const useTagStore = create((set, get) => ({
   tags: [],
