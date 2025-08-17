@@ -433,10 +433,6 @@ ipcMain.handle('check-for-updates', async () => {
   return await updateManager.checkForUpdates(true)
 })
 
-ipcMain.handle('get-app-version', () => {
-  return app.getVersion()
-})
-
 ipcMain.handle('download-update', async () => {
   return await updateManager.downloadUpdate()
 })
