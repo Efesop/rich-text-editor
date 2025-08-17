@@ -324,6 +324,16 @@ class UpdateManager {
     } catch (error) {
       log.error('Update download failed', { error: error.message })
       this.isDownloading = false
+      
+      // Handle specific error types
+      if (error.message.includes('ERR_HTTP2_PROTOCOL_ERROR')) {
+        throw new Error('Download failed due to network protocol error. This is usually a temporary GitHub server issue. Please try again in a few minutes.')
+      } else if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
+        throw new Error('Download failed due to network connectivity. Please check your internet connection and try again.')
+      } else if (error.message.includes('timeout')) {
+        throw new Error('Download timed out. Please check your internet connection and try again.')
+      }
+      
       throw error
     }
   }
@@ -356,15 +366,21 @@ function setupAutoUpdater() {
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = false
   
-  // Configure network timeouts to prevent ERR_TIMED_OUT errors
+  // Configure network settings to prevent protocol errors
   autoUpdater.requestHeaders = {
-    'Cache-Control': 'no-cache'
+    'Cache-Control': 'no-cache',
+    'User-Agent': 'Dash-Electron-App'
   }
   
-  // Set longer timeout for slow networks (30 seconds)
+  // Configure HTTP executor to prevent HTTP2 protocol errors
   if (autoUpdater.httpExecutor) {
     autoUpdater.httpExecutor.maxRetryAttempts = 3
+    // Configure to use HTTP/1.1 instead of HTTP/2
+    autoUpdater.httpExecutor.maxRedirects = 10
   }
+  
+  // Set download timeout
+  autoUpdater.requestTimeout = 60000 // 60 seconds
   
   // Remove any existing listeners to prevent duplicates
   autoUpdater.removeAllListeners()

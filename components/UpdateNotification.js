@@ -151,6 +151,30 @@ export default function UpdateNotification({
             </Button>
           )}
 
+          {/* Show error if download failed */}
+          {error && error.message && error.message.includes('Download failed') && (
+            <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-600/30 rounded text-sm">
+              <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="font-medium">Download Failed</span>
+              </div>
+              <p className="text-red-700 dark:text-red-300 mt-1">
+                {error.message.replace('Download failed: ', '')}
+              </p>
+              {error.canRetry && onDownload && (
+                <Button 
+                  onClick={onDownload} 
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 w-full border-red-300 text-red-600 hover:bg-red-50 dark:border-red-600 dark:text-red-400 dark:hover:bg-red-900/30"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Try Download Again
+                </Button>
+              )}
+            </div>
+          )}
+
           {isDownloaded && onInstall && (
             <Button 
               onClick={onInstall} 
