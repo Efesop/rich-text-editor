@@ -1145,7 +1145,7 @@ export default function RichTextEditor() {
                     onClick={handleBellClick}
                     disabled={!canCheckForUpdates}
                     className={`p-2 rounded-md ${getButtonHoverClasses()} ${!canCheckForUpdates ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    title={isCheckingForUpdates ? 'Checking for updates...' : 'Check for updates'}
+                    title="Check for updates"
                   >
                     <Bell className={`h-4 w-4 ${isCheckingForUpdates ? 'animate-pulse' : ''}`} />
                   </button>

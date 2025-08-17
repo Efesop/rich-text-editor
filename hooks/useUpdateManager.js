@@ -23,6 +23,8 @@ export function useUpdateManager() {
     // Set up event listeners
     const handleUpdateAvailable = (info) => {
       if (!isMountedRef.current) return;
+      console.log('Update available received:', info);
+      setIsCheckingForUpdates(false); // CRITICAL: Stop the checking state
       setUpdateInfo(info);
       setShowUpdateNotification(true);
       setError(null);
@@ -30,9 +32,11 @@ export function useUpdateManager() {
 
     const handleUpdateNotAvailable = (info) => {
       if (!isMountedRef.current) return;
+      console.log('No update available:', info);
+      setIsCheckingForUpdates(false); // CRITICAL: Stop the checking state
       setUpdateInfo(info);
       setError(null);
-      // Don't show notification for "no update available"
+      // Don't show notification for "no update available" - silent background operation
     };
 
     const handleUpdateError = (errorInfo) => {
@@ -46,6 +50,7 @@ export function useUpdateManager() {
       if (!isMountedRef.current) return;
       setIsCheckingForUpdates(true);
       setError(null);
+      // Don't show "checking" notification to users - this should be silent background work
     };
 
     const handleDownloadProgress = (progress) => {
@@ -116,6 +121,7 @@ export function useUpdateManager() {
       }
       
       if (result.error && !result.isDevelopment) {
+        console.log('Update check error:', result);
         setError({
           message: result.error,
           offline: result.offline || false,
@@ -129,9 +135,13 @@ export function useUpdateManager() {
           setShowUpdateNotification(true);
         }
       } else {
+        console.log('Update check result:', result);
         setUpdateInfo(result);
         if (result.available) {
+          console.log('Update available! Showing notification');
           setShowUpdateNotification(true);
+        } else {
+          console.log('No update available, staying silent');
         }
       }
       

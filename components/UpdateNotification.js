@@ -64,16 +64,10 @@ export default function UpdateNotification({
       );
     }
 
-    // Checking state
+    // Don't show "checking" state to users - it's unnecessary noise
+    // Updates should check silently in background, only notify when actionable
     if (isChecking) {
-      return (
-        <div className="flex items-center space-x-3">
-          <RefreshCw className="h-5 w-5 animate-spin text-blue-500" />
-          <span className="font-medium text-blue-600 dark:text-blue-400">
-            Checking for updates...
-          </span>
-        </div>
-      );
+      return null; // Silent background checking
     }
 
     // Installing state

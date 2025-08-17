@@ -457,13 +457,13 @@ function setupAutoUpdater() {
     updateManager.checkForUpdates(false)
   }, 3000) // Wait 3 seconds after app start
 
-  // Periodic checks every 30 seconds (for testing - change back to 30 * 60 * 1000 for production)
+  // Periodic checks every 2 hours - reasonable for production (was 30 seconds for testing)
   setInterval(() => {
     if (!updateManager.isCheckingForUpdates && !updateManager.isDownloading) {
-      log.info('Periodic update check')
-      updateManager.checkForUpdates(false)
+      log.info('Periodic background update check')
+      updateManager.checkForUpdates(false) // Silent background check
     }
-  }, 30 * 1000)
+  }, 2 * 60 * 60 * 1000) // 2 hours
 }
 
 // IPC Handlers
