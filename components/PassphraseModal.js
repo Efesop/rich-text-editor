@@ -86,7 +86,7 @@ export function PassphraseModal ({
             onClick={onClose}
             className={theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20 font-mono' : ''}
           >
-            Cancel
+            Cancel Encryption
           </Button>
           <Button 
             size='sm' 
