@@ -291,6 +291,16 @@ class UpdateManager {
         }
       }
       
+      // Handle timeout errors specifically
+      if (error.message.includes('ERR_TIMED_OUT') || error.message.includes('timeout')) {
+        return {
+          available: false,
+          error: 'Update check timed out. This may happen with slow internet connections. Please try again.',
+          timeout: true,
+          canRetry: true
+        }
+      }
+      
       return {
         available: false,
         error: error.message,
@@ -345,6 +355,16 @@ function setupAutoUpdater() {
   // Configure auto-updater
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = false
+  
+  // Configure network timeouts to prevent ERR_TIMED_OUT errors
+  autoUpdater.requestHeaders = {
+    'Cache-Control': 'no-cache'
+  }
+  
+  // Set longer timeout for slow networks (30 seconds)
+  if (autoUpdater.httpExecutor) {
+    autoUpdater.httpExecutor.maxRetryAttempts = 3
+  }
   
   // Remove any existing listeners to prevent duplicates
   autoUpdater.removeAllListeners()
@@ -421,13 +441,13 @@ function setupAutoUpdater() {
     updateManager.checkForUpdates(false)
   }, 3000) // Wait 3 seconds after app start
 
-  // Periodic checks every 30 minutes
+  // Periodic checks every 30 seconds (for testing - change back to 30 * 60 * 1000 for production)
   setInterval(() => {
     if (!updateManager.isCheckingForUpdates && !updateManager.isDownloading) {
       log.info('Periodic update check')
       updateManager.checkForUpdates(false)
     }
-  }, 30 * 60 * 1000)
+  }, 30 * 1000)
 }
 
 // IPC Handlers

@@ -164,15 +164,33 @@ export function UpdateDebugger({ isOpen, onClose }) {
           <div className="space-y-4">
             {debugInfo.error ? (
               <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-red-900/20 border border-red-600/30' : theme === 'dark' ? 'bg-red-900/20' : 'bg-red-50'}`}>
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-500" />
-                  <span className={`font-semibold ${theme === 'dark' ? 'text-red-400' : 'text-red-700'}`}>
-                    Debug Error
-                  </span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-red-500" />
+                    <span className={`font-semibold ${theme === 'dark' ? 'text-red-400' : 'text-red-700'}`}>
+                      {debugInfo.error.includes('timeout') || debugInfo.error.includes('ERR_TIMED_OUT') ? 'Network Timeout' : 'Debug Error'}
+                    </span>
+                  </div>
+                  {(debugInfo.error.includes('timeout') || debugInfo.error.includes('ERR_TIMED_OUT') || debugInfo.error.includes('Try again')) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={forceUpdateCheck}
+                      disabled={checking}
+                      className={`text-xs ${theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : theme === 'dark' ? 'text-blue-400 hover:bg-blue-600/20' : 'text-blue-600 hover:bg-blue-100'}`}
+                    >
+                      Try Again
+                    </Button>
+                  )}
                 </div>
-                <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-red-300' : 'text-red-600'}`}>
+                <p className={`text-sm mt-2 ${theme === 'dark' ? 'text-red-300' : 'text-red-600'}`}>
                   {debugInfo.error}
                 </p>
+                {(debugInfo.error.includes('timeout') || debugInfo.error.includes('ERR_TIMED_OUT')) && (
+                  <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-red-400' : 'text-red-500'}`}>
+                    💡 This usually happens with slow internet connections or GitHub server issues.
+                  </p>
+                )}
               </div>
             ) : (
               <>
