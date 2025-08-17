@@ -442,6 +442,7 @@ export const downloadFile = (content, fileName, contentType) => {
 };
 
 export const exportEncryptedBundle = async (pages, tags, passphrase) => {
+  // Note: 'pages' parameter now includes both pages AND folders for complete export
   const payload = { pages, tags, createdAt: new Date().toISOString() }
   const encrypted = await encryptJsonWithPassphrase(payload, passphrase)
   const json = JSON.stringify(encrypted)

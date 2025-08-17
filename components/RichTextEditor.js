@@ -498,19 +498,21 @@ export default function RichTextEditor() {
     try {
       if (pendingAction === 'export') {
         const { exportEncryptedBundle } = await import('@/utils/exportUtils')
-        const allPages = (pages || []).filter(p => p.type !== 'folder')
-        await exportEncryptedBundle(allPages, tags, passphrase)
+        // Export ALL items including folders to preserve folder structure
+        const allItems = pages || []
+        await exportEncryptedBundle(allItems, tags, passphrase)
         return
       }
       if (pendingAction && pendingAction.type === 'import') {
         const file = pendingAction.file
         setIsImporting(true)
         const { importEncryptedBundle } = await import('@/utils/exportUtils')
-        const { pages: importedPages, tags: importedTags } = await importEncryptedBundle(file, passphrase)
+        const { pages: importedItems, tags: importedTags } = await importEncryptedBundle(file, passphrase)
       // Merge: simplest newest-wins by createdAt if ids match else append
+      // This handles both pages AND folders since they're stored together
       setPages(prev => {
-        const map = new Map(prev.map(p => [p.id, p]))
-        importedPages.forEach(p => { map.set(p.id, p) })
+        const map = new Map(prev.map(item => [item.id, item]))
+        importedItems.forEach(item => { map.set(item.id, item) })
         return Array.from(map.values())
       })
       // Tags: union by name
