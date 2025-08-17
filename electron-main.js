@@ -359,6 +359,7 @@ function setupAutoUpdater() {
 
   autoUpdater.on('update-available', (info) => {
     log.info('Update available:', info)
+    updateManager.isCheckingForUpdates = false // IMPORTANT: Stop the checking state
     updateManager.updateInfo = {
       available: true,
       currentVersion: app.getVersion(),
@@ -374,6 +375,7 @@ function setupAutoUpdater() {
 
   autoUpdater.on('update-not-available', (info) => {
     log.info('Update not available:', info)
+    updateManager.isCheckingForUpdates = false // IMPORTANT: Stop the checking state
     updateManager.updateInfo = {
       available: false,
       currentVersion: app.getVersion(),

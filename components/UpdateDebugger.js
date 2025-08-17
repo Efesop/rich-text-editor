@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useTheme } from 'next-themes'
-import { RefreshCw, Bell, Download, AlertTriangle, CheckCircle, Info } from 'lucide-react'
+import { RefreshCw, Bell, Download, AlertTriangle, CheckCircle, Info, X } from 'lucide-react'
 import { Button } from './ui/button'
 
 export function UpdateDebugger({ isOpen, onClose }) {
@@ -81,21 +81,21 @@ export function UpdateDebugger({ isOpen, onClose }) {
     if (theme === 'fallout') {
       return {
         overlay: 'fixed inset-0 z-50 bg-black/80 backdrop-blur-sm',
-        modal: 'fixed inset-x-4 top-1/2 transform -translate-y-1/2 max-w-2xl mx-auto rounded-xl border-2 border-green-600 bg-gray-900 p-6 shadow-2xl shadow-green-600/20 max-h-[80vh] overflow-y-auto',
+        modal: 'fixed inset-x-4 top-1/2 transform -translate-y-1/2 max-w-4xl mx-auto rounded-xl border-2 border-green-600 bg-gray-900 p-0 shadow-2xl shadow-green-600/20 max-h-[90vh] overflow-hidden',
         text: 'text-green-400',
         subtext: 'text-green-300'
       }
     } else if (theme === 'dark') {
       return {
         overlay: 'fixed inset-0 z-50 bg-black/60 backdrop-blur-sm',
-        modal: 'fixed inset-x-4 top-1/2 transform -translate-y-1/2 max-w-2xl mx-auto rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-2xl max-h-[80vh] overflow-y-auto',
+        modal: 'fixed inset-x-4 top-1/2 transform -translate-y-1/2 max-w-4xl mx-auto rounded-xl border border-gray-700 bg-gray-900 p-0 shadow-2xl max-h-[90vh] overflow-hidden',
         text: 'text-gray-100',
         subtext: 'text-gray-300'
       }
     } else {
       return {
         overlay: 'fixed inset-0 z-50 bg-black/30 backdrop-blur-sm',
-        modal: 'fixed inset-x-4 top-1/2 transform -translate-y-1/2 max-w-2xl mx-auto rounded-xl border border-gray-200 bg-white p-6 shadow-2xl max-h-[80vh] overflow-y-auto',
+        modal: 'fixed inset-x-4 top-1/2 transform -translate-y-1/2 max-w-4xl mx-auto rounded-xl border border-gray-200 bg-white p-0 shadow-2xl max-h-[90vh] overflow-hidden',
         text: 'text-gray-900',
         subtext: 'text-gray-600'
       }
@@ -135,10 +135,26 @@ export function UpdateDebugger({ isOpen, onClose }) {
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-3 mb-4">
-          <Bell className={`h-6 w-6 ${styles.text}`} />
-          <h2 className={`text-lg font-bold ${styles.text}`}>Update System Debugger</h2>
+        <div className="flex items-center justify-between p-6 pb-4 border-b border-gray-700">
+          <div className="flex items-center gap-3">
+            <Bell className={`h-6 w-6 ${styles.text}`} />
+            <h2 className={`text-lg font-bold ${styles.text}`}>Update System Debugger</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className={`p-2 rounded-md transition-colors ${
+              theme === 'fallout' 
+                ? 'text-green-400 hover:bg-green-600/20' 
+                : theme === 'dark'
+                ? 'text-gray-400 hover:bg-gray-700'
+                : 'text-gray-500 hover:bg-gray-100'
+            }`}
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
+        
+        <div className="p-6 pt-4 overflow-y-auto max-h-[calc(90vh-100px)]">
 
         {loading ? (
           <div className={`text-center py-4 ${styles.subtext}`}>
@@ -236,38 +252,31 @@ export function UpdateDebugger({ isOpen, onClose }) {
           </div>
         ) : null}
 
-        <div className="flex justify-between gap-3 mt-6">
-          <div className="flex gap-2">
+        <div className="flex gap-2 mt-6 pt-4 border-t border-gray-700">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={loadDebugInfo}
+            className={theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : ''}
+          >
+            <RefreshCw className="h-4 w-4 mr-1" />
+            Refresh
+          </Button>
+          {debugInfo?.electronAvailable && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={loadDebugInfo}
+              onClick={forceUpdateCheck}
+              disabled={checking}
               className={theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : ''}
             >
-              <RefreshCw className="h-4 w-4 mr-1" />
-              Refresh
+              <Download className={`h-4 w-4 mr-1 ${checking ? 'animate-spin' : ''}`} />
+              Force Check
             </Button>
-            {debugInfo?.electronAvailable && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={forceUpdateCheck}
-                disabled={checking}
-                className={theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : ''}
-              >
-                <Download className={`h-4 w-4 mr-1 ${checking ? 'animate-spin' : ''}`} />
-                Force Check
-              </Button>
-            )}
-          </div>
-          <Button
-            size="sm"
-            onClick={onClose}
-            className={theme === 'fallout' ? 'bg-green-600 text-gray-900 hover:bg-green-500' : ''}
-          >
-            Close
-          </Button>
+          )}
         </div>
+        
+        </div> {/* Close content div */}
       </div>
     </div>
   )
