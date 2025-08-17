@@ -13,6 +13,7 @@ import { RenameModal } from '@/components/RenameModal'
 import ExportDropdown from '@/components/ExportDropdown'
 import { InstallOnMobileModal } from '@/components/InstallOnMobileModal'
 import { MobileInstallGuide } from '@/components/MobileInstallGuide'
+import { UpdateDebugger } from '@/components/UpdateDebugger'
 import { 
   exportToPDF, 
   exportToMarkdown, 
@@ -128,6 +129,7 @@ export default function RichTextEditor() {
   const [passwordError, setPasswordError] = useState('')
   const [searchMode, setSearchMode] = useState('all')
   const [isBugReportModalOpen, setIsBugReportModalOpen] = useState(false)
+  const [isUpdateDebuggerOpen, setIsUpdateDebuggerOpen] = useState(false)
   const [isClient, setIsClient] = useState(false)
   const [wordCount, setWordCount] = useState(0)
   const [pageToRename, setPageToRename] = useState(null)
@@ -1100,6 +1102,9 @@ export default function RichTextEditor() {
                       <DropdownMenuItem onClick={() => window.open('https://github.com/Efesop/rich-text-editor/issues/new', '_blank', 'noopener,noreferrer')}>
                         Report a bug
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setIsUpdateDebuggerOpen(true)}>
+                        Update debugger
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </>
@@ -1128,6 +1133,13 @@ export default function RichTextEditor() {
                     title="Report a bug or request a feature"
                   >
                     <Bug className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setIsUpdateDebuggerOpen(true)}
+                    className={`p-2 rounded-md ${getButtonHoverClasses()}`}
+                    title="Update system debugger"
+                  >
+                    <RefreshCw className="h-4 w-4" />
                   </button>
                   <button
                     onClick={handleBellClick}
@@ -1319,6 +1331,11 @@ export default function RichTextEditor() {
       />
 
       <MobileInstallGuide />
+
+      <UpdateDebugger
+        isOpen={isUpdateDebuggerOpen}
+        onClose={() => setIsUpdateDebuggerOpen(false)}
+      />
 
       <PassphraseModal
         isOpen={isPassphraseOpen}

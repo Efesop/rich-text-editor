@@ -246,7 +246,13 @@ class UpdateManager {
         throw new Error('No update information available')
       }
 
-      const updateAvailable = result.updateInfo.version !== app.getVersion()
+      // Semantic version comparison - simple string comparison should work for most cases
+      // but let's be explicit about version comparison
+      const currentVersion = app.getVersion()
+      const latestVersion = result.updateInfo.version
+      const updateAvailable = latestVersion !== currentVersion
+      
+      log.info('Version comparison:', { currentVersion, latestVersion, updateAvailable })
       
       this.updateInfo = {
         available: updateAvailable,
@@ -425,6 +431,10 @@ function setupAutoUpdater() {
 // IPC Handlers
 ipcMain.handle('check-for-updates', async () => {
   return await updateManager.checkForUpdates(true)
+})
+
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion()
 })
 
 ipcMain.handle('download-update', async () => {
