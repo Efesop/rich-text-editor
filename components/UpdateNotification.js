@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useTheme } from 'next-themes';
 import { Button } from "./ui/button";
-import { ArrowDownCircle, X, AlertTriangle, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { ArrowDownCircle, X, AlertTriangle, RefreshCw, Wifi, WifiOff, Download, CheckCircle } from 'lucide-react';
 
 export default function UpdateNotification({ 
   onClose, 
@@ -14,12 +15,41 @@ export default function UpdateNotification({
   onInstall,
   onRetry 
 }) {
-  const [showDetails, setShowDetails] = useState(false);
+  const { theme } = useTheme();
 
   // Don't render if no update info and no error
   if (!updateInfo && !error && !isChecking) {
     return null;
   }
+
+  const getNotificationStyles = () => {
+    if (theme === 'fallout') {
+      return {
+        container: 'fixed bottom-4 right-4 max-w-sm bg-gray-900 border-2 border-green-600 rounded-lg shadow-2xl shadow-green-600/20 z-50',
+        text: 'text-green-400 font-mono',
+        subtext: 'text-green-300 font-mono',
+        progress: 'bg-green-600',
+        progressBg: 'bg-gray-800'
+      }
+    } else if (theme === 'dark') {
+      return {
+        container: 'fixed bottom-4 right-4 max-w-sm bg-gray-900 border border-gray-700 rounded-lg shadow-2xl z-50',
+        text: 'text-white',
+        subtext: 'text-gray-300',
+        progress: 'bg-blue-600',
+        progressBg: 'bg-gray-700'
+      }
+    }
+    return {
+      container: 'fixed bottom-4 right-4 max-w-sm bg-white border border-gray-200 rounded-lg shadow-2xl z-50',
+      text: 'text-gray-900',
+      subtext: 'text-gray-600',
+      progress: 'bg-blue-600',
+      progressBg: 'bg-gray-200'
+    }
+  }
+
+  const styles = getNotificationStyles()
 
   const renderContent = () => {
     // Error state
@@ -30,34 +60,34 @@ export default function UpdateNotification({
       }
       
       return (
-        <div className="space-y-3">
-          <div className="flex items-center space-x-2">
-            {error.offline ? (
-              <WifiOff className="h-5 w-5 text-orange-500" />
-            ) : error.rateLimited ? (
-              <RefreshCw className="h-5 w-5 text-blue-500" />
-            ) : (
-              <AlertTriangle className="h-5 w-5 text-red-500" />
-            )}
-            <span className="font-medium text-red-600 dark:text-red-400">
-              {error.offline ? 'Offline' : error.rateLimited ? 'Rate Limited' : 'Update Error'}
-            </span>
-          </div>
+        <div className="flex items-center gap-3 p-4">
+          {error.offline ? (
+            <WifiOff className="h-5 w-5 text-orange-500 flex-shrink-0" />
+          ) : error.rateLimited ? (
+            <RefreshCw className="h-5 w-5 text-blue-500 flex-shrink-0" />
+          ) : (
+            <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
+          )}
           
-          <p className="text-sm text-gray-600 dark:text-gray-300">
-            {error.message}
-          </p>
+          <div className="flex-1 min-w-0">
+            <div className={`font-medium ${styles.text} text-sm`}>
+              {error.offline ? 'Offline' : error.rateLimited ? 'Rate Limited' : 'Update Error'}
+            </div>
+            <div className={`text-xs ${styles.subtext} truncate`}>
+              {error.message}
+            </div>
+          </div>
           
           {error.canRetry && onRetry && (
             <Button 
               onClick={onRetry} 
               size="sm" 
-              variant="outline"
-              className="w-full"
+              variant="ghost"
+              className={`px-3 py-1 text-xs ${theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : ''}`}
               disabled={error.rateLimited}
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              {error.rateLimited ? `Wait ${error.waitTime || 30}s` : 'Try Again'}
+              <RefreshCw className="h-3 w-3 mr-1" />
+              {error.rateLimited ? `${error.waitTime || 30}s` : 'Retry'}
             </Button>
           )}
         </div>
@@ -70,113 +100,111 @@ export default function UpdateNotification({
       return null; // Silent background checking
     }
 
-    // Installing state
+    // Installing state - compact design
     if (isInstalling) {
       return (
-        <div className="space-y-3">
-          <div className="flex items-center space-x-3">
-            <RefreshCw className="h-5 w-5 animate-spin text-green-500" />
-            <span className="font-medium text-green-600 dark:text-green-400">
+        <div className="flex items-center gap-3 p-4">
+          <RefreshCw className={`h-5 w-5 animate-spin ${theme === 'fallout' ? 'text-green-400' : 'text-green-500'} flex-shrink-0`} />
+          <div className="flex-1">
+            <div className={`font-medium ${styles.text} text-sm`}>
               Installing update...
-            </span>
+            </div>
+            <div className={`text-xs ${styles.subtext}`}>
+              App will restart automatically
+            </div>
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-300">
-            The app will restart automatically when installation is complete.
-          </p>
         </div>
       );
     }
 
-    // Update available
+    // Update available - sleek compact design
     if (updateInfo?.available) {
       const isDownloaded = updateInfo.downloaded;
       
       return (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="font-medium text-blue-600 dark:text-blue-400">
+        <div className="p-4">
+          <div className="flex items-center gap-3">
+            <Download className={`h-5 w-5 ${theme === 'fallout' ? 'text-green-400' : 'text-blue-500'} flex-shrink-0`} />
+            
+            <div className="flex-1 min-w-0">
+              <div className={`font-medium ${styles.text} text-sm`}>
                 Update Available
-              </span>
+              </div>
               {updateInfo.latestVersion && (
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <div className={`text-xs ${styles.subtext}`}>
                   Version {updateInfo.latestVersion}
-                </p>
+                </div>
               )}
             </div>
-            
-            <button
-              onClick={() => setShowDetails(!showDetails)}
-              className="text-xs text-blue-500 hover:text-blue-700 dark:hover:text-blue-300"
-            >
-              {showDetails ? 'Less' : 'Details'}
-            </button>
+
+            {!isDownloading && !isDownloaded && onDownload && (
+              <Button 
+                onClick={onDownload} 
+                size="sm"
+                className={`px-3 py-1 text-xs ${
+                  theme === 'fallout' 
+                    ? 'bg-green-600 text-gray-900 hover:bg-green-500 font-mono' 
+                    : theme === 'dark'
+                    ? 'bg-blue-600 hover:bg-blue-500'
+                    : 'bg-blue-500 hover:bg-blue-600'
+                } text-white`}
+              >
+                <ArrowDownCircle className="h-3 w-3 mr-1" />
+                Download
+              </Button>
+            )}
+
+            {isDownloaded && onInstall && (
+              <Button 
+                onClick={onInstall} 
+                size="sm"
+                className={`px-3 py-1 text-xs ${
+                  theme === 'fallout' 
+                    ? 'bg-green-600 text-gray-900 hover:bg-green-500 font-mono' 
+                    : 'bg-green-600 hover:bg-green-500'
+                } text-white`}
+              >
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Install
+              </Button>
+            )}
           </div>
 
-          {showDetails && updateInfo.releaseNotes && (
-            <div className="text-xs text-gray-600 dark:text-gray-400 max-h-20 overflow-y-auto">
-              {updateInfo.releaseNotes}
-            </div>
-          )}
-
+          {/* Compact progress bar for downloading */}
           {isDownloading && (
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Downloading...</span>
-                <span>{Math.round(downloadProgress)}%</span>
+            <div className="mt-3">
+              <div className="flex justify-between text-xs mb-1">
+                <span className={styles.subtext}>Downloading...</span>
+                <span className={styles.subtext}>{Math.round(downloadProgress)}%</span>
               </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+              <div className={`w-full ${styles.progressBg} rounded-full h-1.5 overflow-hidden`}>
                 <div 
-                  className="bg-blue-600 h-full rounded-full transition-all duration-300 ease-in-out" 
+                  className={`${styles.progress} h-full rounded-full transition-all duration-300 ease-in-out`}
                   style={{width: `${downloadProgress}%`}}
                 />
               </div>
             </div>
           )}
 
-          {!isDownloading && !isDownloaded && onDownload && (
-            <Button 
-              onClick={onDownload} 
-              className="w-full bg-blue-600 text-white hover:bg-blue-700"
-              size="sm"
-            >
-              <ArrowDownCircle className="h-4 w-4 mr-2" />
-              Download Update
-            </Button>
-          )}
-
-          {/* Show error if download failed */}
+          {/* Compact download error */}
           {error && error.message && error.message.includes('Download failed') && (
-            <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-600/30 rounded text-sm">
-              <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                <AlertTriangle className="h-4 w-4" />
-                <span className="font-medium">Download Failed</span>
+            <div className="mt-3 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0" />
+              <div className="flex-1 text-xs text-red-500 truncate">
+                Download failed
               </div>
-              <p className="text-red-700 dark:text-red-300 mt-1">
-                {error.message.replace('Download failed: ', '')}
-              </p>
               {error.canRetry && onDownload && (
                 <Button 
                   onClick={onDownload} 
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  className="mt-2 w-full border-red-300 text-red-600 hover:bg-red-50 dark:border-red-600 dark:text-red-400 dark:hover:bg-red-900/30"
+                  className="px-2 py-1 text-xs text-red-500 hover:bg-red-500/10"
                 >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Try Download Again
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  Retry
                 </Button>
               )}
             </div>
-          )}
-
-          {isDownloaded && onInstall && (
-            <Button 
-              onClick={onInstall} 
-              className="w-full bg-green-600 text-white hover:bg-green-700"
-              size="sm"
-            >
-              Install & Restart
-            </Button>
           )}
         </div>
       );
@@ -185,16 +213,18 @@ export default function UpdateNotification({
     // No update available (only show if explicitly checked)
     if (updateInfo && !updateInfo.available) {
       return (
-        <div className="flex items-center space-x-2">
-          <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-          <span className="font-medium text-green-600 dark:text-green-400">
-            You're up to date!
-          </span>
-          {updateInfo.currentVersion && (
-            <span className="text-sm text-gray-500">
-              (v{updateInfo.currentVersion})
-            </span>
-          )}
+        <div className="flex items-center gap-3 p-4">
+          <CheckCircle className={`h-5 w-5 ${theme === 'fallout' ? 'text-green-400' : 'text-green-500'} flex-shrink-0`} />
+          <div className="flex-1">
+            <div className={`font-medium ${styles.text} text-sm`}>
+              You're up to date!
+            </div>
+            {updateInfo.currentVersion && (
+              <div className={`text-xs ${styles.subtext}`}>
+                Version {updateInfo.currentVersion}
+              </div>
+            )}
+          </div>
         </div>
       );
     }
@@ -203,8 +233,8 @@ export default function UpdateNotification({
   };
 
   return (
-    <div className="fixed bottom-4 right-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-lg shadow-lg max-w-sm z-50">
-      <div className="flex justify-between items-start mb-2">
+    <div className={styles.container}>
+      <div className="flex items-stretch">
         <div className="flex-1">
           {renderContent()}
         </div>
@@ -212,7 +242,7 @@ export default function UpdateNotification({
         {onClose && !isInstalling && (
           <button 
             onClick={onClose} 
-            className="ml-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 flex-shrink-0"
+            className={`p-4 ${theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : theme === 'dark' ? 'text-gray-400 hover:bg-gray-700' : 'text-gray-500 hover:bg-gray-100'} transition-colors flex-shrink-0`}
           >
             <X className="h-4 w-4" />
           </button>

@@ -301,6 +301,17 @@ class UpdateManager {
         }
       }
       
+      // Handle 404 errors for missing latest-mac.yml (common GitHub releases issue)
+      if (error.message.includes('Cannot find latest-mac.yml') || error.message.includes('404')) {
+        log.info('GitHub release missing latest-mac.yml, this is normal for some releases');
+        return {
+          available: false,
+          error: null, // Don't show error to user for this common issue
+          githubIssue: true,
+          canRetry: false
+        }
+      }
+      
       return {
         available: false,
         error: error.message,
