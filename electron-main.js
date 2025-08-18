@@ -556,3 +556,4 @@ app.on('will-quit', (event) => {
     log.info('App quitting normally');
   }
 });
+
