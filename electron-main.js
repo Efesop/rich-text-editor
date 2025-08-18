@@ -216,21 +216,7 @@ class UpdateManager {
   }
 
   async checkForUpdates(isManual = false) {
-    // Rate limiting for manual checks
-    if (isManual) {
-      const now = Date.now()
-      if (now - this.lastCheckTime < this.minCheckInterval) {
-        const waitTime = Math.ceil((this.minCheckInterval - (now - this.lastCheckTime)) / 1000)
-        return {
-          available: false,
-          error: `Please wait ${waitTime} seconds before checking again`,
-          rateLimited: true,
-          canRetry: true,
-          waitTime: waitTime
-        }
-      }
-      this.lastCheckTime = now
-    }
+    // No rate limiting - users can check as often as they want
 
     if (this.isCheckingForUpdates) {
       return { inProgress: true }

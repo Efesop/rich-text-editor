@@ -1,10 +1,29 @@
 {
   "name": "dash",
   "version": "1.3.72",
-  "private": true,
   "main": "electron-main.js",
   "description": "Dash – a private, offline-first notes app built with Electron + Next.js + Editor.js.",
   "author": "Filmshape Ltd",
+  "keywords": [
+    "notes",
+    "note-taking",
+    "privacy",
+    "offline",
+    "encryption",
+    "electron",
+    "rich-text",
+    "markdown",
+    "cross-platform",
+    "security"
+  ],
+  "homepage": "https://github.com/Efesop/rich-text-editor#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Efesop/rich-text-editor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Efesop/rich-text-editor/issues"
+  },
   "engines": {
     "node": ">=20.0.0"
   },

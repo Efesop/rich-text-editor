@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, Upload, X, ChevronDown, Lock, FolderPlus, RefreshCw, Bell, Bug, Smartphone, QrCode, Menu } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, Import, X, ChevronDown, Lock, FolderPlus, RefreshCw, Bell, Bug, Smartphone, QrCode, Menu } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
@@ -13,7 +13,7 @@ import { RenameModal } from '@/components/RenameModal'
 import ExportDropdown from '@/components/ExportDropdown'
 import { InstallOnMobileModal } from '@/components/InstallOnMobileModal'
 import { MobileInstallGuide } from '@/components/MobileInstallGuide'
-import { UpdateDebugger } from '@/components/UpdateDebugger'
+// import { UpdateDebugger } from '@/components/UpdateDebugger' // Hidden for production
 import { 
   exportToPDF, 
   exportToMarkdown, 
@@ -129,7 +129,7 @@ export default function RichTextEditor() {
   const [passwordError, setPasswordError] = useState('')
   const [searchMode, setSearchMode] = useState('all')
   const [isBugReportModalOpen, setIsBugReportModalOpen] = useState(false)
-  const [isUpdateDebuggerOpen, setIsUpdateDebuggerOpen] = useState(false)
+  // const [isUpdateDebuggerOpen, setIsUpdateDebuggerOpen] = useState(false) // Hidden for production
   const [isClient, setIsClient] = useState(false)
   const [wordCount, setWordCount] = useState(0)
   const [pageToRename, setPageToRename] = useState(null)
@@ -1102,9 +1102,9 @@ export default function RichTextEditor() {
                       <DropdownMenuItem onClick={() => window.open('https://github.com/Efesop/rich-text-editor/issues/new', '_blank', 'noopener,noreferrer')}>
                         Report a bug
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setIsUpdateDebuggerOpen(true)}>
+                      {/* <DropdownMenuItem onClick={() => setIsUpdateDebuggerOpen(true)}>
                         Update debugger
-                      </DropdownMenuItem>
+                      </DropdownMenuItem> */}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </>
@@ -1123,7 +1123,7 @@ export default function RichTextEditor() {
                     title={isImporting ? 'Importing…' : 'Import encrypted bundle'}
                     disabled={isImporting}
                   >
-                    <Upload className={`h-4 w-4 ${isImporting ? 'animate-pulse' : ''}`} />
+                    <Import className={`h-4 w-4 ${isImporting ? 'animate-pulse' : ''}`} />
                   </button>
                   <button
                     onClick={() => {
@@ -1134,20 +1134,29 @@ export default function RichTextEditor() {
                   >
                     <Bug className="h-4 w-4" />
                   </button>
-                  <button
+                  {/* <button
                     onClick={() => setIsUpdateDebuggerOpen(true)}
                     className={`p-2 rounded-md ${getButtonHoverClasses()}`}
                     title="Update system debugger"
                   >
                     <RefreshCw className="h-4 w-4" />
-                  </button>
+                  </button> */}
                   <button
                     onClick={handleBellClick}
                     disabled={!canCheckForUpdates}
-                    className={`p-2 rounded-md ${getButtonHoverClasses()} ${!canCheckForUpdates ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`relative p-2 rounded-md ${getButtonHoverClasses()} ${!canCheckForUpdates ? 'opacity-50 cursor-not-allowed' : ''}`}
                     title="Check for updates"
                   >
                     <Bell className={`h-4 w-4 ${isCheckingForUpdates ? 'animate-pulse' : ''}`} />
+                    {updateInfo?.available && (
+                      <span className={`absolute -top-1 -right-1 h-3 w-3 rounded-full ${
+                        theme === 'fallout' 
+                          ? 'bg-red-500 border border-gray-900' 
+                          : theme === 'dark'
+                          ? 'bg-red-500 border border-gray-900'
+                          : 'bg-red-500 border border-white'
+                      } shadow-sm`}></span>
+                    )}
                   </button>
                   <ThemeToggle />
                 </>
@@ -1332,10 +1341,10 @@ export default function RichTextEditor() {
 
       <MobileInstallGuide />
 
-      <UpdateDebugger
+      {/* <UpdateDebugger
         isOpen={isUpdateDebuggerOpen}
         onClose={() => setIsUpdateDebuggerOpen(false)}
-      />
+      /> */}
 
       <PassphraseModal
         isOpen={isPassphraseOpen}

@@ -63,15 +63,13 @@ export default function UpdateNotification({
         <div className="flex items-center gap-3 p-4">
           {error.offline ? (
             <WifiOff className="h-5 w-5 text-orange-500 flex-shrink-0" />
-          ) : error.rateLimited ? (
-            <RefreshCw className="h-5 w-5 text-blue-500 flex-shrink-0" />
           ) : (
             <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
           )}
           
           <div className="flex-1 min-w-0">
             <div className={`font-medium ${styles.text} text-sm`}>
-              {error.offline ? 'Offline' : error.rateLimited ? 'Rate Limited' : 'Update Error'}
+              {error.offline ? 'Offline' : 'Update Error'}
             </div>
             <div className={`text-xs ${styles.subtext} truncate`}>
               {error.message}
@@ -84,10 +82,9 @@ export default function UpdateNotification({
               size="sm" 
               variant="ghost"
               className={`px-3 py-1 text-xs ${theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : ''}`}
-              disabled={error.rateLimited}
             >
               <RefreshCw className="h-3 w-3 mr-1" />
-              {error.rateLimited ? `${error.waitTime || 30}s` : 'Retry'}
+              Retry
             </Button>
           )}
         </div>

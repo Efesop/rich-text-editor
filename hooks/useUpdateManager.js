@@ -125,13 +125,11 @@ export function useUpdateManager() {
         setError({
           message: result.error,
           offline: result.offline || false,
-          canRetry: result.canRetry || false,
-          rateLimited: result.rateLimited || false,
-          waitTime: result.waitTime || null
+          canRetry: result.canRetry || false
         });
         
-        // Only show notifications for actual errors (offline, rate limited, etc.)
-        if (result.offline || result.rateLimited) {
+        // Only show notifications for actual errors (offline, etc.)
+        if (result.offline) {
           setShowUpdateNotification(true);
         }
       } else {

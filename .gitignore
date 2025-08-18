@@ -35,5 +35,16 @@ yarn-error.log*
 next-env.d.ts
 
 dist/
+build/
+
+# electron
+/release/
+/app/dist/
+/app/build/
+
+# certificates and keys
+*.p12
+certificate.p12
+build.keychain
 
 .env

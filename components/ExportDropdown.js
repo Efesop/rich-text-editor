@@ -17,7 +17,7 @@ const ExportDropdown = ({ onExport }) => {
     { label: 'Export as CSV', value: 'csv' },
     { label: 'Export as JSON', value: 'json' },
     { label: 'Export as XML', value: 'xml' },
-    { label: 'Export Encrypted Bundle (.dashpack)', value: 'dashpack' }
+    { label: 'Export all pages (Encrypted)', value: 'dashpack', special: true }
   ];
 
   const getDropdownClasses = () => {
@@ -31,7 +31,18 @@ const ExportDropdown = ({ onExport }) => {
     }
   }
 
-  const getDropdownItemClasses = () => {
+  const getDropdownItemClasses = (isSpecial = false) => {
+    if (isSpecial) {
+      switch (theme) {
+        case 'fallout':
+          return 'text-green-400 hover:bg-green-600/20 font-bold border-l-2 border-green-600 pl-3'
+        case 'dark':
+          return 'text-blue-400 hover:bg-blue-600/20 font-semibold border-l-2 border-blue-600 pl-3'
+        default:
+          return 'text-blue-600 hover:bg-blue-50 font-semibold border-l-2 border-blue-600 pl-3'
+      }
+    }
+    
     switch (theme) {
       case 'fallout':
         return 'text-green-400 hover:bg-gray-800 hover:text-green-300'
@@ -72,7 +83,7 @@ const ExportDropdown = ({ onExport }) => {
             {exportOptions.map((option) => (
               <button
                 key={option.value}
-                className={`block w-full text-left px-4 py-2 text-sm ${getDropdownItemClasses()}`}
+                className={`block w-full text-left px-4 py-2 text-sm ${getDropdownItemClasses(option.special)}`}
                 onClick={() => {
                   onExport(option.value);
                   setIsOpen(false);
