@@ -1,10 +1,12 @@
  import React, { useEffect, useRef, useCallback, useMemo } from 'react'
+import MultiBlockTuneEnhancer from './MultiBlockToolbar'
 
 export default function Editor({ data, onChange, holder }) {
   const editorRef = useRef(null)
   const isInitializedRef = useRef(false)
   const dataRef = useRef(data)
   const onChangeRef = useRef(onChange)
+  const multiBlockEnhancerRef = useRef(null)
 
   // Update refs when props change
   useEffect(() => {
@@ -88,7 +90,8 @@ export default function Editor({ data, onChange, holder }) {
         import('@editorjs/embed').then(m => m.default),
         import('@editorjs/delimiter').then(m => m.default),
         import('@editorjs/paragraph').then(m => m.default),
-        import('@editorjs/nested-list').then(m => m.default)
+        import('@editorjs/nested-list').then(m => m.default),
+
       ])
 
       // Enhanced Paragraph tool that preserves empty paragraphs and improves formatting
@@ -130,6 +133,7 @@ export default function Editor({ data, onChange, holder }) {
         header: {
           class: Header,
           inlineToolbar: ['marker', 'inlineCode'],
+
           config: {
             placeholder: 'Enter a header',
             levels: [2, 3, 4],
@@ -139,17 +143,20 @@ export default function Editor({ data, onChange, holder }) {
         nestedlist: {
           class: NestedList,
           inlineToolbar: true,
+
           config: {
             defaultStyle: 'unordered'
           }
         },
         checklist: {
           class: Checklist,
-          inlineToolbar: true
+          inlineToolbar: true,
+
         },
         quote: {
           class: Quote,
           inlineToolbar: true,
+
           config: {
             quotePlaceholder: 'Enter a quote',
             captionPlaceholder: 'Quote\'s author'
@@ -157,6 +164,7 @@ export default function Editor({ data, onChange, holder }) {
         },
         code: {
           class: CodeTool,
+
           config: {
             placeholder: 'Enter code'
           }
@@ -172,6 +180,7 @@ export default function Editor({ data, onChange, holder }) {
         table: {
           class: Table,
           inlineToolbar: true,
+
           config: {
             rows: 2,
             cols: 3,
@@ -180,12 +189,14 @@ export default function Editor({ data, onChange, holder }) {
         },
         linkTool: {
           class: LinkTool,
+
           config: {
             endpoint: '/api/fetchUrl' // You might want to implement this for better link previews
           }
         },
         image: {
           class: ImageTool,
+
           config: {
             uploader: {
               uploadByFile(file) {
@@ -216,6 +227,7 @@ export default function Editor({ data, onChange, holder }) {
         },
         embed: {
           class: Embed,
+
           config: {
             services: {
               youtube: true,
@@ -225,10 +237,14 @@ export default function Editor({ data, onChange, holder }) {
             }
           }
         },
-        delimiter: Delimiter,
+        delimiter: {
+          class: Delimiter,
+
+        },
         paragraph: {
           class: Paragraph,
-          inlineToolbar: true
+          inlineToolbar: true,
+
         }
       }
 
@@ -270,6 +286,13 @@ export default function Editor({ data, onChange, holder }) {
 
         await editorRef.current.isReady
         isInitializedRef.current = true
+
+        // Initialize multi-block tune enhancer
+        if (!multiBlockEnhancerRef.current) {
+          console.log('🔧 Initializing MultiBlockTuneEnhancer...')
+          multiBlockEnhancerRef.current = new MultiBlockTuneEnhancer(editorRef.current)
+          console.log('✅ MultiBlockTuneEnhancer initialized:', multiBlockEnhancerRef.current)
+        }
 
       } catch (error) {
         console.error('Error initializing Editor.js:', error)
@@ -415,6 +438,13 @@ export default function Editor({ data, onChange, holder }) {
             box-shadow: none !important;
             background: transparent !important;
           }
+          
+          /* Multi-block converter styles for fallout theme */
+          .fallout .multi-block-indicator {
+            background: #1a1a1a !important;
+            border: 1px solid #22c55e !important;
+            color: #22c55e !important;
+          }
         `
         document.head.appendChild(style)
       }
@@ -462,6 +492,13 @@ export default function Editor({ data, onChange, holder }) {
             box-shadow: none !important;
             outline: none !important;
           }
+          
+          /* Multi-block converter styles for dark theme */
+          .dark .multi-block-indicator {
+            background: #1f2937 !important;
+            border: 1px solid #374151 !important;
+            color: #f3f4f6 !important;
+          }
         `
         document.head.appendChild(style)
       }
@@ -489,6 +526,11 @@ export default function Editor({ data, onChange, holder }) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      if (multiBlockEnhancerRef.current) {
+        multiBlockEnhancerRef.current.destroy()
+        multiBlockEnhancerRef.current = null
+      }
+      
       if (editorRef.current) {
         if (editorRef.current.onChange) {
           clearTimeout(editorRef.current.onChange)
