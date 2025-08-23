@@ -1302,7 +1302,7 @@ export default function RichTextEditor() {
         isOpen={isAddToFolderModalOpen}
         onClose={() => setIsAddToFolderModalOpen(false)}
         onConfirm={handleAddPageToFolder}
-        pages={(pages || []).filter(page => page.type !== 'folder' && !page.folderId)}
+        pages={(pages || []).filter(page => page.type !== 'folder' && !page.folderId && page.id !== currentPage?.id)}
         currentFolderId={selectedFolderId}
         theme={theme}
       />

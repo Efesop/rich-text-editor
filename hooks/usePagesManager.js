@@ -456,8 +456,9 @@ export function usePagesManager() {
       
          if (folderToDelete) {
         // Move pages out of folder before deleting
+        const folderPages = Array.isArray(folderToDelete.pages) ? folderToDelete.pages : []
         const updatedPages = prevPages.map(item => {
-          if (folderToDelete.pages.includes(item.id)) {
+          if (folderPages.includes(item.id)) {
             const { folderId, ...pageWithoutFolder } = item
             return pageWithoutFolder
           }
@@ -501,7 +502,8 @@ export function usePagesManager() {
     setPages(prevPages => {
       const newPages = prevPages.map(item => {
         if (item.id === folderId && item.type === 'folder') {
-          return { ...item, pages: item.pages.filter(id => id !== pageId) }
+          const currentPages = Array.isArray(item.pages) ? item.pages : []
+          return { ...item, pages: currentPages.filter(id => id !== pageId) }
         }
         if (item.id === pageId) {
           const { folderId, ...pageWithoutFolder } = item

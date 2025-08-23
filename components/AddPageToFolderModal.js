@@ -1,6 +1,13 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 export function AddPageToFolderModal({ isOpen, onClose, onConfirm, pages, currentFolderId, theme }) {
   const [selectedPageIds, setSelectedPageIds] = useState([])
+
+  // Reset selection when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedPageIds([])
+    }
+  }, [isOpen])
 
   const handleSubmit = (e) => {
     e.preventDefault()
