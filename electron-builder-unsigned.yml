@@ -1,0 +1,27 @@
+appId: com.filmshape.dash
+productName: Dash
+directories:
+  output: dist
+  buildResources: build
+files:
+  - 'out/**/*'
+  - 'electron-main.js'
+  - 'preload.js'
+  - '.env'
+mac:
+  icon: icons/Dashmac1024.icns
+  target:
+    - dmg
+    - zip
+  # Remove all signing-related configurations for local development
+  identity: null
+win:
+  icon: icons/Dashwin512.ico
+linux:
+  icon: icons/Dashlin512.png
+publish:
+  provider: github
+  owner: Efesop
+  repo: rich-text-editor
+  releaseType: release
+# No afterSign for unsigned builds

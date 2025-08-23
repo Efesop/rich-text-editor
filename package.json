@@ -31,6 +31,7 @@
     "dev": "next dev",
     "build": "next build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder -c electron-builder.yml --mac --windows --linux",
     "build:mac": "next build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder -c electron-builder.yml --mac",
+    "build:mac:unsigned": "next build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder -c electron-builder-unsigned.yml --mac",
     "release:mac": "next build && electron-builder -c electron-builder.yml --mac --publish always",
     "build:signed": "next build && electron-builder -c electron-builder.yml --mac --windows --linux",
     "start": "next start",
