@@ -17,8 +17,7 @@ const PageItem = ({
   tempUnlockedPages, 
   className, 
   isInsideFolder = false,
-  onDuplicate,
-  //folderTheme = ''
+  onDuplicate
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
@@ -158,7 +157,7 @@ const PageItem = ({
           <>
             <FileText className={`h-4 w-4 mr-2 flex-shrink-0 ${getIconClasses()}`} />
             <span className="mr-2 truncate" title={page.title}>
-              {page.title}
+              {truncatePageTitle(page.title)}
             </span>
             {Array.isArray(page.tagNames) && page.tagNames.length > 0 && (
               <StackedTags 
