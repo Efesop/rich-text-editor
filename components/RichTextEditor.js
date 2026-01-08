@@ -14,16 +14,16 @@ import ExportDropdown from '@/components/ExportDropdown'
 import { InstallOnMobileModal } from '@/components/InstallOnMobileModal'
 import { MobileInstallGuide } from '@/components/MobileInstallGuide'
 // import { UpdateDebugger } from '@/components/UpdateDebugger' // Hidden for production
-import { 
-  exportToPDF, 
-  exportToMarkdown, 
+import {
+  exportToPDF,
+  exportToMarkdown,
   exportToPlainText,
   exportToRTF,
   exportToDocx,
   exportToCSV,
   exportToJSON,
   exportToXML,
-  downloadFile 
+  downloadFile
 } from '@/utils/exportUtils'
 import TagModal from '@/components/TagModal'
 import useTagStore from '../store/tagStore'
@@ -87,6 +87,7 @@ export default function RichTextEditor() {
     removePageFromFolder,
     renameFolder,
     handleDuplicatePage,
+    importPages,
   } = usePagesManager()
 
   const {
@@ -107,6 +108,8 @@ export default function RichTextEditor() {
   } = useUpdateManager()
 
   const { theme } = useTheme()
+  const announce = useScreenReader()
+  useSkipNavigation()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isSmallScreen, setIsSmallScreen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -510,16 +513,12 @@ export default function RichTextEditor() {
         setIsImporting(true)
         const { importEncryptedBundle } = await import('@/utils/exportUtils')
         const { pages: importedItems, tags: importedTags } = await importEncryptedBundle(file, passphrase)
-      // Merge: simplest newest-wins by createdAt if ids match else append
-      // This handles both pages AND folders since they're stored together
-      setPages(prev => {
-        const map = new Map(prev.map(item => [item.id, item]))
-        importedItems.forEach(item => { map.set(item.id, item) })
-        return Array.from(map.values())
-      })
-      // Tags: union by name
-      const existing = new Set((tags || []).map(t => t.name))
-      importedTags?.forEach(t => { if (!existing.has(t.name)) useTagStore.getState().addTag(t) })
+        // Use importPages to properly merge, update refs, and save to storage
+        // This handles both pages AND folders since they're stored together
+        await importPages(importedItems)
+        // Tags: union by name
+        const existing = new Set((tags || []).map(t => t.name))
+        importedTags?.forEach(t => { if (!existing.has(t.name)) useTagStore.getState().addTag(t) })
       }
     } catch (err) {
       console.error('Bundle action failed', err)
@@ -527,7 +526,7 @@ export default function RichTextEditor() {
       setIsImporting(false)
       setPendingAction(null)
     }
-  }, [pendingAction, pages, tags, setPages])
+  }, [pendingAction, pages, tags, importPages])
 
   const handleRenamePage = useCallback((page) => {
     setPageToRename(page)
@@ -593,25 +592,25 @@ export default function RichTextEditor() {
       if (page.type === 'folder') {
         return page.title.toLowerCase().includes(searchTerm.toLowerCase())
       }
-      
+
       // Apply tag filter first
       if (selectedTagsFilter.length > 0) {
-        const pageHasSelectedTag = selectedTagsFilter.some(selectedTag => 
+        const pageHasSelectedTag = selectedTagsFilter.some(selectedTag =>
           page.tagNames && page.tagNames.includes(selectedTag)
         )
         if (!pageHasSelectedTag) return false
       }
-      
+
       // Apply search filter
       if (searchTerm === '') return true;
-      
+
       const lowercaseSearchTerm = searchTerm.toLowerCase();
-      
+
       switch (searchFilter) {
         case 'all':
           return page.title.toLowerCase().includes(lowercaseSearchTerm) ||
-                 JSON.stringify(page.content).toLowerCase().includes(lowercaseSearchTerm) ||
-                 (page.tagNames && page.tagNames.some(tag => tag.toLowerCase().includes(lowercaseSearchTerm)));
+            JSON.stringify(page.content).toLowerCase().includes(lowercaseSearchTerm) ||
+            (page.tagNames && page.tagNames.some(tag => tag.toLowerCase().includes(lowercaseSearchTerm)));
         case 'title':
           return page.title.toLowerCase().includes(lowercaseSearchTerm);
         case 'content':
@@ -732,8 +731,8 @@ export default function RichTextEditor() {
 
   // Tag filter handlers
   const handleTagToggle = (tag) => {
-    setSelectedTagsFilter(prev => 
-      prev.includes(tag) 
+    setSelectedTagsFilter(prev =>
+      prev.includes(tag)
         ? prev.filter(t => t !== tag)
         : [...prev, tag]
     )
@@ -780,7 +779,7 @@ export default function RichTextEditor() {
     onDeletePage: handleDeletePage,
     onDuplicatePage: handleDuplicatePage,
     currentPage,
-     pages: (Array.isArray(pages) ? pages : []).filter(page => page.type !== 'folder'), // Use pages directly instead of filteredPages()
+    pages: (Array.isArray(pages) ? pages : []).filter(page => page.type !== 'folder'), // Use pages directly instead of filteredPages()
     onSelectPage: handlePageSelect
   })
 
@@ -900,7 +899,7 @@ export default function RichTextEditor() {
   }
 
   return (
-    <div 
+    <div
       className={getMainContainerClasses()}
       role="application"
       aria-label="Rich Text Note Editor"
@@ -916,136 +915,136 @@ export default function RichTextEditor() {
 
       {/* Sidebar */}
       <SidebarErrorBoundary>
-        <nav 
-          className={`${getSidebarClasses()} ${
-            isSmallScreen
-              ? `fixed z-50 inset-y-0 left-0 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-200 w-3/4 max-w-xs`
-              : `${sidebarOpen ? 'w-64' : 'w-16'} relative transition-all duration-300`
-          } flex flex-col overflow-visible`}
+        <nav
+          className={`${getSidebarClasses()} ${isSmallScreen
+            ? `fixed z-50 inset-y-0 left-0 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-200 w-3/4 max-w-xs`
+            : `${sidebarOpen ? 'w-64' : 'w-16'} relative transition-all duration-300`
+            } flex flex-col overflow-visible`}
           role="navigation"
           aria-label="Page navigation"
           aria-expanded={sidebarOpen}
         >
-        <header className={`p-4 flex ${sidebarOpen ? 'justify-between' : 'justify-center'} items-center`}>
-          {sidebarOpen && <h1 className="text-2xl font-bold">Pages</h1>}
-          <div className="flex items-center space-x-2">
-            {sidebarOpen && (
+          <header className={`p-4 flex ${sidebarOpen ? 'justify-between' : 'justify-center'} items-center`}>
+            {sidebarOpen && <h1 className="text-2xl font-bold">Pages</h1>}
+            <div className="flex items-center space-x-2">
+              {sidebarOpen && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsFolderModalOpen(true)}
+                  className={getButtonHoverClasses()}
+                >
+                  <FolderPlus className="h-4 w-4" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setIsFolderModalOpen(true)}
+                onClick={handleNewPage}
                 className={getButtonHoverClasses()}
               >
-                <FolderPlus className="h-4 w-4" />
+                <Plus className="h-4 w-4" />
               </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleNewPage}
-              className={getButtonHoverClasses()}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-        </header>
-        {sidebarOpen && (
-          <div className="px-4 mb-3 pt-1 space-y-3">
-            <SearchInput
-              value={searchTerm}
-              onChange={setSearchTerm}
-              filter={searchFilter}
-              onFilterChange={setSearchFilter}
-                              placeholder="Search everything"
-              pages={(pages || []).filter(p => p.type !== 'folder')}
-              folders={(pages || []).filter(p => p.type === 'folder')}
-              tags={(tags || []).map(t => t.name)}
-              onSelectPage={handleSelectPageFromSearch}
-              onSelectFolder={handleSelectFolderFromSearch}
-              onSelectTag={handleSelectTagFromSearch}
-              showDropdown={true}
-            />
-            
-            <TagsFilter
-              tags={(tags || []).map(t => t.name)}
-              selectedTags={selectedTagsFilter}
-              onTagToggle={handleTagToggle}
-              onClearAllTags={handleClearAllTagsFilter}
-            />
-          </div>
-        )}
-        <ScrollArea className="flex-grow">
-          {sortPages(filteredPages(), sortOption).map(item => {
-            if (item.type === 'folder') {
-              const folderPagesCount = pages.filter(page => page.folderId === item.id).length;
-              return (
-                <FolderItem
-                  key={item.id}
-                  folder={item}
-                  onAddPage={() => {
-                    setSelectedFolderId(item.id);
-                    setIsAddToFolderModalOpen(true);
-                  }}
-                  onDeleteFolder={handleDeleteFolder}
-                  onRenameFolder={renameFolder}
-                  theme={theme}
-                  pages={pages}
-                  onSelectPage={handlePageSelect}
-                  currentPageId={currentPage?.id}
-                  onRemovePageFromFolder={handleRemovePageFromFolder}
-                  tags={tags}
-                  tempUnlockedPages={tempUnlockedPages}
-                  sidebarOpen={sidebarOpen}
-                  onDelete={handleDeletePage}
-                  onRename={handleRenamePage}
-                  onToggleLock={handleToggleLock}
-                  pagesCount={folderPagesCount}
-                />
-              )
-            }
-            // Only render pages that are not in a folder
-            if (!item.folderId) {
-              return (
-                <PageItem
-                  key={item.id}
-                  page={item}
-                  isActive={currentPage?.id === item.id}
-                  onSelect={handlePageSelect}
-                  onRename={handleRenamePage}
-                  onDelete={handleDeletePage}
-                  onToggleLock={handleToggleLock}
-                  onDuplicate={handleDuplicatePage}
-                  sidebarOpen={sidebarOpen}
-                  theme={theme}
-                   tags={tags}
-                  tempUnlockedPages={tempUnlockedPages}
-                  isInsideFolder={false}  // Add this line
-                />
-              );
-            }
-          })}
-        </ScrollArea>
-        <div className={`mt-auto p-2 flex items-center justify-between border-t ${getBorderClasses()}`}>
-          <Button
-            variant="ghost"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="self-start"
-            size="sm"
-          >
-            {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-          </Button>
+            </div>
+          </header>
           {sidebarOpen && (
-            <div className="flex items-center space-x-2">
-              <span className={`text-xs ${getTextClasses()}`}>v{appVersion}</span>
-              <SortDropdown onSort={setSortOption} theme={theme} activeSortOption={sortOption} sidebarOpen={sidebarOpen} />
+            <div className="px-4 mb-3 pt-1 space-y-3">
+              <SearchInput
+                value={searchTerm}
+                onChange={setSearchTerm}
+                filter={searchFilter}
+                onFilterChange={setSearchFilter}
+                placeholder="Search everything"
+                pages={(pages || []).filter(p => p.type !== 'folder')}
+                folders={(pages || []).filter(p => p.type === 'folder')}
+                tags={(tags || []).map(t => t.name)}
+                onSelectPage={handleSelectPageFromSearch}
+                onSelectFolder={handleSelectFolderFromSearch}
+                onSelectTag={handleSelectTagFromSearch}
+                showDropdown={true}
+              />
+
+              <TagsFilter
+                tags={(tags || []).map(t => t.name)}
+                selectedTags={selectedTagsFilter}
+                onTagToggle={handleTagToggle}
+                onClearAllTags={handleClearAllTagsFilter}
+              />
             </div>
           )}
-        </div>
-      </nav>
+          <ScrollArea className="flex-grow">
+            {sortPages(filteredPages(), sortOption).map(item => {
+              if (item.type === 'folder') {
+                const folderPagesCount = pages.filter(page => page.folderId === item.id).length;
+                return (
+                  <FolderItem
+                    key={item.id}
+                    folder={item}
+                    onAddPage={() => {
+                      setSelectedFolderId(item.id);
+                      setIsAddToFolderModalOpen(true);
+                    }}
+                    onDeleteFolder={handleDeleteFolder}
+                    onRenameFolder={renameFolder}
+                    theme={theme}
+                    pages={pages}
+                    onSelectPage={handlePageSelect}
+                    currentPageId={currentPage?.id}
+                    onRemovePageFromFolder={handleRemovePageFromFolder}
+                    tags={tags}
+                    tempUnlockedPages={tempUnlockedPages}
+                    sidebarOpen={sidebarOpen}
+                    onDelete={handleDeletePage}
+                    onRename={handleRenamePage}
+                    onToggleLock={handleToggleLock}
+                    onDuplicate={handleDuplicatePage}
+                    pagesCount={folderPagesCount}
+                  />
+                )
+              }
+              // Only render pages that are not in a folder
+              if (!item.folderId) {
+                return (
+                  <PageItem
+                    key={item.id}
+                    page={item}
+                    isActive={currentPage?.id === item.id}
+                    onSelect={handlePageSelect}
+                    onRename={handleRenamePage}
+                    onDelete={handleDeletePage}
+                    onToggleLock={handleToggleLock}
+                    onDuplicate={handleDuplicatePage}
+                    sidebarOpen={sidebarOpen}
+                    theme={theme}
+                    tags={tags}
+                    tempUnlockedPages={tempUnlockedPages}
+                    isInsideFolder={false}  // Add this line
+                  />
+                );
+              }
+            })}
+          </ScrollArea>
+          <div className={`mt-auto p-2 flex items-center justify-between border-t ${getBorderClasses()}`}>
+            <Button
+              variant="ghost"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="self-start"
+              size="sm"
+            >
+              {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </Button>
+            {sidebarOpen && (
+              <div className="flex items-center space-x-2">
+                <span className={`text-xs ${getTextClasses()}`}>v{appVersion}</span>
+                <SortDropdown onSort={setSortOption} theme={theme} activeSortOption={sortOption} sidebarOpen={sidebarOpen} />
+              </div>
+            )}
+          </div>
+        </nav>
       </SidebarErrorBoundary>
 
       {/* Main Content */}
-      <main 
+      <main
         className="flex-1 flex flex-col overflow-hidden md:ml-0"
         id="main-content"
         role="main"
@@ -1065,8 +1064,8 @@ export default function RichTextEditor() {
                   <Menu className="h-5 w-5" />
                 </Button>
               )}
-              <h1 
-                className="text-2xl font-bold cursor-pointer" 
+              <h1
+                className="text-2xl font-bold cursor-pointer"
                 onClick={() => handleRenamePage(currentPage)}
               >
                 {currentPage?.title}
@@ -1149,13 +1148,12 @@ export default function RichTextEditor() {
                   >
                     <Bell className={`h-4 w-4 ${isCheckingForUpdates ? 'animate-pulse' : ''}`} />
                     {updateInfo?.available && (
-                      <span className={`absolute -top-1 -right-1 h-3 w-3 rounded-full ${
-                        theme === 'fallout' 
-                          ? 'bg-red-500 border border-gray-900' 
-                          : theme === 'dark'
+                      <span className={`absolute -top-1 -right-1 h-3 w-3 rounded-full ${theme === 'fallout'
+                        ? 'bg-red-500 border border-gray-900'
+                        : theme === 'dark'
                           ? 'bg-red-500 border border-gray-900'
                           : 'bg-red-500 border border-white'
-                      } shadow-sm`}></span>
+                        } shadow-sm`}></span>
                     )}
                   </button>
                   <ThemeToggle />
@@ -1186,21 +1184,21 @@ export default function RichTextEditor() {
                     className="ml-1 focus:outline-none"
                     onClick={() => handleRemoveTag(tag.name)}
                   >
-                    <X 
-                      className="h-3 w-3 transition-opacity hover:opacity-75" 
-                      style={{ 
-                        color: theme === 'dark' 
-                          ? getTagChipStyle(tag.color, theme).color 
-                          : theme === 'light' 
-                            ? '#6b7280' 
-                            : getTagChipStyle(tag.color, theme).color 
-                      }} 
+                    <X
+                      className="h-3 w-3 transition-opacity hover:opacity-75"
+                      style={{
+                        color: theme === 'dark'
+                          ? getTagChipStyle(tag.color, theme).color
+                          : theme === 'light'
+                            ? '#6b7280'
+                            : getTagChipStyle(tag.color, theme).color
+                      }}
                     />
                   </button>
                 </span>
               )
             })}
-             <Button
+            <Button
               variant="ghost"
               size="icon"
               className="h-6 w-6"
@@ -1213,7 +1211,7 @@ export default function RichTextEditor() {
             </Button>
           </div>
         </div>
-        
+
         {/* Editor */}
         <div className={`flex-1 overflow-auto p-6 ${getMainContentClasses()}`}>
           {currentPage && (
@@ -1302,7 +1300,7 @@ export default function RichTextEditor() {
         isOpen={isAddToFolderModalOpen}
         onClose={() => setIsAddToFolderModalOpen(false)}
         onConfirm={handleAddPageToFolder}
-        pages={(pages || []).filter(page => page.type !== 'folder' && !page.folderId && page.id !== currentPage?.id)}
+        pages={(pages || []).filter(page => page.type !== 'folder' && !page.folderId)}
         currentFolderId={selectedFolderId}
         theme={theme}
       />

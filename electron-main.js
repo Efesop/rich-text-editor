@@ -14,19 +14,19 @@ const RATE_WINDOW = 60 * 1000; // 1 minute
 function checkRateLimit(key) {
   const now = Date.now();
   const windowStart = now - RATE_WINDOW;
-  
+
   if (!rateLimiter.has(key)) {
     rateLimiter.set(key, []);
   }
-  
+
   const requests = rateLimiter.get(key);
   // Remove old requests outside the window
   const validRequests = requests.filter(time => time > windowStart);
-  
+
   if (validRequests.length >= SAVE_LIMIT) {
     return false; // Rate limit exceeded
   }
-  
+
   validRequests.push(now);
   rateLimiter.set(key, validRequests);
   return true;
@@ -65,7 +65,7 @@ function createWindow() {
     protocol: 'file:',
     slashes: true
   });
-  
+
   // Security: Set CSP headers
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     callback({
@@ -104,7 +104,7 @@ function createWindow() {
   // Security: Block navigation to external sites
   mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
     const parsedUrl = new URL(navigationUrl)
-    
+
     if (parsedUrl.origin !== startUrl && !navigationUrl.startsWith('file://')) {
       event.preventDefault()
       require('electron').shell.openExternal(navigationUrl)
@@ -167,22 +167,30 @@ ipcMain.handle('save-pages', async (event, pages) => {
         log.error(`Page ${index}: Invalid or missing title`, { page: { id: page.id, title: page.title } });
         throw new Error('Invalid page: missing or invalid title');
       }
-      // Fix corrupted content automatically (fallback safety check)
-      if (!page.content || typeof page.content !== 'object') {
-        page.content = {
-          time: Date.now(),
-          blocks: [],
-          version: '2.30.6'
+
+      // Handle folders differently from pages
+      if (page.type === 'folder') {
+        return {
+          id: page.id,
+          title: page.title.slice(0, 200),
+          type: 'folder',
+          pages: Array.isArray(page.pages) ? page.pages : [],
+          createdAt: page.createdAt || new Date().toISOString()
         };
       }
+
+      // Fix corrupted content automatically (fallback safety check for pages)
+      const content = (page.content && typeof page.content === 'object')
+        ? page.content
+        : { time: Date.now(), blocks: [], version: '2.30.6' };
 
       return {
         id: page.id,
         title: page.title.slice(0, 200), // Limit title length
         content: {
-          time: page.content.time || Date.now(),
-          blocks: Array.isArray(page.content.blocks) ? page.content.blocks : [],
-          version: page.content.version || '2.30.6'
+          time: content.time || Date.now(),
+          blocks: Array.isArray(content.blocks) ? content.blocks : [],
+          version: content.version || '2.30.6'
         },
         tags: Array.isArray(page.tags) ? page.tags : [],
         tagNames: Array.isArray(page.tagNames) ? page.tagNames : [],
@@ -225,9 +233,9 @@ class UpdateManager {
     this.isCheckingForUpdates = true
     try {
       log.info('Checking for updates...', { manual: isManual })
-      
+
       const result = await autoUpdater.checkForUpdates()
-      
+
       if (!result?.updateInfo) {
         throw new Error('No update information available')
       }
@@ -237,9 +245,9 @@ class UpdateManager {
       const currentVersion = app.getVersion()
       const latestVersion = result.updateInfo.version
       const updateAvailable = latestVersion !== currentVersion
-      
+
       log.info('Version comparison:', { currentVersion, latestVersion, updateAvailable })
-      
+
       this.updateInfo = {
         available: updateAvailable,
         currentVersion: app.getVersion(),
@@ -247,16 +255,16 @@ class UpdateManager {
         releaseNotes: result.updateInfo.releaseNotes,
         releaseDate: result.updateInfo.releaseDate
       }
-      
+
       this.lastUpdateCheck = new Date().toISOString()
       this.retryCount = 0 // Reset retry count on success
-      
+
       log.info('Update check completed', this.updateInfo)
       return this.updateInfo
-      
+
     } catch (error) {
       log.error('Update check failed', { error: error.message, retryCount: this.retryCount })
-      
+
       // Handle development mode - silently return for auto checks
       if (error.message.includes('application is not packed')) {
         return {
@@ -266,7 +274,7 @@ class UpdateManager {
           canRetry: false
         }
       }
-      
+
       // Handle network errors gracefully
       if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
         return {
@@ -276,7 +284,7 @@ class UpdateManager {
           canRetry: true
         }
       }
-      
+
       // Handle timeout errors specifically
       if (error.message.includes('ERR_TIMED_OUT') || error.message.includes('timeout')) {
         return {
@@ -286,7 +294,7 @@ class UpdateManager {
           canRetry: true
         }
       }
-      
+
       // Handle 404 errors for missing latest-mac.yml (common GitHub releases issue)
       if (error.message.includes('Cannot find latest-mac.yml') || error.message.includes('404')) {
         log.info('GitHub release missing latest-mac.yml, this is normal for some releases');
@@ -297,7 +305,7 @@ class UpdateManager {
           canRetry: false
         }
       }
-      
+
       return {
         available: false,
         error: error.message,
@@ -321,7 +329,7 @@ class UpdateManager {
     } catch (error) {
       log.error('Update download failed', { error: error.message })
       this.isDownloading = false
-      
+
       // Handle specific error types
       if (error.message.includes('ERR_HTTP2_PROTOCOL_ERROR')) {
         throw new Error('Download failed due to network protocol error. This is usually a temporary GitHub server issue. Please try again in a few minutes.')
@@ -330,14 +338,14 @@ class UpdateManager {
       } else if (error.message.includes('timeout')) {
         throw new Error('Download timed out. Please check your internet connection and try again.')
       }
-      
+
       throw error
     }
   }
 
   installUpdate() {
     if (this.isInstalling) return
-    
+
     this.isInstalling = true
     log.info('Installing update...')
     autoUpdater.quitAndInstall()
@@ -362,23 +370,23 @@ function setupAutoUpdater() {
   // Configure auto-updater
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = false
-  
+
   // Configure network settings to prevent protocol errors
   autoUpdater.requestHeaders = {
     'Cache-Control': 'no-cache',
     'User-Agent': 'Dash-Electron-App'
   }
-  
+
   // Configure HTTP executor to prevent HTTP2 protocol errors
   if (autoUpdater.httpExecutor) {
     autoUpdater.httpExecutor.maxRetryAttempts = 3
     // Configure to use HTTP/1.1 instead of HTTP/2
     autoUpdater.httpExecutor.maxRedirects = 10
   }
-  
+
   // Set download timeout
   autoUpdater.requestTimeout = 60000 // 60 seconds
-  
+
   // Remove any existing listeners to prevent duplicates
   autoUpdater.removeAllListeners()
 
@@ -400,7 +408,7 @@ function setupAutoUpdater() {
       releaseNotes: info.releaseNotes,
       releaseDate: info.releaseDate
     }
-    
+
     if (mainWindow) {
       mainWindow.webContents.send('update-available', updateManager.updateInfo)
     }
@@ -414,7 +422,7 @@ function setupAutoUpdater() {
       currentVersion: app.getVersion(),
       latestVersion: info.version
     }
-    
+
     if (mainWindow) {
       mainWindow.webContents.send('update-not-available', updateManager.updateInfo)
     }
@@ -424,7 +432,7 @@ function setupAutoUpdater() {
     log.error('AutoUpdater error:', error)
     updateManager.isCheckingForUpdates = false
     updateManager.isDownloading = false
-    
+
     if (mainWindow) {
       mainWindow.webContents.send('update-error', {
         message: error.message,
@@ -443,7 +451,7 @@ function setupAutoUpdater() {
   autoUpdater.on('update-downloaded', (info) => {
     log.info('Update downloaded:', info)
     updateManager.isDownloading = false
-    
+
     if (mainWindow) {
       mainWindow.webContents.send('update-downloaded', info)
     }

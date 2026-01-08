@@ -1,9 +1,8 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useTheme } from 'next-themes'
-import { Button } from './ui/button'
-import { Input } from './ui/input'
+import { KeyRound, X, ShieldCheck, AlertCircle } from 'lucide-react'
 
 export function PassphraseModal ({
   isOpen,
@@ -15,91 +14,218 @@ export function PassphraseModal ({
 }) {
   const [pass, setPass] = useState('')
   const { theme } = useTheme()
+  const inputRef = useRef(null)
 
   useEffect(() => {
-    if (!isOpen) setPass('')
+    if (!isOpen) {
+      setPass('')
+    } else {
+      setTimeout(() => inputRef.current?.focus(), 100)
+    }
   }, [isOpen])
 
-  const getModalStyles = () => {
-    if (theme === 'fallout') {
-      return {
-        backdrop: 'fixed inset-0 z-50 flex items-center justify-center bg-black/80',
-        modal: 'w-full max-w-md rounded-lg border border-green-600 bg-gray-900 p-6 shadow-2xl',
-        title: 'text-lg font-semibold mb-4 font-mono text-green-400',
-        text: 'text-green-300 font-mono'
-      }
-    } else if (theme === 'dark') {
-      return {
-        backdrop: 'fixed inset-0 z-50 flex items-center justify-center bg-black/60',
-        modal: 'w-full max-w-md rounded-lg border border-gray-700 bg-gray-900 p-6 shadow-2xl',
-        title: 'text-lg font-semibold mb-4 text-white',
-        text: 'text-gray-300'
-      }
-    }
-    return {
-      backdrop: 'fixed inset-0 z-50 flex items-center justify-center bg-black/50',
-      modal: 'w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-2xl',
-      title: 'text-lg font-semibold mb-4 text-gray-900',
-      text: 'text-gray-700'
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && pass.trim()) {
+      onConfirm?.(pass)
+    } else if (e.key === 'Escape') {
+      onClose()
     }
   }
 
-  const getInputStyles = () => {
-    if (theme === 'fallout') {
-      return 'mb-3 bg-gray-800 border-green-600 text-green-300 placeholder:text-green-600 focus:border-green-400 focus:ring-green-400/20 font-mono'
-    } else if (theme === 'dark') {
-      return 'mb-3 bg-gray-800 border-gray-600 text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500/20'
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose()
     }
-    return 'mb-3 bg-white border-gray-300 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:ring-blue-500/20'
-  }
-
-  const getErrorStyles = () => {
-    if (theme === 'fallout') {
-      return 'text-red-400 text-sm mb-3 font-mono'
-    } else if (theme === 'dark') {
-      return 'text-red-400 text-sm mb-3'
-    }
-    return 'text-red-600 text-sm mb-3'
   }
 
   if (!isOpen) return null
 
-  const styles = getModalStyles()
+  const isFallout = theme === 'fallout'
+  const isDark = theme === 'dark'
 
   return (
-    <div className={styles.backdrop}>
-      <div className={styles.modal}>
-        <h2 className={styles.title}>{title}</h2>
-        <Input
-          type='password'
-          placeholder='Enter your passphrase'
-          value={pass}
-          onChange={e => setPass(e.target.value)}
-          className={getInputStyles()}
-          autoFocus
-        />
-        {error && <div className={getErrorStyles()}>{error}</div>}
-        <div className='flex justify-end gap-3 mt-4'>
-          <Button 
-            variant='ghost' 
-            size='sm' 
-            onClick={onClose}
-            className={theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20 font-mono' : ''}
-          >
-            Cancel Encryption
-          </Button>
-          <Button 
-            size='sm' 
-            onClick={() => onConfirm?.(pass)} 
-            disabled={!pass}
-            className={theme === 'fallout' ? 'bg-green-600 text-gray-900 hover:bg-green-500 font-mono' : theme === 'dark' ? 'bg-blue-600 hover:bg-blue-500' : 'bg-blue-500 hover:bg-blue-600'}
-          >
-            {confirmLabel}
-          </Button>
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+      onClick={handleOverlayClick}
+    >
+      {/* Backdrop with blur */}
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+      
+      {/* Modal */}
+      <div 
+        className={`
+          relative w-full max-w-md transform transition-all duration-200
+          ${isFallout 
+            ? 'bg-gray-900 border-2 border-green-500/60 shadow-[0_0_40px_rgba(34,197,94,0.15)]' 
+            : isDark 
+              ? 'bg-gray-900 border border-gray-700/50 shadow-2xl' 
+              : 'bg-white border border-gray-200 shadow-2xl'
+          }
+          rounded-2xl overflow-hidden
+        `}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className={`
+          px-6 pt-6 pb-4
+          ${isFallout ? 'border-b border-green-500/30' : isDark ? 'border-b border-gray-800' : 'border-b border-gray-100'}
+        `}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`
+                p-2.5 rounded-xl
+                ${isFallout 
+                  ? 'bg-green-500/20 text-green-400' 
+                  : isDark 
+                    ? 'bg-purple-500/20 text-purple-400' 
+                    : 'bg-purple-100 text-purple-600'
+                }
+              `}>
+                <KeyRound className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className={`
+                  text-lg font-semibold
+                  ${isFallout ? 'text-green-400 font-mono' : isDark ? 'text-white' : 'text-gray-900'}
+                `}>
+                  {title}
+                </h2>
+                <p className={`
+                  text-sm mt-0.5
+                  ${isFallout ? 'text-green-500/70 font-mono' : isDark ? 'text-gray-400' : 'text-gray-500'}
+                `}>
+                  Enter your encryption passphrase
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className={`
+                p-2 rounded-lg transition-colors
+                ${isFallout 
+                  ? 'text-green-500 hover:bg-green-500/20' 
+                  : isDark 
+                    ? 'text-gray-400 hover:bg-gray-800' 
+                    : 'text-gray-400 hover:bg-gray-100'
+                }
+              `}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          {/* Info box */}
+          <div className={`
+            mb-5 p-4 rounded-xl flex items-start gap-3
+            ${isFallout 
+              ? 'bg-green-500/10 border border-green-500/30' 
+              : isDark 
+                ? 'bg-purple-500/10 border border-purple-500/30' 
+                : 'bg-purple-50 border border-purple-200'
+            }
+          `}>
+            <ShieldCheck className={`
+              w-5 h-5 flex-shrink-0 mt-0.5
+              ${isFallout ? 'text-green-400' : isDark ? 'text-purple-400' : 'text-purple-500'}
+            `} />
+            <p className={`
+              text-sm
+              ${isFallout ? 'text-green-300 font-mono' : isDark ? 'text-purple-300' : 'text-purple-700'}
+            `}>
+              Your passphrase is used to encrypt your data. Keep it safe!
+            </p>
+          </div>
+
+          {/* Input */}
+          <div className="mb-4">
+            <label className={`
+              block text-sm font-medium mb-2
+              ${isFallout ? 'text-green-400 font-mono' : isDark ? 'text-gray-300' : 'text-gray-700'}
+            `}>
+              Passphrase
+            </label>
+            <input
+              ref={inputRef}
+              type="password"
+              value={pass}
+              onChange={(e) => setPass(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Enter your passphrase..."
+              className={`
+                w-full px-4 py-3 text-base rounded-xl transition-all duration-200
+                focus:outline-none focus:ring-2
+                ${isFallout 
+                  ? 'bg-gray-800 border border-green-500/40 text-green-400 placeholder-green-600 font-mono focus:ring-green-500/50 focus:border-green-400' 
+                  : isDark 
+                    ? 'bg-gray-800 border border-gray-700 text-white placeholder-gray-500 focus:ring-purple-500/50 focus:border-purple-500' 
+                    : 'bg-white border border-gray-200 text-gray-900 placeholder-gray-400 focus:ring-purple-500/30 focus:border-purple-500'
+                }
+              `}
+            />
+          </div>
+
+          {/* Error message */}
+          {error && (
+            <div className={`
+              mb-4 p-3 rounded-xl flex items-center gap-2
+              ${isFallout 
+                ? 'bg-red-500/10 border border-red-500/30' 
+                : isDark 
+                  ? 'bg-red-500/10 border border-red-500/30' 
+                  : 'bg-red-50 border border-red-200'
+              }
+            `}>
+              <AlertCircle className={`
+                w-4 h-4 flex-shrink-0
+                ${isFallout ? 'text-red-400' : isDark ? 'text-red-400' : 'text-red-500'}
+              `} />
+              <p className={`
+                text-sm
+                ${isFallout ? 'text-red-400 font-mono' : isDark ? 'text-red-400' : 'text-red-600'}
+              `}>
+                {error}
+              </p>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className={`
+                flex-1 px-4 py-3 rounded-xl font-medium transition-all duration-200
+                ${isFallout 
+                  ? 'bg-gray-800 border border-green-500/40 text-green-400 hover:bg-gray-700 font-mono' 
+                  : isDark 
+                    ? 'bg-gray-800 border border-gray-700 text-gray-300 hover:bg-gray-700' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }
+              `}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => onConfirm?.(pass)}
+              disabled={!pass.trim()}
+              className={`
+                flex-1 px-4 py-3 rounded-xl font-medium transition-all duration-200
+                disabled:opacity-40 disabled:cursor-not-allowed
+                ${isFallout 
+                  ? 'bg-green-500 text-gray-900 hover:bg-green-400 disabled:hover:bg-green-500 font-mono shadow-[0_0_20px_rgba(34,197,94,0.3)]' 
+                  : isDark 
+                    ? 'bg-purple-600 text-white hover:bg-purple-500 disabled:hover:bg-purple-600' 
+                    : 'bg-purple-600 text-white hover:bg-purple-700 disabled:hover:bg-purple-600'
+                }
+              `}
+            >
+              {confirmLabel}
+            </button>
+          </div>
         </div>
       </div>
     </div>
   )
 }
-
-

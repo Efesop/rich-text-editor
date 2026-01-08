@@ -12,22 +12,56 @@ Thanks for your interest in contributing to Dash! 🎉
 ## 🛠️ Development
 
 ### Running the App
+
 ```bash
-# Web development server
+# Web development server (for UI development)
 npm run dev
 
-# Electron app in development
+# Desktop app in development (recommended for testing)
 npm run electron-dev
 
-# Build for production
-npm run build
+# Build desktop app for production
+npm run electron:build
+
+# Build PWA for mobile
+npm run build:pwa
 ```
 
+### Testing Your Changes
+
+**For most changes**, test in the desktop app (`npm run electron-dev`) since that's how users run Dash.
+
+Browser mode (`npm run dev`) is useful for:
+- Rapid UI iteration
+- React component development
+- Styling and theme work
+
+Browser mode **won't work** for:
+- File system operations
+- Auto-update features
+- Testing persistence across sessions
+
 ### Code Style
-- Follow existing patterns and conventions
-- Use Standard.js style (no semicolons, 2 spaces)
-- Keep components functional and use hooks
-- Write descriptive variable names
+
+- **Standard.js**: No semicolons, 2-space indentation
+- **Functional components**: Always use hooks, never class components
+- **Descriptive naming**: `isLoading`, `hasError`, `handleSubmit`
+- **File organization**: Component → Subcomponents → Helpers → Static content
+- **Theme support**: Always handle light, dark, and fallout themes
+
+### Project Structure
+
+```
+components/       # React components
+hooks/            # Custom React hooks
+lib/              # Storage abstractions
+utils/            # Utility functions
+store/            # Zustand stores
+electron-main.js  # Electron main process
+preload.js        # Electron preload (IPC bridge)
+```
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed technical docs.
 
 ## 🎯 What We're Looking For
 

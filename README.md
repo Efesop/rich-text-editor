@@ -101,13 +101,83 @@ npm run build
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: Next.js 13, React 18, TypeScript
+- **Frontend**: Next.js 13, React 18, JavaScript (Standard.js style)
 - **Editor**: Editor.js for rich text editing
-- **Desktop**: Electron for cross-platform native apps
+- **Desktop**: Electron for cross-platform native apps (primary platform)
 - **Mobile**: Progressive Web App (PWA)
-- **Styling**: Tailwind CSS, Radix UI components
-- **Security**: AES-256-GCM encryption, DOMPurify sanitization
-- **State**: Zustand for state management
+- **Styling**: Tailwind CSS, Radix UI components, Stylus modules
+- **Security**: AES-256-GCM encryption, DOMPurify sanitization, Argon2-style password hashing
+- **State**: Zustand for global state, React hooks for local state
+
+## 🏗️ How It Works
+
+### Data Storage
+
+Dash stores all data locally on your device:
+
+| Platform | Storage Method | Location |
+|----------|---------------|----------|
+| **Desktop (Electron)** | JSON files | User data directory (`~/Library/Application Support/Dash` on macOS) |
+| **Mobile (PWA)** | IndexedDB | Browser storage (persists offline) |
+| **Web Browser** | localStorage | For development/testing only |
+
+### Security Model
+
+1. **Content Sanitization**: All editor content is sanitized with DOMPurify before saving
+2. **Password Protection**: Individual pages can be encrypted with AES-256-GCM
+3. **No Network Requests**: Data never leaves your device
+4. **Sandboxed Electron**: Desktop app runs in a secure sandbox
+
+### Key Components
+
+- **`usePagesManager`** - Central hook for all page operations (create, save, delete, lock/unlock)
+- **`storage.js`** - Abstraction layer that auto-detects the environment
+- **`Editor.js`** - Rich text editor with customizable block types
+- **`electron-main.js`** - Desktop app main process (file I/O, updates)
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed technical documentation.
+
+## 🧪 Testing
+
+### Desktop App (Primary)
+
+Most users run Dash as a desktop app. To test the desktop version:
+
+```bash
+# Development mode (with hot reload)
+npm run electron-dev
+
+# Build for production
+npm run electron:build
+
+# The built app will be in the dist/ folder
+```
+
+### Browser Testing
+
+Browser testing is useful for UI development but has limitations:
+- File system operations don't work (Electron-specific)
+- Auto-updates don't work
+- Data is stored in localStorage (less persistent)
+
+```bash
+# Run in browser mode
+npm run dev
+# Visit http://localhost:3000
+```
+
+### What Works in Browser vs Desktop
+
+| Feature | Browser | Desktop |
+|---------|---------|---------|
+| Rich text editing | ✅ | ✅ |
+| Page/folder management | ✅ | ✅ |
+| Theme switching | ✅ | ✅ |
+| Password protection | ✅ | ✅ |
+| Export to PDF/MD/etc | ✅ | ✅ |
+| Persistent file storage | ❌ | ✅ |
+| Auto-updates | ❌ | ✅ |
+| Native menus | ❌ | ✅ |
 
 ## 🤝 Contributing
 
@@ -142,6 +212,20 @@ Found a bug? Please open an issue with:
 - Expected vs actual behavior
 - Your OS and Dash version
 - Screenshots if applicable
+
+### Known Issues & Troubleshooting
+
+**"Electron not available" in console (Browser mode)**
+- This is expected when running in browser mode. Use `npm run electron-dev` for desktop testing.
+
+**Pages not saving (Browser mode)**
+- Browser mode uses localStorage which has size limits. For production use, run the desktop app.
+
+**Folder contents appear empty after restart**
+- Fixed in recent versions. Ensure you're running the latest version.
+
+**Add Page to Folder doesn't show newly created pages**
+- Fixed in recent versions. Update to the latest version.
 
 ## 📄 License
 
