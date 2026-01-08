@@ -208,7 +208,7 @@ export function AddPageToFolderModal({ isOpen, onClose, onConfirm, pages, curren
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => handleCheckboxChange(page.id)}
-                          className="sr-only"
+                          className="hidden"
                         />
                         <FileText className={`
                           w-4 h-4 flex-shrink-0
