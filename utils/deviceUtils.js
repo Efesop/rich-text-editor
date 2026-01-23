@@ -40,8 +40,9 @@ export function isElectron() {
  * Determine if we should show the "Use on your phone" / mobile install option
  * Returns false if:
  * - Already on mobile device
- * - Already installed as PWA
- * - Running in Electron
+ * - Already installed as PWA on mobile
+ * - On small screen (likely mobile browser)
+ * Note: We DO show it on Electron desktop so users can set up mobile sync
  */
 export function shouldShowMobileInstall() {
   // Don't show on server
@@ -50,15 +51,13 @@ export function shouldShowMobileInstall() {
   // Don't show if already running as standalone PWA
   if (isStandalone()) return false
 
-  // Don't show if on Electron
-  if (isElectron()) return false
-
   // Don't show if on a mobile device (user is already on phone)
   if (isMobileDevice()) return false
 
   // Don't show if on small screen (likely mobile browser)
   if (isSmallScreen()) return false
 
+  // Show on desktop browser AND Electron app
   return true
 }
 

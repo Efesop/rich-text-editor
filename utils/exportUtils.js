@@ -446,7 +446,9 @@ export const exportEncryptedBundle = async (pages, tags, passphrase) => {
   const payload = { pages, tags, createdAt: new Date().toISOString() }
   const encrypted = await encryptJsonWithPassphrase(payload, passphrase)
   const json = JSON.stringify(encrypted)
-  downloadFile(json, 'dash-notes.dashpack', 'application/json')
+  // Add timestamp to filename to avoid overwriting previous exports
+  const timestamp = new Date().toISOString().slice(0, 10) // YYYY-MM-DD format
+  downloadFile(json, `dash-notes-${timestamp}.dashpack`, 'application/json')
 }
 
 export const importEncryptedBundle = async (file, passphrase) => {

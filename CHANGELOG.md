@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Fixed race conditions in save system** - Implemented save queue with version tracking to prevent data loss during rapid page switches.
 
 ### Fixed
-- **Fixed "Use on your phone" showing on mobile** - Option now correctly hidden when already viewing on a mobile device or PWA.
+- **Fixed "Use on your phone" visibility** - Now hidden on mobile/PWA but visible on desktop Electron app so users can set up mobile sync.
+- **Fixed export overwriting previous backups** - Dashpack exports now include date in filename (e.g., `dash-notes-2026-01-23.dashpack`).
 - **Fixed sidebar overlapping iPhone status bar** - Added safe-area-inset support for notch and status bar.
 - **Fixed dropdowns appearing behind sidebar** - Increased z-index for all dropdowns to appear above sidebar on mobile.
 - **Fixed production error boundary** - Errors now show user-friendly messages in production (not just development).
