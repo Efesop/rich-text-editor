@@ -22,10 +22,49 @@ export default function UpdateNotification({
     return null;
   }
 
+  // Check if this is a critical error that needs more prominent display
+  const isCriticalError = error && (
+    error.message?.includes('read-only') ||
+    error.message?.includes('Applications folder')
+  )
+
   const getNotificationStyles = () => {
+    // Critical errors get centered modal treatment
+    if (isCriticalError) {
+      if (theme === 'fallout') {
+        return {
+          container: 'fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60',
+          inner: 'w-full max-w-md bg-gray-900 border-2 border-green-600 rounded-2xl shadow-2xl shadow-green-600/20',
+          text: 'text-green-400 font-mono',
+          subtext: 'text-green-300 font-mono',
+          progress: 'bg-green-600',
+          progressBg: 'bg-gray-800'
+        }
+      } else if (theme === 'dark') {
+        return {
+          container: 'fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60',
+          inner: 'w-full max-w-md bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl',
+          text: 'text-white',
+          subtext: 'text-gray-300',
+          progress: 'bg-blue-600',
+          progressBg: 'bg-gray-700'
+        }
+      }
+      return {
+        container: 'fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60',
+        inner: 'w-full max-w-md bg-white border border-gray-200 rounded-2xl shadow-2xl',
+        text: 'text-gray-900',
+        subtext: 'text-gray-600',
+        progress: 'bg-blue-600',
+        progressBg: 'bg-gray-200'
+      }
+    }
+
+    // Regular notifications stay in corner
     if (theme === 'fallout') {
       return {
         container: 'fixed bottom-4 right-4 max-w-sm bg-gray-900 border-2 border-green-600 rounded-lg shadow-2xl shadow-green-600/20 z-50',
+        inner: '',
         text: 'text-green-400 font-mono',
         subtext: 'text-green-300 font-mono',
         progress: 'bg-green-600',
@@ -34,6 +73,7 @@ export default function UpdateNotification({
     } else if (theme === 'dark') {
       return {
         container: 'fixed bottom-4 right-4 max-w-sm bg-gray-900 border border-gray-700 rounded-lg shadow-2xl z-50',
+        inner: '',
         text: 'text-white',
         subtext: 'text-gray-300',
         progress: 'bg-blue-600',
@@ -42,6 +82,7 @@ export default function UpdateNotification({
     }
     return {
       container: 'fixed bottom-4 right-4 max-w-sm bg-white border border-gray-200 rounded-lg shadow-2xl z-50',
+      inner: '',
       text: 'text-gray-900',
       subtext: 'text-gray-600',
       progress: 'bg-blue-600',
@@ -58,7 +99,73 @@ export default function UpdateNotification({
       if (error.isDevelopment) {
         return null;
       }
-      
+
+      // Critical error - show as centered modal with full details
+      if (isCriticalError) {
+        const isReadOnlyError = error.message?.includes('read-only')
+
+        return (
+          <div className="p-6">
+            <div className="flex items-start gap-4">
+              <div className={`p-3 rounded-full ${
+                theme === 'fallout'
+                  ? 'bg-red-500/20'
+                  : theme === 'dark'
+                    ? 'bg-red-500/20'
+                    : 'bg-red-100'
+              }`}>
+                <AlertTriangle className="h-6 w-6 text-red-500" />
+              </div>
+
+              <div className="flex-1">
+                <h3 className={`font-semibold text-lg ${styles.text}`}>
+                  {isReadOnlyError ? 'Move to Applications Folder' : 'Update Error'}
+                </h3>
+                <p className={`text-sm ${styles.subtext} mt-2`}>
+                  {isReadOnlyError
+                    ? 'Dash cannot update because it\'s running from a read-only location (like Downloads or a disk image).'
+                    : error.message
+                  }
+                </p>
+
+                {isReadOnlyError && (
+                  <div className={`mt-4 p-3 rounded-lg ${
+                    theme === 'fallout'
+                      ? 'bg-gray-800 border border-green-600/30'
+                      : theme === 'dark'
+                        ? 'bg-gray-800'
+                        : 'bg-gray-100'
+                  }`}>
+                    <p className={`text-sm font-medium ${styles.text}`}>To fix this:</p>
+                    <ol className={`text-sm ${styles.subtext} mt-2 space-y-1 list-decimal list-inside`}>
+                      <li>Close Dash</li>
+                      <li>Drag Dash to your <strong>Applications</strong> folder</li>
+                      <li>Open Dash from Applications</li>
+                    </ol>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <Button
+                onClick={onClose}
+                className={`px-4 py-2 ${
+                  theme === 'fallout'
+                    ? 'bg-green-600 text-gray-900 hover:bg-green-500 font-mono'
+                    : theme === 'dark'
+                      ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                      : 'bg-gray-900 hover:bg-gray-800 text-white'
+                }`}
+              >
+                Got it
+              </Button>
+            </div>
+          </div>
+        );
+      }
+
+      // Regular error - compact notification
       return (
         <div className="flex items-center gap-3 p-4">
           {error.offline ? (
@@ -66,20 +173,20 @@ export default function UpdateNotification({
           ) : (
             <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
           )}
-          
+
           <div className="flex-1 min-w-0">
             <div className={`font-medium ${styles.text} text-sm`}>
               {error.offline ? 'Offline' : 'Update Error'}
             </div>
-            <div className={`text-xs ${styles.subtext} truncate`}>
+            <div className={`text-xs ${styles.subtext}`}>
               {error.message}
             </div>
           </div>
-          
+
           {error.canRetry && onRetry && (
-            <Button 
-              onClick={onRetry} 
-              size="sm" 
+            <Button
+              onClick={onRetry}
+              size="sm"
               variant="ghost"
               className={`px-3 py-1 text-xs ${theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : ''}`}
             >
@@ -229,16 +336,28 @@ export default function UpdateNotification({
     return null;
   };
 
+  // Critical errors use modal layout (close button is inside content)
+  if (isCriticalError) {
+    return (
+      <div className={styles.container} onClick={onClose}>
+        <div className={styles.inner} onClick={(e) => e.stopPropagation()}>
+          {renderContent()}
+        </div>
+      </div>
+    );
+  }
+
+  // Regular notifications use corner layout with X button
   return (
     <div className={styles.container}>
       <div className="flex items-stretch">
         <div className="flex-1">
           {renderContent()}
         </div>
-        
+
         {onClose && !isInstalling && (
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className={`p-4 ${theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : theme === 'dark' ? 'text-gray-400 hover:bg-gray-700' : 'text-gray-500 hover:bg-gray-100'} transition-colors flex-shrink-0`}
           >
             <X className="h-4 w-4" />
