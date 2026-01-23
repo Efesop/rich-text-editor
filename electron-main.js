@@ -1,10 +1,73 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, dialog } = require('electron');
 const path = require('path');
 const url = require('url');
 const { ipcMain } = require('electron');
 const fs = require('fs').promises;
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
+
+// Check if app should be moved to Applications folder (macOS only)
+function checkApplicationsFolder() {
+  // Only check on macOS and when app is packed (not in development)
+  if (process.platform !== 'darwin' || !app.isPackaged) {
+    return true;
+  }
+
+  // Check if already in Applications folder
+  if (app.isInApplicationsFolder()) {
+    return true;
+  }
+
+  // Show dialog asking user to move the app
+  const choice = dialog.showMessageBoxSync({
+    type: 'warning',
+    buttons: ['Move to Applications', 'Not Now'],
+    defaultId: 0,
+    cancelId: 1,
+    title: 'Move to Applications Folder',
+    message: 'Dash needs to be in the Applications folder to receive updates.',
+    detail: 'To enable automatic updates, Dash needs to be moved to your Applications folder. Would you like to move it now?\n\nIf you choose "Not Now", you can manually drag Dash to your Applications folder later.'
+  });
+
+  if (choice === 0) {
+    try {
+      // This will move the app and restart it
+      const moved = app.moveToApplicationsFolder({
+        conflictHandler: (conflictType) => {
+          if (conflictType === 'existsAndRunning') {
+            dialog.showMessageBoxSync({
+              type: 'error',
+              title: 'Cannot Move',
+              message: 'Another instance of Dash is running from the Applications folder.',
+              detail: 'Please close it and try again.'
+            });
+            return false;
+          }
+          // 'exists' - replace the existing app
+          return true;
+        }
+      });
+
+      if (!moved) {
+        log.info('User cancelled move to Applications folder');
+      }
+      return moved;
+    } catch (error) {
+      log.error('Failed to move to Applications folder:', error);
+      dialog.showMessageBoxSync({
+        type: 'error',
+        title: 'Move Failed',
+        message: 'Could not move Dash to Applications folder.',
+        detail: `Please manually drag Dash to your Applications folder.\n\nError: ${error.message}`
+      });
+      return false;
+    }
+  }
+
+  // User chose "Not Now" - continue anyway but they won't get updates
+  log.info('User declined to move to Applications folder');
+  return true;
+}
 
 // Rate limiting for security
 const rateLimiter = new Map();
@@ -493,7 +556,16 @@ ipcMain.handle('get-app-version', () => {
 })
 
 app.whenReady().then(() => {
-  log.info('App is ready, creating window...');
+  log.info('App is ready, checking Applications folder...');
+
+  // Check if app needs to be moved to Applications folder (macOS)
+  // This must be called before creating windows
+  if (!checkApplicationsFolder()) {
+    // If move was initiated, app will restart - don't continue
+    return;
+  }
+
+  log.info('Creating window...');
   createWindow();
   log.info('Setting up auto-updater...');
   setupAutoUpdater();
