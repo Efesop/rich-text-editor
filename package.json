@@ -112,9 +112,5 @@
     "tailwindcss": "^3.4.12",
     "typescript": "^5",
     "wait-on": "^8.0.1"
-  },
-  "rules": {
-    "@typescript-eslint/no-unused-vars": "off",
-    "react-hooks/exhaustive-deps": "off"
   }
 }

@@ -1,13 +1,14 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, Save, FileText, Trash2, Search, MoreVertical, Download, Import, X, ChevronDown, Lock, FolderPlus, RefreshCw, Bell, Bug, Smartphone, QrCode, Menu } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
+import { getThemeClasses } from '@/utils/themeUtils'
 //import { Sun, Moon } from 'lucide-react'
 import { RenameModal } from '@/components/RenameModal'
 import ExportDropdown from '@/components/ExportDropdown'
@@ -40,22 +41,15 @@ import { FolderItem } from './FolderItem'
 import { FolderIcon } from 'lucide-react'
 import UpdateNotification from './UpdateNotification'
 import EncryptionStatusIndicator from './EncryptionStatusIndicator'
-import packageJson from '../package.json'
 import { useUpdateManager } from '@/hooks/useUpdateManager'
 import { EditorErrorBoundary, SidebarErrorBoundary } from './ErrorBoundary'
 import { useKeyboardNavigation, useScreenReader, useSkipNavigation } from '@/hooks/useKeyboardNavigation'
 import TagsFilter from './TagsFilter'
 import { getTagChipStyle } from '@/utils/colorUtils'
-// import ModeDropdown from './ModeDropdown'  // Comment out this import
+import { ConfirmModal } from './ConfirmModal'
+import { shouldShowMobileInstall } from '@/utils/deviceUtils'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
-
-const searchPlaceholders = {
-  all: 'Search all...',
-  title: 'Search page names...',
-  content: 'Search page content...',
-  tags: 'Search tags...'
-}
 
 export default function RichTextEditor() {
   const {
@@ -113,26 +107,16 @@ export default function RichTextEditor() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isSmallScreen, setIsSmallScreen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedTags, setSelectedTags] = useState([])
   const [isTagModalOpen, setIsTagModalOpen] = useState(false)
-  const [editingTag, setEditingTag] = useState(null)
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false)
-  const [newTitle, setNewTitle] = useState('')
-  const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false)
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const [sortBy, setSortBy] = useState('lastModified')
-  const [sortOrder, setSortOrder] = useState('desc')
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false)
   const [isAddToFolderModalOpen, setIsAddToFolderModalOpen] = useState(false)
-  const [pageToAddToFolder, setPageToAddToFolder] = useState(null)
-  const [tagToDeleteId, setTagToDeleteId] = useState(null)
-  const [contextMenu, setContextMenu] = useState(null)
   const [passwordAction, setPasswordAction] = useState('lock')
-  const [password, setPassword] = useState('')
   const [passwordError, setPasswordError] = useState('')
-  const [searchMode, setSearchMode] = useState('all')
-  const [isBugReportModalOpen, setIsBugReportModalOpen] = useState(false)
-  // const [isUpdateDebuggerOpen, setIsUpdateDebuggerOpen] = useState(false) // Hidden for production
+  // Rate limiting for password attempts
+  const passwordAttemptsRef = useRef({}) // { pageId: { count: number, lockedUntil: timestamp } }
+  const MAX_PASSWORD_ATTEMPTS = 5
+  const LOCKOUT_DURATION_MS = 30000 // 30 seconds
   const [isClient, setIsClient] = useState(false)
   const [wordCount, setWordCount] = useState(0)
   const [pageToRename, setPageToRename] = useState(null)
@@ -146,120 +130,34 @@ export default function RichTextEditor() {
   const [appVersion, setAppVersion] = useState('')
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
+  const [importError, setImportError] = useState(null) // Error message for import failures
   const fileInputRef = useRef(null)
+  const MAX_IMPORT_FILE_SIZE = 50 * 1024 * 1024 // 50MB limit
+  // Confirm modal state
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    variant: 'danger'
+  })
   const [isPassphraseOpen, setIsPassphraseOpen] = useState(false)
   const [pendingAction, setPendingAction] = useState(null) // 'export' | 'import'
 
-  // Theme helper functions
-  const getMainContainerClasses = () => {
-    switch (theme) {
-      case 'fallout':
-        return 'fallout flex h-screen bg-gray-900 text-green-400 font-mono'
-      case 'dark':
-        return 'dark flex h-screen bg-gray-900 text-white'
-      default:
-        return 'flex h-screen bg-white text-black'
-    }
-  }
+  // Centralized theme classes - reduces code duplication
+  const themeClasses = getThemeClasses(theme)
 
-  const getSidebarClasses = () => {
-    switch (theme) {
-      case 'fallout':
-        return 'bg-gray-900 border-r border-green-600'
-      case 'dark':
-        return 'bg-gray-900'
-      default:
-        return 'bg-gray-100'
-    }
-  }
-
-  const getButtonHoverClasses = () => {
-    switch (theme) {
-      case 'fallout':
-        return 'hover:bg-gray-800 hover:text-green-400'
-      case 'dark':
-        return 'hover:bg-gray-700 hover:text-white'
-      default:
-        return 'hover:bg-gray-200 hover:text-primary-foreground'
-    }
-  }
-
-  const getHeaderClasses = () => {
-    switch (theme) {
-      case 'fallout':
-        return 'bg-gray-900 border-green-600 text-green-400'
-      case 'dark':
-        return 'bg-gray-800 border-gray-700 text-white'
-      default:
-        return 'bg-white border-gray-200 text-black'
-    }
-  }
-
-  const getMainContentClasses = () => {
-    switch (theme) {
-      case 'fallout':
-        return 'bg-gray-900 text-green-400'
-      case 'dark':
-        return 'bg-gray-800 text-white'
-      default:
-        return 'bg-white text-black'
-    }
-  }
-
-  const getFooterClasses = () => {
-    switch (theme) {
-      case 'fallout':
-        return 'bg-gray-900 text-green-300 border-t border-green-600'
-      case 'dark':
-        return 'bg-gray-800 text-gray-300'
-      default:
-        return 'bg-white text-gray-600'
-    }
-  }
-
-  const getBorderClasses = () => {
-    switch (theme) {
-      case 'fallout':
-        return 'border-green-600'
-      case 'dark':
-        return 'border-gray-700'
-      default:
-        return 'border-gray-300'
-    }
-  }
-
-  const getTextClasses = () => {
-    switch (theme) {
-      case 'fallout':
-        return 'text-green-400'
-      case 'dark':
-        return 'text-gray-400'
-      default:
-        return 'text-gray-600'
-    }
-  }
-
-  const getIconClasses = () => {
-    switch (theme) {
-      case 'fallout':
-        return 'text-green-400'
-      case 'dark':
-        return 'text-gray-200'
-      default:
-        return 'text-gray-700'
-    }
-  }
-
-  const getFolderBadgeClasses = () => {
-    switch (theme) {
-      case 'fallout':
-        return 'bg-gray-800 text-green-300 border border-green-600'
-      case 'dark':
-        return 'bg-gray-700 text-gray-300 border border-gray-600'
-      default:
-        return 'bg-gray-100 text-gray-600 border border-gray-300'
-    }
-  }
+  // Convenience accessors for backwards compatibility
+  const getMainContainerClasses = () => themeClasses.mainContainer
+  const getSidebarClasses = () => themeClasses.sidebar
+  const getButtonHoverClasses = () => themeClasses.buttonHover
+  const getHeaderClasses = () => themeClasses.header
+  const getMainContentClasses = () => themeClasses.mainContent
+  const getFooterClasses = () => themeClasses.footer
+  const getBorderClasses = () => themeClasses.border
+  const getTextClasses = () => themeClasses.text
+  const getIconClasses = () => themeClasses.icon
+  const getFolderBadgeClasses = () => themeClasses.folderBadge
 
   // Essential useEffects
   useEffect(() => {
@@ -487,19 +385,38 @@ export default function RichTextEditor() {
   const handleImportBundle = useCallback(async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    // Clear any previous errors
+    setImportError(null)
+
+    // Validate file size
+    if (file.size > MAX_IMPORT_FILE_SIZE) {
+      setImportError(`File is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum allowed size is 50MB.`)
+      setConfirmModal({
+        isOpen: true,
+        title: 'Import Failed',
+        message: `File is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum allowed size is 50MB.`,
+        onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
+        variant: 'warning'
+      })
+      e.target.value = ''
+      return
+    }
+
     try {
       setPendingAction({ type: 'import', file })
       setIsPassphraseOpen(true)
-      return
     } catch (err) {
       console.error('Failed importing bundle', err)
     } finally {
       e.target.value = ''
     }
-  }, [setPages, tags])
+  }, [])
 
   const handlePassphraseConfirm = useCallback(async (passphrase) => {
     setIsPassphraseOpen(false)
+    setImportError(null)
+
     try {
       if (pendingAction === 'export') {
         const { exportEncryptedBundle } = await import('@/utils/exportUtils')
@@ -519,9 +436,32 @@ export default function RichTextEditor() {
         // Tags: union by name
         const existing = new Set((tags || []).map(t => t.name))
         importedTags?.forEach(t => { if (!existing.has(t.name)) useTagStore.getState().addTag(t) })
+
+        // Show success message
+        setConfirmModal({
+          isOpen: true,
+          title: 'Import Successful',
+          message: `Successfully imported ${importedItems?.length || 0} items and ${importedTags?.length || 0} tags.`,
+          onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
+          variant: 'info'
+        })
       }
     } catch (err) {
       console.error('Bundle action failed', err)
+
+      // Show user-friendly error message
+      const errorMessage = err.name === 'DecryptionError'
+        ? err.message
+        : 'Failed to process the file. Please ensure it is a valid encrypted bundle.'
+
+      setImportError(errorMessage)
+      setConfirmModal({
+        isOpen: true,
+        title: 'Import Failed',
+        message: errorMessage,
+        onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
+        variant: 'danger'
+      })
     } finally {
       setIsImporting(false)
       setPendingAction(null)
@@ -555,6 +495,22 @@ export default function RichTextEditor() {
 
   const handlePasswordConfirm = async (actionType, password) => {
     setPasswordError('')
+
+    // Rate limiting check for unlock/remove actions
+    if (actionType === 'open' || actionType === 'removeLock') {
+      const pageId = pageToAccess?.id
+      if (pageId) {
+        const attempts = passwordAttemptsRef.current[pageId] || { count: 0, lockedUntil: 0 }
+
+        // Check if currently locked out
+        if (attempts.lockedUntil > Date.now()) {
+          const remainingSeconds = Math.ceil((attempts.lockedUntil - Date.now()) / 1000)
+          setPasswordError(`Too many failed attempts. Please wait ${remainingSeconds} seconds.`)
+          return
+        }
+      }
+    }
+
     let success = false
     switch (actionType) {
       case 'lock': {
@@ -564,17 +520,59 @@ export default function RichTextEditor() {
       }
       case 'open': {
         success = await unlockPage(pageToAccess, password, true)
-        if (!success) setPasswordError('Incorrect password. Please try again.')
+        if (!success) {
+          // Track failed attempt
+          const pageId = pageToAccess?.id
+          if (pageId) {
+            const attempts = passwordAttemptsRef.current[pageId] || { count: 0, lockedUntil: 0 }
+            attempts.count += 1
+            const remainingAttempts = MAX_PASSWORD_ATTEMPTS - attempts.count
+
+            if (attempts.count >= MAX_PASSWORD_ATTEMPTS) {
+              attempts.lockedUntil = Date.now() + LOCKOUT_DURATION_MS
+              attempts.count = 0 // Reset count after lockout
+              setPasswordError(`Too many failed attempts. Please wait 30 seconds before trying again.`)
+            } else {
+              setPasswordError(`Incorrect password. ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.`)
+            }
+            passwordAttemptsRef.current[pageId] = attempts
+          } else {
+            setPasswordError('Incorrect password. Please try again.')
+          }
+        }
         break
       }
       case 'removeLock': {
         success = await unlockPage(pageToAccess, password, false)
-        if (!success) setPasswordError('Incorrect password. Unable to remove lock.')
+        if (!success) {
+          // Track failed attempt (same logic as 'open')
+          const pageId = pageToAccess?.id
+          if (pageId) {
+            const attempts = passwordAttemptsRef.current[pageId] || { count: 0, lockedUntil: 0 }
+            attempts.count += 1
+            const remainingAttempts = MAX_PASSWORD_ATTEMPTS - attempts.count
+
+            if (attempts.count >= MAX_PASSWORD_ATTEMPTS) {
+              attempts.lockedUntil = Date.now() + LOCKOUT_DURATION_MS
+              attempts.count = 0
+              setPasswordError(`Too many failed attempts. Please wait 30 seconds before trying again.`)
+            } else {
+              setPasswordError(`Incorrect password. ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.`)
+            }
+            passwordAttemptsRef.current[pageId] = attempts
+          } else {
+            setPasswordError('Incorrect password. Unable to remove lock.')
+          }
+        }
         break
       }
     }
 
     if (success) {
+      // Clear attempts on successful unlock
+      if (pageToAccess?.id) {
+        delete passwordAttemptsRef.current[pageToAccess.id]
+      }
       setIsPasswordModalOpen(false)
       setPasswordInput('')
       setPageToAccess(null)
@@ -582,9 +580,13 @@ export default function RichTextEditor() {
   }
 
   const handleDeletePage = useCallback((page) => {
-    if (window.confirm(`Are you sure you want to delete "${page.title}"?`)) {
-      deletePage(page)
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Page',
+      message: `Are you sure you want to delete "${page.title}"? This action cannot be undone.`,
+      onConfirm: () => deletePage(page),
+      variant: 'danger'
+    })
   }, [deletePage])
 
   const filteredPages = useCallback(() => {
@@ -666,9 +668,13 @@ export default function RichTextEditor() {
   }
 
   const handleDeleteFolder = (folderId) => {
-    if (window.confirm('Are you sure you want to delete this folder?')) {
-      deleteFolder(folderId)
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Folder',
+      message: 'Are you sure you want to delete this folder? Pages inside will be moved out of the folder.',
+      onConfirm: () => deleteFolder(folderId),
+      variant: 'danger'
+    })
   }
 
   const handleAddPageToFolder = (pageIds, folderId) => {
@@ -907,7 +913,7 @@ export default function RichTextEditor() {
       {/* Mobile overlay */}
       {isSmallScreen && sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-40 md:hidden"
+          className="fixed inset-0 bg-black/40 z-40 md:hidden safe-area-top"
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
         />
@@ -917,7 +923,7 @@ export default function RichTextEditor() {
       <SidebarErrorBoundary>
         <nav
           className={`${getSidebarClasses()} ${isSmallScreen
-            ? `fixed z-50 inset-y-0 left-0 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-200 w-3/4 max-w-xs`
+            ? `fixed z-50 inset-y-0 left-0 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-200 w-3/4 max-w-xs safe-area-top safe-area-bottom`
             : `${sidebarOpen ? 'w-64' : 'w-16'} relative transition-all duration-300`
             } flex flex-col overflow-visible`}
           role="navigation"
@@ -1092,9 +1098,11 @@ export default function RichTextEditor() {
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setIsInstallModalOpen(true)}>
-                        Use on your phone
-                      </DropdownMenuItem>
+                      {shouldShowMobileInstall() && (
+                        <DropdownMenuItem onClick={() => setIsInstallModalOpen(true)}>
+                          Use on your phone
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem onClick={handleImportBundleClick}>
                         Import encrypted bundle
                       </DropdownMenuItem>
@@ -1109,13 +1117,15 @@ export default function RichTextEditor() {
                 </>
               ) : (
                 <>
-                  <button
-                    onClick={() => setIsInstallModalOpen(true)}
-                    className={`p-2 rounded-md ${getButtonHoverClasses()}`}
-                    title="Use on your phone"
-                  >
-                    <Smartphone className="h-4 w-4" />
-                  </button>
+                  {shouldShowMobileInstall() && (
+                    <button
+                      onClick={() => setIsInstallModalOpen(true)}
+                      className={`p-2 rounded-md ${getButtonHoverClasses()}`}
+                      title="Use on your phone"
+                    >
+                      <Smartphone className="h-4 w-4" />
+                    </button>
+                  )}
                   <button
                     onClick={handleImportBundleClick}
                     className={`p-2 rounded-md ${getButtonHoverClasses()}`}
@@ -1236,7 +1246,7 @@ export default function RichTextEditor() {
           </div>
           <div className="flex items-center space-x-4">
             <span>{wordCount} words</span>
-            <span>
+            <span aria-live="polite" aria-atomic="true">
               {saveStatus === 'saving' && <span className="text-yellow-500">Saving...</span>}
               {saveStatus === 'saved' && <span className="text-green-500">Saved</span>}
               {saveStatus === 'error' && <span className="text-red-500">Error saving</span>}
@@ -1350,6 +1360,17 @@ export default function RichTextEditor() {
         onConfirm={handlePassphraseConfirm}
         title={pendingAction === 'export' ? 'Set a passphrase (store safely)' : 'Enter passphrase'}
         confirmLabel={pendingAction === 'export' ? 'Encrypt & Export' : 'Decrypt & Import'}
+      />
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        confirmText="Delete"
+        cancelText="Cancel"
       />
     </div>
   )

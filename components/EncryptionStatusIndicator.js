@@ -1,4 +1,4 @@
-import { Shield, ShieldCheck } from 'lucide-react'
+import { ShieldCheck } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
 export default function EncryptionStatusIndicator() {

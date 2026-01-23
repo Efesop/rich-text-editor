@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useTheme } from 'next-themes';
 import { Button } from "./ui/button";
-import { ArrowDownCircle, X, AlertTriangle, RefreshCw, Wifi, WifiOff, Download, CheckCircle } from 'lucide-react';
+import { ArrowDownCircle, X, AlertTriangle, RefreshCw, WifiOff, Download, CheckCircle } from 'lucide-react';
 
 export default function UpdateNotification({ 
   onClose, 
@@ -214,7 +214,7 @@ export default function UpdateNotification({
           <CheckCircle className={`h-5 w-5 ${theme === 'fallout' ? 'text-green-400' : 'text-green-500'} flex-shrink-0`} />
           <div className="flex-1">
             <div className={`font-medium ${styles.text} text-sm`}>
-              You're up to date!
+              You&apos;re up to date!
             </div>
             {updateInfo.currentVersion && (
               <div className={`text-xs ${styles.subtext}`}>

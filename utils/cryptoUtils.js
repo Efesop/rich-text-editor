@@ -15,7 +15,7 @@ async function deriveKeyFromPassphrase (passphrase, salt) {
     {
       name: 'PBKDF2',
       salt,
-      iterations: 200000,
+      iterations: 600000, // NIST 2024 recommendation for security
       hash: 'SHA-256'
     },
     baseKey,
@@ -41,14 +41,41 @@ export async function encryptJsonWithPassphrase (jsonObject, passphrase) {
   }
 }
 
+// Custom error class for decryption failures
+export class DecryptionError extends Error {
+  constructor(message, cause) {
+    super(message)
+    this.name = 'DecryptionError'
+    this.cause = cause
+  }
+}
+
 export async function decryptJsonWithPassphrase (payload, passphrase) {
-  const salt = new Uint8Array(payload.salt)
-  const iv = new Uint8Array(payload.iv)
-  const data = new Uint8Array(payload.data)
-  const key = await deriveKeyFromPassphrase(passphrase, salt)
-  const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data)
-  const json = JSON.parse(textDecoder.decode(new Uint8Array(plaintext)))
-  return json
+  // Validate payload structure
+  if (!payload || !payload.salt || !payload.iv || !payload.data) {
+    throw new DecryptionError('Invalid file format. The file may be corrupted or not a valid encrypted bundle.')
+  }
+
+  try {
+    const salt = new Uint8Array(payload.salt)
+    const iv = new Uint8Array(payload.iv)
+    const data = new Uint8Array(payload.data)
+    const key = await deriveKeyFromPassphrase(passphrase, salt)
+    const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data)
+    const json = JSON.parse(textDecoder.decode(new Uint8Array(plaintext)))
+    return json
+  } catch (error) {
+    // AES-GCM decryption fails with OperationError when passphrase is wrong
+    if (error.name === 'OperationError') {
+      throw new DecryptionError('Incorrect passphrase. Please check your passphrase and try again.')
+    }
+    // JSON parse error means decryption succeeded but data is malformed
+    if (error instanceof SyntaxError) {
+      throw new DecryptionError('The file appears to be corrupted. Decryption succeeded but the data is invalid.')
+    }
+    // Re-throw other errors with context
+    throw new DecryptionError(`Failed to decrypt: ${error.message}`, error)
+  }
 }
 
 

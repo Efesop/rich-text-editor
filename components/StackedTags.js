@@ -2,12 +2,12 @@ import React, { useState, useRef, useEffect } from 'react'
 import { useTheme } from 'next-themes'
 import { getTagChipStyle, ensureHex } from '@/utils/colorUtils'
 
-export default function StackedTags({ 
-  tags = [], 
-  maxVisible = 2, 
-  onRemoveTag,
+export default function StackedTags({
+  tags = [],
+  maxVisible = 2,
+  onRemoveTag: _onRemoveTag,
   size = 'sm',
-  showRemove = false,
+  showRemove: _showRemove = false,
   className = '',
   theme, // Accept theme as prop
   tagColorMap = {},
@@ -17,16 +17,6 @@ export default function StackedTags({
   const currentTheme = theme || contextTheme // Use prop theme if provided, otherwise context theme
   const [isPopupOpen, setIsPopupOpen] = useState(false)
   const popupRef = useRef(null)
-
-  if (tags.length === 0) return null
-
-  const visibleTags = tags.slice(0, maxVisible)
-  const hiddenTags = tags.slice(maxVisible)
-  const hasHiddenTags = hiddenTags.length > 0
-  
-
-  // Utils
-  // using shared color helpers via colorUtils
 
   // Close popup when clicking outside
   useEffect(() => {
@@ -38,8 +28,15 @@ export default function StackedTags({
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  // Early return AFTER hooks to comply with rules-of-hooks
+  if (tags.length === 0) return null
+
+  const visibleTags = tags.slice(0, maxVisible)
+  const hiddenTags = tags.slice(maxVisible)
+  const hasHiddenTags = hiddenTags.length > 0
+
   // Resolve color for a tag. Prefer explicit color map; otherwise fall back to theme palette hashing.
-  const getTagColor = (tag, index) => {
+  const getTagColor = (tag) => {
     const explicit = tagColorMap && typeof tagColorMap[tag] === 'string' ? ensureHex(tagColorMap[tag]) : null
     if (explicit) {
       return {
@@ -58,14 +55,14 @@ export default function StackedTags({
     }
   }
 
-  const getTagClasses = (tag, index, isHidden = false) => {
+  const getTagClasses = (tag) => {
     const baseClasses = `
       inline-flex items-center rounded-md font-medium
       border transition-all duration-150 ease-out
       ${size === 'xs' ? 'px-1 py-0.5 text-xs' : size === 'lg' ? 'px-3 py-1.5 text-sm' : 'px-1.5 py-0.5 text-xs'}
     `
 
-    const colorToken = getTagColor(tag, index)
+    const colorToken = getTagColor(tag)
     const colorClasses = typeof colorToken === 'string' ? colorToken : colorToken.classes
 
     // Overlap via negative left margin, newest on top
@@ -94,7 +91,7 @@ export default function StackedTags({
     >
       {/* Visible tags */}
       {visibleTags.map((tag, index) => {
-        const token = getTagClasses(tag, index)
+        const token = getTagClasses(tag)
         return (
           <span
             key={`${tag}-${index}`}
@@ -144,7 +141,7 @@ export default function StackedTags({
         >
           <div className="flex flex-wrap gap-1 max-w-xs max-h-40 overflow-auto">
             {hiddenTags.map((tag, index) => {
-              const token = getTagClasses(tag, visibleTags.length + index, true)
+              const token = getTagClasses(tag)
               return (
                 <span
                   key={`popup-${tag}-${index}`}

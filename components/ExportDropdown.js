@@ -78,7 +78,7 @@ const ExportDropdown = ({ onExport }) => {
         <ChevronDown className="ml-1 h-4 w-4" />
       </Button>
       {isOpen && (
-        <div className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg ${getDropdownClasses()} border z-50`}>
+        <div className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg ${getDropdownClasses()} border z-[60]`}>
           <div className="py-1" role="menu" aria-orientation="vertical">
             {exportOptions.map((option) => (
               <button

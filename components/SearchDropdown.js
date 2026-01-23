@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Search, FileText, Folder, Tag, Clock } from 'lucide-react'
+import { Search, FileText, Folder, Tag } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
 export default function SearchDropdown({ 
@@ -216,7 +216,7 @@ export default function SearchDropdown({
   }
 
   const getDropdownClasses = () => {
-    const baseClasses = 'absolute top-full left-0 right-0 mt-1 rounded-md border shadow-lg z-50 max-h-64 overflow-auto'
+    const baseClasses = 'absolute top-full left-0 right-0 mt-1 rounded-md border shadow-lg z-[60] max-h-64 overflow-auto'
     
     switch (theme) {
       case 'fallout':

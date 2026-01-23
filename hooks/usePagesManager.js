@@ -19,6 +19,11 @@ export function usePagesManager() {
   const saveTimeoutRef = useRef(null)
   const isInitializedRef = useRef(false)
 
+  // Race condition protection: save queue and version tracking
+  const saveInProgressRef = useRef(false)
+  const pendingSaveRef = useRef(null)
+  const saveVersionRef = useRef(0)
+
   // Update refs when state changes
   useEffect(() => {
     pagesRef.current = pages
@@ -28,42 +33,78 @@ export function usePagesManager() {
     currentPageRef.current = currentPage
   }, [currentPage])
 
+  // Execute the actual save operation with race condition protection
+  const executeSave = useCallback(async (pagesToSave, version) => {
+    try {
+      if (typeof window !== 'undefined' && window.electron?.invoke) {
+        await window.electron.invoke('save-pages', pagesToSave)
+      } else {
+        await savePagesToFallback(pagesToSave)
+      }
+      // Only mark as saved if this is still the latest version
+      if (version === saveVersionRef.current) {
+        setSaveStatus('saved')
+      }
+    } catch (error) {
+      console.error('Error saving pages:', error)
+      if (version === saveVersionRef.current) {
+        setSaveStatus('error')
+      }
+      throw error
+    }
+  }, [])
+
+  // Process the save queue - ensures saves happen sequentially
+  const processSaveQueue = useCallback(async () => {
+    if (saveInProgressRef.current) return
+    if (!pendingSaveRef.current) return
+
+    saveInProgressRef.current = true
+    const { pages: pagesToSave, version } = pendingSaveRef.current
+    pendingSaveRef.current = null
+
+    try {
+      await executeSave(pagesToSave, version)
+    } catch (error) {
+      // Retry once on failure with latest data
+      try {
+        await executeSave(pagesRef.current, saveVersionRef.current)
+      } catch (retryError) {
+        console.error('Save retry failed:', retryError)
+      }
+    } finally {
+      saveInProgressRef.current = false
+      // Process any pending saves that queued while we were saving
+      if (pendingSaveRef.current) {
+        processSaveQueue()
+      }
+    }
+  }, [executeSave])
+
   // Debounced save function to prevent excessive saves
-  const savePagesToStorage = useCallback(async (updatedPages) => {
-    // Clear any pending saves
+  // Note: updatedPages param kept for API compatibility but we always use pagesRef.current
+  const savePagesToStorage = useCallback(async (_updatedPages) => {
+    // Clear any pending debounce timer
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current)
     }
 
     setSaveStatus('saving')
 
-    // Debounce the actual save operation
-    saveTimeoutRef.current = setTimeout(async () => {
-      try {
-        // Use the latest pages if no specific pages provided
-        const pagesToSave = updatedPages || pagesRef.current
-        if (typeof window !== 'undefined' && window.electron?.invoke) {
-          await window.electron.invoke('save-pages', pagesToSave)
-        } else {
-          await savePagesToFallback(pagesToSave)
-        }
-        setSaveStatus('saved')
-      } catch (error) {
-        console.error('Error saving pages:', error)
-        setSaveStatus('error')
-        // Retry once after a delay
-        setTimeout(() => {
-          const toSave = updatedPages || pagesRef.current
-          const op = (typeof window !== 'undefined' && window.electron?.invoke)
-            ? window.electron.invoke('save-pages', toSave)
-            : savePagesToFallback(toSave)
-          Promise.resolve(op)
-            .then(() => setSaveStatus('saved'))
-            .catch(() => setSaveStatus('error'))
-        }, 1000)
-      }
-    }, 150) // Short debounce to batch rapid updates
-  }, [])
+    // Increment version to track save ordering
+    saveVersionRef.current += 1
+    const currentVersion = saveVersionRef.current
+
+    // Debounce: wait before actually saving to batch rapid updates
+    saveTimeoutRef.current = setTimeout(() => {
+      // Always save the latest pages data, not stale closure data
+      const pagesToSave = pagesRef.current
+
+      // Queue the save with version tracking
+      pendingSaveRef.current = { pages: pagesToSave, version: currentVersion }
+      processSaveQueue()
+    }, 150)
+  }, [processSaveQueue])
 
   const fetchPages = useCallback(async () => {
     try {
@@ -94,7 +135,7 @@ export function usePagesManager() {
 
   const createNewPage = useCallback(async () => {
     const newPage = {
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9), // More unique IDs
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 11), // More unique IDs
       title: 'New Page',
       content: {
         time: Date.now(),
@@ -187,7 +228,7 @@ export function usePagesManager() {
       // Ensure we always have at least one page
       if (updatedPages.filter(p => p.type !== 'folder').length === 0) {
         const defaultPage = {
-          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          id: Date.now().toString() + Math.random().toString(36).slice(2, 11),
           title: 'New Page',
           content: { time: Date.now(), blocks: [], version: '2.30.6' },
           tags: [],
@@ -236,6 +277,13 @@ export function usePagesManager() {
     try {
       const hashedPassword = await hashPassword(password)
       const updatedPage = { ...page, password: { hash: hashedPassword } }
+
+      // Clear any temporary unlock for this page when locking
+      setTempUnlockedPages(prev => {
+        const next = new Set(prev)
+        next.delete(page.id)
+        return next
+      })
 
       setPages(prevPages => {
         const newPages = prevPages.map(p =>
@@ -387,10 +435,10 @@ export function usePagesManager() {
   const setCurrentPage = useCallback((page) => {
     if (!page) return
 
-    // Clear any temporary unlocks when switching pages
-    if (currentPageRef.current?.id !== page.id) {
-      setTempUnlockedPages(new Set())
-    }
+    // Note: We no longer clear temp unlocks on page switch.
+    // Temp unlocks persist for the session, cleared only on:
+    // 1. Page refresh/close (natural state reset)
+    // 2. Explicitly re-locking a page via lockPage()
 
     if (page.password && !tempUnlockedPages.has(page.id)) {
       setPageToAccess(page)
@@ -433,7 +481,7 @@ export function usePagesManager() {
     if (!folderName) return
 
     const newFolder = {
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 11),
       title: folderName.slice(0, 30),
       type: 'folder',
       pages: [],
@@ -564,7 +612,7 @@ export function usePagesManager() {
 
     const newPage = {
       ...page,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 11),
       title: `${page.title} (Copy)`,
       createdAt: new Date().toISOString(),
     }

@@ -5,6 +5,30 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.86] - 2026-01-23
+
+### Security
+- **Fixed XSS vulnerability in data: URI handling** - Blocked data: URLs except for safe image MIME types (PNG, JPEG, GIF, WebP, BMP, ICO). SVG data URIs are fully blocked as they can contain scripts.
+- **Added password brute-force protection** - Limited to 5 attempts with 30-second lockout to prevent password guessing attacks.
+- **Increased PBKDF2 iterations to 600,000** - Updated from 200,000 to meet NIST 2024 security recommendations.
+- **Fixed race conditions in save system** - Implemented save queue with version tracking to prevent data loss during rapid page switches.
+
+### Fixed
+- **Fixed "Use on your phone" showing on mobile** - Option now correctly hidden when already viewing on a mobile device or PWA.
+- **Fixed sidebar overlapping iPhone status bar** - Added safe-area-inset support for notch and status bar.
+- **Fixed dropdowns appearing behind sidebar** - Increased z-index for all dropdowns to appear above sidebar on mobile.
+- **Fixed production error boundary** - Errors now show user-friendly messages in production (not just development).
+- **Fixed ESLint violations** - Re-enabled react-hooks/exhaustive-deps and no-unused-vars rules; fixed all violations.
+- **Fixed temporary page unlock behavior** - Unlocked pages now stay unlocked during session instead of re-locking on page switch.
+
+### Added
+- **User-friendly import/export errors** - Clear error messages for wrong passphrase, invalid file format, and file too large (50MB limit).
+- **ARIA accessibility attributes** - Added proper aria-expanded, aria-haspopup, aria-controls, and role attributes to dropdowns and modals.
+- **Centralized theme utilities** - New `utils/themeUtils.js` reduces code duplication across components.
+- **Centralized device detection** - New `utils/deviceUtils.js` for consistent mobile/PWA detection.
+- **Reusable dropdown positioning hook** - New `hooks/useDropdownPosition.js` for consistent dropdown behavior.
+- **ConfirmModal component** - Replaced window.confirm() with accessible custom modal for better PWA/mobile support.
+
 ## [1.3.83] - 2026-01-08
 
 ### Fixed

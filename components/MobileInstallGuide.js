@@ -106,7 +106,7 @@ export function MobileInstallGuide() {
             </div>
             <div>
               <p className={`text-sm ${styles.text}`}>
-                Select <Plus className="inline h-4 w-4 mx-1" /> <span className={styles.highlight}>"Add to Home Screen"</span> from the menu
+                Select <Plus className="inline h-4 w-4 mx-1" /> <span className={styles.highlight}>&quot;Add to Home Screen&quot;</span> from the menu
               </p>
             </div>
           </div>
@@ -117,7 +117,7 @@ export function MobileInstallGuide() {
             </div>
             <div>
               <p className={`text-sm ${styles.text}`}>
-                Tap <span className={styles.highlight}>"Add"</span> to install Dash as an app
+                Tap <span className={styles.highlight}>&quot;Add&quot;</span> to install Dash as an app
               </p>
             </div>
           </div>
@@ -136,7 +136,7 @@ export function MobileInstallGuide() {
             onClick={() => handleDismiss(true)}
             className={`text-xs ${theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : ''}`}
           >
-            Don't show again
+            Don&apos;t show again
           </Button>
           <Button
             size="sm"

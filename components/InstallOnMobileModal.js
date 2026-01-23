@@ -1,11 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Button } from './ui/button'
 import { useTheme } from 'next-themes'
 import QRCode from 'qrcode'
 
 export function InstallOnMobileModal ({ isOpen, onClose, pwaUrl }) {
   const { theme } = useTheme()
-  if (!isOpen) return null
 
   // Always use GitHub Pages URL for QR code (works from Electron and web)
   const url = pwaUrl || 'https://efesop.github.io/rich-text-editor/'
@@ -40,6 +39,9 @@ export function InstallOnMobileModal ({ isOpen, onClose, pwaUrl }) {
     }
     return () => { mounted = false }
   }, [url])
+
+  // Early return AFTER hooks to comply with rules-of-hooks
+  if (!isOpen) return null
 
   // Theme-aware styling
   const getModalStyles = () => {
@@ -95,7 +97,7 @@ export function InstallOnMobileModal ({ isOpen, onClose, pwaUrl }) {
           <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-gray-800 border border-green-600' : theme === 'dark' ? 'bg-gray-800 border border-gray-700' : 'bg-blue-50 border border-blue-200'}`}>
             <h3 className={`text-sm font-semibold mb-2 ${styles.text}`}>Step 2: Add to Home Screen</h3>
             <p className={`text-sm ${theme === 'fallout' ? 'text-green-300' : theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-              In Safari, tap the <strong>Share</strong> button, then tap <strong>"Add to Home Screen"</strong>
+              In Safari, tap the <strong>Share</strong> button, then tap <strong>&quot;Add to Home Screen&quot;</strong>
             </p>
           </div>
 

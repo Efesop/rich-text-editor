@@ -118,9 +118,9 @@ export function sanitizeEditorContent(content) {
         break
 
       case 'image':
-        if (block.data?.file?.url && isValidUrl(block.data.file.url)) {
+        if (block.data?.file?.url && isValidImageUrl(block.data.file.url)) {
           sanitizedBlock.data.file = {
-            url: sanitizeUrl(block.data.file.url)
+            url: sanitizeImageUrl(block.data.file.url)
           }
         }
         if (block.data?.caption) {
@@ -191,26 +191,66 @@ function escapeHtml(text) {
   return text.replace(/[&<>"']/g, m => map[m])
 }
 
-// Validate URL format
+// Validate URL format - does NOT allow data: URLs by default (use isValidImageUrl for images)
 function isValidUrl(string) {
   try {
     const url = new URL(string)
-    return ['http:', 'https:', 'data:'].includes(url.protocol)
+    // Only allow http and https - NO data: URLs to prevent XSS
+    return ['http:', 'https:'].includes(url.protocol)
   } catch (_) {
     return false
   }
 }
 
-// Sanitize URL
+// Validate image URLs - allows data: URLs but only for safe image MIME types
+function isValidImageUrl(string) {
+  try {
+    const url = new URL(string)
+
+    // Allow http/https
+    if (['http:', 'https:'].includes(url.protocol)) {
+      return true
+    }
+
+    // Allow data: URLs ONLY for safe image MIME types
+    if (url.protocol === 'data:') {
+      // Parse the MIME type from data URL (format: data:mime/type;base64,...)
+      const mimeMatch = string.match(/^data:(image\/(?:png|jpeg|jpg|gif|webp|svg\+xml|bmp|ico));/i)
+      if (mimeMatch) {
+        // Additional check: block svg with scripts (svg+xml can contain JS)
+        if (mimeMatch[1].toLowerCase() === 'image/svg+xml') {
+          // Block SVG data URLs entirely - they can contain scripts
+          return false
+        }
+        return true
+      }
+      return false
+    }
+
+    return false
+  } catch (_) {
+    return false
+  }
+}
+
+// Sanitize URL - no data: URLs allowed
 function sanitizeUrl(url) {
   try {
     const parsed = new URL(url)
-    // Only allow http, https, and data URLs
-    if (['http:', 'https:', 'data:'].includes(parsed.protocol)) {
+    // Only allow http and https - NO data: URLs
+    if (['http:', 'https:'].includes(parsed.protocol)) {
       return parsed.toString()
     }
   } catch (_) {
     // Invalid URL
+  }
+  return ''
+}
+
+// Sanitize image URL - allows safe data: image URLs
+function sanitizeImageUrl(url) {
+  if (isValidImageUrl(url)) {
+    return url
   }
   return ''
 }

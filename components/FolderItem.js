@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Folder, FolderOpen, FolderPlus, Trash2, MoreVertical, Pencil, Edit3, Plus } from 'lucide-react'
+import { Folder, FolderOpen, Trash2, MoreVertical, Edit3, Plus } from 'lucide-react'
 import { Button } from './ui/button'
 import PageItem from './PageItem'
 
@@ -22,7 +22,6 @@ export function FolderItem({
   onDuplicate, // Add this prop
   pagesCount 
 }) {
-  const [isOpen, setIsOpen] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
   const [newFolderName, setNewFolderName] = useState(folder.title)
@@ -193,8 +192,12 @@ export function FolderItem({
               setIsDropdownOpen(!isDropdownOpen)
             }}
             className={`h-6 w-6 p-0 opacity-0 ${isHovered ? 'opacity-100' : ''}`}
+            aria-haspopup="menu"
+            aria-expanded={isDropdownOpen}
+            aria-controls={`folder-menu-${folder.id}`}
+            aria-label={`Actions for folder ${folder.title}`}
           >
-            <MoreVertical className="h-4 w-4" />
+            <MoreVertical className="h-4 w-4" aria-hidden="true" />
           </Button>
         )}
       </div>
@@ -223,8 +226,11 @@ export function FolderItem({
         </div>
       )}
       {isDropdownOpen && (
-        <div 
+        <div
           ref={dropdownRef}
+          id={`folder-menu-${folder.id}`}
+          role="menu"
+          aria-label={`Actions for folder ${folder.title}`}
           className={`fixed w-48 rounded-md shadow-lg ${getDropdownClasses()}`}
           style={{
             top: `${dropdownPosition.top}px`,
@@ -234,6 +240,7 @@ export function FolderItem({
         >
           <div className="py-1">
             <button
+              role="menuitem"
               className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
               onClick={(e) => {
                 e.stopPropagation()
@@ -242,10 +249,11 @@ export function FolderItem({
                 setIsDropdownOpen(false)
               }}
             >
-              <Edit3 className="h-4 w-4 inline mr-2" />
+              <Edit3 className="h-4 w-4 inline mr-2" aria-hidden="true" />
               Rename
             </button>
             <button
+              role="menuitem"
               className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
               onClick={(e) => {
                 e.stopPropagation()
@@ -253,10 +261,11 @@ export function FolderItem({
                 setIsDropdownOpen(false)
               }}
             >
-              <Plus className="h-4 w-4 inline mr-2" />
+              <Plus className="h-4 w-4 inline mr-2" aria-hidden="true" />
               Add Page
             </button>
             <button
+              role="menuitem"
               className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
               onClick={(e) => {
                 e.stopPropagation()
@@ -264,7 +273,7 @@ export function FolderItem({
                 setIsDropdownOpen(false)
               }}
             >
-              <Trash2 className="h-4 w-4 inline mr-2" />
+              <Trash2 className="h-4 w-4 inline mr-2" aria-hidden="true" />
               Delete Folder
             </button>
           </div>

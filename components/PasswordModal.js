@@ -38,9 +38,12 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
   const isLocking = action === 'lock'
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
       onClick={handleOverlayClick}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="password-modal-title"
     >
       {/* Backdrop with blur */}
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
@@ -82,10 +85,13 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
                 {isLocking ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
               </div>
               <div>
-                <h2 className={`
-                  text-lg font-semibold
-                  ${isFallout ? 'text-green-400 font-mono' : isDark ? 'text-white' : 'text-gray-900'}
-                `}>
+                <h2
+                  id="password-modal-title"
+                  className={`
+                    text-lg font-semibold
+                    ${isFallout ? 'text-green-400 font-mono' : isDark ? 'text-white' : 'text-gray-900'}
+                  `}
+                >
                   {isLocking ? 'Lock Page' : 'Unlock Page'}
                 </h2>
                 <p className={`
@@ -98,17 +104,18 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
             </div>
             <button
               onClick={onClose}
+              aria-label="Close"
               className={`
                 p-2 rounded-lg transition-colors
-                ${isFallout 
-                  ? 'text-green-500 hover:bg-green-500/20' 
-                  : isDark 
-                    ? 'text-gray-400 hover:bg-gray-800' 
+                ${isFallout
+                  ? 'text-green-500 hover:bg-green-500/20'
+                  : isDark
+                    ? 'text-gray-400 hover:bg-gray-800'
                     : 'text-gray-400 hover:bg-gray-100'
                 }
               `}
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5" aria-hidden="true" />
             </button>
           </div>
         </div>

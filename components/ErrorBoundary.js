@@ -15,11 +15,12 @@ class ErrorBoundary extends React.Component {
     }
   }
 
-  static getDerivedStateFromError(error) {
+  static getDerivedStateFromError(_error) {
     // Update state so the next render will show the fallback UI
-    return { 
+    // Note: error details are captured in componentDidCatch
+    return {
       hasError: true,
-      errorId: Date.now().toString(36) + Math.random().toString(36).substr(2, 9)
+      errorId: Date.now().toString(36) + Math.random().toString(36).slice(2, 11)
     }
   }
 
@@ -116,7 +117,7 @@ function ErrorFallback({ error, errorInfo, errorId, onReload, onReset }) {
           <p className={`text-sm ${
             theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
           }`}>
-            We're sorry, but something unexpected happened. Your data is safe.
+            We&apos;re sorry, but something unexpected happened. Your data is safe.
           </p>
         </div>
 
@@ -140,51 +141,57 @@ function ErrorFallback({ error, errorInfo, errorId, onReload, onReset }) {
           </Button>
         </div>
 
-        {isDevelopment && (
-          <div className="space-y-3">
-            <Button 
-              onClick={() => setShowDetails(!showDetails)}
-              variant="ghost"
-              size="sm"
-              className="w-full"
-            >
-              {showDetails ? 'Hide' : 'Show'} Technical Details
-            </Button>
+        <div className="space-y-3">
+          <Button
+            onClick={() => setShowDetails(!showDetails)}
+            variant="ghost"
+            size="sm"
+            className="w-full"
+          >
+            {showDetails ? 'Hide' : 'Show'} {isDevelopment ? 'Technical Details' : 'Error Details'}
+          </Button>
 
-            {showDetails && (
-              <div className={`text-left text-xs p-4 rounded border overflow-auto max-h-40 ${
-                theme === 'dark' 
-                  ? 'bg-gray-900 border-gray-600 text-gray-300' 
-                  : 'bg-gray-100 border-gray-300 text-gray-700'
-              }`}>
-                <div className="mb-2">
-                  <strong>Error ID:</strong> {errorId}
-                </div>
-                {error && (
-                  <div className="mb-2">
-                    <strong>Error:</strong> {error.message}
-                  </div>
-                )}
-                {error?.stack && (
-                  <div className="mb-2">
-                    <strong>Stack:</strong>
-                    <pre className="whitespace-pre-wrap text-xs mt-1">
-                      {error.stack}
-                    </pre>
-                  </div>
-                )}
-                {errorInfo?.componentStack && (
-                  <div>
-                    <strong>Component Stack:</strong>
-                    <pre className="whitespace-pre-wrap text-xs mt-1">
-                      {errorInfo.componentStack}
-                    </pre>
-                  </div>
-                )}
+          {showDetails && (
+            <div className={`text-left text-xs p-4 rounded border overflow-auto max-h-40 ${
+              theme === 'dark'
+                ? 'bg-gray-900 border-gray-600 text-gray-300'
+                : 'bg-gray-100 border-gray-300 text-gray-700'
+            }`}>
+              <div className="mb-2">
+                <strong>Error ID:</strong> {errorId}
               </div>
-            )}
-          </div>
-        )}
+              {error && (
+                <div className="mb-2">
+                  <strong>Error:</strong> {error.message}
+                </div>
+              )}
+              {/* Only show full stack traces in development */}
+              {isDevelopment && error?.stack && (
+                <div className="mb-2">
+                  <strong>Stack:</strong>
+                  <pre className="whitespace-pre-wrap text-xs mt-1">
+                    {error.stack}
+                  </pre>
+                </div>
+              )}
+              {isDevelopment && errorInfo?.componentStack && (
+                <div>
+                  <strong>Component Stack:</strong>
+                  <pre className="whitespace-pre-wrap text-xs mt-1">
+                    {errorInfo.componentStack}
+                  </pre>
+                </div>
+              )}
+              {!isDevelopment && (
+                <div className="mt-2 pt-2 border-t border-gray-600">
+                  <p className="text-xs opacity-75">
+                    Please include this Error ID when reporting issues.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className={`text-xs ${
           theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
@@ -203,7 +210,7 @@ export class EditorErrorBoundary extends React.Component {
     this.state = { hasError: false }
   }
 
-  static getDerivedStateFromError(error) {
+  static getDerivedStateFromError(_error) {
     return { hasError: true }
   }
 

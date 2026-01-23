@@ -189,14 +189,21 @@ const PageItem = ({
               setIsDropdownOpen(!isDropdownOpen)
             }}
             className={`h-6 w-6 p-0 opacity-0 ${isHovered ? 'opacity-100' : ''}`}
+            aria-haspopup="menu"
+            aria-expanded={isDropdownOpen}
+            aria-controls={`page-menu-${page.id}`}
+            aria-label={`Actions for ${page.title}`}
           >
             <MoreVertical className={`h-4 w-4 ${getIconClasses()}`} />
           </Button>
         )}
       </div>
       {isDropdownOpen && (
-        <div 
+        <div
           ref={dropdownRef}
+          id={`page-menu-${page.id}`}
+          role="menu"
+          aria-label={`Actions for ${page.title}`}
           className={`fixed w-48 rounded-md shadow-lg ${getDropdownClasses()}`}
           style={{
             top: `${dropdownPosition.top}px`,
@@ -206,6 +213,7 @@ const PageItem = ({
         >
           <div className="py-1">
             <button
+              role="menuitem"
               className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
               onClick={(e) => {
                 e.stopPropagation()
@@ -213,10 +221,11 @@ const PageItem = ({
                 setIsDropdownOpen(false)
               }}
             >
-              <Edit3 className="h-4 w-4 inline mr-2" />
+              <Edit3 className="h-4 w-4 inline mr-2" aria-hidden="true" />
               Rename
             </button>
             <button
+              role="menuitem"
               className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
               onClick={(e) => {
                 e.stopPropagation()
@@ -224,10 +233,11 @@ const PageItem = ({
                 setIsDropdownOpen(false)
               }}
             >
-              <Copy className="h-4 w-4 inline mr-2" />
+              <Copy className="h-4 w-4 inline mr-2" aria-hidden="true" />
               Duplicate
             </button>
             <button
+              role="menuitem"
               className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
               onClick={(e) => {
                 e.stopPropagation()
@@ -237,17 +247,18 @@ const PageItem = ({
             >
               {page.password && page.password.hash ? (
                 <>
-                  <Unlock className="h-4 w-4 inline mr-2" />
+                  <Unlock className="h-4 w-4 inline mr-2" aria-hidden="true" />
                   Unlock
                 </>
               ) : (
                 <>
-                  <Lock className="h-4 w-4 inline mr-2" />
+                  <Lock className="h-4 w-4 inline mr-2" aria-hidden="true" />
                   Lock
                 </>
               )}
             </button>
             <button
+              role="menuitem"
               className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
               onClick={(e) => {
                 e.stopPropagation()
@@ -255,11 +266,12 @@ const PageItem = ({
                 setIsDropdownOpen(false)
               }}
             >
-              <Trash2 className="h-4 w-4 inline mr-2" />
+              <Trash2 className="h-4 w-4 inline mr-2" aria-hidden="true" />
               Delete
             </button>
             {onRemoveFromFolder && (
               <button
+                role="menuitem"
                 className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
                 onClick={(e) => {
                   e.stopPropagation()
@@ -267,7 +279,7 @@ const PageItem = ({
                   setIsDropdownOpen(false)
                 }}
               >
-                <FolderMinus className="h-4 w-4 inline mr-2" />
+                <FolderMinus className="h-4 w-4 inline mr-2" aria-hidden="true" />
                 Remove from Folder
               </button>
             )}
