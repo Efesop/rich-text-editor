@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Folder, FolderOpen, Trash2, MoreVertical, Edit3, Plus } from 'lucide-react'
 import { Button } from './ui/button'
 import PageItem from './PageItem'
+import { isMobileDevice, isSmallScreen } from '@/utils/deviceUtils'
+import { ActionSheet, ActionSheetItem, ActionSheetSeparator } from './ActionSheet'
 
 export function FolderItem({ 
   folder, 
@@ -26,23 +28,36 @@ export function FolderItem({
   const [isRenaming, setIsRenaming] = useState(false)
   const [newFolderName, setNewFolderName] = useState(folder.title)
   const dropdownRef = useRef(null)
+  const buttonRef = useRef(null)
   const folderRef = useRef(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
   const [isHovered, setIsHovered] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [isActionSheetOpen, setIsActionSheetOpen] = useState(false)
+
+  // On mobile/touch devices, always show the 3-dots button (no hover state)
+  const isMobile = isMobileDevice() || isSmallScreen()
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      // Exclude both the dropdown and the toggle button from click-outside detection
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target)
+      ) {
         setIsDropdownOpen(false)
       }
     }
 
-    document.addEventListener('mousedown', handleClickOutside)
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [])
+  }, [isDropdownOpen])
 
   const toggleExpand = (e) => {
     e.stopPropagation()
@@ -185,15 +200,20 @@ export function FolderItem({
         </div>
         {sidebarOpen && (
           <Button
+            ref={buttonRef}
             variant="ghost"
             size="icon"
             onClick={(e) => {
               e.stopPropagation()
-              setIsDropdownOpen(!isDropdownOpen)
+              if (isMobile) {
+                setIsActionSheetOpen(true)
+              } else {
+                setIsDropdownOpen(!isDropdownOpen)
+              }
             }}
-            className={`h-6 w-6 p-0 opacity-0 ${isHovered ? 'opacity-100' : ''}`}
+            className={`h-6 w-6 p-0 ${isMobile ? 'opacity-100' : `opacity-0 ${isHovered ? 'opacity-100' : ''}`}`}
             aria-haspopup="menu"
-            aria-expanded={isDropdownOpen}
+            aria-expanded={isDropdownOpen || isActionSheetOpen}
             aria-controls={`folder-menu-${folder.id}`}
             aria-label={`Actions for folder ${folder.title}`}
           >
@@ -235,7 +255,7 @@ export function FolderItem({
           style={{
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`,
-            zIndex: 1000
+            zIndex: 9999
           }}
         >
           <div className="py-1">
@@ -279,6 +299,41 @@ export function FolderItem({
           </div>
         </div>
       )}
+
+      {/* Mobile Action Sheet */}
+      <ActionSheet
+        isOpen={isActionSheetOpen}
+        onClose={() => setIsActionSheetOpen(false)}
+        title={folder.title}
+      >
+        <ActionSheetItem
+          icon={Edit3}
+          label="Rename"
+          onClick={() => {
+            setIsRenaming(true)
+            setNewFolderName(folder.title)
+            setIsActionSheetOpen(false)
+          }}
+        />
+        <ActionSheetItem
+          icon={Plus}
+          label="Add Page"
+          onClick={() => {
+            onAddPage(folder.id)
+            setIsActionSheetOpen(false)
+          }}
+        />
+        <ActionSheetSeparator />
+        <ActionSheetItem
+          icon={Trash2}
+          label="Delete Folder"
+          variant="danger"
+          onClick={() => {
+            onDeleteFolder(folder.id)
+            setIsActionSheetOpen(false)
+          }}
+        />
+      </ActionSheet>
     </div>
   )
 }

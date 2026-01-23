@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "./ui/button"
 import { FileText, Lock, Unlock, Trash2, MoreVertical, FolderMinus, Copy, Edit3 } from 'lucide-react'
 import StackedTags from './StackedTags'
+import { isMobileDevice, isSmallScreen } from '@/utils/deviceUtils'
+import { ActionSheet, ActionSheetItem, ActionSheetSeparator } from './ActionSheet'
 
 const PageItem = ({ 
   page, 
@@ -20,10 +22,15 @@ const PageItem = ({
   onDuplicate
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [isActionSheetOpen, setIsActionSheetOpen] = useState(false)
   const dropdownRef = useRef(null)
+  const buttonRef = useRef(null)
   const pageItemRef = useRef(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
   const [isHovered, setIsHovered] = useState(false)
+
+  // On mobile/touch devices, always show the 3-dots button (no hover state)
+  const isMobile = isMobileDevice() || isSmallScreen()
 
   const truncatePageTitle = (title) => {
     if (title.length > 10 && page.tagNames && page.tagNames.length > 0) {
@@ -34,16 +41,24 @@ const PageItem = ({
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      // Exclude both the dropdown and the toggle button from click-outside detection
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target)
+      ) {
         setIsDropdownOpen(false)
       }
     }
 
-    document.addEventListener('mousedown', handleClickOutside)
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [])
+  }, [isDropdownOpen])
 
   const positionDropdown = () => {
     if (pageItemRef.current && dropdownRef.current) {
@@ -182,15 +197,20 @@ const PageItem = ({
         )}
         {sidebarOpen && (
           <Button
+            ref={buttonRef}
             variant="ghost"
             size="icon"
             onClick={(e) => {
               e.stopPropagation()
-              setIsDropdownOpen(!isDropdownOpen)
+              if (isMobile) {
+                setIsActionSheetOpen(true)
+              } else {
+                setIsDropdownOpen(!isDropdownOpen)
+              }
             }}
-            className={`h-6 w-6 p-0 opacity-0 ${isHovered ? 'opacity-100' : ''}`}
+            className={`h-6 w-6 p-0 ${isMobile ? 'opacity-100' : `opacity-0 ${isHovered ? 'opacity-100' : ''}`}`}
             aria-haspopup="menu"
-            aria-expanded={isDropdownOpen}
+            aria-expanded={isDropdownOpen || isActionSheetOpen}
             aria-controls={`page-menu-${page.id}`}
             aria-label={`Actions for ${page.title}`}
           >
@@ -208,7 +228,7 @@ const PageItem = ({
           style={{
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`,
-            zIndex: 1000
+            zIndex: 9999
           }}
         >
           <div className="py-1">
@@ -286,6 +306,61 @@ const PageItem = ({
           </div>
         </div>
       )}
+
+      {/* Mobile Action Sheet */}
+      <ActionSheet
+        isOpen={isActionSheetOpen}
+        onClose={() => setIsActionSheetOpen(false)}
+        title={page.title}
+      >
+        <ActionSheetItem
+          icon={Edit3}
+          label="Rename"
+          onClick={() => {
+            onRename(page)
+            setIsActionSheetOpen(false)
+          }}
+        />
+        <ActionSheetItem
+          icon={Copy}
+          label="Duplicate"
+          onClick={() => {
+            onDuplicate(page)
+            setIsActionSheetOpen(false)
+          }}
+        />
+        <ActionSheetItem
+          icon={page.password && page.password.hash ? Unlock : Lock}
+          label={page.password && page.password.hash ? 'Unlock' : 'Lock'}
+          onClick={() => {
+            onToggleLock(page)
+            setIsActionSheetOpen(false)
+          }}
+        />
+        {onRemoveFromFolder && (
+          <>
+            <ActionSheetSeparator />
+            <ActionSheetItem
+              icon={FolderMinus}
+              label="Remove from Folder"
+              onClick={() => {
+                onRemoveFromFolder()
+                setIsActionSheetOpen(false)
+              }}
+            />
+          </>
+        )}
+        <ActionSheetSeparator />
+        <ActionSheetItem
+          icon={Trash2}
+          label="Delete"
+          variant="danger"
+          onClick={() => {
+            onDelete(page)
+            setIsActionSheetOpen(false)
+          }}
+        />
+      </ActionSheet>
     </div>
   )
 }

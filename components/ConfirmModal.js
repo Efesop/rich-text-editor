@@ -10,7 +10,8 @@ export function ConfirmModal({
   message = 'Are you sure you want to proceed?',
   confirmText = 'Confirm',
   cancelText = 'Cancel',
-  variant = 'danger' // 'danger' | 'warning' | 'info'
+  variant = 'danger', // 'danger' | 'warning' | 'info'
+  showCancel = true // Set to false for info-only modals that just need "OK"
 }) {
   const { theme } = useTheme()
   const confirmButtonRef = useRef(null)
@@ -164,20 +165,22 @@ export function ConfirmModal({
 
           {/* Actions */}
           <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className={`
-                flex-1 px-4 py-3 rounded-xl font-medium transition-all duration-200
-                ${isFallout
-                  ? 'bg-gray-800 border border-green-500/40 text-green-400 hover:bg-gray-700 font-mono'
-                  : isDark
-                    ? 'bg-gray-800 border border-gray-700 text-gray-300 hover:bg-gray-700'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }
-              `}
-            >
-              {cancelText}
-            </button>
+            {showCancel && (
+              <button
+                onClick={onClose}
+                className={`
+                  flex-1 px-4 py-3 rounded-xl font-medium transition-all duration-200
+                  ${isFallout
+                    ? 'bg-gray-800 border border-green-500/40 text-green-400 hover:bg-gray-700 font-mono'
+                    : isDark
+                      ? 'bg-gray-800 border border-gray-700 text-gray-300 hover:bg-gray-700'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }
+                `}
+              >
+                {cancelText}
+              </button>
+            )}
             <button
               ref={confirmButtonRef}
               onClick={handleConfirm}

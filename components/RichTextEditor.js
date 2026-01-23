@@ -48,6 +48,7 @@ import TagsFilter from './TagsFilter'
 import { getTagChipStyle } from '@/utils/colorUtils'
 import { ConfirmModal } from './ConfirmModal'
 import { shouldShowMobileInstall } from '@/utils/deviceUtils'
+import { MobileHeaderMenu } from './MobileHeaderMenu'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
 
@@ -138,8 +139,11 @@ export default function RichTextEditor() {
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {},
-    variant: 'danger'
+    onConfirm: () => { },
+    variant: 'danger',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    showCancel: true
   })
   const [isPassphraseOpen, setIsPassphraseOpen] = useState(false)
   const [pendingAction, setPendingAction] = useState(null) // 'export' | 'import'
@@ -397,7 +401,9 @@ export default function RichTextEditor() {
         title: 'Import Failed',
         message: `File is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum allowed size is 50MB.`,
         onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
-        variant: 'warning'
+        variant: 'warning',
+        confirmText: 'OK',
+        showCancel: false
       })
       e.target.value = ''
       return
@@ -443,7 +449,9 @@ export default function RichTextEditor() {
           title: 'Import Successful',
           message: `Successfully imported ${importedItems?.length || 0} items and ${importedTags?.length || 0} tags.`,
           onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
-          variant: 'info'
+          variant: 'info',
+          confirmText: 'Done',
+          showCancel: false
         })
       }
     } catch (err) {
@@ -460,7 +468,9 @@ export default function RichTextEditor() {
         title: 'Import Failed',
         message: errorMessage,
         onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
-        variant: 'danger'
+        variant: 'danger',
+        confirmText: 'OK',
+        showCancel: false
       })
     } finally {
       setIsImporting(false)
@@ -585,7 +595,9 @@ export default function RichTextEditor() {
       title: 'Delete Page',
       message: `Are you sure you want to delete "${page.title}"? This action cannot be undone.`,
       onConfirm: () => deletePage(page),
-      variant: 'danger'
+      variant: 'danger',
+      confirmText: 'Delete',
+      showCancel: true
     })
   }, [deletePage])
 
@@ -673,7 +685,9 @@ export default function RichTextEditor() {
       title: 'Delete Folder',
       message: 'Are you sure you want to delete this folder? Pages inside will be moved out of the folder.',
       onConfirm: () => deleteFolder(folderId),
-      variant: 'danger'
+      variant: 'danger',
+      confirmText: 'Delete',
+      showCancel: true
     })
   }
 
@@ -1084,39 +1098,16 @@ export default function RichTextEditor() {
               )}
             </div>
             <div className="flex items-center space-x-2">
-              <ExportDropdown onExport={handleExport} />
               {isSmallScreen ? (
-                <>
-                  <ThemeToggle />
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        className={`p-2 rounded-md ${getButtonHoverClasses()}`}
-                        aria-label="More"
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {shouldShowMobileInstall() && (
-                        <DropdownMenuItem onClick={() => setIsInstallModalOpen(true)}>
-                          Use on your phone
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem onClick={handleImportBundleClick}>
-                        Import encrypted bundle
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => window.open('https://github.com/Efesop/rich-text-editor/issues/new', '_blank', 'noopener,noreferrer')}>
-                        Report a bug
-                      </DropdownMenuItem>
-                      {/* <DropdownMenuItem onClick={() => setIsUpdateDebuggerOpen(true)}>
-                        Update debugger
-                      </DropdownMenuItem> */}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </>
+                <MobileHeaderMenu
+                  onExport={handleExport}
+                  onImportBundle={handleImportBundleClick}
+                  onPhoneSetup={() => setIsInstallModalOpen(true)}
+                  isImporting={isImporting}
+                />
               ) : (
                 <>
+                  <ExportDropdown onExport={handleExport} />
                   {shouldShowMobileInstall() && (
                     <button
                       onClick={() => setIsInstallModalOpen(true)}
@@ -1143,13 +1134,6 @@ export default function RichTextEditor() {
                   >
                     <Bug className="h-4 w-4" />
                   </button>
-                  {/* <button
-                    onClick={() => setIsUpdateDebuggerOpen(true)}
-                    className={`p-2 rounded-md ${getButtonHoverClasses()}`}
-                    title="Update system debugger"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </button> */}
                   <button
                     onClick={handleBellClick}
                     disabled={!canCheckForUpdates}
@@ -1170,90 +1154,90 @@ export default function RichTextEditor() {
                 </>
               )}
             </div>
-          </div>
-          <div className="flex items-center flex-wrap gap-2 mt-2">
-            {currentPage.tagNames && currentPage.tagNames.map((tagName, index) => {
-              const tag = (tags || []).find(t => t.name === tagName)
-              if (!tag) return null
-              return (
+        </div>
+        <div className="flex items-center flex-wrap gap-2 mt-2">
+          {currentPage.tagNames && currentPage.tagNames.map((tagName, index) => {
+            const tag = (tags || []).find(t => t.name === tagName)
+            if (!tag) return null
+            return (
+              <span
+                key={index}
+                className="inline-flex items-center rounded-md font-medium border px-2 py-1 text-xs"
+                style={getTagChipStyle(tag.color, theme)}
+              >
                 <span
-                  key={index}
-                  className="inline-flex items-center rounded-md font-medium border px-2 py-1 text-xs"
-                  style={getTagChipStyle(tag.color, theme)}
+                  className="cursor-pointer"
+                  onClick={() => {
+                    setTagToEdit(tag)
+                    setIsTagModalOpen(true)
+                  }}
                 >
-                  <span
-                    className="cursor-pointer"
-                    onClick={() => {
-                      setTagToEdit(tag)
-                      setIsTagModalOpen(true)
-                    }}
-                  >
-                    {tag.name}
-                  </span>
-                  <button
-                    className="ml-1 focus:outline-none"
-                    onClick={() => handleRemoveTag(tag.name)}
-                  >
-                    <X
-                      className="h-3 w-3 transition-opacity hover:opacity-75"
-                      style={{
-                        color: theme === 'dark'
-                          ? getTagChipStyle(tag.color, theme).color
-                          : theme === 'light'
-                            ? '#6b7280'
-                            : getTagChipStyle(tag.color, theme).color
-                      }}
-                    />
-                  </button>
+                  {tag.name}
                 </span>
-              )
-            })}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => {
-                setTagToEdit(null)
-                setIsTagModalOpen(true)
-              }}
-            >
-              <Plus className={`h-4 w-4 ${getIconClasses()}`} />
-            </Button>
-          </div>
+                <button
+                  className="ml-1 focus:outline-none"
+                  onClick={() => handleRemoveTag(tag.name)}
+                >
+                  <X
+                    className="h-3 w-3 transition-opacity hover:opacity-75"
+                    style={{
+                      color: theme === 'dark'
+                        ? getTagChipStyle(tag.color, theme).color
+                        : theme === 'light'
+                          ? '#6b7280'
+                          : getTagChipStyle(tag.color, theme).color
+                    }}
+                  />
+                </button>
+              </span>
+            )
+          })}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={() => {
+              setTagToEdit(null)
+              setIsTagModalOpen(true)
+            }}
+          >
+            <Plus className={`h-4 w-4 ${getIconClasses()}`} />
+          </Button>
         </div>
+    </div>
 
-        {/* Editor */}
-        <div className={`flex-1 overflow-auto p-6 ${getMainContentClasses()}`}>
-          {currentPage && (
-            <EditorErrorBoundary>
-              <DynamicEditor
-                key={currentPage.id} // Add this line
-                data={currentPage.content}
-                onChange={handleEditorChange}
-                holder="editorjs"
-              />
-            </EditorErrorBoundary>
-          )}
-        </div>
+        {/* Editor */ }
+  <div className={`flex-1 overflow-auto p-6 ${getMainContentClasses()}`}>
+    {currentPage && (
+      <EditorErrorBoundary>
+        <DynamicEditor
+          key={currentPage.id} // Add this line
+          data={currentPage.content}
+          onChange={handleEditorChange}
+          holder="editorjs"
+        />
+      </EditorErrorBoundary>
+    )}
+  </div>
 
-        {/* Footer */}
-        <div className={`footer-fixed flex justify-between items-center p-3 text-sm ${getFooterClasses()} safe-area-bottom`}>
-          <div className="flex items-center space-x-4">
-            {currentPage.createdAt && (
-              <span>Created {format(new Date(currentPage.createdAt), 'MMM d, yyyy')}</span>
-            )}
-            <EncryptionStatusIndicator />
-          </div>
-          <div className="flex items-center space-x-4">
-            <span>{wordCount} words</span>
-            <span aria-live="polite" aria-atomic="true">
-              {saveStatus === 'saving' && <span className="text-yellow-500">Saving...</span>}
-              {saveStatus === 'saved' && <span className="text-green-500">Saved</span>}
-              {saveStatus === 'error' && <span className="text-red-500">Error saving</span>}
-            </span>
-          </div>
-        </div>
-      </main>
+  {/* Footer */ }
+  <div className={`footer-fixed flex justify-between items-center p-3 text-sm ${getFooterClasses()} safe-area-bottom`}>
+    <div className="flex items-center space-x-4">
+      {currentPage.createdAt && (
+        <span>Created {format(new Date(currentPage.createdAt), 'MMM d, yyyy')}</span>
+      )}
+      <EncryptionStatusIndicator />
+    </div>
+    <div className="flex items-center space-x-4">
+      <span>{wordCount} words</span>
+      <span aria-live="polite" aria-atomic="true">
+        {saveStatus === 'saving' && <span className="text-yellow-500">Saving...</span>}
+        {saveStatus === 'saved' && <span className="text-green-500">Saved</span>}
+        {saveStatus === 'error' && <span className="text-red-500">Error saving</span>}
+      </span>
+    </div>
+  </div>
+      </main >
 
       <RenameModal
         isOpen={isRenameModalOpen}
@@ -1315,23 +1299,25 @@ export default function RichTextEditor() {
         theme={theme}
       />
 
-      {(showUpdateNotification || error) && (
-        <UpdateNotification
-          onClose={() => {
-            setShowUpdateNotification(false)
-            if (error) dismissError()
-          }}
-          updateInfo={updateInfo}
-          isChecking={isCheckingForUpdates}
-          error={error}
-          downloadProgress={downloadProgress}
-          isDownloading={isDownloading}
-          isInstalling={isInstalling}
-          onDownload={downloadUpdate}
-          onInstall={installUpdate}
-          onRetry={checkForUpdates}
-        />
-      )}
+  {
+    (showUpdateNotification || error) && (
+      <UpdateNotification
+        onClose={() => {
+          setShowUpdateNotification(false)
+          if (error) dismissError()
+        }}
+        updateInfo={updateInfo}
+        isChecking={isCheckingForUpdates}
+        error={error}
+        downloadProgress={downloadProgress}
+        isDownloading={isDownloading}
+        isInstalling={isInstalling}
+        onDownload={downloadUpdate}
+        onInstall={installUpdate}
+        onRetry={checkForUpdates}
+      />
+    )
+  }
 
       <input
         ref={fileInputRef}
@@ -1349,7 +1335,7 @@ export default function RichTextEditor() {
 
       <MobileInstallGuide />
 
-      {/* <UpdateDebugger
+  {/* <UpdateDebugger
         isOpen={isUpdateDebuggerOpen}
         onClose={() => setIsUpdateDebuggerOpen(false)}
       /> */}
@@ -1369,9 +1355,10 @@ export default function RichTextEditor() {
         title={confirmModal.title}
         message={confirmModal.message}
         variant={confirmModal.variant}
-        confirmText="Delete"
-        cancelText="Cancel"
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
+        showCancel={confirmModal.showCancel}
       />
-    </div>
+    </div >
   )
 }
