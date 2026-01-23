@@ -3,21 +3,22 @@ import { useTheme } from 'next-themes'
 import { X } from 'lucide-react'
 
 /**
- * Mobile-friendly bottom sheet for actions.
- * Used instead of dropdowns on touch devices for better UX.
+ * Mobile-friendly centered modal for actions.
+ * Styled to match RenameModal/FolderModal for consistency.
  */
 export function ActionSheet({
   isOpen,
   onClose,
   title,
+  icon: Icon,
   children
 }) {
   const { theme } = useTheme()
-  const sheetRef = useRef(null)
+  const modalRef = useRef(null)
 
   useEffect(() => {
     if (isOpen) {
-      // Prevent body scroll when sheet is open
+      // Prevent body scroll when modal is open
       document.body.style.overflow = 'hidden'
     }
     return () => {
@@ -48,80 +49,82 @@ export function ActionSheet({
 
   return (
     <div
-      className="fixed inset-0 z-[10000] flex items-end justify-center"
+      className="fixed inset-0 z-[10000] flex items-center justify-center p-4 overflow-y-auto"
       onClick={handleOverlayClick}
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
-      {/* Backdrop */}
+      {/* Backdrop with blur */}
       <div
-        className={`
-          fixed inset-0
-          ${isFallout ? 'bg-black/80' : isDark ? 'bg-black/60' : 'bg-black/40'}
-          backdrop-blur-sm
-        `}
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
         aria-hidden="true"
       />
 
-      {/* Sheet */}
+      {/* Modal - centered like RenameModal/FolderModal */}
       <div
-        ref={sheetRef}
+        ref={modalRef}
         className={`
-          relative w-full max-w-lg mx-4 mb-4 rounded-2xl overflow-hidden
-          transform transition-transform duration-200 ease-out
+          relative w-full max-w-sm transform transition-all duration-200
           ${isFallout
-            ? 'bg-gray-900 border-2 border-green-500/60 shadow-[0_0_40px_rgba(34,197,94,0.2)]'
+            ? 'bg-gray-900 border-2 border-green-500/60 shadow-[0_0_40px_rgba(34,197,94,0.15)]'
             : isDark
-              ? 'bg-gray-900 border border-gray-700 shadow-2xl'
+              ? 'bg-gray-900 border border-gray-700/50 shadow-2xl'
               : 'bg-white border border-gray-200 shadow-2xl'
           }
+          rounded-2xl overflow-hidden
         `}
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Handle bar for visual affordance */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div
-            className={`
-              w-10 h-1 rounded-full
-              ${isFallout ? 'bg-green-500/40' : isDark ? 'bg-gray-600' : 'bg-gray-300'}
-            `}
-          />
-        </div>
-
         {/* Header */}
         {title && (
           <div className={`
-            px-4 py-3 flex items-center justify-between
+            px-6 pt-6 pb-4
             ${isFallout ? 'border-b border-green-500/30' : isDark ? 'border-b border-gray-800' : 'border-b border-gray-100'}
           `}>
-            <h2 className={`
-              text-base font-semibold
-              ${isFallout ? 'text-green-400 font-mono' : isDark ? 'text-white' : 'text-gray-900'}
-            `}>
-              {title}
-            </h2>
-            <button
-              onClick={onClose}
-              className={`
-                p-2 -mr-2 rounded-lg transition-colors
-                ${isFallout
-                  ? 'text-green-500 hover:bg-green-500/20'
-                  : isDark
-                    ? 'text-gray-400 hover:bg-gray-800'
-                    : 'text-gray-400 hover:bg-gray-100'
-                }
-              `}
-              aria-label="Close"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {Icon && (
+                  <div className={`
+                    p-2.5 rounded-xl
+                    ${isFallout
+                      ? 'bg-green-500/20 text-green-400'
+                      : isDark
+                        ? 'bg-blue-500/20 text-blue-400'
+                        : 'bg-blue-100 text-blue-600'
+                    }
+                  `}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                )}
+                <h2 className={`
+                  text-lg font-semibold
+                  ${isFallout ? 'text-green-400 font-mono' : isDark ? 'text-white' : 'text-gray-900'}
+                `}>
+                  {title}
+                </h2>
+              </div>
+              <button
+                onClick={onClose}
+                className={`
+                  p-2 rounded-lg transition-colors
+                  ${isFallout
+                    ? 'text-green-500 hover:bg-green-500/20'
+                    : isDark
+                      ? 'text-gray-400 hover:bg-gray-800'
+                      : 'text-gray-400 hover:bg-gray-100'
+                  }
+                `}
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         )}
 
         {/* Content - action items */}
-        <div className="py-2">
+        <div className="py-2 max-h-[60vh] overflow-y-auto">
           {children}
         </div>
       </div>
@@ -172,7 +175,7 @@ export function ActionSheetItem({
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
       className={`
-        w-full flex items-center gap-3 px-4 py-3.5 text-left
+        w-full flex items-center gap-3 px-6 py-3.5 text-left
         transition-colors duration-150
         ${getItemClasses()}
         ${isFallout ? 'font-mono' : ''}
@@ -195,7 +198,7 @@ export function ActionSheetSeparator() {
   return (
     <div
       className={`
-        my-1 mx-4 h-px
+        my-1 mx-6 h-px
         ${isFallout ? 'bg-green-500/30' : isDark ? 'bg-gray-800' : 'bg-gray-100'}
       `}
     />

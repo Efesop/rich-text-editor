@@ -10,8 +10,7 @@ import {
   Sun,
   Moon,
   Skull,
-  Lock,
-  ChevronRight
+  Lock
 } from 'lucide-react'
 import { ActionSheet, ActionSheetItem, ActionSheetSeparator } from './ActionSheet'
 import { shouldShowMobileInstall } from '@/utils/deviceUtils'
@@ -94,6 +93,7 @@ export function MobileHeaderMenu({
         isOpen={isOpen && !showExportOptions}
         onClose={() => setIsOpen(false)}
         title="Menu"
+        icon={Menu}
       >
         <ActionSheetItem
           icon={FileDown}
@@ -150,6 +150,7 @@ export function MobileHeaderMenu({
         isOpen={showExportOptions}
         onClose={() => setShowExportOptions(false)}
         title="Export Format"
+        icon={FileDown}
       >
         {exportOptions.map((option) => (
           <ActionSheetItem

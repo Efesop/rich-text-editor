@@ -312,6 +312,7 @@ const PageItem = ({
         isOpen={isActionSheetOpen}
         onClose={() => setIsActionSheetOpen(false)}
         title={page.title}
+        icon={FileText}
       >
         <ActionSheetItem
           icon={Edit3}

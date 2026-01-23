@@ -305,6 +305,7 @@ export function FolderItem({
         isOpen={isActionSheetOpen}
         onClose={() => setIsActionSheetOpen(false)}
         title={folder.title}
+        icon={Folder}
       >
         <ActionSheetItem
           icon={Edit3}
