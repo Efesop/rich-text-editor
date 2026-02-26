@@ -21,8 +21,9 @@ export function FolderItem({
   onDelete, 
   onRename, 
   onToggleLock,
-  onDuplicate, // Add this prop
-  pagesCount 
+  onDuplicate,
+  onMoveToFolder,
+  pagesCount
 }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
@@ -241,6 +242,7 @@ export function FolderItem({
               tempUnlockedPages={tempUnlockedPages}
               isInsideFolder={true}
               onDuplicate={onDuplicate}
+              onMoveToFolder={onMoveToFolder}
             />
           ))}
         </div>

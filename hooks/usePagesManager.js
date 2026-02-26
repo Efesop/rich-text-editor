@@ -560,6 +560,44 @@ export function usePagesManager() {
     }
   }, [savePagesToStorage])
 
+  const movePageToFolder = useCallback(async (pageId, targetFolderId) => {
+    if (!pageId || !targetFolderId) return
+
+    setPages(prevPages => {
+      const page = prevPages.find(p => p.id === pageId)
+      if (!page) return prevPages
+
+      const oldFolderId = page.folderId
+
+      const newPages = prevPages.map(item => {
+        // Remove page from old folder's pages array
+        if (oldFolderId && item.id === oldFolderId && item.type === 'folder') {
+          const currentPages = Array.isArray(item.pages) ? item.pages : []
+          return { ...item, pages: currentPages.filter(id => id !== pageId) }
+        }
+        // Add page to new folder's pages array
+        if (item.id === targetFolderId && item.type === 'folder') {
+          const existing = Array.isArray(item.pages) ? item.pages : []
+          return { ...item, pages: [...new Set([...existing, pageId])] }
+        }
+        // Update the page's folderId
+        if (item.id === pageId && item.type !== 'folder') {
+          return { ...item, folderId: targetFolderId }
+        }
+        return item
+      })
+
+      pagesRef.current = newPages
+      savePagesToStorage(newPages)
+      return newPages
+    })
+
+    // Update currentPage if it's the one being moved
+    if (currentPageRef.current?.id === pageId) {
+      _setCurrentPage(prev => ({ ...prev, folderId: targetFolderId }))
+    }
+  }, [savePagesToStorage])
+
   const removePageFromFolder = useCallback(async (pageId, folderId) => {
     if (!pageId || !folderId) return
 
@@ -722,5 +760,6 @@ export function usePagesManager() {
     renameFolder,
     handleDuplicatePage,
     importPages,
+    movePageToFolder,
   }
 }

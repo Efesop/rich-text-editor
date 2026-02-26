@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "./ui/button"
-import { FileText, Lock, Unlock, Trash2, MoreVertical, FolderMinus, Copy, Edit3 } from 'lucide-react'
+import { FileText, Lock, Unlock, Trash2, MoreVertical, FolderMinus, FolderPlus, Copy, Edit3 } from 'lucide-react'
 import StackedTags from './StackedTags'
 import { isMobileDevice, isSmallScreen } from '@/utils/deviceUtils'
 import { ActionSheet, ActionSheetItem, ActionSheetSeparator } from './ActionSheet'
@@ -12,8 +12,9 @@ const PageItem = ({
   onRename, 
   onDelete, 
   onToggleLock, 
-  onRemoveFromFolder, 
-  sidebarOpen, 
+  onRemoveFromFolder,
+  onMoveToFolder,
+  sidebarOpen,
   theme, 
   tags, 
   tempUnlockedPages, 
@@ -256,6 +257,20 @@ const PageItem = ({
               <Copy className="h-4 w-4 inline mr-2" aria-hidden="true" />
               Duplicate
             </button>
+            {onMoveToFolder && (
+              <button
+                role="menuitem"
+                className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onMoveToFolder(page)
+                  setIsDropdownOpen(false)
+                }}
+              >
+                <FolderPlus className="h-4 w-4 inline mr-2" aria-hidden="true" />
+                Move to Folder
+              </button>
+            )}
             <button
               role="menuitem"
               className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
@@ -330,6 +345,16 @@ const PageItem = ({
             setIsActionSheetOpen(false)
           }}
         />
+        {onMoveToFolder && (
+          <ActionSheetItem
+            icon={FolderPlus}
+            label="Move to Folder"
+            onClick={() => {
+              onMoveToFolder(page)
+              setIsActionSheetOpen(false)
+            }}
+          />
+        )}
         <ActionSheetItem
           icon={page.password && page.password.hash ? Unlock : Lock}
           label={page.password && page.password.hash ? 'Unlock' : 'Lock'}

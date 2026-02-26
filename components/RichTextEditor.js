@@ -37,6 +37,7 @@ import PageItem from '@/components/PageItem'
 import SortDropdown from '@/components/SortDropdown'
 import { FolderModal } from '@/components/FolderModal'
 import { AddPageToFolderModal } from './AddPageToFolderModal'
+import { MoveToFolderModal } from './MoveToFolderModal'
 import { FolderItem } from './FolderItem'
 import { FolderIcon } from 'lucide-react'
 import UpdateNotification from './UpdateNotification'
@@ -83,6 +84,7 @@ export default function RichTextEditor() {
     renameFolder,
     handleDuplicatePage,
     importPages,
+    movePageToFolder,
   } = usePagesManager()
 
   const {
@@ -112,6 +114,8 @@ export default function RichTextEditor() {
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false)
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false)
   const [isAddToFolderModalOpen, setIsAddToFolderModalOpen] = useState(false)
+  const [isMoveToFolderModalOpen, setIsMoveToFolderModalOpen] = useState(false)
+  const [pageToMoveToFolder, setPageToMoveToFolder] = useState(null)
   const [passwordAction, setPasswordAction] = useState('lock')
   const [passwordError, setPasswordError] = useState('')
   // Rate limiting for password attempts
@@ -702,6 +706,18 @@ export default function RichTextEditor() {
     removePageFromFolder(pageId, folderId)
   }
 
+  const handleMoveToFolder = (page) => {
+    setPageToMoveToFolder(page)
+    setIsMoveToFolderModalOpen(true)
+  }
+
+  const handleMoveToFolderConfirm = (targetFolderId) => {
+    if (!pageToMoveToFolder) return
+    movePageToFolder(pageToMoveToFolder.id, targetFolderId)
+    setIsMoveToFolderModalOpen(false)
+    setPageToMoveToFolder(null)
+  }
+
   useEffect(() => {
     const handleLinkClick = (event) => {
       const link = event.target?.closest && event.target.closest('a')
@@ -1018,6 +1034,7 @@ export default function RichTextEditor() {
                     onRename={handleRenamePage}
                     onToggleLock={handleToggleLock}
                     onDuplicate={handleDuplicatePage}
+                    onMoveToFolder={handleMoveToFolder}
                     pagesCount={folderPagesCount}
                   />
                 )
@@ -1034,6 +1051,7 @@ export default function RichTextEditor() {
                     onDelete={handleDeletePage}
                     onToggleLock={handleToggleLock}
                     onDuplicate={handleDuplicatePage}
+                    onMoveToFolder={handleMoveToFolder}
                     sidebarOpen={sidebarOpen}
                     theme={theme}
                     tags={tags}
@@ -1296,6 +1314,18 @@ export default function RichTextEditor() {
         onConfirm={handleAddPageToFolder}
         pages={(pages || []).filter(page => page.type !== 'folder' && !page.folderId)}
         currentFolderId={selectedFolderId}
+        theme={theme}
+      />
+
+      <MoveToFolderModal
+        isOpen={isMoveToFolderModalOpen}
+        onClose={() => {
+          setIsMoveToFolderModalOpen(false)
+          setPageToMoveToFolder(null)
+        }}
+        onConfirm={handleMoveToFolderConfirm}
+        folders={(pages || []).filter(item => item.type === 'folder')}
+        currentFolderId={pageToMoveToFolder?.folderId || null}
         theme={theme}
       />
 
