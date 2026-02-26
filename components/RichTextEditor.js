@@ -118,10 +118,19 @@ export default function RichTextEditor() {
   const [pageToMoveToFolder, setPageToMoveToFolder] = useState(null)
   const [passwordAction, setPasswordAction] = useState('lock')
   const [passwordError, setPasswordError] = useState('')
-  // Rate limiting for password attempts
-  const passwordAttemptsRef = useRef({}) // { pageId: { count: number, lockedUntil: timestamp } }
+  // Rate limiting for password attempts — persisted to localStorage
   const MAX_PASSWORD_ATTEMPTS = 5
-  const LOCKOUT_DURATION_MS = 30000 // 30 seconds
+  const LOCKOUT_DURATIONS = [30000, 60000, 120000, 300000] // Exponential backoff: 30s, 60s, 2m, 5m
+  const passwordAttemptsRef = useRef(() => {
+    try {
+      const stored = localStorage.getItem('dash-password-lockouts')
+      return stored ? JSON.parse(stored) : {}
+    } catch { return {} }
+  })
+  // Initialize ref value from the lazy initializer
+  if (typeof passwordAttemptsRef.current === 'function') {
+    passwordAttemptsRef.current = passwordAttemptsRef.current()
+  }
   const [isClient, setIsClient] = useState(false)
   const [wordCount, setWordCount] = useState(0)
   const [pageToRename, setPageToRename] = useState(null)
@@ -507,6 +516,36 @@ export default function RichTextEditor() {
     setIsPasswordModalOpen(true)
   }, [])
 
+  const persistLockouts = () => {
+    try {
+      localStorage.setItem('dash-password-lockouts', JSON.stringify(passwordAttemptsRef.current))
+    } catch { /* ignore storage errors */ }
+  }
+
+  const trackFailedAttempt = (pageId, fallbackError) => {
+    if (!pageId) {
+      setPasswordError(fallbackError)
+      return
+    }
+    const attempts = passwordAttemptsRef.current[pageId] || { count: 0, lockedUntil: 0, lockoutCount: 0 }
+    attempts.count += 1
+    const remainingAttempts = MAX_PASSWORD_ATTEMPTS - attempts.count
+
+    if (attempts.count >= MAX_PASSWORD_ATTEMPTS) {
+      const durationIndex = Math.min(attempts.lockoutCount || 0, LOCKOUT_DURATIONS.length - 1)
+      const duration = LOCKOUT_DURATIONS[durationIndex]
+      attempts.lockedUntil = Date.now() + duration
+      attempts.count = 0
+      attempts.lockoutCount = (attempts.lockoutCount || 0) + 1
+      const seconds = Math.ceil(duration / 1000)
+      setPasswordError(`Too many failed attempts. Please wait ${seconds} seconds before trying again.`)
+    } else {
+      setPasswordError(`Incorrect password. ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.`)
+    }
+    passwordAttemptsRef.current[pageId] = attempts
+    persistLockouts()
+  }
+
   const handlePasswordConfirm = async (actionType, password) => {
     setPasswordError('')
 
@@ -535,48 +574,14 @@ export default function RichTextEditor() {
       case 'open': {
         success = await unlockPage(pageToAccess, password, true)
         if (!success) {
-          // Track failed attempt
-          const pageId = pageToAccess?.id
-          if (pageId) {
-            const attempts = passwordAttemptsRef.current[pageId] || { count: 0, lockedUntil: 0 }
-            attempts.count += 1
-            const remainingAttempts = MAX_PASSWORD_ATTEMPTS - attempts.count
-
-            if (attempts.count >= MAX_PASSWORD_ATTEMPTS) {
-              attempts.lockedUntil = Date.now() + LOCKOUT_DURATION_MS
-              attempts.count = 0 // Reset count after lockout
-              setPasswordError(`Too many failed attempts. Please wait 30 seconds before trying again.`)
-            } else {
-              setPasswordError(`Incorrect password. ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.`)
-            }
-            passwordAttemptsRef.current[pageId] = attempts
-          } else {
-            setPasswordError('Incorrect password. Please try again.')
-          }
+          trackFailedAttempt(pageToAccess?.id, 'Incorrect password. Please try again.')
         }
         break
       }
       case 'removeLock': {
         success = await unlockPage(pageToAccess, password, false)
         if (!success) {
-          // Track failed attempt (same logic as 'open')
-          const pageId = pageToAccess?.id
-          if (pageId) {
-            const attempts = passwordAttemptsRef.current[pageId] || { count: 0, lockedUntil: 0 }
-            attempts.count += 1
-            const remainingAttempts = MAX_PASSWORD_ATTEMPTS - attempts.count
-
-            if (attempts.count >= MAX_PASSWORD_ATTEMPTS) {
-              attempts.lockedUntil = Date.now() + LOCKOUT_DURATION_MS
-              attempts.count = 0
-              setPasswordError(`Too many failed attempts. Please wait 30 seconds before trying again.`)
-            } else {
-              setPasswordError(`Incorrect password. ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.`)
-            }
-            passwordAttemptsRef.current[pageId] = attempts
-          } else {
-            setPasswordError('Incorrect password. Unable to remove lock.')
-          }
+          trackFailedAttempt(pageToAccess?.id, 'Incorrect password. Unable to remove lock.')
         }
         break
       }

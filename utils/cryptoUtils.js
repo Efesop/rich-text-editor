@@ -3,7 +3,7 @@
 const textEncoder = new TextEncoder()
 const textDecoder = new TextDecoder()
 
-async function deriveKeyFromPassphrase (passphrase, salt) {
+export async function deriveKeyFromPassphrase (passphrase, salt) {
   const baseKey = await crypto.subtle.importKey(
     'raw',
     textEncoder.encode(passphrase),
@@ -47,6 +47,42 @@ export class DecryptionError extends Error {
     super(message)
     this.name = 'DecryptionError'
     this.cause = cause
+  }
+}
+
+// Encrypt with a pre-derived CryptoKey (skips PBKDF2 — fast for auto-save)
+export async function encryptJsonWithKey (jsonObject, key, salt) {
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const plaintext = textEncoder.encode(JSON.stringify(jsonObject))
+  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintext))
+  return {
+    v: 1,
+    kdf: 'PBKDF2-SHA256',
+    cipher: 'AES-GCM-256',
+    salt: Array.from(salt),
+    iv: Array.from(iv),
+    data: Array.from(ciphertext)
+  }
+}
+
+// Decrypt with a pre-derived CryptoKey (skips PBKDF2 — fast)
+export async function decryptJsonWithKey (payload, key) {
+  if (!payload || !payload.iv || !payload.data) {
+    throw new DecryptionError('Invalid encrypted content. The data may be corrupted.')
+  }
+  try {
+    const iv = new Uint8Array(payload.iv)
+    const data = new Uint8Array(payload.data)
+    const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data)
+    return JSON.parse(textDecoder.decode(new Uint8Array(plaintext)))
+  } catch (error) {
+    if (error.name === 'OperationError') {
+      throw new DecryptionError('Decryption failed. The encryption key may be invalid.')
+    }
+    if (error instanceof SyntaxError) {
+      throw new DecryptionError('Decrypted data is corrupted.')
+    }
+    throw new DecryptionError(`Failed to decrypt: ${error.message}`, error)
   }
 }
 

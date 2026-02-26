@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { hashPassword, verifyPassword } from '@/utils/passwordUtils'
 import { sanitizeEditorContent, validatePageStructure } from '@/utils/securityUtils'
+import { deriveKeyFromPassphrase, encryptJsonWithKey, decryptJsonWithKey } from '@/utils/cryptoUtils'
 import useTagStore from '../store/tagStore'
 import { readPages, savePages as savePagesToFallback } from '@/lib/storage'
 
@@ -24,6 +25,10 @@ export function usePagesManager() {
   const pendingSaveRef = useRef(null)
   const saveVersionRef = useRef(0)
 
+  // Encryption: cache derived keys for temp-unlocked pages (avoids slow PBKDF2 on every save)
+  const encryptionKeysRef = useRef(new Map()) // pageId -> { key: CryptoKey, salt: Uint8Array }
+  const tempUnlockedPagesRef = useRef(new Set())
+
   // Update refs when state changes
   useEffect(() => {
     pagesRef.current = pages
@@ -33,13 +38,45 @@ export function usePagesManager() {
     currentPageRef.current = currentPage
   }, [currentPage])
 
+  useEffect(() => {
+    tempUnlockedPagesRef.current = tempUnlockedPages
+  }, [tempUnlockedPages])
+
+  // Encrypt temp-unlocked pages before writing to storage
+  const preparePagesForStorage = async (pages) => {
+    const result = []
+    for (const page of pages) {
+      // If page is locked and temp-unlocked, encrypt content before saving
+      if (page.password?.hash && tempUnlockedPagesRef.current.has(page.id)) {
+        const keyData = encryptionKeysRef.current.get(page.id)
+        if (keyData && page.content) {
+          try {
+            const encryptedContent = await encryptJsonWithKey(page.content, keyData.key, keyData.salt)
+            result.push({ ...page, content: null, encryptedContent })
+          } catch (error) {
+            console.error('Failed to encrypt page for storage:', error)
+            result.push(page) // Fallback: save as-is rather than lose data
+          }
+        } else {
+          result.push(page)
+        }
+      } else {
+        result.push(page)
+      }
+    }
+    return result
+  }
+
   // Execute the actual save operation with race condition protection
   const executeSave = useCallback(async (pagesToSave, version) => {
     try {
+      // Encrypt temp-unlocked pages before writing to disk
+      const pagesForStorage = await preparePagesForStorage(pagesToSave)
+
       if (typeof window !== 'undefined' && window.electron?.invoke) {
-        await window.electron.invoke('save-pages', pagesToSave)
+        await window.electron.invoke('save-pages', pagesForStorage)
       } else {
-        await savePagesToFallback(pagesToSave)
+        await savePagesToFallback(pagesForStorage)
       }
       // Only mark as saved if this is still the latest version
       if (version === saveVersionRef.current) {
@@ -276,14 +313,16 @@ export function usePagesManager() {
 
     try {
       const hashedPassword = await hashPassword(password)
-      const updatedPage = { ...page, password: { hash: hashedPassword } }
 
-      // Clear any temporary unlock for this page when locking
-      setTempUnlockedPages(prev => {
-        const next = new Set(prev)
-        next.delete(page.id)
-        return next
-      })
+      // Derive encryption key and cache it for auto-save re-encryption
+      const salt = crypto.getRandomValues(new Uint8Array(16))
+      const key = await deriveKeyFromPassphrase(password, salt)
+      encryptionKeysRef.current.set(page.id, { key, salt })
+
+      // Keep plaintext in memory, mark as temp-unlocked so user can keep editing
+      // The save pipeline will encrypt before writing to disk
+      const updatedPage = { ...page, password: { hash: hashedPassword } }
+      setTempUnlockedPages(prev => new Set(prev).add(page.id))
 
       setPages(prevPages => {
         const newPages = prevPages.map(p =>
@@ -310,32 +349,62 @@ export function usePagesManager() {
 
     try {
       const isPasswordCorrect = await verifyPassword(password, page.password.hash)
+      if (!isPasswordCorrect) return false
 
-      if (isPasswordCorrect) {
-        if (temporary) {
-          setTempUnlockedPages(prev => new Set(prev).add(page.id))
-        } else {
-          // Permanently unlock the page
-          const updatedPage = { ...page }
-          delete updatedPage.password
-
-          setPages(prevPages => {
-            const newPages = prevPages.map(p =>
-              p.id === updatedPage.id ? updatedPage : p
-            )
-            pagesRef.current = newPages
-            savePagesToStorage(newPages)
-            return newPages
-          })
-
-          page = updatedPage
-        }
-
-        _setCurrentPage(page)
-        return true
+      // Decrypt content if encrypted, or use plaintext for legacy pages
+      let decryptedContent
+      if (page.encryptedContent) {
+        const salt = new Uint8Array(page.encryptedContent.salt)
+        const key = await deriveKeyFromPassphrase(password, salt)
+        decryptedContent = await decryptJsonWithKey(page.encryptedContent, key)
+        // Cache key for auto-save re-encryption
+        encryptionKeysRef.current.set(page.id, { key, salt })
+      } else {
+        // Legacy page: content is plaintext, generate key for future encryption
+        decryptedContent = page.content
+        const salt = crypto.getRandomValues(new Uint8Array(16))
+        const key = await deriveKeyFromPassphrase(password, salt)
+        encryptionKeysRef.current.set(page.id, { key, salt })
       }
 
-      return false
+      if (temporary) {
+        // Temp unlock: update in-memory state with decrypted content, don't save to storage
+        setTempUnlockedPages(prev => new Set(prev).add(page.id))
+        const updatedPage = { ...page, content: decryptedContent }
+        setPages(prevPages => {
+          const newPages = prevPages.map(p =>
+            p.id === updatedPage.id ? updatedPage : p
+          )
+          pagesRef.current = newPages
+          // Don't call savePagesToStorage — content is decrypted in memory only
+          return newPages
+        })
+        _setCurrentPage(updatedPage)
+      } else {
+        // Permanent unlock: remove encryption, save plaintext to storage
+        const updatedPage = { ...page, content: decryptedContent }
+        delete updatedPage.password
+        delete updatedPage.encryptedContent
+        encryptionKeysRef.current.delete(page.id)
+
+        setTempUnlockedPages(prev => {
+          const next = new Set(prev)
+          next.delete(page.id)
+          return next
+        })
+
+        setPages(prevPages => {
+          const newPages = prevPages.map(p =>
+            p.id === updatedPage.id ? updatedPage : p
+          )
+          pagesRef.current = newPages
+          savePagesToStorage(newPages)
+          return newPages
+        })
+        _setCurrentPage(updatedPage)
+      }
+
+      return true
     } catch (error) {
       console.error('Error unlocking page:', error)
       return false
