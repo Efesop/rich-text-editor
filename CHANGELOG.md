@@ -5,6 +5,46 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.93] - 2026-02-26
+
+### Security
+- **Encrypted locked page content with AES-256-GCM** - Locked pages now have their content encrypted on disk using AES-256-GCM with PBKDF2 key derivation (600K iterations). Previously only the password was hashed.
+- **Removed unsecured API endpoint** - Deleted `/api/pages` which allowed unauthenticated read/write access.
+- **Removed leaked certificate files from git tracking** - Untracked `certificate.p12` and `encoded-certificate.txt` from the repository index.
+- **Tightened Content Security Policy** - Removed `https:` from `img-src` directive since the app is offline-only.
+- **Persistent brute-force lockout** - Password attempt tracking now persists across page reloads via localStorage with exponential backoff (30s, 60s, 2m, 5m).
+
+### Added
+- **Move to Folder option on pages** - Pages now have a "Move to Folder" option in their dropdown menu, allowing users to move pages into folders directly from the page context menu.
+- **MoveToFolderModal component** - New single-select folder picker modal with full theme support.
+
+### Fixed
+- **Removed unused html2pdf.js dependency** - Was installed but never imported. Replaced with direct jspdf dependency.
+
+### Changed
+- **Encryption key caching for auto-save** - Derived AES keys are cached in memory during editing sessions to avoid slow PBKDF2 derivation on every auto-save.
+- **Backwards-compatible with legacy locked pages** - Existing locked pages without encrypted content will be encrypted on next lock/unlock cycle.
+
+## [1.3.91] - 2026-02-23
+
+### Fixed
+- **Improved critical error display in desktop app** - Better error boundary handling for production builds.
+
+## [1.3.90] - 2026-02-22
+
+### Added
+- **Prompt macOS users to move app to Applications folder** - Shows a friendly prompt when the app is running from outside the Applications directory.
+
+## [1.3.89] - 2026-02-21
+
+### Fixed
+- **Centered ActionSheet modals** - ActionSheet modals now properly center and match styling of other modal components.
+
+## [1.3.87-1.3.88] - 2026-02-20
+
+### Added
+- **Mobile UX improvements** - ActionSheet component, MobileHeaderMenu, and click-outside detection fixes for mobile devices.
+
 ## [1.3.86] - 2026-01-23
 
 ### Security
