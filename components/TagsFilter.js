@@ -37,7 +37,7 @@ export default function TagsFilter({
       inline-flex items-center px-2 py-1 rounded-md text-xs font-medium
       border cursor-pointer transition-all duration-150 ease-in-out
       ${isSelected
-        ? `opacity-75 ring-2 ${theme === 'fallout' ? 'ring-green-500/20' : theme === 'dark' ? 'ring-white/20' : 'ring-black/10'}`
+        ? `opacity-75 ring-2 ${theme === 'fallout' ? 'ring-green-500/20' : theme === 'dark' ? 'ring-white/20' : theme === 'darkblue' ? 'ring-blue-500/20' : 'ring-black/10'}`
         : ''
       }
     `
@@ -58,7 +58,9 @@ export default function TagsFilter({
             ? 'hover:bg-gray-800 text-green-400'
             : theme === 'dark'
               ? 'hover:bg-[#232323] text-[#8e8e8e]'
-              : 'hover:bg-neutral-100 text-neutral-500'
+              : theme === 'darkblue'
+                ? 'hover:bg-[#232b42] text-[#8b99b5]'
+                : 'hover:bg-neutral-100 text-neutral-500'
         }`}
       >
         <div className="flex items-center space-x-2">
@@ -71,7 +73,9 @@ export default function TagsFilter({
                 ? 'bg-green-600 text-gray-900'
                 : theme === 'dark'
                   ? 'bg-[#4a4a4a] text-[#ececec]'
-                  : 'bg-neutral-400 text-white'
+                  : theme === 'darkblue'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-neutral-400 text-white'
               }
             `}>
               {selectedTags.length}
@@ -92,7 +96,9 @@ export default function TagsFilter({
                   ? 'hover:bg-gray-800 text-green-600 hover:text-green-400'
                   : theme === 'dark'
                     ? 'hover:bg-[#3a3a3a] text-[#6b6b6b] hover:text-[#c0c0c0]'
-                    : 'hover:bg-neutral-200 text-neutral-400 hover:text-neutral-600'
+                    : theme === 'darkblue'
+                      ? 'hover:bg-[#232b42] text-[#5d6b88] hover:text-[#8b99b5]'
+                      : 'hover:bg-neutral-200 text-neutral-400 hover:text-neutral-600'
               }`}
             >
               <X className="h-3 w-3" />
@@ -115,7 +121,7 @@ export default function TagsFilter({
           {selectedTags.length > 0 && (
             <div className="mb-3">
               <div className={`text-xs font-medium mb-1 ${
-                theme === 'fallout' ? 'text-green-500' : theme === 'dark' ? 'text-[#6b6b6b]' : 'text-neutral-500'
+                theme === 'fallout' ? 'text-green-500' : theme === 'dark' ? 'text-[#6b6b6b]' : theme === 'darkblue' ? 'text-[#5d6b88]' : 'text-neutral-500'
               }`}>
                 Active filters:
               </div>

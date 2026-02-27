@@ -63,6 +63,12 @@ export function getTagChipStyle (hex, theme) {
     const lum = luminance(bg)
     const textColor = lum > 0.6 ? '#111827' : '#F9FAFB'
     return { backgroundColor: bg, borderColor: base, color: textColor }
+  } else if (theme === 'darkblue') {
+    // Dark Blue theme - navy-tinted dark background with bright text
+    const darkBg = darkenHex(base, 65) // Slightly darker background for navy feel
+    const brightText = lightenHex(base, 40) // Bright vibrant text
+    const subtleBorder = darkenHex(base, 40) // Subtle border
+    return { backgroundColor: darkBg, borderColor: subtleBorder, color: brightText }
   } else if (theme === 'dark') {
     // Dark theme - dark background with bright text (like encryption indicator)
     const darkBg = darkenHex(base, 60) // Dark background

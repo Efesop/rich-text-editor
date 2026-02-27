@@ -60,12 +60,19 @@ export function StorageDebugger({ isOpen, onClose }) {
         text: 'text-green-400',
         subtext: 'text-green-300'
       }
+    } else if (theme === 'darkblue') {
+      return {
+        overlay: 'fixed inset-0 z-50 bg-black/60 backdrop-blur-sm',
+        modal: 'fixed inset-x-4 top-1/2 transform -translate-y-1/2 max-w-md mx-auto rounded-xl border border-[#1c2438] bg-[#141825] p-6 shadow-2xl',
+        text: 'text-[#e0e6f0]',
+        subtext: 'text-[#8b99b5]'
+      }
     } else if (theme === 'dark') {
       return {
         overlay: 'fixed inset-0 z-50 bg-black/60 backdrop-blur-sm',
-        modal: 'fixed inset-x-4 top-1/2 transform -translate-y-1/2 max-w-md mx-auto rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-2xl',
-        text: 'text-gray-100',
-        subtext: 'text-gray-300'
+        modal: 'fixed inset-x-4 top-1/2 transform -translate-y-1/2 max-w-md mx-auto rounded-xl border border-[#3a3a3a] bg-[#1a1a1a] p-6 shadow-2xl',
+        text: 'text-[#ececec]',
+        subtext: 'text-[#c0c0c0]'
       }
     } else {
       return {
@@ -94,11 +101,11 @@ export function StorageDebugger({ isOpen, onClose }) {
         ) : storageInfo ? (
           <div className="space-y-4">
             {/* Storage Status */}
-            <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-gray-800 border border-green-600/30' : theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50'}`}>
+            <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-gray-800 border border-green-600/30' : theme === 'darkblue' ? 'bg-[#1a2035] border border-[#1c2438]' : theme === 'dark' ? 'bg-[#2f2f2f]' : 'bg-gray-50'}`}>
               <div className="flex items-center gap-2 mb-2">
                 {getStatusIcon()}
                 <span className={`font-semibold ${getStatusColor()}`}>
-                  {storageInfo.error ? 'Error' : 
+                  {storageInfo.error ? 'Error' :
                    storageInfo.type === 'IndexedDB' && storageInfo.persistent ? 'Optimal' :
                    storageInfo.type === 'IndexedDB' ? 'Good' : 'Basic'}
                 </span>
@@ -137,7 +144,7 @@ export function StorageDebugger({ isOpen, onClose }) {
             </div>
 
             {/* Device Info */}
-            <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-gray-800 border border-green-600/30' : theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50'}`}>
+            <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-gray-800 border border-green-600/30' : theme === 'darkblue' ? 'bg-[#1a2035] border border-[#1c2438]' : theme === 'dark' ? 'bg-[#2f2f2f]' : 'bg-gray-50'}`}>
               <div className="flex items-center gap-2 mb-2">
                 <Smartphone className={`h-4 w-4 ${styles.text}`} />
                 <span className={`font-semibold ${styles.text}`}>Device Info</span>
@@ -160,14 +167,14 @@ export function StorageDebugger({ isOpen, onClose }) {
 
             {/* Recommendations */}
             {storageInfo.isIOS && !storageInfo.persistent && (
-              <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-yellow-900/20 border border-yellow-600/30' : theme === 'dark' ? 'bg-yellow-900/20' : 'bg-yellow-50'}`}>
+              <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-yellow-900/20 border border-yellow-600/30' : theme === 'darkblue' ? 'bg-yellow-900/20' : theme === 'dark' ? 'bg-yellow-900/20' : 'bg-yellow-50'}`}>
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5" />
                   <div>
-                    <p className={`text-sm font-semibold ${theme === 'dark' ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                    <p className={`text-sm font-semibold ${theme === 'fallout' ? 'text-yellow-400' : theme === 'darkblue' ? 'text-yellow-400' : theme === 'dark' ? 'text-yellow-400' : 'text-yellow-700'}`}>
                       iOS Storage Notice
                     </p>
-                    <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-yellow-300' : 'text-yellow-600'}`}>
+                    <p className={`text-xs mt-1 ${theme === 'fallout' ? 'text-yellow-300' : theme === 'darkblue' ? 'text-yellow-300' : theme === 'dark' ? 'text-yellow-300' : 'text-yellow-600'}`}>
                       Use the app regularly to prevent iOS from clearing your data. Export important notes as backup.
                     </p>
                   </div>
@@ -176,14 +183,14 @@ export function StorageDebugger({ isOpen, onClose }) {
             )}
 
             {storageInfo.type === 'localStorage' && (
-              <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-orange-900/20 border border-orange-600/30' : theme === 'dark' ? 'bg-orange-900/20' : 'bg-orange-50'}`}>
+              <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-orange-900/20 border border-orange-600/30' : theme === 'darkblue' ? 'bg-orange-900/20' : theme === 'dark' ? 'bg-orange-900/20' : 'bg-orange-50'}`}>
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-orange-500 mt-0.5" />
                   <div>
-                    <p className={`text-sm font-semibold ${theme === 'dark' ? 'text-orange-400' : 'text-orange-700'}`}>
+                    <p className={`text-sm font-semibold ${theme === 'fallout' ? 'text-orange-400' : theme === 'darkblue' ? 'text-orange-400' : theme === 'dark' ? 'text-orange-400' : 'text-orange-700'}`}>
                       Basic Storage Active
                     </p>
-                    <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-orange-300' : 'text-orange-600'}`}>
+                    <p className={`text-xs mt-1 ${theme === 'fallout' ? 'text-orange-300' : theme === 'darkblue' ? 'text-orange-300' : theme === 'dark' ? 'text-orange-300' : 'text-orange-600'}`}>
                       Your data may be cleared by the browser. Consider using the mobile app for better persistence.
                     </p>
                   </div>
@@ -198,14 +205,14 @@ export function StorageDebugger({ isOpen, onClose }) {
             variant="ghost"
             size="sm"
             onClick={loadStorageInfo}
-            className={theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : ''}
+            className={theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : theme === 'darkblue' ? 'text-[#8b99b5] hover:bg-[#232b42]' : ''}
           >
             Refresh
           </Button>
           <Button
             size="sm"
             onClick={onClose}
-            className={theme === 'fallout' ? 'bg-green-600 text-gray-900 hover:bg-green-500' : ''}
+            className={theme === 'fallout' ? 'bg-green-600 text-gray-900 hover:bg-green-500' : theme === 'darkblue' ? 'bg-blue-600 hover:bg-blue-500 text-white' : ''}
           >
             Close
           </Button>

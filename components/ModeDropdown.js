@@ -31,8 +31,10 @@ const ModeDropdown = ({ onModeChange, theme }) => {
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center px-3 py-2 rounded-md ${
           theme === 'dark'
-            ? 'bg-gray-800 text-gray-200 hover:bg-gray-700'
-            : 'bg-white text-gray-800 hover:bg-gray-100'
+            ? 'bg-[#2f2f2f] text-[#ececec] hover:bg-[#3a3a3a]'
+            : theme === 'darkblue'
+              ? 'bg-[#1a2035] text-[#e0e6f0] hover:bg-[#232b42]'
+              : 'bg-white text-gray-800 hover:bg-gray-100'
         }`}
       >
         {currentMode === 'cafe' ? (
@@ -46,7 +48,7 @@ const ModeDropdown = ({ onModeChange, theme }) => {
       {isOpen && (
         <div
           className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg ${
-            theme === 'dark' ? 'bg-gray-800' : 'bg-white'
+            theme === 'dark' ? 'bg-[#2f2f2f]' : theme === 'darkblue' ? 'bg-[#1a2035] border border-[#1c2438]' : 'bg-white'
           } z-10`}
         >
           <div className="py-1" role="menu" aria-orientation="vertical">
@@ -54,8 +56,10 @@ const ModeDropdown = ({ onModeChange, theme }) => {
               onClick={() => handleModeChange('default')}
               className={`block w-full text-left px-4 py-2 text-sm ${
                 theme === 'dark'
-                  ? 'text-gray-300 hover:bg-gray-700'
-                  : 'text-gray-700 hover:bg-gray-100'
+                  ? 'text-[#c0c0c0] hover:bg-[#3a3a3a]'
+                  : theme === 'darkblue'
+                    ? 'text-[#8b99b5] hover:bg-[#232b42]'
+                    : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
               <Sun className="inline-block mr-2 h-4 w-4" />
@@ -65,8 +69,10 @@ const ModeDropdown = ({ onModeChange, theme }) => {
               onClick={() => handleModeChange('cafe')}
               className={`block w-full text-left px-4 py-2 text-sm ${
                 theme === 'dark'
-                  ? 'text-gray-300 hover:bg-gray-700'
-                  : 'text-gray-700 hover:bg-gray-100'
+                  ? 'text-[#c0c0c0] hover:bg-[#3a3a3a]'
+                  : theme === 'darkblue'
+                    ? 'text-[#8b99b5] hover:bg-[#232b42]'
+                    : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
               <Coffee className="inline-block mr-2 h-4 w-4" />

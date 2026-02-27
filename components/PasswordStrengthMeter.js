@@ -75,13 +75,20 @@ const PasswordStrengthMeter = ({ password }) => {
 
   const getProgressBarClasses = () => {
     const { level } = getStrengthLevel()
-    
+
     if (theme === 'fallout') {
       switch (level) {
         case 'strong': return 'bg-green-500 shadow-[0_0_5px_rgba(0,255,0,0.5)]'
         case 'good': return 'bg-green-400 shadow-[0_0_3px_rgba(0,255,0,0.3)]'
         case 'fair': return 'bg-yellow-400 shadow-[0_0_3px_rgba(255,255,0,0.3)]'
         default: return 'bg-red-400 shadow-[0_0_3px_rgba(255,0,0,0.3)]'
+      }
+    } else if (theme === 'darkblue') {
+      switch (level) {
+        case 'strong': return 'bg-green-500'
+        case 'good': return 'bg-green-400'
+        case 'fair': return 'bg-yellow-400'
+        default: return 'bg-red-400'
       }
     } else if (theme === 'dark') {
       switch (level) {
@@ -102,13 +109,20 @@ const PasswordStrengthMeter = ({ password }) => {
 
   const getTextClasses = () => {
     const { level } = getStrengthLevel()
-    
+
     if (theme === 'fallout') {
       switch (level) {
         case 'strong': return 'text-green-400 font-mono'
         case 'good': return 'text-green-300 font-mono'
         case 'fair': return 'text-yellow-400 font-mono'
         default: return 'text-red-400 font-mono'
+      }
+    } else if (theme === 'darkblue') {
+      switch (level) {
+        case 'strong': return 'text-green-400'
+        case 'good': return 'text-green-300'
+        case 'fair': return 'text-yellow-400'
+        default: return 'text-red-400'
       }
     } else if (theme === 'dark') {
       switch (level) {
@@ -130,8 +144,10 @@ const PasswordStrengthMeter = ({ password }) => {
   const getBackgroundClasses = () => {
     if (theme === 'fallout') {
       return 'bg-gray-800 border border-green-600'
+    } else if (theme === 'darkblue') {
+      return 'bg-[#1a2035] border border-[#1c2438]'
     } else if (theme === 'dark') {
-      return 'bg-gray-700 border border-gray-600'
+      return 'bg-[#2f2f2f] border border-[#3a3a3a]'
     } else {
       return 'bg-gray-100 border border-gray-200'
     }
@@ -158,7 +174,7 @@ const PasswordStrengthMeter = ({ password }) => {
       </div>
       
       {/* Progress bar */}
-      <div className={`w-full h-2 rounded-full mb-2 ${theme === 'fallout' ? 'bg-gray-900' : theme === 'dark' ? 'bg-gray-800' : 'bg-gray-200'}`}>
+      <div className={`w-full h-2 rounded-full mb-2 ${theme === 'fallout' ? 'bg-gray-900' : theme === 'darkblue' ? 'bg-[#0c1017]' : theme === 'dark' ? 'bg-[#2f2f2f]' : 'bg-gray-200'}`}>
         <div 
           className={`h-full rounded-full transition-all duration-300 ${getProgressBarClasses()}`}
           style={{ width: `${score}%` }}
@@ -167,7 +183,7 @@ const PasswordStrengthMeter = ({ password }) => {
       
       {/* Feedback */}
       {feedback.length > 0 && (
-        <div className={`text-xs ${theme === 'fallout' ? 'text-green-300 font-mono' : theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+        <div className={`text-xs ${theme === 'fallout' ? 'text-green-300 font-mono' : theme === 'darkblue' ? 'text-[#8b99b5]' : theme === 'dark' ? 'text-[#c0c0c0]' : 'text-gray-600'}`}>
           <div className="font-medium mb-1">Suggestions:</div>
           <ul className="list-disc list-inside space-y-0.5">
             {feedback.slice(0, 3).map((item, index) => (

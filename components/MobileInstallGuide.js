@@ -51,12 +51,20 @@ export function MobileInstallGuide() {
         subtext: 'text-green-300',
         highlight: 'text-green-200 font-semibold'
       }
+    } else if (theme === 'darkblue') {
+      return {
+        overlay: 'fixed inset-0 z-50 bg-black/60 backdrop-blur-sm',
+        modal: 'fixed bottom-4 left-4 right-4 rounded-xl border border-[#1c2438] bg-[#141825] p-4 shadow-2xl',
+        text: 'text-[#e0e6f0]',
+        subtext: 'text-[#8b99b5]',
+        highlight: 'text-[#e0e6f0] font-semibold'
+      }
     } else if (theme === 'dark') {
       return {
         overlay: 'fixed inset-0 z-50 bg-black/60 backdrop-blur-sm',
-        modal: 'fixed bottom-4 left-4 right-4 rounded-xl border border-gray-700 bg-gray-900 p-4 shadow-2xl',
-        text: 'text-gray-100',
-        subtext: 'text-gray-300',
+        modal: 'fixed bottom-4 left-4 right-4 rounded-xl border border-[#3a3a3a] bg-[#1a1a1a] p-4 shadow-2xl',
+        text: 'text-[#ececec]',
+        subtext: 'text-[#c0c0c0]',
         highlight: 'text-white font-semibold'
       }
     } else {
@@ -82,7 +90,7 @@ export function MobileInstallGuide() {
           </div>
           <button
             onClick={() => handleDismiss()}
-            className={`p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 ${styles.text}`}
+            className={`p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-[#2a2a2a] ${styles.text}`}
           >
             <X className="h-4 w-4" />
           </button>
@@ -90,7 +98,7 @@ export function MobileInstallGuide() {
 
         <div className="space-y-3 mb-4">
           <div className="flex items-start gap-3">
-            <div className={`flex items-center justify-center w-6 h-6 rounded-full ${theme === 'fallout' ? 'bg-green-600' : theme === 'dark' ? 'bg-blue-600' : 'bg-blue-500'} text-white text-sm font-bold`}>
+            <div className={`flex items-center justify-center w-6 h-6 rounded-full ${theme === 'fallout' ? 'bg-green-600' : theme === 'darkblue' ? 'bg-blue-600' : theme === 'dark' ? 'bg-blue-600' : 'bg-blue-500'} text-white text-sm font-bold`}>
               1
             </div>
             <div>
@@ -101,7 +109,7 @@ export function MobileInstallGuide() {
           </div>
 
           <div className="flex items-start gap-3">
-            <div className={`flex items-center justify-center w-6 h-6 rounded-full ${theme === 'fallout' ? 'bg-green-600' : theme === 'dark' ? 'bg-blue-600' : 'bg-blue-500'} text-white text-sm font-bold`}>
+            <div className={`flex items-center justify-center w-6 h-6 rounded-full ${theme === 'fallout' ? 'bg-green-600' : theme === 'darkblue' ? 'bg-blue-600' : theme === 'dark' ? 'bg-blue-600' : 'bg-blue-500'} text-white text-sm font-bold`}>
               2
             </div>
             <div>
@@ -112,7 +120,7 @@ export function MobileInstallGuide() {
           </div>
 
           <div className="flex items-start gap-3">
-            <div className={`flex items-center justify-center w-6 h-6 rounded-full ${theme === 'fallout' ? 'bg-green-600' : theme === 'dark' ? 'bg-blue-600' : 'bg-blue-500'} text-white text-sm font-bold`}>
+            <div className={`flex items-center justify-center w-6 h-6 rounded-full ${theme === 'fallout' ? 'bg-green-600' : theme === 'darkblue' ? 'bg-blue-600' : theme === 'dark' ? 'bg-blue-600' : 'bg-blue-500'} text-white text-sm font-bold`}>
               3
             </div>
             <div>
@@ -123,7 +131,7 @@ export function MobileInstallGuide() {
           </div>
         </div>
 
-        <div className={`p-3 rounded-lg mb-4 ${theme === 'fallout' ? 'bg-gray-800/50' : theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50'}`}>
+        <div className={`p-3 rounded-lg mb-4 ${theme === 'fallout' ? 'bg-gray-800/50' : theme === 'darkblue' ? 'bg-[#1a2035]' : theme === 'dark' ? 'bg-[#2f2f2f]' : 'bg-gray-50'}`}>
           <p className={`text-xs ${styles.subtext}`}>
             ✨ <strong>Works offline</strong> • <strong>No tracking</strong> • <strong>Privacy-first</strong>
           </p>
@@ -134,14 +142,14 @@ export function MobileInstallGuide() {
             variant="ghost"
             size="sm"
             onClick={() => handleDismiss(true)}
-            className={`text-xs ${theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : ''}`}
+            className={`text-xs ${theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : theme === 'darkblue' ? 'text-[#8b99b5] hover:bg-[#232b42]' : ''}`}
           >
             Don&apos;t show again
           </Button>
           <Button
             size="sm"
             onClick={() => handleDismiss()}
-            className={`text-xs ${theme === 'fallout' ? 'bg-green-600 text-gray-900 hover:bg-green-500' : theme === 'dark' ? 'bg-blue-600 hover:bg-blue-500' : 'bg-blue-500 hover:bg-blue-600'}`}
+            className={`text-xs ${theme === 'fallout' ? 'bg-green-600 text-gray-900 hover:bg-green-500' : theme === 'darkblue' ? 'bg-blue-600 hover:bg-blue-500' : theme === 'dark' ? 'bg-blue-600 hover:bg-blue-500' : 'bg-blue-500 hover:bg-blue-600'}`}
           >
             Got it!
           </Button>

@@ -51,6 +51,29 @@
     --ring: 0 0% 30%;
   }
 
+  /* Dark Blue Theme — navy-tinted dark theme */
+  .darkblue {
+    --background: 220 40% 7%;       /* #0c1017 — very dark navy */
+    --foreground: 216 30% 90%;      /* #e0e6f0 — cool white text */
+    --card: 222 35% 12%;            /* #141825 — dark navy card */
+    --card-foreground: 216 30% 90%;
+    --popover: 222 30% 15%;         /* #1a2035 — navy popover */
+    --popover-foreground: 216 30% 90%;
+    --primary: 216 30% 90%;         /* Cool white for primary */
+    --primary-foreground: 220 40% 7%;
+    --secondary: 222 30% 15%;      /* Navy secondary */
+    --secondary-foreground: 216 30% 90%;
+    --muted: 222 30% 15%;
+    --muted-foreground: 218 20% 52%;  /* #5d6b88 — muted blue-gray */
+    --accent: 222 30% 15%;
+    --accent-foreground: 216 30% 90%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 25% 17%;          /* #1c2438 — navy border */
+    --input: 222 30% 15%;
+    --ring: 217 91% 60%;            /* Blue focus ring */
+  }
+
   /* Fallout 4 Terminal Theme */
   .fallout {
     --background: 0 0% 8%; /* Very dark background - consistent everywhere */
@@ -495,6 +518,10 @@
   background: linear-gradient(to bottom, #1f2a1f, #111a11) !important;
   box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.15) !important;
 }
+.darkblue .sidebar-panel-darkblue {
+  background: linear-gradient(to bottom, #111827, #0f1520) !important;
+  box-shadow: inset 0 0 0 1px #1c2438 !important;
+}
 
 /* Thin scrollbar for sidebar elements */
 .thin-scrollbar::-webkit-scrollbar { width: 4px; }
@@ -503,6 +530,8 @@
 .thin-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.25); }
 .dark .thin-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); }
 .dark .thin-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
+.darkblue .thin-scrollbar::-webkit-scrollbar-thumb { background: rgba(140, 160, 200, 0.15); }
+.darkblue .thin-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(140, 160, 200, 0.25); }
 .fallout .thin-scrollbar::-webkit-scrollbar-thumb { background: rgba(34, 197, 94, 0.2); }
 .fallout .thin-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(34, 197, 94, 0.35); }
 
@@ -589,31 +618,94 @@
 }
 
 .dark .codex-editor .ce-inline-toolbar .ce-inline-tool {
-  color: #333;
-  background-color: #fff;
+  color: #ececec;
+  background-color: transparent;
 }
 
 .dark .codex-editor .ce-inline-toolbar .ce-inline-tool:hover {
-  background-color: #f5f5f5;
+  background-color: #3a3a3a;
 }
 
-.dark .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="link"],
-.dark .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="italic"],
-.dark .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="marker"] {
-  color: #0a0909;
-  background-color: #ffffff;
+.dark .codex-editor .ce-inline-toolbar .ce-inline-tool svg {
+  color: #ececec;
 }
 
-.dark .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="link"]:hover,
-.dark .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="italic"]:hover,
-.dark .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="marker"]:hover {
-  background-color: #f0f0f0;
+.dark .codex-editor .ce-inline-toolbar .ce-inline-tool:hover svg {
+  color: #ffffff;
 }
 
-.dark .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="link"] svg,
-.dark .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="italic"] svg,
-.dark .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="marker"] svg {
-  color: #0a0909;
+.dark .codex-editor .ce-inline-toolbar .ce-inline-tool--active {
+  color: #6b9fff;
+}
+
+.dark .codex-editor .ce-inline-toolbar .ce-inline-tool--active svg {
+  color: #6b9fff;
+}
+
+/* Editor.js dark blue mode styles */
+.darkblue .codex-editor .ce-toolbar__content,
+.darkblue .codex-editor .ce-block__content,
+.darkblue .codex-editor .ce-inline-toolbar,
+.darkblue .codex-editor .ce-conversion-toolbar,
+.darkblue .codex-editor .ce-settings {
+  color: #e0e6f0;
+  background-color: transparent;
+}
+
+.darkblue .codex-editor .ce-toolbar__plus,
+.darkblue .codex-editor .ce-toolbar__settings-btn,
+.darkblue .codex-editor .ce-inline-tool,
+.darkblue .codex-editor .ce-conversion-tool,
+.darkblue .codex-editor .ce-settings__button {
+  color: #e0e6f0;
+  background-color: #1a2035;
+}
+
+.darkblue .codex-editor .ce-toolbar__plus:hover,
+.darkblue .codex-editor .ce-toolbar__settings-btn:hover,
+.darkblue .codex-editor .ce-inline-tool:hover,
+.darkblue .codex-editor .ce-conversion-tool:hover,
+.darkblue .codex-editor .ce-settings__button:hover {
+  background-color: #232b42;
+}
+
+/* Ensure inline toolbar items are visible in dark blue mode */
+.darkblue .codex-editor .ce-inline-toolbar__dropdown,
+.darkblue .codex-editor .ce-inline-toolbar__buttons {
+  color: #e0e6f0;
+}
+
+.darkblue .codex-editor .ce-inline-toolbar {
+  background-color: #1a2035;
+  color: #e0e6f0;
+}
+
+.darkblue .codex-editor .ce-inline-toolbar .ce-inline-tool {
+  color: #e0e6f0;
+  background-color: #1a2035;
+}
+
+.darkblue .codex-editor .ce-inline-toolbar .ce-inline-tool:hover {
+  background-color: #232b42;
+}
+
+.darkblue .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="link"],
+.darkblue .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="italic"],
+.darkblue .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="marker"] {
+  color: #e0e6f0;
+  background-color: #1a2035;
+}
+
+.darkblue .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="link"]:hover,
+.darkblue .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="italic"]:hover,
+.darkblue .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="marker"]:hover {
+  background-color: #232b42;
+}
+
+.darkblue .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="link"] svg,
+.darkblue .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="italic"] svg,
+.darkblue .codex-editor .ce-inline-toolbar .ce-inline-tool[data-tool="marker"] svg {
+  color: #e0e6f0;
 }
 
 /* Custom focus styles for input fields */
@@ -631,6 +723,14 @@ input:focus,
 .dark .cdx-input:focus {
   box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.3);
   border-color: rgba(129, 140, 248, 0.5);
+}
+
+/* Dark blue theme focus styles */
+.darkblue input:focus,
+.darkblue .ce-block__content:focus,
+.darkblue .cdx-input:focus {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  border-color: rgba(59, 130, 246, 0.5);
 }
 
 /* Fallout theme focus styles */
@@ -658,6 +758,13 @@ button:focus {
 .dark select:focus,
 .dark button:focus {
   box-shadow: 0 0 0 2px rgba(75, 85, 99, 0.5);
+}
+
+.darkblue input:focus,
+.darkblue textarea:focus,
+.darkblue select:focus,
+.darkblue button:focus {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
 }
 
 .fallout input:focus,
@@ -1321,109 +1428,238 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
     box-shadow: none !important; /* nuke any nested shadows */
   }
 
-  /* Editor.js popovers appended to body: Fallout theme */
-  .fallout .ce-popover,
-  .fallout .ce-inline-toolbar,
-  .fallout .ce-conversion-toolbar {
-    background: hsl(var(--background)) !important;
-    color: hsl(var(--foreground)) !important;
-    border: 1px solid hsl(var(--border)) !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+  /* ===== Editor.js Popover Theming (v2.30+ CSS Variable Overrides) ===== */
+
+  /* DARK THEME: Override Editor.js CSS custom properties */
+  .dark .ce-popover {
+    --color-background: #2f2f2f;
+    --color-text-primary: #ececec;
+    --color-text-secondary: #8e8e8e;
+    --color-border: #3a3a3a;
+    --color-shadow: rgba(0,0,0,0.45);
+    --color-border-icon: #3a3a3a;
+    --color-border-icon-disabled: #3a3a3a;
+    --color-background-item-hover: #3a3a3a;
+    --color-background-item-focus: rgba(107,159,255,0.15);
+    --color-shadow-item-focus: rgba(107,159,255,0.15);
+    --color-text-icon-active: #6b9fff;
+    --color-background-icon-active: rgba(107,159,255,0.15);
+    --color-background-item-confirm: #dc2626;
+    --color-background-item-confirm-hover: #b91c1c;
   }
-  .fallout .ce-popover__item,
-  .fallout .ce-conversion-tool,
-  .fallout .ce-popover button,
-  .fallout .ce-conversion-toolbar button,
-  .fallout .ce-popover [role="button"],
-  .fallout .ce-conversion-toolbar [role="button"],
-  .fallout .cdx-button {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
+  .dark .ce-popover__container {
+    background: #2f2f2f !important;
   }
-  .fallout .ce-popover__item + .ce-popover__item,
-  .fallout .ce-conversion-tool + .ce-conversion-tool {
-    border-top: none !important;
+  .dark .ce-popover-item__title {
+    color: #ececec !important;
   }
-  .fallout .ce-popover__item:hover,
-  .fallout .ce-conversion-tool:hover {
-    background: hsl(var(--secondary)) !important;
-    color: hsl(var(--foreground)) !important;
+  .dark .ce-popover-item__icon svg {
+    color: #ececec !important;
+  }
+  .dark .ce-popover-item__secondary-title {
+    color: #8e8e8e !important;
+  }
+  .dark .ce-popover-item-separator__line {
+    background: #3a3a3a !important;
+  }
+  .dark .ce-popover__search .cdx-search-field {
+    background: #1a1a1a !important;
+    border-color: #3a3a3a !important;
+  }
+  .dark .ce-popover__search .cdx-search-field__input {
+    color: #ececec !important;
+  }
+  .dark .ce-popover__search .cdx-search-field__input::placeholder {
+    color: #6b6b6b !important;
+  }
+  .dark .ce-popover__search .cdx-search-field__icon svg {
+    color: #8e8e8e !important;
+  }
+  .dark .ce-popover__nothing-found-message {
+    color: #8e8e8e !important;
+  }
+  .dark .ce-popover-header__text {
+    color: #ececec !important;
+  }
+  .dark .ce-popover-header__back-button {
+    color: #ececec !important;
+  }
+  .dark .ce-inline-toolbar {
+    --color-background-icon-active: rgba(107,159,255,0.15);
+    --color-text-icon-active: #6b9fff;
+    --color-text-primary: #ececec;
+  }
+  .dark .ce-inline-tool-input {
+    background: #1a1a1a !important;
+    color: #ececec !important;
+    border-color: #3a3a3a !important;
+  }
+  .dark .ce-inline-tool-input::placeholder {
+    color: #6b6b6b !important;
+  }
+  .dark .cdx-search-field {
+    background: #1a1a1a !important;
+    border-color: #3a3a3a !important;
+  }
+  .dark .cdx-search-field__input {
+    color: #ececec !important;
+  }
+  .dark .cdx-search-field__input::placeholder {
+    color: #6b6b6b !important;
   }
 
-  /* Editor.js popovers appended to body: Dark theme */
-  .dark .ce-popover,
-  .dark .ce-inline-toolbar,
-  .dark .ce-conversion-toolbar {
-    background: #262626 !important;
-    color: #ededed !important;
-    border: 1px solid #404040 !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.45) !important;
+  /* DARK BLUE THEME: Override Editor.js CSS custom properties */
+  .darkblue .ce-popover {
+    --color-background: #1a2035;
+    --color-text-primary: #e0e6f0;
+    --color-text-secondary: #5d6b88;
+    --color-border: #1c2438;
+    --color-shadow: rgba(0,0,0,0.45);
+    --color-border-icon: #1c2438;
+    --color-border-icon-disabled: #1c2438;
+    --color-background-item-hover: #232b42;
+    --color-background-item-focus: rgba(59,130,246,0.15);
+    --color-shadow-item-focus: rgba(59,130,246,0.15);
+    --color-text-icon-active: #3b82f6;
+    --color-background-icon-active: rgba(59,130,246,0.15);
+    --color-background-item-confirm: #dc2626;
+    --color-background-item-confirm-hover: #b91c1c;
   }
-  .dark .ce-popover__item,
-  .dark .ce-conversion-tool,
-  .dark .ce-popover button,
-  .dark .ce-conversion-toolbar button,
-  .dark .ce-popover [role="button"],
-  .dark .ce-conversion-toolbar [role="button"],
-  .dark .cdx-button {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-    color: #ededed !important;
+  .darkblue .ce-popover__container {
+    background: #1a2035 !important;
   }
-  .dark .ce-popover__item:hover,
-  .dark .ce-conversion-tool:hover {
-    background: #404040 !important;
-    color: #ffffff !important;
-}
+  .darkblue .ce-popover-item__title {
+    color: #e0e6f0 !important;
+  }
+  .darkblue .ce-popover-item__icon svg {
+    color: #e0e6f0 !important;
+  }
+  .darkblue .ce-popover-item__secondary-title {
+    color: #5d6b88 !important;
+  }
+  .darkblue .ce-popover-item-separator__line {
+    background: #1c2438 !important;
+  }
+  .darkblue .ce-popover__search .cdx-search-field {
+    background: #141825 !important;
+    border-color: #1c2438 !important;
+  }
+  .darkblue .ce-popover__search .cdx-search-field__input {
+    color: #e0e6f0 !important;
+  }
+  .darkblue .ce-popover__search .cdx-search-field__input::placeholder {
+    color: #5d6b88 !important;
+  }
+  .darkblue .ce-popover__search .cdx-search-field__icon svg {
+    color: #5d6b88 !important;
+  }
+  .darkblue .ce-popover__nothing-found-message {
+    color: #5d6b88 !important;
+  }
+  .darkblue .ce-popover-header__text {
+    color: #e0e6f0 !important;
+  }
+  .darkblue .ce-popover-header__back-button {
+    color: #e0e6f0 !important;
+  }
+  .darkblue .ce-inline-toolbar {
+    --color-background-icon-active: rgba(59,130,246,0.15);
+    --color-text-icon-active: #3b82f6;
+    --color-text-primary: #e0e6f0;
+  }
+  .darkblue .ce-inline-tool-input {
+    background: #141825 !important;
+    color: #e0e6f0 !important;
+    border-color: #1c2438 !important;
+  }
+  .darkblue .ce-inline-tool-input::placeholder {
+    color: #5d6b88 !important;
+  }
+  .darkblue .cdx-search-field {
+    background: #141825 !important;
+    border-color: #1c2438 !important;
+  }
+  .darkblue .cdx-search-field__input {
+    color: #e0e6f0 !important;
+  }
+  .darkblue .cdx-search-field__input::placeholder {
+    color: #5d6b88 !important;
+  }
 
-  /* Strong nuke of inner borders/shadows in Editor.js dropdowns (Fallout) */
-  .fallout .ce-popover *,
-  .fallout .ce-conversion-toolbar *,
-  .fallout .ce-inline-toolbar * {
-    border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
+  /* FALLOUT THEME: Override Editor.js CSS custom properties */
+  .fallout .ce-popover {
+    --color-background: #1a1a1a;
+    --color-text-primary: #22c55e;
+    --color-text-secondary: #16a34a;
+    --color-border: #22c55e;
+    --color-shadow: rgba(0,0,0,0.3);
+    --color-border-icon: rgba(34,197,94,0.3);
+    --color-border-icon-disabled: rgba(34,197,94,0.15);
+    --color-background-item-hover: #2a2a2a;
+    --color-background-item-focus: rgba(34,197,94,0.15);
+    --color-shadow-item-focus: rgba(34,197,94,0.15);
+    --color-text-icon-active: #4ade80;
+    --color-background-icon-active: rgba(34,197,94,0.2);
+    --color-background-item-confirm: #dc2626;
+    --color-background-item-confirm-hover: #b91c1c;
   }
-  .fallout .ce-popover__items,
-  .fallout .ce-popover__item,
-  .fallout .ce-popover__item-icon,
-  .fallout .ce-popover__item-content,
-  .fallout .ce-conversion-tool,
-  .fallout .ce-conversion-tool__icon,
-  .fallout .ce-conversion-tool__title {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
+  .fallout .ce-popover__container {
+    background: #1a1a1a !important;
   }
-  .fallout .ce-popover hr,
-  .fallout .ce-popover [role="separator"] {
-    display: none !important;
+  .fallout .ce-popover-item__title {
+    color: #22c55e !important;
   }
-
-  /* Strong nuke for dark theme as well */
-  .dark .ce-popover *,
-  .dark .ce-conversion-toolbar *,
-  .dark .ce-inline-toolbar * {
-    border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
+  .fallout .ce-popover-item__icon svg {
+    color: #22c55e !important;
   }
-  .dark .ce-popover__items,
-  .dark .ce-popover__item,
-  .dark .ce-popover__item-icon,
-  .dark .ce-popover__item-content,
-  .dark .ce-conversion-tool,
-  .dark .ce-conversion-tool__icon,
-  .dark .ce-conversion-tool__title {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
+  .fallout .ce-popover-item__secondary-title {
+    color: #16a34a !important;
   }
-  .dark .ce-popover hr,
-  .dark .ce-popover [role="separator"] {
-    display: none !important;
+  .fallout .ce-popover-item-separator__line {
+    background: rgba(34,197,94,0.3) !important;
+  }
+  .fallout .ce-popover__search .cdx-search-field {
+    background: #0a0a0a !important;
+    border-color: rgba(34,197,94,0.3) !important;
+  }
+  .fallout .ce-popover__search .cdx-search-field__input {
+    color: #22c55e !important;
+  }
+  .fallout .ce-popover__search .cdx-search-field__input::placeholder {
+    color: #16a34a !important;
+  }
+  .fallout .ce-popover__search .cdx-search-field__icon svg {
+    color: #16a34a !important;
+  }
+  .fallout .ce-popover__nothing-found-message {
+    color: #16a34a !important;
+  }
+  .fallout .ce-popover-header__text {
+    color: #22c55e !important;
+  }
+  .fallout .ce-popover-header__back-button {
+    color: #22c55e !important;
+  }
+  .fallout .ce-inline-toolbar {
+    --color-background-icon-active: rgba(34,197,94,0.2);
+    --color-text-icon-active: #4ade80;
+    --color-text-primary: #22c55e;
+  }
+  .fallout .ce-inline-tool-input {
+    background: #0a0a0a !important;
+    color: #22c55e !important;
+    border-color: rgba(34,197,94,0.3) !important;
+  }
+  .fallout .ce-inline-tool-input::placeholder {
+    color: #16a34a !important;
+  }
+  .fallout .cdx-search-field {
+    background: #0a0a0a !important;
+    border-color: rgba(34,197,94,0.3) !important;
+  }
+  .fallout .cdx-search-field__input {
+    color: #22c55e !important;
+  }
+  .fallout .cdx-search-field__input::placeholder {
+    color: #16a34a !important;
   }

@@ -53,12 +53,20 @@ export function InstallOnMobileModal ({ isOpen, onClose, pwaUrl }) {
         urlBox: 'break-all rounded-lg border border-green-600 bg-gray-800 p-3 text-sm font-mono',
         qrContainer: 'flex justify-center mb-6 p-4 bg-white rounded-lg'
       }
+    } else if (theme === 'darkblue') {
+      return {
+        overlay: 'fixed inset-0 z-50 flex items-center justify-center bg-black/60',
+        modal: 'w-full max-w-lg rounded-xl border border-[#1c2438] bg-[#141825] p-6 shadow-2xl',
+        text: 'text-[#e0e6f0]',
+        urlBox: 'break-all rounded-lg border border-[#1c2438] bg-[#0c1017] p-3 text-sm font-mono text-[#8b99b5]',
+        qrContainer: 'flex justify-center mb-6 p-4 bg-white rounded-lg'
+      }
     } else if (theme === 'dark') {
       return {
         overlay: 'fixed inset-0 z-50 flex items-center justify-center bg-black/60',
-        modal: 'w-full max-w-lg rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-2xl',
-        text: 'text-gray-100',
-        urlBox: 'break-all rounded-lg border border-gray-700 bg-gray-800 p-3 text-sm font-mono text-gray-300',
+        modal: 'w-full max-w-lg rounded-xl border border-[#3a3a3a] bg-[#1a1a1a] p-6 shadow-2xl',
+        text: 'text-[#ececec]',
+        urlBox: 'break-all rounded-lg border border-[#3a3a3a] bg-[#2f2f2f] p-3 text-sm font-mono text-[#c0c0c0]',
         qrContainer: 'flex justify-center mb-6 p-4 bg-white rounded-lg'
       }
     } else {
@@ -94,16 +102,16 @@ export function InstallOnMobileModal ({ isOpen, onClose, pwaUrl }) {
             <div className={styles.urlBox}>{url}</div>
           </div>
 
-          <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-gray-800 border border-green-600' : theme === 'dark' ? 'bg-gray-800 border border-gray-700' : 'bg-blue-50 border border-blue-200'}`}>
+          <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-gray-800 border border-green-600' : theme === 'darkblue' ? 'bg-[#1a2035] border border-[#1c2438]' : theme === 'dark' ? 'bg-[#2f2f2f] border border-[#3a3a3a]' : 'bg-blue-50 border border-blue-200'}`}>
             <h3 className={`text-sm font-semibold mb-2 ${styles.text}`}>Step 2: Add to Home Screen</h3>
-            <p className={`text-sm ${theme === 'fallout' ? 'text-green-300' : theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+            <p className={`text-sm ${theme === 'fallout' ? 'text-green-300' : theme === 'darkblue' ? 'text-[#8b99b5]' : theme === 'dark' ? 'text-[#c0c0c0]' : 'text-gray-700'}`}>
               In Safari, tap the <strong>Share</strong> button, then tap <strong>&quot;Add to Home Screen&quot;</strong>
             </p>
           </div>
 
-          <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-gray-800 border border-green-600' : theme === 'dark' ? 'bg-gray-800 border border-gray-700' : 'bg-gray-50 border border-gray-200'}`}>
+          <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-gray-800 border border-green-600' : theme === 'darkblue' ? 'bg-[#1a2035] border border-[#1c2438]' : theme === 'dark' ? 'bg-[#2f2f2f] border border-[#3a3a3a]' : 'bg-gray-50 border border-gray-200'}`}>
             <h3 className={`text-sm font-semibold mb-2 ${styles.text}`}>Step 3: Transfer Your Notes</h3>
-            <p className={`text-sm ${theme === 'fallout' ? 'text-green-300' : theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+            <p className={`text-sm ${theme === 'fallout' ? 'text-green-300' : theme === 'darkblue' ? 'text-[#8b99b5]' : theme === 'dark' ? 'text-[#c0c0c0]' : 'text-gray-700'}`}>
               Export encrypted bundle from desktop → Share via AirDrop/email → Import on phone
             </p>
           </div>
@@ -114,7 +122,7 @@ export function InstallOnMobileModal ({ isOpen, onClose, pwaUrl }) {
             variant='ghost' 
             size='sm' 
             onClick={onClose}
-            className={theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : ''}
+            className={theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : theme === 'darkblue' ? 'text-[#8b99b5] hover:bg-[#232b42]' : ''}
           >
             Close
           </Button>

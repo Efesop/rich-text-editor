@@ -123,6 +123,8 @@ export function FolderItem({
         return 'hover:bg-gray-800 text-green-400'
       case 'dark':
         return 'hover:bg-[#232323] text-[#c0c0c0]'
+      case 'darkblue':
+        return 'hover:bg-[#161c2e] text-[#8b99b5]'
       default:
         return 'hover:bg-neutral-100 text-neutral-700'
     }
@@ -134,6 +136,8 @@ export function FolderItem({
         return 'bg-gray-800 text-green-300 border border-green-600/30'
       case 'dark':
         return 'bg-[#2a2a2a] text-[#6b6b6b]'
+      case 'darkblue':
+        return 'bg-[#1a2035] text-[#8b99b5]'
       default:
         return 'bg-neutral-200 text-neutral-500'
     }
@@ -145,6 +149,8 @@ export function FolderItem({
         return 'bg-gray-900 border border-green-600/40 text-green-400'
       case 'dark':
         return 'bg-[#2f2f2f] border border-[#3a3a3a] text-[#ececec] shadow-xl shadow-black/50'
+      case 'darkblue':
+        return 'bg-[#1a2035] border border-[#1c2438] text-[#e0e6f0] shadow-xl shadow-black/50'
       default:
         return 'bg-white border border-neutral-200 text-neutral-900 shadow-lg shadow-neutral-200/50'
     }
@@ -156,6 +162,8 @@ export function FolderItem({
         return 'text-green-400 hover:bg-gray-800'
       case 'dark':
         return 'text-[#c0c0c0] hover:bg-[#3a3a3a]'
+      case 'darkblue':
+        return 'text-[#8b99b5] hover:bg-[#232b42]'
       default:
         return 'text-neutral-600 hover:bg-neutral-100'
     }
@@ -167,6 +175,7 @@ export function FolderItem({
         case 'fallout':
           return 'text-green-400'
         case 'dark':
+        case 'darkblue':
           return 'text-blue-500'
         default:
           return 'text-blue-600'
@@ -177,6 +186,8 @@ export function FolderItem({
         return 'text-green-500'
       case 'dark':
         return 'text-[#8e8e8e]'
+      case 'darkblue':
+        return 'text-[#5d6b88]'
       default:
         return 'text-neutral-400'
     }
@@ -188,13 +199,15 @@ export function FolderItem({
         return 'text-green-600'
       case 'dark':
         return 'text-[#6b6b6b]'
+      case 'darkblue':
+        return 'text-[#5d6b88]'
       default:
         return 'text-neutral-400'
     }
   }
 
   return (
-    <div className={`my-1 transition-all duration-150 ${isDropTarget ? `rounded-lg ${theme === 'fallout' ? 'ring-2 ring-green-500/50' : 'ring-2 ring-blue-500/50'}` : ''}`} ref={folderRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+    <div className={`my-1 transition-all duration-150 ${isDropTarget ? `rounded-lg ${theme === 'fallout' ? 'ring-2 ring-green-500/50' : 'ring-2 ring-blue-500/50'}` : ''}`} ref={folderRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} data-theme={theme}>
       <div
         className={`flex items-center justify-between px-3 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-150 ${getFolderHoverClasses()}`}
         onClick={toggleExpand}

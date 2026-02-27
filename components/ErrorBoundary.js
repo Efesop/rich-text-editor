@@ -99,23 +99,25 @@ function ErrorFallback({ error, errorInfo, errorId, onReload, onReset }) {
 
   const isDevelopment = process.env.NODE_ENV === 'development'
 
+  const isDarkBlue = theme === 'darkblue'
+
   return (
     <div className={`min-h-screen flex items-center justify-center p-4 ${
-      theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'
+      isDarkBlue ? 'bg-[#0c1017] text-[#e0e6f0]' : theme === 'dark' ? 'bg-[#1a1a1a] text-white' : 'bg-gray-50 text-gray-900'
     }`}>
       <div className={`max-w-md w-full text-center space-y-6 p-8 rounded-lg shadow-lg ${
-        theme === 'dark' ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'
+        isDarkBlue ? 'bg-[#1a2035] border border-[#1c2438]' : theme === 'dark' ? 'bg-[#2f2f2f] border border-[#3a3a3a]' : 'bg-white border border-gray-200'
       }`}>
         <div className="flex justify-center">
           <AlertTriangle className={`h-16 w-16 ${
-            theme === 'dark' ? 'text-red-400' : 'text-red-500'
+            isDarkBlue ? 'text-red-400' : theme === 'dark' ? 'text-red-400' : 'text-red-500'
           }`} />
         </div>
 
         <div>
           <h1 className="text-2xl font-bold mb-2">Oops! Something went wrong</h1>
           <p className={`text-sm ${
-            theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+            isDarkBlue ? 'text-[#8b99b5]' : theme === 'dark' ? 'text-[#c0c0c0]' : 'text-gray-600'
           }`}>
             We&apos;re sorry, but something unexpected happened. Your data is safe.
           </p>
@@ -153,9 +155,11 @@ function ErrorFallback({ error, errorInfo, errorId, onReload, onReset }) {
 
           {showDetails && (
             <div className={`text-left text-xs p-4 rounded border overflow-auto max-h-40 ${
-              theme === 'dark'
-                ? 'bg-gray-900 border-gray-600 text-gray-300'
-                : 'bg-gray-100 border-gray-300 text-gray-700'
+              isDarkBlue
+                ? 'bg-[#0c1017] border-[#1c2438] text-[#8b99b5]'
+                : theme === 'dark'
+                  ? 'bg-[#1a1a1a] border-[#3a3a3a] text-[#c0c0c0]'
+                  : 'bg-gray-100 border-gray-300 text-gray-700'
             }`}>
               <div className="mb-2">
                 <strong>Error ID:</strong> {errorId}
@@ -183,7 +187,7 @@ function ErrorFallback({ error, errorInfo, errorId, onReload, onReset }) {
                 </div>
               )}
               {!isDevelopment && (
-                <div className="mt-2 pt-2 border-t border-gray-600">
+                <div className={`mt-2 pt-2 border-t ${isDarkBlue ? 'border-[#1c2438]' : theme === 'dark' ? 'border-[#3a3a3a]' : 'border-gray-300'}`}>
                   <p className="text-xs opacity-75">
                     Please include this Error ID when reporting issues.
                   </p>
@@ -194,7 +198,7 @@ function ErrorFallback({ error, errorInfo, errorId, onReload, onReset }) {
         </div>
 
         <div className={`text-xs ${
-          theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+          isDarkBlue ? 'text-[#5d6b88]' : theme === 'dark' ? 'text-[#8e8e8e]' : 'text-gray-500'
         }`}>
           Error ID: {errorId}
         </div>

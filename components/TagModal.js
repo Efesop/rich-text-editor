@@ -35,8 +35,10 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
   const getModalClasses = () => {
     if (theme === 'fallout') {
       return 'bg-gray-900 text-green-400 shadow-[0_0_20px_rgba(0,255,0,0.3)] border border-green-600'
+    } else if (theme === 'darkblue') {
+      return 'bg-[#141825] text-[#e0e6f0] border border-[#1c2438]'
     } else if (theme === 'dark') {
-      return 'bg-gray-800 text-white'
+      return 'bg-[#1a1a1a] text-white'
     } else {
       return 'bg-white text-gray-900'
     }
@@ -45,8 +47,10 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
   const getInputClasses = () => {
     if (theme === 'fallout') {
       return 'bg-gray-800 border-green-600 text-green-400 shadow-[0_0_5px_rgba(0,255,0,0.3)] font-mono'
+    } else if (theme === 'darkblue') {
+      return 'bg-[#1a2035] border-[#1c2438] text-[#e0e6f0]'
     } else if (theme === 'dark') {
-      return 'bg-gray-700 border-gray-600 text-white'
+      return 'bg-[#2f2f2f] border-[#3a3a3a] text-white'
     } else {
       return 'bg-white border-gray-300 text-gray-900'
     }
@@ -54,7 +58,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
 
   const getButtonClasses = (type) => {
     const baseClasses = 'px-3 py-2 text-sm font-medium rounded-md transition-all duration-200'
-    
+
     if (theme === 'fallout') {
       switch (type) {
         case 'primary':
@@ -64,6 +68,15 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
         default:
           return `${baseClasses} bg-gray-700 hover:bg-gray-600 text-green-400 border border-green-600 font-mono`
       }
+    } else if (theme === 'darkblue') {
+      switch (type) {
+        case 'primary':
+          return `${baseClasses} bg-blue-500 hover:bg-blue-400 text-white`
+        case 'delete':
+          return `${baseClasses} bg-red-600 hover:bg-red-500 text-white`
+        default:
+          return `${baseClasses} bg-[#1a2035] hover:bg-[#232b42] text-[#8b99b5] border border-[#1c2438]`
+      }
     } else if (theme === 'dark') {
       switch (type) {
         case 'primary':
@@ -71,7 +84,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
         case 'delete':
           return `${baseClasses} bg-red-600 hover:bg-red-700 text-white`
         default:
-          return `${baseClasses} bg-gray-700 hover:bg-gray-600 text-white border border-gray-600`
+          return `${baseClasses} bg-[#2f2f2f] hover:bg-[#3a3a3a] text-white border border-[#3a3a3a]`
       }
     } else {
       switch (type) {
@@ -135,7 +148,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
           <div className="absolute right-0 top-0 pr-6 pt-6">
             <button
               type="button"
-              className={`rounded-md bg-transparent text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${theme === 'dark' ? 'hover:text-gray-300' : 'hover:text-gray-500'} ${theme === 'fallout' ? 'text-green-400 hover:text-green-300 focus:ring-green-500 font-mono' : ''}`}
+              className={`rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-offset-2 ${theme === 'fallout' ? 'text-green-400 hover:text-green-300 focus:ring-green-500 font-mono' : theme === 'darkblue' ? 'text-[#8b99b5] hover:text-[#e0e6f0] focus:ring-blue-500' : theme === 'dark' ? 'text-[#8e8e8e] hover:text-[#c0c0c0] focus:ring-indigo-500' : 'text-gray-400 hover:text-gray-500 focus:ring-indigo-500'}`}
               onClick={onClose}
             >
               <span className="sr-only">Close</span>
@@ -150,7 +163,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
                     <button
                       type="button"
                       onClick={() => setShowCreateNew(false)}
-                      className={`mr-3 p-1 rounded-md transition-colors ${theme === 'fallout' ? 'hover:bg-gray-800 text-green-400' : theme === 'dark' ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}
+                      className={`mr-3 p-1 rounded-md transition-colors ${theme === 'fallout' ? 'hover:bg-gray-800 text-green-400' : theme === 'darkblue' ? 'hover:bg-[#232b42] text-[#8b99b5]' : theme === 'dark' ? 'hover:bg-[#2f2f2f] text-[#8e8e8e]' : 'hover:bg-gray-100 text-gray-600'}`}
                     >
                       <ArrowLeft className="h-4 w-4" />
                     </button>
@@ -180,10 +193,10 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
                       </div>
                       <div className="relative">
                         <div className="absolute inset-0 flex items-center">
-                          <div className={`w-full border-t ${theme === 'fallout' ? 'border-green-600' : theme === 'dark' ? 'border-gray-600' : 'border-gray-300'}`} />
+                          <div className={`w-full border-t ${theme === 'fallout' ? 'border-green-600' : theme === 'darkblue' ? 'border-[#1c2438]' : theme === 'dark' ? 'border-[#3a3a3a]' : 'border-gray-300'}`} />
                         </div>
                         <div className="relative flex justify-center text-xs">
-                          <span className={`px-3 ${theme === 'fallout' ? 'bg-gray-900 text-green-300 font-mono' : theme === 'dark' ? 'bg-gray-800 text-gray-400' : 'bg-white text-gray-600'}`}>
+                          <span className={`px-3 ${theme === 'fallout' ? 'bg-gray-900 text-green-300 font-mono' : theme === 'darkblue' ? 'bg-[#141825] text-[#8b99b5]' : theme === 'dark' ? 'bg-[#1a1a1a] text-[#8e8e8e]' : 'bg-white text-gray-600'}`}>
                             or create a new one
                           </span>
                         </div>
@@ -251,7 +264,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
                           })}
                         </div>
                         <div className="flex items-center">
-                          <span className={`text-xs mr-2 ${theme === 'fallout' ? 'text-green-300 font-mono' : theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                          <span className={`text-xs mr-2 ${theme === 'fallout' ? 'text-green-300 font-mono' : theme === 'darkblue' ? 'text-[#8b99b5]' : theme === 'dark' ? 'text-[#8e8e8e]' : 'text-gray-600'}`}>
                             Preview:
                           </span>
                           <span
@@ -267,13 +280,13 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
                   )}
                   {!tag && !showCreateNew && (!existingTags || existingTags.length === 0) && (
                     <div className="text-center py-8">
-                      <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 ${theme === 'fallout' ? 'bg-gray-800 border border-green-600' : theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                        <Plus className={`h-8 w-8 ${theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`} />
+                      <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 ${theme === 'fallout' ? 'bg-gray-800 border border-green-600' : theme === 'darkblue' ? 'bg-[#1a2035] border border-[#1c2438]' : theme === 'dark' ? 'bg-[#2f2f2f]' : 'bg-gray-100'}`}>
+                        <Plus className={`h-8 w-8 ${theme === 'fallout' ? 'text-green-400' : theme === 'darkblue' ? 'text-[#8b99b5]' : theme === 'dark' ? 'text-[#8e8e8e]' : 'text-gray-500'}`} />
                       </div>
-                      <h4 className={`text-base font-medium mb-2 ${theme === 'fallout' ? 'text-green-400 font-mono' : theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                      <h4 className={`text-base font-medium mb-2 ${theme === 'fallout' ? 'text-green-400 font-mono' : theme === 'darkblue' ? 'text-[#e0e6f0]' : theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
                         No tags yet
                       </h4>
-                      <p className={`text-sm mb-6 ${theme === 'fallout' ? 'text-green-300 font-mono' : theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <p className={`text-sm mb-6 ${theme === 'fallout' ? 'text-green-300 font-mono' : theme === 'darkblue' ? 'text-[#8b99b5]' : theme === 'dark' ? 'text-[#8e8e8e]' : 'text-gray-600'}`}>
                         Create your first tag to start organizing your pages.
                       </p>
                       <button
@@ -290,7 +303,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
               </div>
             </div>
           </div>
-          <div className={`px-6 py-4 flex flex-col sm:flex-row-reverse gap-2 ${theme === 'fallout' ? 'border-t border-green-600' : theme === 'dark' ? 'bg-gray-750' : 'bg-gray-50'}`}>
+          <div className={`px-6 py-4 flex flex-col sm:flex-row-reverse gap-2 ${theme === 'fallout' ? 'border-t border-green-600' : theme === 'darkblue' ? 'bg-[#0c1017] border-t border-[#1c2438]' : theme === 'dark' ? 'bg-[#141414]' : 'bg-gray-50'}`}>
             {(tag || showCreateNew) && (
               <button
                 type="button"

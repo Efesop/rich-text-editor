@@ -85,12 +85,19 @@ export function UpdateDebugger({ isOpen, onClose }) {
         text: 'text-green-400',
         subtext: 'text-green-300'
       }
+    } else if (theme === 'darkblue') {
+      return {
+        overlay: 'fixed inset-0 z-50 bg-black/60 backdrop-blur-sm',
+        modal: 'fixed inset-x-4 top-1/2 transform -translate-y-1/2 max-w-4xl mx-auto rounded-xl border border-[#1c2438] bg-[#141825] p-0 shadow-2xl max-h-[90vh] overflow-hidden',
+        text: 'text-[#e0e6f0]',
+        subtext: 'text-[#8b99b5]'
+      }
     } else if (theme === 'dark') {
       return {
         overlay: 'fixed inset-0 z-50 bg-black/60 backdrop-blur-sm',
-        modal: 'fixed inset-x-4 top-1/2 transform -translate-y-1/2 max-w-4xl mx-auto rounded-xl border border-gray-700 bg-gray-900 p-0 shadow-2xl max-h-[90vh] overflow-hidden',
-        text: 'text-gray-100',
-        subtext: 'text-gray-300'
+        modal: 'fixed inset-x-4 top-1/2 transform -translate-y-1/2 max-w-4xl mx-auto rounded-xl border border-[#3a3a3a] bg-[#1a1a1a] p-0 shadow-2xl max-h-[90vh] overflow-hidden',
+        text: 'text-[#ececec]',
+        subtext: 'text-[#c0c0c0]'
       }
     } else {
       return {
@@ -135,7 +142,7 @@ export function UpdateDebugger({ isOpen, onClose }) {
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-6 pb-4 border-b border-gray-700">
+        <div className={`flex items-center justify-between p-6 pb-4 border-b ${theme === 'darkblue' ? 'border-[#1c2438]' : theme === 'dark' ? 'border-[#3a3a3a]' : 'border-gray-700'}`}>
           <div className="flex items-center gap-3">
             <Bell className={`h-6 w-6 ${styles.text}`} />
             <h2 className={`text-lg font-bold ${styles.text}`}>Update System Debugger</h2>
@@ -143,10 +150,12 @@ export function UpdateDebugger({ isOpen, onClose }) {
           <button
             onClick={onClose}
             className={`p-2 rounded-md transition-colors ${
-              theme === 'fallout' 
-                ? 'text-green-400 hover:bg-green-600/20' 
+              theme === 'fallout'
+                ? 'text-green-400 hover:bg-green-600/20'
+                : theme === 'darkblue'
+                ? 'text-[#8b99b5] hover:bg-[#232b42]'
                 : theme === 'dark'
-                ? 'text-gray-400 hover:bg-gray-700'
+                ? 'text-[#8e8e8e] hover:bg-[#3a3a3a]'
                 : 'text-gray-500 hover:bg-gray-100'
             }`}
           >
@@ -163,11 +172,11 @@ export function UpdateDebugger({ isOpen, onClose }) {
         ) : debugInfo ? (
           <div className="space-y-4">
             {debugInfo.error ? (
-              <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-red-900/20 border border-red-600/30' : theme === 'dark' ? 'bg-red-900/20' : 'bg-red-50'}`}>
+              <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-red-900/20 border border-red-600/30' : theme === 'darkblue' ? 'bg-red-900/20 border border-red-600/20' : theme === 'dark' ? 'bg-red-900/20' : 'bg-red-50'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4 text-red-500" />
-                    <span className={`font-semibold ${theme === 'dark' ? 'text-red-400' : 'text-red-700'}`}>
+                    <span className={`font-semibold ${theme === 'fallout' ? 'text-red-400' : theme === 'darkblue' ? 'text-red-400' : theme === 'dark' ? 'text-red-400' : 'text-red-700'}`}>
                       {debugInfo.error.includes('timeout') || debugInfo.error.includes('ERR_TIMED_OUT') ? 'Network Timeout' : 'Debug Error'}
                     </span>
                   </div>
@@ -177,17 +186,17 @@ export function UpdateDebugger({ isOpen, onClose }) {
                       size="sm"
                       onClick={forceUpdateCheck}
                       disabled={checking}
-                      className={`text-xs ${theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : theme === 'dark' ? 'text-blue-400 hover:bg-blue-600/20' : 'text-blue-600 hover:bg-blue-100'}`}
+                      className={`text-xs ${theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : theme === 'darkblue' ? 'text-blue-400 hover:bg-blue-600/20' : theme === 'dark' ? 'text-blue-400 hover:bg-blue-600/20' : 'text-blue-600 hover:bg-blue-100'}`}
                     >
                       Try Again
                     </Button>
                   )}
                 </div>
-                <p className={`text-sm mt-2 ${theme === 'dark' ? 'text-red-300' : 'text-red-600'}`}>
+                <p className={`text-sm mt-2 ${theme === 'fallout' ? 'text-red-300' : theme === 'darkblue' ? 'text-red-300' : theme === 'dark' ? 'text-red-300' : 'text-red-600'}`}>
                   {debugInfo.error}
                 </p>
                 {(debugInfo.error.includes('timeout') || debugInfo.error.includes('ERR_TIMED_OUT')) && (
-                  <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-red-400' : 'text-red-500'}`}>
+                  <p className={`text-xs mt-1 ${theme === 'fallout' ? 'text-red-400' : theme === 'darkblue' ? 'text-red-400' : theme === 'dark' ? 'text-red-400' : 'text-red-500'}`}>
                     💡 This usually happens with slow internet connections or GitHub server issues.
                   </p>
                 )}
@@ -195,7 +204,7 @@ export function UpdateDebugger({ isOpen, onClose }) {
             ) : (
               <>
                 {/* Electron Status */}
-                <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-gray-800 border border-green-600/30' : theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50'}`}>
+                <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-gray-800 border border-green-600/30' : theme === 'darkblue' ? 'bg-[#1a2035] border border-[#1c2438]' : theme === 'dark' ? 'bg-[#2f2f2f]' : 'bg-gray-50'}`}>
                   <div className="flex items-center gap-2 mb-2">
                     {renderStatusIcon(debugInfo.electronAvailable)}
                     <span className={`font-semibold ${styles.text}`}>
@@ -213,7 +222,7 @@ export function UpdateDebugger({ isOpen, onClose }) {
 
                 {/* Update Configuration */}
                 {debugInfo.electronAvailable && debugInfo.updateConfig && (
-                  <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-gray-800 border border-green-600/30' : theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50'}`}>
+                  <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-gray-800 border border-green-600/30' : theme === 'darkblue' ? 'bg-[#1a2035] border border-[#1c2438]' : theme === 'dark' ? 'bg-[#2f2f2f]' : 'bg-gray-50'}`}>
                     <h3 className={`font-semibold mb-2 ${styles.text}`}>Update Configuration</h3>
                     <div className="space-y-1 text-sm">
                       {Object.entries(debugInfo.updateConfig).map(([key, value]) => 
@@ -225,7 +234,7 @@ export function UpdateDebugger({ isOpen, onClose }) {
 
                 {/* Update Status */}
                 {debugInfo.electronAvailable && debugInfo.updateStatus && (
-                  <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-gray-800 border border-green-600/30' : theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50'}`}>
+                  <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-gray-800 border border-green-600/30' : theme === 'darkblue' ? 'bg-[#1a2035] border border-[#1c2438]' : theme === 'dark' ? 'bg-[#2f2f2f]' : 'bg-gray-50'}`}>
                     <h3 className={`font-semibold mb-2 ${styles.text}`}>Update Status</h3>
                     <div className="space-y-1 text-sm">
                       {Object.entries(debugInfo.updateStatus).map(([key, value]) => 
@@ -237,10 +246,10 @@ export function UpdateDebugger({ isOpen, onClose }) {
 
                 {/* Recent Errors */}
                 {debugInfo.recentErrors && (
-                  <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-yellow-900/20 border border-yellow-600/30' : theme === 'dark' ? 'bg-yellow-900/20' : 'bg-yellow-50'}`}>
+                  <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-yellow-900/20 border border-yellow-600/30' : theme === 'darkblue' ? 'bg-yellow-900/20 border border-yellow-600/20' : theme === 'dark' ? 'bg-yellow-900/20' : 'bg-yellow-50'}`}>
                     <div className="flex items-center gap-2 mb-2">
                       <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                      <span className={`font-semibold ${theme === 'dark' ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                      <span className={`font-semibold ${theme === 'fallout' ? 'text-yellow-400' : theme === 'darkblue' ? 'text-yellow-400' : theme === 'dark' ? 'text-yellow-400' : 'text-yellow-700'}`}>
                         Recent Errors
                       </span>
                     </div>
@@ -251,11 +260,11 @@ export function UpdateDebugger({ isOpen, onClose }) {
                 )}
 
                 {/* Debug Instructions */}
-                <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-blue-900/20 border border-blue-600/30' : theme === 'dark' ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
-                  <h3 className={`font-semibold mb-2 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-700'}`}>
+                <div className={`p-4 rounded-lg ${theme === 'fallout' ? 'bg-blue-900/20 border border-blue-600/30' : theme === 'darkblue' ? 'bg-blue-900/20 border border-blue-600/20' : theme === 'dark' ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
+                  <h3 className={`font-semibold mb-2 ${theme === 'fallout' ? 'text-blue-400' : theme === 'darkblue' ? 'text-blue-400' : theme === 'dark' ? 'text-blue-400' : 'text-blue-700'}`}>
                     Debug Instructions
                   </h3>
-                  <div className={`text-sm ${theme === 'dark' ? 'text-blue-300' : 'text-blue-600'}`}>
+                  <div className={`text-sm ${theme === 'fallout' ? 'text-blue-300' : theme === 'darkblue' ? 'text-blue-300' : theme === 'dark' ? 'text-blue-300' : 'text-blue-600'}`}>
                     <p className="mb-2">Expected behavior:</p>
                     <ul className="list-disc list-inside space-y-1 ml-4">
                       <li>App should check for updates 3 seconds after startup</li>
@@ -270,12 +279,12 @@ export function UpdateDebugger({ isOpen, onClose }) {
           </div>
         ) : null}
 
-        <div className="flex gap-2 mt-6 pt-4 border-t border-gray-700">
+        <div className={`flex gap-2 mt-6 pt-4 border-t ${theme === 'darkblue' ? 'border-[#1c2438]' : theme === 'dark' ? 'border-[#3a3a3a]' : 'border-gray-700'}`}>
           <Button
             variant="ghost"
             size="sm"
             onClick={loadDebugInfo}
-            className={theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : ''}
+            className={theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : theme === 'darkblue' ? 'text-[#8b99b5] hover:bg-[#232b42]' : ''}
           >
             <RefreshCw className="h-4 w-4 mr-1" />
             Refresh
@@ -286,7 +295,7 @@ export function UpdateDebugger({ isOpen, onClose }) {
               size="sm"
               onClick={forceUpdateCheck}
               disabled={checking}
-              className={theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : ''}
+              className={theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : theme === 'darkblue' ? 'text-[#8b99b5] hover:bg-[#232b42]' : ''}
             >
               <Download className={`h-4 w-4 mr-1 ${checking ? 'animate-spin' : ''}`} />
               Force Check

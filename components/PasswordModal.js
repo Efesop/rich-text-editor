@@ -35,6 +35,7 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
 
   const isFallout = theme === 'fallout'
   const isDark = theme === 'dark'
+  const isDarkBlue = theme === 'darkblue'
   const isLocking = action === 'lock'
 
   return (
@@ -52,11 +53,13 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
       <div 
         className={`
           relative w-full max-w-md transform transition-all duration-200
-          ${isFallout 
-            ? 'bg-gray-900 border-2 border-green-500/60 shadow-[0_0_40px_rgba(34,197,94,0.15)]' 
-            : isDark 
-              ? 'bg-gray-900 border border-gray-700/50 shadow-2xl' 
-              : 'bg-white border border-gray-200 shadow-2xl'
+          ${isFallout
+            ? 'bg-gray-900 border-2 border-green-500/60 shadow-[0_0_40px_rgba(34,197,94,0.15)]'
+            : isDarkBlue
+              ? 'bg-[#141825] border border-[#1c2438] shadow-2xl'
+              : isDark
+                ? 'bg-[#1a1a1a] border border-[#3a3a3a]/50 shadow-2xl'
+                : 'bg-white border border-gray-200 shadow-2xl'
           }
           rounded-2xl overflow-hidden
         `}
@@ -65,21 +68,25 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
         {/* Header */}
         <div className={`
           px-6 pt-6 pb-4
-          ${isFallout ? 'border-b border-green-500/30' : isDark ? 'border-b border-gray-800' : 'border-b border-gray-100'}
+          ${isFallout ? 'border-b border-green-500/30' : isDarkBlue ? 'border-b border-[#1c2438]' : isDark ? 'border-b border-[#3a3a3a]' : 'border-b border-gray-100'}
         `}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className={`
                 p-2.5 rounded-xl
-                ${isFallout 
-                  ? 'bg-green-500/20 text-green-400' 
-                  : isLocking
-                    ? isDark 
-                      ? 'bg-amber-500/20 text-amber-400' 
-                      : 'bg-amber-100 text-amber-600'
-                    : isDark
-                      ? 'bg-blue-500/20 text-blue-400'
-                      : 'bg-blue-100 text-blue-600'
+                ${isFallout
+                  ? 'bg-green-500/20 text-green-400'
+                  : isDarkBlue
+                    ? isLocking
+                      ? 'bg-amber-500/20 text-amber-400'
+                      : 'bg-blue-500/20 text-blue-400'
+                    : isLocking
+                      ? isDark
+                        ? 'bg-amber-500/20 text-amber-400'
+                        : 'bg-amber-100 text-amber-600'
+                      : isDark
+                        ? 'bg-blue-500/20 text-blue-400'
+                        : 'bg-blue-100 text-blue-600'
                 }
               `}>
                 {isLocking ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
@@ -89,14 +96,14 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
                   id="password-modal-title"
                   className={`
                     text-lg font-semibold
-                    ${isFallout ? 'text-green-400 font-mono' : isDark ? 'text-white' : 'text-gray-900'}
+                    ${isFallout ? 'text-green-400 font-mono' : isDarkBlue ? 'text-[#e0e6f0]' : isDark ? 'text-white' : 'text-gray-900'}
                   `}
                 >
                   {isLocking ? 'Lock Page' : 'Unlock Page'}
                 </h2>
                 <p className={`
                   text-sm mt-0.5
-                  ${isFallout ? 'text-green-500/70 font-mono' : isDark ? 'text-gray-400' : 'text-gray-500'}
+                  ${isFallout ? 'text-green-500/70 font-mono' : isDarkBlue ? 'text-[#8b99b5]' : isDark ? 'text-[#8e8e8e]' : 'text-gray-500'}
                 `}>
                   {isLocking ? 'Protect this page with a password' : 'Enter password to access'}
                 </p>
@@ -109,9 +116,11 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
                 p-2 rounded-lg transition-colors
                 ${isFallout
                   ? 'text-green-500 hover:bg-green-500/20'
-                  : isDark
-                    ? 'text-gray-400 hover:bg-gray-800'
-                    : 'text-gray-400 hover:bg-gray-100'
+                  : isDarkBlue
+                    ? 'text-[#8b99b5] hover:bg-[#232b42]'
+                    : isDark
+                      ? 'text-[#8e8e8e] hover:bg-[#3a3a3a]'
+                      : 'text-gray-400 hover:bg-gray-100'
                 }
               `}
             >
@@ -126,20 +135,22 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
           {isLocking && (
             <div className={`
               mb-5 p-4 rounded-xl flex items-start gap-3
-              ${isFallout 
-                ? 'bg-green-500/10 border border-green-500/30' 
-                : isDark 
-                  ? 'bg-blue-500/10 border border-blue-500/30' 
-                  : 'bg-blue-50 border border-blue-200'
+              ${isFallout
+                ? 'bg-green-500/10 border border-green-500/30'
+                : isDarkBlue
+                  ? 'bg-blue-500/10 border border-blue-500/30'
+                  : isDark
+                    ? 'bg-blue-500/10 border border-blue-500/30'
+                    : 'bg-blue-50 border border-blue-200'
               }
             `}>
               <ShieldCheck className={`
                 w-5 h-5 flex-shrink-0 mt-0.5
-                ${isFallout ? 'text-green-400' : isDark ? 'text-blue-400' : 'text-blue-500'}
+                ${isFallout ? 'text-green-400' : isDarkBlue ? 'text-blue-400' : isDark ? 'text-blue-400' : 'text-blue-500'}
               `} />
               <p className={`
                 text-sm
-                ${isFallout ? 'text-green-300 font-mono' : isDark ? 'text-blue-300' : 'text-blue-700'}
+                ${isFallout ? 'text-green-300 font-mono' : isDarkBlue ? 'text-blue-300' : isDark ? 'text-blue-300' : 'text-blue-700'}
               `}>
                 Your page will be encrypted with AES-256. Remember your password - it cannot be recovered!
               </p>
@@ -150,7 +161,7 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
           <div className="mb-4">
             <label className={`
               block text-sm font-medium mb-2
-              ${isFallout ? 'text-green-400 font-mono' : isDark ? 'text-gray-300' : 'text-gray-700'}
+              ${isFallout ? 'text-green-400 font-mono' : isDarkBlue ? 'text-[#e0e6f0]' : isDark ? 'text-[#c0c0c0]' : 'text-gray-700'}
             `}>
               Password
             </label>
@@ -164,11 +175,13 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
               className={`
                 w-full px-4 py-3 text-base rounded-xl transition-all duration-200
                 focus:outline-none focus:ring-2
-                ${isFallout 
-                  ? 'bg-gray-800 border border-green-500/40 text-green-400 placeholder-green-600 font-mono focus:ring-green-500/50 focus:border-green-400' 
-                  : isDark 
-                    ? 'bg-gray-800 border border-gray-700 text-white placeholder-gray-500 focus:ring-blue-500/50 focus:border-blue-500' 
-                    : 'bg-white border border-gray-200 text-gray-900 placeholder-gray-400 focus:ring-blue-500/30 focus:border-blue-500'
+                ${isFallout
+                  ? 'bg-gray-800 border border-green-500/40 text-green-400 placeholder-green-600 font-mono focus:ring-green-500/50 focus:border-green-400'
+                  : isDarkBlue
+                    ? 'bg-[#0c1017] border border-[#1c2438] text-[#e0e6f0] placeholder-[#5d6b88] focus:ring-blue-500/50 focus:border-blue-500'
+                    : isDark
+                      ? 'bg-[#2f2f2f] border border-[#3a3a3a] text-white placeholder-[#6b6b6b] focus:ring-blue-500/50 focus:border-blue-500'
+                      : 'bg-white border border-gray-200 text-gray-900 placeholder-gray-400 focus:ring-blue-500/30 focus:border-blue-500'
                 }
               `}
             />
@@ -185,20 +198,22 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
           {error && (
             <div className={`
               mb-4 p-3 rounded-xl flex items-center gap-2
-              ${isFallout 
-                ? 'bg-red-500/10 border border-red-500/30' 
-                : isDark 
-                  ? 'bg-red-500/10 border border-red-500/30' 
-                  : 'bg-red-50 border border-red-200'
+              ${isFallout
+                ? 'bg-red-500/10 border border-red-500/30'
+                : isDarkBlue
+                  ? 'bg-red-500/10 border border-red-500/30'
+                  : isDark
+                    ? 'bg-red-500/10 border border-red-500/30'
+                    : 'bg-red-50 border border-red-200'
               }
             `}>
               <AlertCircle className={`
                 w-4 h-4 flex-shrink-0
-                ${isFallout ? 'text-red-400' : isDark ? 'text-red-400' : 'text-red-500'}
+                ${isFallout ? 'text-red-400' : isDarkBlue ? 'text-red-400' : isDark ? 'text-red-400' : 'text-red-500'}
               `} />
               <p className={`
                 text-sm
-                ${isFallout ? 'text-red-400 font-mono' : isDark ? 'text-red-400' : 'text-red-600'}
+                ${isFallout ? 'text-red-400 font-mono' : isDarkBlue ? 'text-red-400' : isDark ? 'text-red-400' : 'text-red-600'}
               `}>
                 {error}
               </p>
@@ -211,11 +226,13 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
               onClick={onClose}
               className={`
                 flex-1 px-4 py-3 rounded-xl font-medium transition-all duration-200
-                ${isFallout 
-                  ? 'bg-gray-800 border border-green-500/40 text-green-400 hover:bg-gray-700 font-mono' 
-                  : isDark 
-                    ? 'bg-gray-800 border border-gray-700 text-gray-300 hover:bg-gray-700' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ${isFallout
+                  ? 'bg-gray-800 border border-green-500/40 text-green-400 hover:bg-gray-700 font-mono'
+                  : isDarkBlue
+                    ? 'bg-[#1a2035] border border-[#1c2438] text-[#8b99b5] hover:bg-[#232b42]'
+                    : isDark
+                      ? 'bg-[#2f2f2f] border border-[#3a3a3a] text-[#c0c0c0] hover:bg-[#3a3a3a]'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }
               `}
             >
@@ -228,11 +245,13 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
                 className={`
                   flex-1 px-4 py-3 rounded-xl font-medium transition-all duration-200
                   disabled:opacity-40 disabled:cursor-not-allowed
-                  ${isFallout 
-                    ? 'bg-green-500 text-gray-900 hover:bg-green-400 disabled:hover:bg-green-500 font-mono shadow-[0_0_20px_rgba(34,197,94,0.3)]' 
-                    : isDark 
-                      ? 'bg-amber-600 text-white hover:bg-amber-500 disabled:hover:bg-amber-600' 
-                      : 'bg-amber-600 text-white hover:bg-amber-700 disabled:hover:bg-amber-600'
+                  ${isFallout
+                    ? 'bg-green-500 text-gray-900 hover:bg-green-400 disabled:hover:bg-green-500 font-mono shadow-[0_0_20px_rgba(34,197,94,0.3)]'
+                    : isDarkBlue
+                      ? 'bg-blue-500 text-white hover:bg-blue-400 disabled:hover:bg-blue-500'
+                      : isDark
+                        ? 'bg-amber-600 text-white hover:bg-amber-500 disabled:hover:bg-amber-600'
+                        : 'bg-amber-600 text-white hover:bg-amber-700 disabled:hover:bg-amber-600'
                   }
                 `}
               >
@@ -246,11 +265,13 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
                   className={`
                     flex-1 px-4 py-3 rounded-xl font-medium transition-all duration-200
                     disabled:opacity-40 disabled:cursor-not-allowed
-                    ${isFallout 
-                      ? 'bg-green-500 text-gray-900 hover:bg-green-400 disabled:hover:bg-green-500 font-mono shadow-[0_0_20px_rgba(34,197,94,0.3)]' 
-                      : isDark 
-                        ? 'bg-blue-600 text-white hover:bg-blue-500 disabled:hover:bg-blue-600' 
-                        : 'bg-blue-600 text-white hover:bg-blue-700 disabled:hover:bg-blue-600'
+                    ${isFallout
+                      ? 'bg-green-500 text-gray-900 hover:bg-green-400 disabled:hover:bg-green-500 font-mono shadow-[0_0_20px_rgba(34,197,94,0.3)]'
+                      : isDarkBlue
+                        ? 'bg-blue-500 text-white hover:bg-blue-400 disabled:hover:bg-blue-500'
+                        : isDark
+                          ? 'bg-blue-600 text-white hover:bg-blue-500 disabled:hover:bg-blue-600'
+                          : 'bg-blue-600 text-white hover:bg-blue-700 disabled:hover:bg-blue-600'
                     }
                   `}
                 >
@@ -262,11 +283,13 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
                   className={`
                     px-4 py-3 rounded-xl font-medium transition-all duration-200
                     disabled:opacity-40 disabled:cursor-not-allowed
-                    ${isFallout 
-                      ? 'bg-red-600 text-white hover:bg-red-500 disabled:hover:bg-red-600 font-mono' 
-                      : isDark 
-                        ? 'bg-red-600 text-white hover:bg-red-500 disabled:hover:bg-red-600' 
-                        : 'bg-red-600 text-white hover:bg-red-700 disabled:hover:bg-red-600'
+                    ${isFallout
+                      ? 'bg-red-600 text-white hover:bg-red-500 disabled:hover:bg-red-600 font-mono'
+                      : isDarkBlue
+                        ? 'bg-red-600 text-white hover:bg-red-500 disabled:hover:bg-red-600'
+                        : isDark
+                          ? 'bg-red-600 text-white hover:bg-red-500 disabled:hover:bg-red-600'
+                          : 'bg-red-600 text-white hover:bg-red-700 disabled:hover:bg-red-600'
                     }
                   `}
                 >

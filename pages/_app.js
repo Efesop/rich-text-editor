@@ -26,7 +26,7 @@ function MyApp({ Component, pageProps }) {
     <AppErrorBoundary>
       <ThemeProvider 
         attribute="class" 
-        themes={['light', 'dark', 'fallout']}
+        themes={['light', 'dark', 'darkblue', 'fallout']}
         defaultTheme="light"
       >
         <Component {...pageProps} />

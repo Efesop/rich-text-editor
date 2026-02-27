@@ -7,6 +7,8 @@ export default function EncryptionStatusIndicator() {
   const getStatusClasses = () => {
     if (theme === 'fallout') {
       return 'bg-gray-800 text-green-400 border-green-600 hover:bg-gray-750'
+    } else if (theme === 'darkblue') {
+      return 'bg-[#1a2035] text-blue-400 border-blue-600/40 hover:opacity-90'
     } else if (theme === 'dark') {
       return 'bg-blue-900/20 text-blue-400 border-blue-600 hover:bg-blue-900/30'
     } else {
@@ -15,7 +17,7 @@ export default function EncryptionStatusIndicator() {
   }
 
   return (
-    <div 
+    <div
       className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border transition-all ${getStatusClasses()}`}
       title="Your data is encrypted with AES-256-GCM and PBKDF2-SHA256 key derivation. All data stays on your device."
     >

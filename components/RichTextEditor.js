@@ -1074,14 +1074,6 @@ export default function RichTextEditor() {
     )
   }
 
-  if (!currentPage) {
-    return (
-      <div className={`flex h-screen items-center justify-center ${getMainContainerClasses()}`}>
-        <div>No page selected</div>
-      </div>
-    )
-  }
-
   return (
     <div
       className={getMainContainerClasses()}
@@ -1112,7 +1104,7 @@ export default function RichTextEditor() {
             {sidebarOpen ? (
               <div className="flex items-center space-x-2">
                 <img src="/icons/dash-logo.png" alt="Dash" className="h-7 w-7 rounded-md" />
-                <span className={`text-sm font-semibold ${theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-[#ececec]' : 'text-neutral-900'}`}>Dash</span>
+                <span className={`text-base font-semibold ${theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-[#ececec]' : theme === 'darkblue' ? 'text-[#e0e6f0]' : 'text-neutral-900'}`}>Dash</span>
               </div>
             ) : (
               <img src="/icons/dash-logo.png" alt="Dash" className="h-7 w-7 rounded-md" />
@@ -1245,7 +1237,9 @@ export default function RichTextEditor() {
                         ? 'bg-gray-800 text-green-400 border border-green-600/40'
                         : theme === 'dark'
                           ? 'bg-[#2f2f2f] text-[#ececec] border border-[#3a3a3a]'
-                          : 'bg-white text-neutral-900 border border-neutral-200 shadow-md'
+                          : theme === 'darkblue'
+                            ? 'bg-[#1a2035] text-[#e0e6f0] border border-[#1c2438]'
+                            : 'bg-white text-neutral-900 border border-neutral-200 shadow-md'
                     }`}>
                       {activeDragItem.type === 'folder' && <FolderIcon className="w-4 h-4 inline mr-2 opacity-60" />}
                       {activeDragItem.title || 'Untitled'}
@@ -1255,7 +1249,7 @@ export default function RichTextEditor() {
               </DragOverlay>
             </DndContext>
           </ScrollArea>
-          <div className={`mt-auto px-3 py-2 flex items-center justify-between ${theme === 'fallout' ? 'border-t border-green-600/20' : theme === 'dark' ? 'border-t border-[#2e2e2e]' : 'border-t border-neutral-100'}`}>
+          <div className={`mt-auto px-3 py-2 flex items-center justify-between ${theme === 'fallout' ? 'border-t border-green-600/20' : theme === 'dark' ? 'border-t border-[#2e2e2e]' : theme === 'darkblue' ? 'border-t border-[#1c2438]' : 'border-t border-neutral-100'}`}>
             <Button
               variant="ghost"
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -1281,8 +1275,17 @@ export default function RichTextEditor() {
         role="main"
         aria-label="Note editor"
       >
+        {!currentPage ? (
+          <div className={`flex-1 flex items-center justify-center ${getMainContentClasses()}`}>
+            <div className={`text-center ${theme === 'fallout' ? 'text-green-600' : theme === 'darkblue' ? 'text-[#445068]' : theme === 'dark' ? 'text-[#6b6b6b]' : 'text-neutral-400'}`}>
+              <p className="text-lg">No page selected</p>
+              <p className="text-sm mt-1">Select a page from the sidebar or create a new one</p>
+            </div>
+          </div>
+        ) : (
+        <>
         {/* Header */}
-        <div className={`flex flex-col px-6 py-3 ${theme === 'fallout' ? 'border-b border-green-600/20' : theme === 'dark' ? 'border-b border-[#2e2e2e]' : 'border-b border-neutral-100'} ${getHeaderClasses()} safe-area-top`}>
+        <div className={`flex flex-col px-6 py-3 ${theme === 'fallout' ? 'border-b border-green-600/20' : theme === 'dark' ? 'border-b border-[#2e2e2e]' : theme === 'darkblue' ? 'border-b border-[#1c2438]' : 'border-b border-neutral-100'} ${getHeaderClasses()} safe-area-top`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center min-w-0">
               {isSmallScreen && (
@@ -1296,7 +1299,7 @@ export default function RichTextEditor() {
                 </Button>
               )}
               <h1
-                className={`text-lg font-semibold cursor-pointer truncate ${theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-[#ececec]' : 'text-neutral-900'}`}
+                className={`text-lg font-semibold cursor-pointer truncate ${theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-[#ececec]' : theme === 'darkblue' ? 'text-[#e0e6f0]' : 'text-neutral-900'}`}
                 onClick={() => handleRenamePage(currentPage)}
               >
                 {currentPage?.title}
@@ -1353,7 +1356,7 @@ export default function RichTextEditor() {
                   >
                     <Bell className={`h-4 w-4 ${isCheckingForUpdates ? 'animate-pulse' : ''}`} />
                     {updateInfo?.available && (
-                      <span className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 ${theme === 'dark' ? 'border border-[#0d0d0d]' : theme === 'fallout' ? 'border border-gray-900' : 'border border-white'} shadow-sm`}></span>
+                      <span className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 ${theme === 'dark' ? 'border border-[#0d0d0d]' : theme === 'darkblue' ? 'border border-[#0c1017]' : theme === 'fallout' ? 'border border-gray-900' : 'border border-white'} shadow-sm`}></span>
                     )}
                   </button>
                   <ThemeToggle />
@@ -1388,7 +1391,7 @@ export default function RichTextEditor() {
                     <X
                       className="h-3 w-3 transition-opacity hover:opacity-75"
                       style={{
-                        color: theme === 'dark'
+                        color: theme === 'dark' || theme === 'darkblue'
                           ? getTagChipStyle(tag.color, theme).color
                           : theme === 'light'
                             ? '#6b7280'
@@ -1417,7 +1420,7 @@ export default function RichTextEditor() {
             <Button
               variant="ghost"
               size="sm"
-              className={`h-6 px-2 text-xs ${theme === 'fallout' ? 'text-green-600 hover:text-green-400' : theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0]' : 'text-neutral-400 hover:text-neutral-600'}`}
+              className={`h-6 px-2 text-xs ${theme === 'fallout' ? 'text-green-600 hover:text-green-400' : theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0]' : theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5]' : 'text-neutral-400 hover:text-neutral-600'}`}
               onClick={() => {
                 setTagToEdit(null)
                 setIsTagModalOpen(true)
@@ -1456,11 +1459,13 @@ export default function RichTextEditor() {
       <span>{wordCount} words</span>
       <span aria-live="polite" aria-atomic="true">
         {saveStatus === 'saving' && <span className={theme === 'fallout' ? 'text-yellow-400' : 'text-yellow-500'}>Saving...</span>}
-        {saveStatus === 'saved' && <span className={theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-[#6b6b6b]' : 'text-neutral-400'}>Saved</span>}
+        {saveStatus === 'saved' && <span className={theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-[#6b6b6b]' : theme === 'darkblue' ? 'text-[#445068]' : 'text-neutral-400'}>Saved</span>}
         {saveStatus === 'error' && <span className="text-red-500">Error saving</span>}
       </span>
     </div>
   </div>
+        </>
+        )}
       </main >
 
       <RenameModal

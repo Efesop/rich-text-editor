@@ -31,6 +31,7 @@ export function MobileHeaderMenu({
 
   const isFallout = theme === 'fallout'
   const isDark = theme === 'dark'
+  const isDarkBlue = theme === 'darkblue'
 
   const exportOptions = [
     { label: 'PDF', value: 'pdf', icon: FileText },
@@ -45,19 +46,22 @@ export function MobileHeaderMenu({
 
   const cycleTheme = () => {
     if (theme === 'light') setTheme('dark')
-    else if (theme === 'dark') setTheme('fallout')
+    else if (theme === 'dark') setTheme('darkblue')
+    else if (theme === 'darkblue') setTheme('fallout')
     else setTheme('light')
     setIsOpen(false)
   }
 
   const getThemeIcon = () => {
     if (isFallout) return Skull
+    if (isDarkBlue) return Moon
     if (isDark) return Moon
     return Sun
   }
 
   const getThemeLabel = () => {
     if (isFallout) return 'Theme: Fallout'
+    if (isDarkBlue) return 'Theme: Dark Blue'
     if (isDark) return 'Theme: Dark'
     return 'Theme: Light'
   }
@@ -79,8 +83,10 @@ export function MobileHeaderMenu({
           ${isFallout
             ? 'text-green-400 hover:bg-green-500/20'
             : isDark
-              ? 'text-gray-300 hover:bg-gray-700'
-              : 'text-gray-600 hover:bg-gray-100'
+              ? 'text-[#c0c0c0] hover:bg-[#3a3a3a]'
+              : isDarkBlue
+                ? 'text-[#8b99b5] hover:bg-[#1a2035]'
+                : 'text-gray-600 hover:bg-gray-100'
           }
         `}
         aria-label="Menu"

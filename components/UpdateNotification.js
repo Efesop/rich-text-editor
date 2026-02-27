@@ -40,14 +40,23 @@ export default function UpdateNotification({
           progress: 'bg-green-600',
           progressBg: 'bg-gray-800'
         }
+      } else if (theme === 'darkblue') {
+        return {
+          container: 'fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60',
+          inner: 'w-full max-w-md rounded-2xl shadow-2xl border border-[#1c2438] bg-[#141825]',
+          text: 'text-[#e0e6f0]',
+          subtext: 'text-[#8b99b5]',
+          progress: 'bg-blue-600',
+          progressBg: 'bg-[#1a2035]'
+        }
       } else if (theme === 'dark') {
         return {
           container: 'fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60',
-          inner: 'w-full max-w-md bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl',
+          inner: 'w-full max-w-md bg-[#1a1a1a] border border-[#3a3a3a] rounded-2xl shadow-2xl',
           text: 'text-white',
-          subtext: 'text-gray-300',
+          subtext: 'text-[#c0c0c0]',
           progress: 'bg-blue-600',
-          progressBg: 'bg-gray-700'
+          progressBg: 'bg-[#2f2f2f]'
         }
       }
       return {
@@ -70,14 +79,23 @@ export default function UpdateNotification({
         progress: 'bg-green-600',
         progressBg: 'bg-gray-800'
       }
+    } else if (theme === 'darkblue') {
+      return {
+        container: 'fixed bottom-4 right-4 max-w-sm rounded-lg shadow-2xl z-50 border border-[#1c2438] bg-[#141825]',
+        inner: '',
+        text: 'text-[#e0e6f0]',
+        subtext: 'text-[#8b99b5]',
+        progress: 'bg-blue-600',
+        progressBg: 'bg-[#1a2035]'
+      }
     } else if (theme === 'dark') {
       return {
-        container: 'fixed bottom-4 right-4 max-w-sm bg-gray-900 border border-gray-700 rounded-lg shadow-2xl z-50',
+        container: 'fixed bottom-4 right-4 max-w-sm bg-[#1a1a1a] border border-[#3a3a3a] rounded-lg shadow-2xl z-50',
         inner: '',
         text: 'text-white',
-        subtext: 'text-gray-300',
+        subtext: 'text-[#c0c0c0]',
         progress: 'bg-blue-600',
-        progressBg: 'bg-gray-700'
+        progressBg: 'bg-[#2f2f2f]'
       }
     }
     return {
@@ -110,9 +128,11 @@ export default function UpdateNotification({
               <div className={`p-3 rounded-full ${
                 theme === 'fallout'
                   ? 'bg-red-500/20'
-                  : theme === 'dark'
+                  : theme === 'darkblue'
                     ? 'bg-red-500/20'
-                    : 'bg-red-100'
+                    : theme === 'dark'
+                      ? 'bg-red-500/20'
+                      : 'bg-red-100'
               }`}>
                 <AlertTriangle className="h-6 w-6 text-red-500" />
               </div>
@@ -132,9 +152,11 @@ export default function UpdateNotification({
                   <div className={`mt-4 p-3 rounded-lg ${
                     theme === 'fallout'
                       ? 'bg-gray-800 border border-green-600/30'
-                      : theme === 'dark'
-                        ? 'bg-gray-800'
-                        : 'bg-gray-100'
+                      : theme === 'darkblue'
+                        ? 'bg-[#1a2035] border border-[#1c2438]'
+                        : theme === 'dark'
+                          ? 'bg-[#2f2f2f]'
+                          : 'bg-gray-100'
                   }`}>
                     <p className={`text-sm font-medium ${styles.text}`}>To fix this:</p>
                     <ol className={`text-sm ${styles.subtext} mt-2 space-y-1 list-decimal list-inside`}>
@@ -153,9 +175,11 @@ export default function UpdateNotification({
                 className={`px-4 py-2 ${
                   theme === 'fallout'
                     ? 'bg-green-600 text-gray-900 hover:bg-green-500 font-mono'
-                    : theme === 'dark'
-                      ? 'bg-gray-700 hover:bg-gray-600 text-white'
-                      : 'bg-gray-900 hover:bg-gray-800 text-white'
+                    : theme === 'darkblue'
+                      ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                      : theme === 'dark'
+                        ? 'bg-[#2f2f2f] hover:bg-[#3a3a3a] text-white'
+                        : 'bg-gray-900 hover:bg-gray-800 text-white'
                 }`}
               >
                 Got it
@@ -188,7 +212,7 @@ export default function UpdateNotification({
               onClick={onRetry}
               size="sm"
               variant="ghost"
-              className={`px-3 py-1 text-xs ${theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : ''}`}
+              className={`px-3 py-1 text-xs ${theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : theme === 'darkblue' ? 'text-blue-400 hover:bg-blue-600/20' : ''}`}
             >
               <RefreshCw className="h-3 w-3 mr-1" />
               Retry
@@ -208,7 +232,7 @@ export default function UpdateNotification({
     if (isInstalling) {
       return (
         <div className="flex items-center gap-3 p-4">
-          <RefreshCw className={`h-5 w-5 animate-spin ${theme === 'fallout' ? 'text-green-400' : 'text-green-500'} flex-shrink-0`} />
+          <RefreshCw className={`h-5 w-5 animate-spin ${theme === 'fallout' ? 'text-green-400' : theme === 'darkblue' ? 'text-blue-400' : 'text-green-500'} flex-shrink-0`} />
           <div className="flex-1">
             <div className={`font-medium ${styles.text} text-sm`}>
               Installing update...
@@ -228,7 +252,7 @@ export default function UpdateNotification({
       return (
         <div className="p-4">
           <div className="flex items-center gap-3">
-            <Download className={`h-5 w-5 ${theme === 'fallout' ? 'text-green-400' : 'text-blue-500'} flex-shrink-0`} />
+            <Download className={`h-5 w-5 ${theme === 'fallout' ? 'text-green-400' : theme === 'darkblue' ? 'text-blue-400' : 'text-blue-500'} flex-shrink-0`} />
             
             <div className="flex-1 min-w-0">
               <div className={`font-medium ${styles.text} text-sm`}>
@@ -246,8 +270,10 @@ export default function UpdateNotification({
                 onClick={onDownload} 
                 size="sm"
                 className={`px-3 py-1 text-xs ${
-                  theme === 'fallout' 
-                    ? 'bg-green-600 text-gray-900 hover:bg-green-500 font-mono' 
+                  theme === 'fallout'
+                    ? 'bg-green-600 text-gray-900 hover:bg-green-500 font-mono'
+                    : theme === 'darkblue'
+                    ? 'bg-blue-600 hover:bg-blue-500'
                     : theme === 'dark'
                     ? 'bg-blue-600 hover:bg-blue-500'
                     : 'bg-blue-500 hover:bg-blue-600'
@@ -263,8 +289,8 @@ export default function UpdateNotification({
                 onClick={onInstall} 
                 size="sm"
                 className={`px-3 py-1 text-xs ${
-                  theme === 'fallout' 
-                    ? 'bg-green-600 text-gray-900 hover:bg-green-500 font-mono' 
+                  theme === 'fallout'
+                    ? 'bg-green-600 text-gray-900 hover:bg-green-500 font-mono'
                     : 'bg-green-600 hover:bg-green-500'
                 } text-white`}
               >
@@ -318,7 +344,7 @@ export default function UpdateNotification({
     if (updateInfo && !updateInfo.available) {
       return (
         <div className="flex items-center gap-3 p-4">
-          <CheckCircle className={`h-5 w-5 ${theme === 'fallout' ? 'text-green-400' : 'text-green-500'} flex-shrink-0`} />
+          <CheckCircle className={`h-5 w-5 ${theme === 'fallout' ? 'text-green-400' : theme === 'darkblue' ? 'text-blue-400' : 'text-green-500'} flex-shrink-0`} />
           <div className="flex-1">
             <div className={`font-medium ${styles.text} text-sm`}>
               You&apos;re up to date!
@@ -358,7 +384,7 @@ export default function UpdateNotification({
         {onClose && !isInstalling && (
           <button
             onClick={onClose}
-            className={`p-4 ${theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : theme === 'dark' ? 'text-gray-400 hover:bg-gray-700' : 'text-gray-500 hover:bg-gray-100'} transition-colors flex-shrink-0`}
+            className={`p-4 ${theme === 'fallout' ? 'text-green-400 hover:bg-green-600/20' : theme === 'darkblue' ? 'text-[#8b99b5] hover:bg-[#232b42]' : theme === 'dark' ? 'text-[#8e8e8e] hover:bg-[#3a3a3a]' : 'text-gray-500 hover:bg-gray-100'} transition-colors flex-shrink-0`}
           >
             <X className="h-4 w-4" />
           </button>

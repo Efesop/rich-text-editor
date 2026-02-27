@@ -364,9 +364,14 @@ export default function Editor({ data, onChange, holder }) {
       if (existingStyle) {
         existingStyle.remove()
       }
+      const existingDarkBlueStyle = document.getElementById('editorjs-darkblue-override')
+      if (existingDarkBlueStyle) {
+        existingDarkBlueStyle.remove()
+      }
 
-      // Get current theme from body class
-      const isFallout = document.body.classList.contains('fallout')
+      // Get current theme from html class (next-themes uses attribute="class" on <html>)
+      const htmlEl = document.documentElement
+      const isFallout = htmlEl.classList.contains('fallout')
       
       if (isFallout) {
         const style = document.createElement('style')
@@ -380,7 +385,7 @@ export default function Editor({ data, onChange, holder }) {
             border: none !important;
             outline: none !important;
           }
-          
+
           .fallout .codex-editor .ce-block:hover::before,
           .fallout .codex-editor .ce-block:hover::after,
           .fallout .codex-editor .ce-block::before,
@@ -391,54 +396,33 @@ export default function Editor({ data, onChange, holder }) {
             border: none !important;
             box-shadow: none !important;
           }
-          
-          /* Force clean dropdown styling - REMOVE ALL ITEM BORDERS */
-          .ce-popover,
-          .ce-popover.ce-popover--opened,
-          .ce-conversion-toolbar {
+
+          /* Override Editor.js CSS custom properties for Fallout theme */
+          .fallout .ce-popover {
+            --color-background: #1a1a1a;
+            --color-text-primary: #22c55e;
+            --color-text-secondary: #16a34a;
+            --color-border: #22c55e;
+            --color-shadow: rgba(0,0,0,0.3);
+            --color-border-icon: rgba(34,197,94,0.3);
+            --color-background-item-hover: #2a2a2a;
+            --color-background-item-focus: rgba(34,197,94,0.15);
+            --color-text-icon-active: #4ade80;
+            --color-background-icon-active: rgba(34,197,94,0.2);
+          }
+          .fallout .ce-popover__container {
             background: #1a1a1a !important;
-            border: 1px solid #22c55e !important;
+          }
+          .fallout .ce-popover-item__title {
             color: #22c55e !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
           }
-          
-          .ce-popover__item,
-          .ce-popover__item-icon,
-          .ce-popover__item-label,
-          .ce-conversion-tool,
-          .ce-conversion-tool__icon {
-            background: transparent !important;
+          .fallout .ce-popover-item__icon svg {
             color: #22c55e !important;
-            border: none !important;
-            box-shadow: none !important;
-            outline: none !important;
-            padding: 8px 12px !important;
           }
-          
-          .ce-popover__item:hover,
-          .ce-conversion-tool:hover {
-            background: #2a2a2a !important;
-            color: #22c55e !important;
-            border: none !important;
-            box-shadow: none !important;
+          .fallout .ce-popover-item-separator__line {
+            background: rgba(34,197,94,0.3) !important;
           }
-          
-          /* Remove ALL inner elements borders */
-          .ce-popover *,
-          .ce-conversion-toolbar * {
-            border: none !important;
-            box-shadow: none !important;
-            outline: none !important;
-          }
-          
-          /* Specifically target the icon containers that might have borders */
-          .ce-popover__item-icon,
-          .ce-conversion-tool__icon {
-            border: none !important;
-            box-shadow: none !important;
-            background: transparent !important;
-          }
-          
+
           /* Multi-block converter styles for fallout theme */
           .fallout .multi-block-indicator {
             background: #1a1a1a !important;
@@ -448,56 +432,116 @@ export default function Editor({ data, onChange, holder }) {
         `
         document.head.appendChild(style)
       }
-      
+
       // Also inject for dark theme
-      const isDark = document.body.classList.contains('dark')
+      const isDark = htmlEl.classList.contains('dark')
       if (isDark) {
         const darkStyle = document.getElementById('editorjs-dark-override')
         if (darkStyle) {
           darkStyle.remove()
         }
-        
+
         const style = document.createElement('style')
         style.id = 'editorjs-dark-override'
         style.textContent = `
-          /* Dark theme dropdown styling */
-          .dark .ce-popover,
-          .dark .ce-popover.ce-popover--opened,
-          .dark .ce-conversion-toolbar {
-            background: #1f2937 !important;
-            border: 1px solid #374151 !important;
-            color: #f3f4f6 !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.45) !important;
+          /* Override Editor.js CSS custom properties for Dark theme */
+          .dark .ce-popover {
+            --color-background: #2f2f2f;
+            --color-text-primary: #ececec;
+            --color-text-secondary: #8e8e8e;
+            --color-border: #3a3a3a;
+            --color-shadow: rgba(0,0,0,0.45);
+            --color-border-icon: #3a3a3a;
+            --color-background-item-hover: #3a3a3a;
+            --color-background-item-focus: rgba(107,159,255,0.15);
+            --color-text-icon-active: #6b9fff;
+            --color-background-icon-active: rgba(107,159,255,0.15);
           }
-          
-          .dark .ce-popover__item,
-          .dark .ce-conversion-tool {
-            background: transparent !important;
-            color: #f3f4f6 !important;
-            border: none !important;
-            box-shadow: none !important;
-            outline: none !important;
+          .dark .ce-popover__container {
+            background: #2f2f2f !important;
           }
-          
-          .dark .ce-popover__item:hover,
-          .dark .ce-conversion-tool:hover {
-            background: #374151 !important;
-            color: #ffffff !important;
+          .dark .ce-popover-item__title {
+            color: #ececec !important;
           }
-          
-          /* Remove ALL inner borders in dark theme */
-          .dark .ce-popover *,
-          .dark .ce-conversion-toolbar * {
-            border: none !important;
-            box-shadow: none !important;
-            outline: none !important;
+          .dark .ce-popover-item__icon svg {
+            color: #ececec !important;
           }
-          
+          .dark .ce-popover-item-separator__line {
+            background: #3a3a3a !important;
+          }
+          .dark .ce-popover__search .cdx-search-field {
+            background: #1a1a1a !important;
+            border-color: #3a3a3a !important;
+          }
+          .dark .ce-popover__search .cdx-search-field__input {
+            color: #ececec !important;
+          }
+          .dark .ce-popover__search .cdx-search-field__input::placeholder {
+            color: #6b6b6b !important;
+          }
+
           /* Multi-block converter styles for dark theme */
           .dark .multi-block-indicator {
-            background: #1f2937 !important;
-            border: 1px solid #374151 !important;
-            color: #f3f4f6 !important;
+            background: #2f2f2f !important;
+            border: 1px solid #3a3a3a !important;
+            color: #ececec !important;
+          }
+        `
+        document.head.appendChild(style)
+      }
+
+      // Also inject for dark blue theme
+      const isDarkBlue = htmlEl.classList.contains('darkblue')
+      if (isDarkBlue) {
+        const darkBlueStyle = document.getElementById('editorjs-darkblue-override')
+        if (darkBlueStyle) {
+          darkBlueStyle.remove()
+        }
+
+        const style = document.createElement('style')
+        style.id = 'editorjs-darkblue-override'
+        style.textContent = `
+          /* Override Editor.js CSS custom properties for Dark Blue theme */
+          .darkblue .ce-popover {
+            --color-background: #1a2035;
+            --color-text-primary: #e0e6f0;
+            --color-text-secondary: #5d6b88;
+            --color-border: #1c2438;
+            --color-shadow: rgba(0,0,0,0.45);
+            --color-border-icon: #1c2438;
+            --color-background-item-hover: #232b42;
+            --color-background-item-focus: rgba(59,130,246,0.15);
+            --color-text-icon-active: #3b82f6;
+            --color-background-icon-active: rgba(59,130,246,0.15);
+          }
+          .darkblue .ce-popover__container {
+            background: #1a2035 !important;
+          }
+          .darkblue .ce-popover-item__title {
+            color: #e0e6f0 !important;
+          }
+          .darkblue .ce-popover-item__icon svg {
+            color: #e0e6f0 !important;
+          }
+          .darkblue .ce-popover-item-separator__line {
+            background: #1c2438 !important;
+          }
+          .darkblue .ce-popover__search .cdx-search-field {
+            background: #141825 !important;
+            border-color: #1c2438 !important;
+          }
+          .darkblue .ce-popover__search .cdx-search-field__input {
+            color: #e0e6f0 !important;
+          }
+          .darkblue .ce-popover__search .cdx-search-field__input::placeholder {
+            color: #5d6b88 !important;
+          }
+
+          /* Multi-block converter styles for dark blue theme */
+          .darkblue .multi-block-indicator {
+            background: #1a2035 !important;
+            border: 1px solid #1c2438 !important;
+            color: #e0e6f0 !important;
           }
         `
         document.head.appendChild(style)
@@ -512,9 +556,9 @@ export default function Editor({ data, onChange, holder }) {
       injectCustomCSS()
     })
     
-    observer.observe(document.body, { 
-      attributes: true, 
-      attributeFilter: ['class'] 
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
     })
 
     return () => {

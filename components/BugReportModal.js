@@ -41,7 +41,7 @@ export function BugReportModal({ isOpen, onClose, onSubmit }) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div 
         ref={modalRef}
-        className={`${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} p-6 rounded-lg shadow-xl max-w-md w-full`}
+        className={`${theme === 'fallout' ? 'bg-gray-900 text-green-400 border-2 border-green-500/60' : theme === 'darkblue' ? 'bg-[#141825] text-[#e0e6f0] border border-[#1c2438]' : theme === 'dark' ? 'bg-[#2f2f2f] text-white' : 'bg-white text-gray-900'} p-6 rounded-lg shadow-xl max-w-md w-full`}
       >
         <h2 className="text-xl font-bold mb-4">Report a Bug / Request a Feature</h2>
         <form onSubmit={handleSubmit}>
@@ -50,7 +50,7 @@ export function BugReportModal({ isOpen, onClose, onSubmit }) {
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className={`w-full p-2 rounded ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'}`}
+              className={`w-full p-2 rounded ${theme === 'fallout' ? 'bg-gray-800 text-green-400 border-green-500/40' : theme === 'darkblue' ? 'bg-[#1a2035] text-[#e0e6f0] border-[#1c2438]' : theme === 'dark' ? 'bg-[#3a3a3a]' : 'bg-gray-100'}`}
             >
               <option value="bug">Bug Report</option>
               <option value="feature">Feature Request</option>
@@ -72,7 +72,7 @@ export function BugReportModal({ isOpen, onClose, onSubmit }) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe the bug or feature request"
-              className={`w-full p-2 rounded ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'}`}
+              className={`w-full p-2 rounded ${theme === 'fallout' ? 'bg-gray-800 text-green-400 border-green-500/40' : theme === 'darkblue' ? 'bg-[#1a2035] text-[#e0e6f0] border-[#1c2438]' : theme === 'dark' ? 'bg-[#3a3a3a]' : 'bg-gray-100'}`}
               rows="4"
               required
             ></textarea>

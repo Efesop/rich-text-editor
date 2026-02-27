@@ -268,7 +268,14 @@ export default class MultiBlockTuneEnhancer {
         border-color: #4b5563 !important;
         color: #e5e7eb !important;
       }
-      
+
+      /* Dark Blue theme styles */
+      .darkblue .multi-block-indicator {
+        background: #1a2035 !important;
+        border-color: #1c2438 !important;
+        color: #e0e6f0 !important;
+      }
+
       /* Fallout theme styles */
       .fallout .multi-block-indicator {
         background: #1a2e1a !important;

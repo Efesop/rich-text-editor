@@ -40,6 +40,7 @@ export function ActionSheet({
 
   const isFallout = theme === 'fallout'
   const isDark = theme === 'dark'
+  const isDarkBlue = theme === 'darkblue'
 
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) {
@@ -68,9 +69,11 @@ export function ActionSheet({
           relative w-full max-w-sm transform transition-all duration-200
           ${isFallout
             ? 'bg-gray-900 border-2 border-green-500/60 shadow-[0_0_40px_rgba(34,197,94,0.15)]'
-            : isDark
-              ? 'bg-gray-900 border border-gray-700/50 shadow-2xl'
-              : 'bg-white border border-gray-200 shadow-2xl'
+            : isDarkBlue
+              ? 'bg-[#141825] border border-[#1c2438] shadow-2xl'
+              : isDark
+                ? 'bg-[#1a1a1a] border border-[#3a3a3a]/50 shadow-2xl'
+                : 'bg-white border border-gray-200 shadow-2xl'
           }
           rounded-2xl overflow-hidden
         `}
@@ -80,7 +83,7 @@ export function ActionSheet({
         {title && (
           <div className={`
             px-6 pt-6 pb-4
-            ${isFallout ? 'border-b border-green-500/30' : isDark ? 'border-b border-gray-800' : 'border-b border-gray-100'}
+            ${isFallout ? 'border-b border-green-500/30' : isDarkBlue ? 'border-b border-[#1c2438]' : isDark ? 'border-b border-[#2a2a2a]' : 'border-b border-gray-100'}
           `}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -89,9 +92,11 @@ export function ActionSheet({
                     p-2.5 rounded-xl
                     ${isFallout
                       ? 'bg-green-500/20 text-green-400'
-                      : isDark
+                      : isDarkBlue
                         ? 'bg-blue-500/20 text-blue-400'
-                        : 'bg-blue-100 text-blue-600'
+                        : isDark
+                          ? 'bg-blue-500/20 text-blue-400'
+                          : 'bg-blue-100 text-blue-600'
                     }
                   `}>
                     <Icon className="w-5 h-5" />
@@ -99,7 +104,7 @@ export function ActionSheet({
                 )}
                 <h2 className={`
                   text-lg font-semibold
-                  ${isFallout ? 'text-green-400 font-mono' : isDark ? 'text-white' : 'text-gray-900'}
+                  ${isFallout ? 'text-green-400 font-mono' : isDarkBlue ? 'text-[#e0e6f0]' : isDark ? 'text-white' : 'text-gray-900'}
                 `}>
                   {title}
                 </h2>
@@ -110,9 +115,11 @@ export function ActionSheet({
                   p-2 rounded-lg transition-colors
                   ${isFallout
                     ? 'text-green-500 hover:bg-green-500/20'
-                    : isDark
-                      ? 'text-gray-400 hover:bg-gray-800'
-                      : 'text-gray-400 hover:bg-gray-100'
+                    : isDarkBlue
+                      ? 'text-[#8b99b5] hover:bg-[#232b42]'
+                      : isDark
+                        ? 'text-[#8e8e8e] hover:bg-[#2a2a2a]'
+                        : 'text-gray-400 hover:bg-gray-100'
                   }
                 `}
                 aria-label="Close"
@@ -145,29 +152,36 @@ export function ActionSheetItem({
   const { theme } = useTheme()
   const isFallout = theme === 'fallout'
   const isDark = theme === 'dark'
+  const isDarkBlue = theme === 'darkblue'
 
   const getItemClasses = () => {
     if (disabled) {
       return isFallout
         ? 'text-green-800 cursor-not-allowed'
-        : isDark
-          ? 'text-gray-600 cursor-not-allowed'
-          : 'text-gray-300 cursor-not-allowed'
+        : isDarkBlue
+          ? 'text-[#5d6b88] cursor-not-allowed'
+          : isDark
+            ? 'text-[#6b6b6b] cursor-not-allowed'
+            : 'text-gray-300 cursor-not-allowed'
     }
 
     if (variant === 'danger') {
       return isFallout
         ? 'text-red-400 hover:bg-red-500/20 active:bg-red-500/30'
-        : isDark
+        : isDarkBlue
           ? 'text-red-400 hover:bg-red-500/20 active:bg-red-500/30'
-          : 'text-red-600 hover:bg-red-50 active:bg-red-100'
+          : isDark
+            ? 'text-red-400 hover:bg-red-500/20 active:bg-red-500/30'
+            : 'text-red-600 hover:bg-red-50 active:bg-red-100'
     }
 
     return isFallout
       ? 'text-green-400 hover:bg-green-500/20 active:bg-green-500/30'
-      : isDark
-        ? 'text-gray-200 hover:bg-gray-800 active:bg-gray-700'
-        : 'text-gray-700 hover:bg-gray-100 active:bg-gray-200'
+      : isDarkBlue
+        ? 'text-[#e0e6f0] hover:bg-[#232b42] active:bg-[#232b42]'
+        : isDark
+          ? 'text-[#ececec] hover:bg-[#2a2a2a] active:bg-[#3a3a3a]'
+          : 'text-gray-700 hover:bg-gray-100 active:bg-gray-200'
   }
 
   return (
@@ -194,12 +208,13 @@ export function ActionSheetSeparator() {
   const { theme } = useTheme()
   const isFallout = theme === 'fallout'
   const isDark = theme === 'dark'
+  const isDarkBlue = theme === 'darkblue'
 
   return (
     <div
       className={`
         my-1 mx-6 h-px
-        ${isFallout ? 'bg-green-500/30' : isDark ? 'bg-gray-800' : 'bg-gray-100'}
+        ${isFallout ? 'bg-green-500/30' : isDarkBlue ? 'bg-[#1c2438]' : isDark ? 'bg-[#2f2f2f]' : 'bg-gray-100'}
       `}
     />
   )

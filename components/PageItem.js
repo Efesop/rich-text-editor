@@ -99,7 +99,7 @@ const PageItem = ({
 
   const getPageItemClasses = () => {
     const folderStyle = isInsideFolder
-      ? 'ml-5 mr-2 rounded-l-none border-l-2 ' + (theme === 'fallout' ? 'border-green-500/20' : theme === 'dark' ? 'border-[#3a3a3a]' : 'border-neutral-200')
+      ? 'ml-5 mr-2 rounded-l-none border-l-2 ' + (theme === 'fallout' ? 'border-green-500/20' : theme === 'dark' ? 'border-[#3a3a3a]' : theme === 'darkblue' ? 'border-[#2a3454]' : 'border-neutral-200')
       : 'mx-2'
     const baseClasses = `flex items-center justify-between px-3 py-2 cursor-pointer text-sm rounded-lg transition-colors duration-150 ${folderStyle}`
 
@@ -108,6 +108,8 @@ const PageItem = ({
         return `${baseClasses} bg-green-700/30 text-green-300`
       } else if (theme === 'dark') {
         return `${baseClasses} bg-[#2f2f2f] text-[#ececec]`
+      } else if (theme === 'darkblue') {
+        return `${baseClasses} bg-[#1a2035] text-[#e0e6f0]`
       } else {
         return `${baseClasses} bg-neutral-200 text-neutral-900`
       }
@@ -116,6 +118,8 @@ const PageItem = ({
         return `${baseClasses} hover:bg-gray-800 text-green-400`
       } else if (theme === 'dark') {
         return `${baseClasses} hover:bg-[#232323] text-[#c0c0c0]`
+      } else if (theme === 'darkblue') {
+        return `${baseClasses} hover:bg-[#161c2e] text-[#8b99b5]`
       } else {
         return `${baseClasses} hover:bg-neutral-100 text-neutral-700`
       }
@@ -124,13 +128,15 @@ const PageItem = ({
 
   const getIconClasses = () => {
     if (isActive) {
-      return theme === 'fallout' ? 'text-green-300' : theme === 'dark' ? 'text-[#8e8e8e]' : 'text-neutral-500'
+      return theme === 'fallout' ? 'text-green-300' : theme === 'dark' ? 'text-[#8e8e8e]' : theme === 'darkblue' ? 'text-[#8b99b5]' : 'text-neutral-500'
     } else {
       switch (theme) {
         case 'fallout':
           return 'text-green-400'
         case 'dark':
           return 'text-[#6b6b6b]'
+        case 'darkblue':
+          return 'text-[#5d6b88]'
         default:
           return 'text-neutral-400'
       }
@@ -143,6 +149,8 @@ const PageItem = ({
         return 'bg-gray-900 border border-green-600/40 text-green-400'
       case 'dark':
         return 'bg-[#2f2f2f] border border-[#3a3a3a] text-[#ececec] shadow-xl shadow-black/50'
+      case 'darkblue':
+        return 'bg-[#1a2035] border border-[#1c2438] text-[#e0e6f0] shadow-xl shadow-black/50'
       default:
         return 'bg-white border border-neutral-200 text-neutral-900 shadow-lg shadow-neutral-200/50'
     }
@@ -154,6 +162,8 @@ const PageItem = ({
         return 'text-green-400 hover:bg-gray-800'
       case 'dark':
         return 'text-[#c0c0c0] hover:bg-[#3a3a3a]'
+      case 'darkblue':
+        return 'text-[#8b99b5] hover:bg-[#232b42]'
       default:
         return 'text-neutral-600 hover:bg-neutral-100'
     }

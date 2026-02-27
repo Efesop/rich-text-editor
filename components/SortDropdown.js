@@ -68,6 +68,8 @@ const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
         return 'bg-gray-900 border-green-600/40 text-green-400'
       case 'dark':
         return 'bg-[#2f2f2f] border-[#3a3a3a] text-[#ececec] shadow-black/50'
+      case 'darkblue':
+        return 'bg-[#1a2035] border-[#1c2438] text-[#e0e6f0] shadow-black/50'
       default:
         return 'bg-white border-neutral-200 text-neutral-900'
     }
@@ -75,7 +77,7 @@ const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
 
   const getDropdownItemClasses = (isActive = false) => {
     const activeClasses = isActive
-      ? (theme === 'fallout' ? 'bg-gray-800' : theme === 'dark' ? 'bg-[#3a3a3a]' : 'bg-neutral-100')
+      ? (theme === 'fallout' ? 'bg-gray-800' : theme === 'dark' ? 'bg-[#3a3a3a]' : theme === 'darkblue' ? 'bg-[#232b42]' : 'bg-neutral-100')
       : ''
 
     switch (theme) {
@@ -83,6 +85,8 @@ const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
         return `text-green-400 hover:bg-gray-800 ${activeClasses}`
       case 'dark':
         return `text-[#c0c0c0] hover:bg-[#3a3a3a] ${activeClasses}`
+      case 'darkblue':
+        return `text-[#8b99b5] hover:bg-[#232b42] ${activeClasses}`
       default:
         return `text-neutral-600 hover:bg-neutral-100 ${activeClasses}`
     }
@@ -98,7 +102,9 @@ const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
             ? 'bg-gray-800 text-green-400 hover:bg-gray-700'
             : theme === 'dark'
               ? 'bg-[#2f2f2f] text-[#8e8e8e] hover:bg-[#3a3a3a]'
-              : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
+              : theme === 'darkblue'
+                ? 'bg-[#1a2035] text-[#8b99b5] hover:bg-[#232b42]'
+                : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
         }`}
       >
         <ArrowUpDown className="w-3 h-3 mr-1" />
@@ -120,7 +126,7 @@ const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
             >
               {option.label}
               {activeSortOption === option.value && (
-                <Check className={`w-4 h-4 ${theme === 'fallout' ? 'text-green-400' : 'text-blue-500'}`} />
+                <Check className={`w-4 h-4 ${theme === 'fallout' ? 'text-green-400' : theme === 'darkblue' ? 'text-blue-400' : 'text-blue-500'}`} />
               )}
             </button>
           ))}

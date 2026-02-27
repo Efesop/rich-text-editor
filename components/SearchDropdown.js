@@ -190,6 +190,13 @@ export default function SearchDropdown({
         suggestion.type === 'tag' ? 'text-green-300' :
         'text-green-400'
       }`
+    } else if (theme === 'darkblue') {
+      iconClass = `h-4 w-4 ${
+        suggestion.type === 'page' ? 'text-blue-400' :
+        suggestion.type === 'folder' ? 'text-yellow-400' :
+        suggestion.type === 'tag' ? 'text-green-400' :
+        'text-[#8b99b5]'
+      }`
     } else {
       iconClass = `h-4 w-4 ${
         suggestion.type === 'page' ? 'text-blue-500' :
@@ -210,6 +217,8 @@ export default function SearchDropdown({
         return `${baseClasses} bg-gray-900 border-green-600/40 text-green-400 placeholder-green-600 focus:ring-green-500/50`
       case 'dark':
         return `${baseClasses} bg-[#2f2f2f] border-[#3a3a3a] text-[#ececec] placeholder-[#6b6b6b] focus:ring-[#4a4a4a]`
+      case 'darkblue':
+        return `${baseClasses} bg-[#1e2640] border-[#1c2438] text-[#e0e6f0] placeholder-[#5d6b88] focus:ring-blue-500/50`
       default:
         return `${baseClasses} bg-white border-neutral-200 text-neutral-900 placeholder-neutral-400 focus:ring-neutral-300`
     }
@@ -223,6 +232,8 @@ export default function SearchDropdown({
         return `${baseClasses} bg-gray-900 border-green-600/40`
       case 'dark':
         return `${baseClasses} bg-[#2f2f2f] border-[#3a3a3a] shadow-black/50`
+      case 'darkblue':
+        return `${baseClasses} bg-[#1a2035] border-[#1c2438] shadow-black/50`
       default:
         return `${baseClasses} bg-white border-neutral-200`
     }
@@ -237,6 +248,8 @@ export default function SearchDropdown({
         return `${baseClasses} ${isSelected ? 'bg-gray-800' : 'hover:bg-gray-800'}`
       case 'dark':
         return `${baseClasses} ${isSelected ? 'bg-[#3a3a3a]' : 'hover:bg-[#3a3a3a]'}`
+      case 'darkblue':
+        return `${baseClasses} ${isSelected ? 'bg-[#232b42]' : 'hover:bg-[#232b42]'}`
       default:
         return `${baseClasses} ${isSelected ? 'bg-neutral-100' : 'hover:bg-neutral-50'}`
     }
@@ -248,6 +261,8 @@ export default function SearchDropdown({
         return 'text-green-400'
       case 'dark':
         return 'text-[#ececec]'
+      case 'darkblue':
+        return 'text-[#e0e6f0]'
       default:
         return 'text-neutral-900'
     }
@@ -259,6 +274,8 @@ export default function SearchDropdown({
         return 'text-green-500'
       case 'dark':
         return 'text-[#6b6b6b]'
+      case 'darkblue':
+        return 'text-[#5d6b88]'
       default:
         return 'text-neutral-500'
     }
@@ -270,6 +287,8 @@ export default function SearchDropdown({
         return 'text-green-400'
       case 'dark':
         return 'text-[#6b6b6b]'
+      case 'darkblue':
+        return 'text-[#5d6b88]'
       default:
         return 'text-neutral-400'
     }

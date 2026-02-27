@@ -1,7 +1,7 @@
 import React from 'react'
 import { useTheme } from 'next-themes'
 import { Button } from "./ui/button"
-import { Sun, Moon, Terminal } from 'lucide-react'
+import { Sun, Moon, Terminal, CloudMoon } from 'lucide-react'
 
 const ThemeToggle = () => {
   const { theme, setTheme } = useTheme()
@@ -10,6 +10,8 @@ const ThemeToggle = () => {
     if (theme === 'light') {
       setTheme('dark')
     } else if (theme === 'dark') {
+      setTheme('darkblue')
+    } else if (theme === 'darkblue') {
       setTheme('fallout')
     } else {
       setTheme('light')
@@ -22,6 +24,8 @@ const ThemeToggle = () => {
         return <Sun className="h-4 w-4" />
       case 'dark':
         return <Moon className="h-4 w-4" />
+      case 'darkblue':
+        return <CloudMoon className="h-4 w-4" />
       case 'fallout':
         return <Terminal className="h-4 w-4" />
       default:

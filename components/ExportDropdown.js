@@ -26,6 +26,8 @@ const ExportDropdown = ({ onExport }) => {
         return 'bg-gray-900 border-green-600/40 text-green-400'
       case 'dark':
         return 'bg-[#2f2f2f] border-[#3a3a3a] text-[#ececec] shadow-black/50'
+      case 'darkblue':
+        return 'bg-[#1a2035] border-[#1c2438] text-[#e0e6f0] shadow-black/50'
       default:
         return 'bg-white border-neutral-200 text-neutral-900'
     }
@@ -38,6 +40,8 @@ const ExportDropdown = ({ onExport }) => {
           return 'text-green-400 hover:bg-green-600/20 font-bold border-l-2 border-green-600 pl-3'
         case 'dark':
           return 'text-[#ececec] hover:bg-[#3a3a3a] font-semibold border-l-2 border-[#6b6b6b] pl-3'
+        case 'darkblue':
+          return 'text-[#e0e6f0] hover:bg-[#232b42] font-semibold border-l-2 border-blue-500 pl-3'
         default:
           return 'text-neutral-900 hover:bg-neutral-50 font-semibold border-l-2 border-neutral-400 pl-3'
       }
@@ -48,6 +52,8 @@ const ExportDropdown = ({ onExport }) => {
         return 'text-green-400 hover:bg-gray-800 hover:text-green-300'
       case 'dark':
         return 'text-[#c0c0c0] hover:bg-[#3a3a3a] hover:text-[#ececec]'
+      case 'darkblue':
+        return 'text-[#8b99b5] hover:bg-[#232b42] hover:text-[#e0e6f0]'
       default:
         return 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
     }
