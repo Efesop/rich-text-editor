@@ -1,5 +1,19 @@
 /**
  * Centralized theme utilities for consistent styling across the app.
+ *
+ * Design: ChatGPT-inspired clean layout.
+ * - Dark: lighter sidebar panel over near-black content (like ChatGPT)
+ * - Light uses clean whites with subtle neutral borders
+ * - Fallout keeps terminal aesthetic with same layout principles
+ *
+ * Dark palette:
+ *   Sidebar:    #212327  (lighter gray panel — clearly distinct from content)
+ *   Content:    #0d0d0d  (near-black — writing surface)
+ *   Surface:    #2f2f2f  (dropdowns, inputs, modals)
+ *   Hover:      #3a3a3a  (interactive hover states)
+ *   Border:     #2e2e2e  (subtle separators)
+ *   Text:       #ececec  (primary), #c0c0c0 (secondary), #8e8e8e (muted), #6b6b6b (faint)
+ *
  * Usage: import { getThemeClasses } from '@/utils/themeUtils'
  *        const classes = getThemeClasses(theme)
  */
@@ -21,92 +35,92 @@ export function getThemeClasses(theme) {
     mainContainer: isFallout
       ? 'fallout flex h-screen bg-gray-900 text-green-400 font-mono'
       : isDark
-        ? 'dark flex h-screen bg-gray-900 text-white'
-        : 'flex h-screen bg-white text-black',
+        ? 'dark flex h-screen bg-[#0d0d0d] text-[#ececec]'
+        : 'flex h-screen bg-white text-neutral-900',
 
-    // Sidebar classes
+    // Sidebar classes — glass panel with depth (like ChatGPT/modern design)
     sidebar: isFallout
-      ? 'bg-gray-900 border-r border-green-600'
+      ? 'sidebar-panel-fallout'
       : isDark
-        ? 'bg-gray-900'
-        : 'bg-gray-100',
+        ? 'sidebar-panel'
+        : 'sidebar-panel-light',
 
     // Button hover classes
     buttonHover: isFallout
       ? 'hover:bg-gray-800 hover:text-green-400'
       : isDark
-        ? 'hover:bg-gray-700 hover:text-white'
-        : 'hover:bg-gray-200 hover:text-primary-foreground',
+        ? 'hover:bg-[#232323] hover:text-[#ececec]'
+        : 'hover:bg-neutral-200 hover:text-neutral-900',
 
     // Header classes
     header: isFallout
-      ? 'bg-gray-900 border-green-600 text-green-400'
+      ? 'bg-gray-900 border-green-600/30 text-green-400'
       : isDark
-        ? 'bg-gray-800 border-gray-700 text-white'
-        : 'bg-white border-gray-200 text-black',
+        ? 'bg-[#0d0d0d] border-[#2e2e2e] text-[#ececec]'
+        : 'bg-white border-neutral-200 text-neutral-900',
 
     // Main content area classes
     mainContent: isFallout
       ? 'bg-gray-900 text-green-400'
       : isDark
-        ? 'bg-gray-800 text-white'
-        : 'bg-white text-black',
+        ? 'bg-[#0d0d0d] text-[#ececec]'
+        : 'bg-white text-neutral-900',
 
     // Footer classes
     footer: isFallout
-      ? 'bg-gray-900 text-green-300 border-t border-green-600'
+      ? 'bg-gray-900 text-green-300 border-t border-green-600/30'
       : isDark
-        ? 'bg-gray-800 text-gray-300'
-        : 'bg-white text-gray-600',
+        ? 'bg-[#0d0d0d] text-[#6b6b6b] border-t border-[#2e2e2e]'
+        : 'bg-white text-neutral-400 border-t border-neutral-100',
 
     // Border classes
     border: isFallout
-      ? 'border-green-600'
+      ? 'border-green-600/30'
       : isDark
-        ? 'border-gray-700'
-        : 'border-gray-300',
+        ? 'border-[#2e2e2e]'
+        : 'border-neutral-200',
 
     // Text classes (secondary/muted text)
     text: isFallout
       ? 'text-green-400'
       : isDark
-        ? 'text-gray-400'
-        : 'text-gray-600',
+        ? 'text-[#8e8e8e]'
+        : 'text-neutral-500',
 
     // Icon classes
     icon: isFallout
       ? 'text-green-400'
       : isDark
-        ? 'text-gray-200'
-        : 'text-gray-700',
+        ? 'text-[#8e8e8e]'
+        : 'text-neutral-400',
 
     // Folder badge classes
     folderBadge: isFallout
-      ? 'bg-gray-800 text-green-300 border border-green-600'
+      ? 'bg-gray-800 text-green-300 border border-green-600/30'
       : isDark
-        ? 'bg-gray-700 text-gray-300 border border-gray-600'
-        : 'bg-gray-100 text-gray-600 border border-gray-300',
+        ? 'bg-[#2f2f2f] text-[#c0c0c0] border border-[#3a3a3a]'
+        : 'bg-neutral-100 text-neutral-600 border border-neutral-200',
 
     // Dropdown menu classes
     dropdown: isFallout
-      ? 'bg-gray-900 border border-green-600 text-green-400'
+      ? 'bg-gray-900 border border-green-600/40 text-green-400'
       : isDark
-        ? 'bg-gray-800 text-white'
-        : 'bg-white text-gray-900',
+        ? 'bg-[#2f2f2f] border border-[#3a3a3a] text-[#ececec] shadow-xl shadow-black/50'
+        : 'bg-white border border-neutral-200 text-neutral-900 shadow-lg shadow-neutral-200/50',
 
     // Dropdown item classes
     dropdownItem: isFallout
       ? 'text-green-400 hover:bg-gray-800'
       : isDark
-        ? 'text-gray-300 hover:bg-gray-700'
-        : 'text-gray-700 hover:bg-gray-100',
+        ? 'text-[#c0c0c0] hover:bg-[#3a3a3a]'
+        : 'text-neutral-600 hover:bg-neutral-100',
 
     // Input/form field classes
     input: isFallout
       ? 'bg-gray-800 border border-green-500/40 text-green-400 placeholder-green-600 font-mono focus:ring-green-500/50 focus:border-green-400'
       : isDark
-        ? 'bg-gray-800 border border-gray-700 text-white placeholder-gray-500 focus:ring-blue-500/50 focus:border-blue-500'
-        : 'bg-white border border-gray-200 text-gray-900 placeholder-gray-400 focus:ring-blue-500/30 focus:border-blue-500',
+        ? 'bg-[#2f2f2f] border border-[#3a3a3a] text-[#ececec] placeholder-[#6b6b6b] focus:ring-[#4a4a4a] focus:border-[#4a4a4a]'
+        : 'bg-neutral-50 border border-neutral-200 text-neutral-900 placeholder-neutral-400 focus:ring-neutral-400/30 focus:border-neutral-400',
 
     // Modal overlay classes
     modalOverlay: 'fixed inset-0 bg-black/60 backdrop-blur-sm',
@@ -115,29 +129,29 @@ export function getThemeClasses(theme) {
     modal: isFallout
       ? 'bg-gray-900 border-2 border-green-500/60 shadow-[0_0_40px_rgba(34,197,94,0.15)]'
       : isDark
-        ? 'bg-gray-900 border border-gray-700/50 shadow-2xl'
-        : 'bg-white border border-gray-200 shadow-2xl',
+        ? 'bg-[#2f2f2f] border border-[#3a3a3a] shadow-2xl'
+        : 'bg-white border border-neutral-200 shadow-2xl',
 
     // Modal header border
     modalHeaderBorder: isFallout
       ? 'border-b border-green-500/30'
       : isDark
-        ? 'border-b border-gray-800'
-        : 'border-b border-gray-100',
+        ? 'border-b border-[#3a3a3a]'
+        : 'border-b border-neutral-100',
 
     // Primary button (confirm/action)
     buttonPrimary: isFallout
       ? 'bg-green-500 text-gray-900 hover:bg-green-400 font-mono shadow-[0_0_20px_rgba(34,197,94,0.3)]'
       : isDark
-        ? 'bg-blue-600 text-white hover:bg-blue-500'
-        : 'bg-blue-600 text-white hover:bg-blue-700',
+        ? 'bg-white text-[#0d0d0d] hover:bg-[#e0e0e0]'
+        : 'bg-neutral-900 text-white hover:bg-neutral-800',
 
     // Secondary/cancel button
     buttonSecondary: isFallout
       ? 'bg-gray-800 border border-green-500/40 text-green-400 hover:bg-gray-700 font-mono'
       : isDark
-        ? 'bg-gray-800 border border-gray-700 text-gray-300 hover:bg-gray-700'
-        : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+        ? 'bg-[#3a3a3a] border border-[#4a4a4a] text-[#c0c0c0] hover:bg-[#4a4a4a]'
+        : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200',
 
     // Danger button (delete, etc.)
     buttonDanger: isFallout
@@ -157,36 +171,36 @@ export function getThemeClasses(theme) {
     infoBox: isFallout
       ? 'bg-green-500/10 border border-green-500/30'
       : isDark
-        ? 'bg-blue-500/10 border border-blue-500/30'
+        ? 'bg-blue-500/10 border border-blue-500/20'
         : 'bg-blue-50 border border-blue-200',
 
     // Error box/panel classes
     errorBox: isFallout
       ? 'bg-red-500/10 border border-red-500/30'
       : isDark
-        ? 'bg-red-500/10 border border-red-500/30'
+        ? 'bg-red-500/10 border border-red-500/20'
         : 'bg-red-50 border border-red-200',
 
-    // Active/selected item classes
+    // Active/selected item classes (sidebar items)
     itemActive: isFallout
-      ? 'bg-green-700 text-gray-900'
+      ? 'bg-green-700/30 text-green-300'
       : isDark
-        ? 'bg-blue-700 text-white'
-        : 'bg-blue-600 text-white',
+        ? 'bg-[#2f2f2f] text-[#ececec]'
+        : 'bg-neutral-200 text-neutral-900',
 
-    // Item hover classes
+    // Item hover classes (sidebar items)
     itemHover: isFallout
       ? 'hover:bg-gray-800 text-green-400'
       : isDark
-        ? 'hover:bg-gray-800 text-white'
-        : 'hover:bg-gray-200 text-black',
+        ? 'hover:bg-[#232323] text-[#c0c0c0]'
+        : 'hover:bg-neutral-100 text-neutral-700',
 
     // Close button classes
     closeButton: isFallout
       ? 'text-green-500 hover:bg-green-500/20'
       : isDark
-        ? 'text-gray-400 hover:bg-gray-800'
-        : 'text-gray-400 hover:bg-gray-100',
+        ? 'text-[#8e8e8e] hover:bg-[#3a3a3a]'
+        : 'text-neutral-400 hover:bg-neutral-100',
   }
 }
 

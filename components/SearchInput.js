@@ -43,29 +43,29 @@ const SearchInput = ({
     }
   }, [])
 
-  const borderColor = theme === 'fallout' ? 'border-green-600' : theme === 'dark' ? 'border-gray-700' : 'border-gray-300'
+  const borderColor = theme === 'fallout' ? 'border-green-600' : theme === 'dark' ? 'border-[#3a3a3a]' : 'border-gray-300'
 
   const getDropdownClasses = () => {
     switch (theme) {
       case 'fallout':
         return 'bg-gray-900 border-green-600 text-green-400'
       case 'dark':
-        return 'bg-gray-800 border-gray-700 text-white'
+        return 'bg-[#2f2f2f] border-[#3a3a3a] text-[#ececec]'
       default:
         return 'bg-white border-gray-200 text-gray-900'
     }
   }
 
   const getDropdownItemClasses = (isActive = false) => {
-    const activeClasses = isActive 
-      ? (theme === 'fallout' ? 'bg-gray-800 text-green-300' : theme === 'dark' ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-900')
+    const activeClasses = isActive
+      ? (theme === 'fallout' ? 'bg-gray-800 text-green-300' : theme === 'dark' ? 'bg-[#3a3a3a] text-[#ececec]' : 'bg-gray-100 text-gray-900')
       : ''
-    
+
     switch (theme) {
       case 'fallout':
         return `block w-full text-left px-4 py-2 text-sm text-green-400 hover:bg-gray-800 hover:text-green-300 ${activeClasses}`
       case 'dark':
-        return `block w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-700 hover:text-white ${activeClasses}`
+        return `block w-full text-left px-4 py-2 text-sm text-[#c0c0c0] hover:bg-[#3a3a3a] hover:text-[#ececec] ${activeClasses}`
       default:
         return `block w-full text-left px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 hover:text-gray-900 ${activeClasses}`
     }

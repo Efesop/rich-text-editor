@@ -22,8 +22,10 @@ Dash is a beautiful, privacy-focused note-taking app that keeps your thoughts co
 
 ### 🗂️ **Organization**
 - **Folders & Tags** - Organize notes with folders and color-coded tags
+- **Drag & Drop** - Reorder pages, drag in/out of folders, reorder within folders
 - **Advanced Search** - Find anything instantly with fuzzy search
 - **Smart Filtering** - Filter by tags, folders, or search terms
+- **Custom Sort** - Manual ordering via drag-and-drop, or sort by date/title/tags
 
 ### 🎨 **Beautiful Design**
 - **Multiple Themes** - Light, Dark, and unique Fallout themes
@@ -107,6 +109,7 @@ npm run build
 - **Mobile**: Progressive Web App (PWA)
 - **Styling**: Tailwind CSS, Radix UI components, Stylus modules
 - **Security**: AES-256-GCM encryption, DOMPurify sanitization, Argon2-style password hashing
+- **Drag & Drop**: dnd-kit for multi-container sortable lists
 - **State**: Zustand for global state, React hooks for local state
 
 ## 🏗️ How It Works
@@ -130,10 +133,11 @@ Dash stores all data locally on your device:
 
 ### Key Components
 
-- **`usePagesManager`** - Central hook for all page operations (create, save, delete, lock/unlock)
+- **`usePagesManager`** - Central hook for all page and folder operations (CRUD, reorder, drag-and-drop)
 - **`storage.js`** - Abstraction layer that auto-detects the environment
 - **`Editor.js`** - Rich text editor with customizable block types
 - **`electron-main.js`** - Desktop app main process (file I/O, updates)
+- **`SortablePageItem / SortableFolderItem`** - dnd-kit sortable wrappers for sidebar items
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed technical documentation.
 
@@ -175,6 +179,7 @@ npm run dev
 | Theme switching | ✅ | ✅ |
 | Password protection | ✅ | ✅ |
 | Export to PDF/MD/etc | ✅ | ✅ |
+| Drag & drop reordering | ✅ | ✅ |
 | Persistent file storage | ❌ | ✅ |
 | Auto-updates | ❌ | ✅ |
 | Native menus | ❌ | ✅ |

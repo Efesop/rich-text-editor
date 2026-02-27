@@ -21,27 +21,29 @@ All data is stored locally on your device - never in the cloud.
 
 ```
 dash/
-├── components/           # React UI components
-│   ├── RichTextEditor.js # Main app container
-│   ├── Editor.js         # Editor.js wrapper
-│   ├── PageItem.js       # Page list item
-│   ├── FolderItem.js     # Folder list item
+├── components/               # React UI components
+│   ├── RichTextEditor.js     # Main app container + DnD orchestration
+│   ├── Editor.js             # Editor.js wrapper
+│   ├── PageItem.js           # Page list item (rendering + menu)
+│   ├── FolderItem.js         # Folder list item + nested SortableContext
+│   ├── SortablePageItem.js   # Sortable wrapper for PageItem (dnd-kit)
+│   ├── SortableFolderItem.js # Sortable wrapper for FolderItem (dnd-kit)
 │   └── ...
 ├── hooks/
-│   ├── usePagesManager.js    # Page CRUD operations
+│   ├── usePagesManager.js    # Page/folder CRUD + DnD reorder operations
 │   ├── useKeyboardNavigation.js # Keyboard shortcuts
 │   └── useUpdateManager.js   # Auto-update handling
 ├── lib/
-│   ├── storage.js        # Storage abstraction layer
-│   └── mobileStorage.js  # PWA-specific storage
+│   ├── storage.js            # Storage abstraction layer
+│   └── mobileStorage.js      # PWA-specific storage
 ├── utils/
-│   ├── securityUtils.js  # Content sanitization
-│   ├── passwordUtils.js  # AES-256 encryption
-│   ├── exportUtils.js    # Export to PDF, Markdown, etc.
-│   └── dataUtils.js      # Data validation/repair
-├── electron-main.js      # Electron main process
-├── preload.js            # Electron preload script (IPC bridge)
-└── pages/                # Next.js pages
+│   ├── securityUtils.js      # Content sanitization
+│   ├── passwordUtils.js      # AES-256 encryption
+│   ├── exportUtils.js        # Export to PDF, Markdown, etc.
+│   └── dataUtils.js          # Data validation/repair
+├── electron-main.js          # Electron main process
+├── preload.js                # Electron preload script (IPC bridge)
+└── pages/                    # Next.js pages
 ```
 
 ## Data Flow
@@ -72,15 +74,23 @@ The app uses different storage mechanisms depending on the environment:
 The `usePagesManager` hook centralizes all page operations:
 
 ```javascript
-// Key operations
+// Core CRUD operations
 handleNewPage()     // Create new page
 savePage(content)   // Save page content
 deletePage(page)    // Delete page
 renamePage(page, newTitle)
 lockPage(page, password)    // Encrypt with AES-256
 unlockPage(page, password)  // Decrypt
+
+// Folder operations
 addPageToFolder(pageId, folderId)
 removePageFromFolder(pageId, folderId)
+
+// Drag-and-drop operations
+reorderItems(activeId, overId)                          // Reorder root-level items
+reorderWithinFolder(folderId, activeId, overId)         // Reorder pages within a folder
+movePageToContainer(pageId, fromContainer, toContainer)  // Move page between root/folders
+persistPages()                                           // Save current state to storage
 ```
 
 ### Data Structure
@@ -113,6 +123,64 @@ removePageFromFolder(pageId, folderId)
   "createdAt": "2024-01-01T00:00:00Z"
 }
 ```
+
+## Drag-and-Drop Architecture
+
+The sidebar uses [@dnd-kit](https://dndkit.com/) for drag-and-drop with a multi-container pattern.
+
+### Container Model
+
+The sidebar has multiple sortable containers:
+- **Root container** — holds folder IDs and root-level page IDs (pages without a `folderId`)
+- **Folder containers** — each folder holds its own ordered list of page IDs (from `folder.pages`)
+
+### Component Hierarchy
+
+```
+<DndContext onDragStart onDragOver onDragEnd collisionDetection={custom}>
+  <SortableContext items={rootItemIds}>           ← root container
+    <SortablePageItem />                          ← root-level pages
+    <SortableFolderItem>                          ← folders (sortable + drop target)
+      <SortableContext items={folderPageIds}>      ← folder container
+        <SortablePageItem />                      ← pages inside folder
+      </SortableContext>
+    </SortableFolderItem>
+  </SortableContext>
+  <DragOverlay />
+</DndContext>
+```
+
+### Custom Collision Detection
+
+A custom collision detection function in `RichTextEditor.js` uses raw pointer coordinates and droppable rects to determine targets:
+
+1. **Dragging onto a different folder** — if pointer is inside a folder's bounding rect, target that folder (triggers move-into-folder)
+2. **Dragging within a folder** — if pointer is inside the current folder's rect, target sibling pages (triggers reorder)
+3. **Dragging out of a folder** — if pointer is outside the current folder's rect, target root-level items (triggers move-to-root)
+4. **Fallback** — uses dnd-kit's `closestCorners` for root-level reordering
+
+### Drag Operations
+
+| Operation | Handler |
+|-----------|---------|
+| Reorder root items (pages & folders) | `reorderItems()` |
+| Reorder pages within a folder | `reorderWithinFolder()` |
+| Move page into a folder | `movePageToContainer(pageId, 'root', folderId)` |
+| Move page out of a folder | `movePageToContainer(pageId, folderId, 'root')` |
+| Move page between folders | `movePageToContainer(pageId, folderA, folderB)` |
+
+All cross-container moves are handled in `onDragEnd` (not `onDragOver`) to avoid bounce loops. The `movePageToContainer` function performs atomic state updates: removes from old folder, adds to new folder, updates `folderId`, and repositions in the flat array — all in a single `setPages` call.
+
+### Visual Feedback
+
+- **Drop indicator line** — a blue line appears between items to show the drop position
+- **Folder highlight** — folders highlight when a page is dragged over them
+- **Folder auto-expand** — collapsed folders auto-expand after 500ms when a page hovers over them
+- **Folder page styling** — pages inside folders have a subtle left border to distinguish them from root pages
+
+### Sort Mode Integration
+
+Drag-and-drop is only enabled when sort mode is set to "Manual" (the default). Other sort modes (Newest, Oldest, A-Z, Z-A, Tags) disable drag handles and use automatic ordering.
 
 ## Security Model
 

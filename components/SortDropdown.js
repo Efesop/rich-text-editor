@@ -8,6 +8,7 @@ const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
   const [dropdownPosition, setDropdownPosition] = useState('bottom')
 
   const sortOptions = [
+    { value: 'custom', label: 'Custom' },
     { value: 'newest', label: 'Newest' },
     { value: 'oldest', label: 'Oldest' },
     { value: 'a-z', label: 'A-Z' },
@@ -64,40 +65,40 @@ const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
   const getDropdownClasses = () => {
     switch (theme) {
       case 'fallout':
-        return 'bg-gray-900 border-green-600 text-green-400'
+        return 'bg-gray-900 border-green-600/40 text-green-400'
       case 'dark':
-        return 'bg-gray-800 border-gray-700 text-white'
+        return 'bg-[#2f2f2f] border-[#3a3a3a] text-[#ececec] shadow-black/50'
       default:
-        return 'bg-white border-gray-200 text-gray-900'
+        return 'bg-white border-neutral-200 text-neutral-900'
     }
   }
 
   const getDropdownItemClasses = (isActive = false) => {
-    const activeClasses = isActive 
-      ? (theme === 'fallout' ? 'bg-gray-800' : theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100')
+    const activeClasses = isActive
+      ? (theme === 'fallout' ? 'bg-gray-800' : theme === 'dark' ? 'bg-[#3a3a3a]' : 'bg-neutral-100')
       : ''
-    
+
     switch (theme) {
       case 'fallout':
         return `text-green-400 hover:bg-gray-800 ${activeClasses}`
       case 'dark':
-        return `text-gray-300 hover:bg-gray-700 ${activeClasses}`
+        return `text-[#c0c0c0] hover:bg-[#3a3a3a] ${activeClasses}`
       default:
-        return `text-gray-700 hover:bg-gray-100 ${activeClasses}`
+        return `text-neutral-600 hover:bg-neutral-100 ${activeClasses}`
     }
   }
 
   return (
     <div className="relative">
-      <button 
+      <button
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center px-2 py-1 rounded-md text-xs ${
-          theme === 'fallout' 
-            ? 'bg-gray-800 text-green-400 hover:bg-gray-700' 
-            : theme === 'dark' 
-              ? 'bg-gray-800 text-gray-200 hover:bg-gray-700' 
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+        className={`flex items-center px-2 py-1 rounded-md text-xs transition-colors ${
+          theme === 'fallout'
+            ? 'bg-gray-800 text-green-400 hover:bg-gray-700'
+            : theme === 'dark'
+              ? 'bg-[#2f2f2f] text-[#8e8e8e] hover:bg-[#3a3a3a]'
+              : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
         }`}
       >
         <ArrowUpDown className="w-3 h-3 mr-1" />
@@ -106,7 +107,7 @@ const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
       {isOpen && (
         <div 
           ref={dropdownRef}
-          className={`absolute right-0 w-32 rounded-md shadow-lg ${getDropdownClasses()} border ${dropdownPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'}`}
+          className={`absolute right-0 w-32 rounded-lg shadow-lg ${getDropdownClasses()} border ${dropdownPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'}`}
         >
           {sortOptions.map((option) => (
             <button

@@ -23,11 +23,11 @@ const ExportDropdown = ({ onExport }) => {
   const getDropdownClasses = () => {
     switch (theme) {
       case 'fallout':
-        return 'bg-gray-900 border-green-600 text-green-400'
+        return 'bg-gray-900 border-green-600/40 text-green-400'
       case 'dark':
-        return 'bg-gray-800 border-gray-700 text-white'
+        return 'bg-[#2f2f2f] border-[#3a3a3a] text-[#ececec] shadow-black/50'
       default:
-        return 'bg-white border-gray-200 text-gray-900'
+        return 'bg-white border-neutral-200 text-neutral-900'
     }
   }
 
@@ -37,19 +37,19 @@ const ExportDropdown = ({ onExport }) => {
         case 'fallout':
           return 'text-green-400 hover:bg-green-600/20 font-bold border-l-2 border-green-600 pl-3'
         case 'dark':
-          return 'text-blue-400 hover:bg-blue-600/20 font-semibold border-l-2 border-blue-600 pl-3'
+          return 'text-[#ececec] hover:bg-[#3a3a3a] font-semibold border-l-2 border-[#6b6b6b] pl-3'
         default:
-          return 'text-blue-600 hover:bg-blue-50 font-semibold border-l-2 border-blue-600 pl-3'
+          return 'text-neutral-900 hover:bg-neutral-50 font-semibold border-l-2 border-neutral-400 pl-3'
       }
     }
-    
+
     switch (theme) {
       case 'fallout':
         return 'text-green-400 hover:bg-gray-800 hover:text-green-300'
       case 'dark':
-        return 'text-gray-300 hover:bg-gray-700 hover:text-white'
+        return 'text-[#c0c0c0] hover:bg-[#3a3a3a] hover:text-[#ececec]'
       default:
-        return 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+        return 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
     }
   }
 
@@ -78,7 +78,7 @@ const ExportDropdown = ({ onExport }) => {
         <ChevronDown className="ml-1 h-4 w-4" />
       </Button>
       {isOpen && (
-        <div className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg ${getDropdownClasses()} border z-[60]`}>
+        <div className={`absolute right-0 mt-2 w-48 rounded-lg shadow-lg ${getDropdownClasses()} border z-[60]`}>
           <div className="py-1" role="menu" aria-orientation="vertical">
             {exportOptions.map((option) => (
               <button

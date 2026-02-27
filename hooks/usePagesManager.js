@@ -756,6 +756,99 @@ export function usePagesManager() {
     setCurrentPage(newPage)
   }, [savePagesToStorage, setCurrentPage])
 
+  const reorderItems = useCallback((activeId, overId) => {
+    setPages(prevPages => {
+      const newPages = [...prevPages]
+      const oldIndex = newPages.findIndex(p => p.id === activeId)
+      const newIndex = newPages.findIndex(p => p.id === overId)
+      if (oldIndex === -1 || newIndex === -1) return prevPages
+      const [moved] = newPages.splice(oldIndex, 1)
+      newPages.splice(newIndex, 0, moved)
+      pagesRef.current = newPages
+      savePagesToStorage(newPages)
+      return newPages
+    })
+  }, [savePagesToStorage])
+
+  const reorderWithinFolder = useCallback((folderId, activeId, overId) => {
+    setPages(prevPages => {
+      const newPages = prevPages.map(item => {
+        if (item.id === folderId && item.type === 'folder') {
+          const folderPages = Array.isArray(item.pages) ? [...item.pages] : []
+          const oldIdx = folderPages.indexOf(activeId)
+          const newIdx = folderPages.indexOf(overId)
+          if (oldIdx !== -1 && newIdx !== -1) {
+            const [moved] = folderPages.splice(oldIdx, 1)
+            folderPages.splice(newIdx, 0, moved)
+            return { ...item, pages: folderPages }
+          }
+        }
+        return item
+      })
+      pagesRef.current = newPages
+      savePagesToStorage(newPages)
+      return newPages
+    })
+  }, [savePagesToStorage])
+
+  const persistPages = useCallback(() => {
+    savePagesToStorage(pagesRef.current)
+  }, [savePagesToStorage])
+
+  // Move a page between containers (folder↔root, folder↔folder)
+  const movePageToContainer = useCallback((pageId, fromContainer, toContainer, nearItemId) => {
+    setPages(prevPages => {
+      let newPages = [...prevPages]
+
+      // Remove from old folder's pages array
+      if (fromContainer !== 'root') {
+        newPages = newPages.map(item => {
+          if (item.id === fromContainer && item.type === 'folder') {
+            return { ...item, pages: (Array.isArray(item.pages) ? item.pages : []).filter(id => id !== pageId) }
+          }
+          return item
+        })
+      }
+
+      // Add to new folder's pages array
+      if (toContainer !== 'root') {
+        newPages = newPages.map(item => {
+          if (item.id === toContainer && item.type === 'folder') {
+            const fp = (Array.isArray(item.pages) ? item.pages : []).filter(id => id !== pageId)
+            return { ...item, pages: [...fp, pageId] }
+          }
+          return item
+        })
+      }
+
+      // Update the page's folderId
+      newPages = newPages.map(item => {
+        if (item.id === pageId) {
+          if (toContainer === 'root') {
+            const { folderId: _, ...rest } = item
+            return rest
+          }
+          return { ...item, folderId: toContainer }
+        }
+        return item
+      })
+
+      // Position near the target item in flat array (for root placement)
+      if (toContainer === 'root' && nearItemId) {
+        const pageIdx = newPages.findIndex(p => p.id === pageId)
+        const nearIdx = newPages.findIndex(p => p.id === nearItemId)
+        if (pageIdx !== -1 && nearIdx !== -1) {
+          const [moved] = newPages.splice(pageIdx, 1)
+          newPages.splice(nearIdx, 0, moved)
+        }
+      }
+
+      pagesRef.current = newPages
+      savePagesToStorage(newPages)
+      return newPages
+    })
+  }, [savePagesToStorage])
+
   // Import pages from an encrypted bundle (merges with existing)
   const importPages = useCallback(async (importedItems) => {
     if (!Array.isArray(importedItems) || importedItems.length === 0) return
@@ -830,5 +923,9 @@ export function usePagesManager() {
     handleDuplicatePage,
     importPages,
     movePageToFolder,
+    reorderItems,
+    reorderWithinFolder,
+    persistPages,
+    movePageToContainer,
   }
 }

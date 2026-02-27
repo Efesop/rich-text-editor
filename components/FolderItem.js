@@ -1,29 +1,33 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Folder, FolderOpen, Trash2, MoreVertical, Edit3, Plus } from 'lucide-react'
+import { Folder, FolderOpen, Trash2, MoreVertical, Edit3, Plus, ChevronRight, ChevronDown } from 'lucide-react'
 import { Button } from './ui/button'
-import PageItem from './PageItem'
+import SortablePageItem from './SortablePageItem'
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { isMobileDevice, isSmallScreen } from '@/utils/deviceUtils'
 import { ActionSheet, ActionSheetItem, ActionSheetSeparator } from './ActionSheet'
 
-export function FolderItem({ 
-  folder, 
-  onAddPage, 
-  onDeleteFolder, 
-  onRenameFolder, 
-  theme, 
-  pages, 
-  onSelectPage, 
-  currentPageId, 
-  onRemovePageFromFolder, 
-  tags, 
-  tempUnlockedPages, 
-  sidebarOpen, 
-  onDelete, 
-  onRename, 
+export function FolderItem({
+  folder,
+  onAddPage,
+  onDeleteFolder,
+  onRenameFolder,
+  theme,
+  pages,
+  onSelectPage,
+  currentPageId,
+  onRemovePageFromFolder,
+  tags,
+  tempUnlockedPages,
+  sidebarOpen,
+  onDelete,
+  onRename,
   onToggleLock,
   onDuplicate,
   onMoveToFolder,
-  pagesCount
+  pagesCount,
+  isDropTarget = false,
+  isDndEnabled = false,
+  folderPageIds = [],
 }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
@@ -36,12 +40,18 @@ export function FolderItem({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false)
 
-  // On mobile/touch devices, always show the 3-dots button (no hover state)
   const isMobile = isMobileDevice() || isSmallScreen()
+
+  // Auto-expand folder when dragging a page over it
+  useEffect(() => {
+    if (isDropTarget && !isExpanded) {
+      const timer = setTimeout(() => setIsExpanded(true), 500)
+      return () => clearTimeout(timer)
+    }
+  }, [isDropTarget, isExpanded])
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      // Exclude both the dropdown and the toggle button from click-outside detection
       if (
         dropdownRef.current &&
         !dropdownRef.current.contains(event.target) &&
@@ -80,12 +90,10 @@ export function FolderItem({
       let top = folderRect.bottom
       let left = folderRect.right - dropdownRect.width
 
-      // Adjust vertical position if dropdown would go off-screen
       if (top + dropdownRect.height > viewportHeight) {
         top = folderRect.top - dropdownRect.height
       }
 
-      // Adjust horizontal position if dropdown would go off-screen
       if (left < 0) {
         left = folderRect.left
       } else if (left + dropdownRect.width > viewportWidth) {
@@ -114,31 +122,31 @@ export function FolderItem({
       case 'fallout':
         return 'hover:bg-gray-800 text-green-400'
       case 'dark':
-        return 'hover:bg-gray-800 text-white'
+        return 'hover:bg-[#232323] text-[#c0c0c0]'
       default:
-        return 'hover:bg-gray-200 text-black'
+        return 'hover:bg-neutral-100 text-neutral-700'
     }
   }
 
   const getFolderCountClasses = () => {
     switch (theme) {
       case 'fallout':
-        return 'bg-gray-800 text-green-300 border border-green-600'
+        return 'bg-gray-800 text-green-300 border border-green-600/30'
       case 'dark':
-        return 'bg-gray-700 text-gray-200'
+        return 'bg-[#2a2a2a] text-[#6b6b6b]'
       default:
-        return 'bg-gray-200 text-gray-900'
+        return 'bg-neutral-200 text-neutral-500'
     }
   }
 
   const getDropdownClasses = () => {
     switch (theme) {
       case 'fallout':
-        return 'bg-gray-900 border border-green-600 text-green-400'
+        return 'bg-gray-900 border border-green-600/40 text-green-400'
       case 'dark':
-        return 'bg-gray-800 text-white'
+        return 'bg-[#2f2f2f] border border-[#3a3a3a] text-[#ececec] shadow-xl shadow-black/50'
       default:
-        return 'bg-white text-gray-900'
+        return 'bg-white border border-neutral-200 text-neutral-900 shadow-lg shadow-neutral-200/50'
     }
   }
 
@@ -147,23 +155,62 @@ export function FolderItem({
       case 'fallout':
         return 'text-green-400 hover:bg-gray-800'
       case 'dark':
-        return 'text-gray-300 hover:bg-gray-700'
+        return 'text-[#c0c0c0] hover:bg-[#3a3a3a]'
       default:
-        return 'text-gray-700 hover:bg-gray-100'
+        return 'text-neutral-600 hover:bg-neutral-100'
+    }
+  }
+
+  const getFolderIconClasses = () => {
+    if (isExpanded) {
+      switch (theme) {
+        case 'fallout':
+          return 'text-green-400'
+        case 'dark':
+          return 'text-blue-500'
+        default:
+          return 'text-blue-600'
+      }
+    }
+    switch (theme) {
+      case 'fallout':
+        return 'text-green-500'
+      case 'dark':
+        return 'text-[#8e8e8e]'
+      default:
+        return 'text-neutral-400'
+    }
+  }
+
+  const getChevronClasses = () => {
+    switch (theme) {
+      case 'fallout':
+        return 'text-green-600'
+      case 'dark':
+        return 'text-[#6b6b6b]'
+      default:
+        return 'text-neutral-400'
     }
   }
 
   return (
-    <div className="my-3" ref={folderRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+    <div className={`my-1 transition-all duration-150 ${isDropTarget ? `rounded-lg ${theme === 'fallout' ? 'ring-2 ring-green-500/50' : 'ring-2 ring-blue-500/50'}` : ''}`} ref={folderRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
       <div
-        className={`flex items-center justify-between px-2 h-8 cursor-pointer text-sm ${getFolderHoverClasses()}`}
+        className={`flex items-center justify-between px-3 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-150 ${getFolderHoverClasses()}`}
         onClick={toggleExpand}
       >
-        <div className="flex items-center flex-grow">
+        <div className="flex items-center flex-grow min-w-0">
+          <span className={`mr-1 ${getChevronClasses()}`}>
+            {isExpanded ? (
+              <ChevronDown className="h-3 w-3" strokeWidth={2} />
+            ) : (
+              <ChevronRight className="h-3 w-3" strokeWidth={2} />
+            )}
+          </span>
           {isExpanded ? (
-            <FolderOpen className="h-4 w-4 mr-2 text-blue-500" strokeWidth={2} />
+            <FolderOpen className={`h-4 w-4 mr-2 flex-shrink-0 ${getFolderIconClasses()}`} strokeWidth={1.5} />
           ) : (
-            <Folder className="h-4 w-4 mr-2" strokeWidth={2} />
+            <Folder className={`h-4 w-4 mr-2 flex-shrink-0 ${getFolderIconClasses()}`} strokeWidth={1.5} />
           )}
           {isRenaming ? (
             <input
@@ -176,18 +223,18 @@ export function FolderItem({
                   handleRename()
                 }
               }}
-              className="bg-transparent outline-none"
+              className="bg-transparent outline-none flex-1 min-w-0"
               autoFocus
               maxLength={20}
             />
           ) : (
             sidebarOpen ? (
-              <div className="flex items-center">
+              <div className="flex items-center min-w-0">
                 <span className="truncate text-sm font-medium mr-1" title={folder.title}>
                   {folder.title.length > 20 ? `${folder.title.slice(0, 17)}...` : folder.title}
                 </span>
                 {pagesCount > 0 && (
-                  <span className={`text-xs px-1 ml-1 rounded-full ${getFolderCountClasses()}`}>
+                  <span className={`text-xs px-1.5 ml-1 rounded-full ${getFolderCountClasses()}`}>
                     {pagesCount}
                   </span>
                 )}
@@ -223,29 +270,39 @@ export function FolderItem({
         )}
       </div>
       {isExpanded && (
-        <div className="ml-6 border-l border-gray-300 dark:border-gray-600">
-          {(pages || [])
-            .filter(page => page.folderId === folder.id)
-            .map((page) => (
-            <PageItem
-              key={page.id}
-              page={page}
-              isActive={currentPageId === page.id}
-              onSelect={onSelectPage}
-              onRename={onRename}
-              onDelete={onDelete}
-              onToggleLock={onToggleLock}
-              onRemoveFromFolder={() => onRemovePageFromFolder(page.id, folder.id)}
-              sidebarOpen={sidebarOpen}
-              theme={theme}
-              tags={tags}
-              tempUnlockedPages={tempUnlockedPages}
-              isInsideFolder={true}
-              onDuplicate={onDuplicate}
-              onMoveToFolder={onMoveToFolder}
-            />
-          ))}
-        </div>
+        <SortableContext
+          items={folderPageIds}
+          strategy={verticalListSortingStrategy}
+          disabled={!isDndEnabled}
+        >
+          <div className="mt-0.5" style={{ minHeight: '4px' }}>
+            {folderPageIds.map(pageId => {
+              const page = (pages || []).find(p => p.id === pageId)
+              if (!page) return null
+              return (
+                <SortablePageItem
+                  key={page.id}
+                  id={page.id}
+                  disabled={!isDndEnabled}
+                  page={page}
+                  isActive={currentPageId === page.id}
+                  onSelect={onSelectPage}
+                  onRename={onRename}
+                  onDelete={onDelete}
+                  onToggleLock={onToggleLock}
+                  onRemoveFromFolder={() => onRemovePageFromFolder(page.id, folder.id)}
+                  sidebarOpen={sidebarOpen}
+                  theme={theme}
+                  tags={tags}
+                  tempUnlockedPages={tempUnlockedPages}
+                  isInsideFolder={true}
+                  onDuplicate={onDuplicate}
+                  onMoveToFolder={onMoveToFolder}
+                />
+              )
+            })}
+          </div>
+        </SortableContext>
       )}
       {isDropdownOpen && (
         <div
@@ -253,7 +310,7 @@ export function FolderItem({
           id={`folder-menu-${folder.id}`}
           role="menu"
           aria-label={`Actions for folder ${folder.title}`}
-          className={`fixed w-48 rounded-md shadow-lg ${getDropdownClasses()}`}
+          className={`fixed w-48 rounded-lg ${getDropdownClasses()}`}
           style={{
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`,

@@ -36,9 +36,8 @@ export default function TagsFilter({
     return `
       inline-flex items-center px-2 py-1 rounded-md text-xs font-medium
       border cursor-pointer transition-all duration-150 ease-in-out
-      hover:scale-105 active:scale-95
-      ${isSelected 
-        ? `opacity-75 ring-2 ${theme === 'dark' ? 'ring-white/20' : 'ring-black/10'}`
+      ${isSelected
+        ? `opacity-75 ring-2 ${theme === 'fallout' ? 'ring-green-500/20' : theme === 'dark' ? 'ring-white/20' : 'ring-black/10'}`
         : ''
       }
     `
@@ -54,10 +53,12 @@ export default function TagsFilter({
       {/* Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className={`w-full flex items-center justify-between p-2 text-sm font-medium rounded-md transition-colors ${
-          theme === 'dark'
-            ? 'hover:bg-gray-800 text-gray-200'
-            : 'hover:bg-gray-100 text-gray-700'
+        className={`w-full flex items-center justify-between p-2 text-sm font-medium rounded-lg transition-colors ${
+          theme === 'fallout'
+            ? 'hover:bg-gray-800 text-green-400'
+            : theme === 'dark'
+              ? 'hover:bg-[#232323] text-[#8e8e8e]'
+              : 'hover:bg-neutral-100 text-neutral-500'
         }`}
       >
         <div className="flex items-center space-x-2">
@@ -66,9 +67,11 @@ export default function TagsFilter({
           {selectedTags.length > 0 && (
             <span className={`
               inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-xs font-medium
-              ${theme === 'dark' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-blue-500 text-white'
+              ${theme === 'fallout'
+                ? 'bg-green-600 text-gray-900'
+                : theme === 'dark'
+                  ? 'bg-[#4a4a4a] text-[#ececec]'
+                  : 'bg-neutral-400 text-white'
               }
             `}>
               {selectedTags.length}
@@ -85,9 +88,11 @@ export default function TagsFilter({
                 onClearAllTags?.()
               }}
               className={`h-6 w-6 p-0 ${
-                theme === 'dark' 
-                  ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-200' 
-                  : 'hover:bg-gray-200 text-gray-500 hover:text-gray-700'
+                theme === 'fallout'
+                  ? 'hover:bg-gray-800 text-green-600 hover:text-green-400'
+                  : theme === 'dark'
+                    ? 'hover:bg-[#3a3a3a] text-[#6b6b6b] hover:text-[#c0c0c0]'
+                    : 'hover:bg-neutral-200 text-neutral-400 hover:text-neutral-600'
               }`}
             >
               <X className="h-3 w-3" />
@@ -110,7 +115,7 @@ export default function TagsFilter({
           {selectedTags.length > 0 && (
             <div className="mb-3">
               <div className={`text-xs font-medium mb-1 ${
-                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                theme === 'fallout' ? 'text-green-500' : theme === 'dark' ? 'text-[#6b6b6b]' : 'text-neutral-500'
               }`}>
                 Active filters:
               </div>
@@ -131,7 +136,7 @@ export default function TagsFilter({
           )}
 
           {/* Available tags */}
-          <div className="max-h-48 overflow-y-auto">
+          <div className="max-h-48 overflow-y-auto thin-scrollbar">
             <div className="flex flex-wrap gap-1">
               {sortedTags.map(tag => (
                 <button

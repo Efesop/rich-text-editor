@@ -1,24 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "./ui/button"
-import { FileText, Lock, Unlock, Trash2, MoreVertical, FolderMinus, FolderPlus, Copy, Edit3 } from 'lucide-react'
+import { Lock, Unlock, Trash2, MoreVertical, FolderMinus, FolderPlus, Copy, Edit3 } from 'lucide-react'
 import StackedTags from './StackedTags'
 import { isMobileDevice, isSmallScreen } from '@/utils/deviceUtils'
 import { ActionSheet, ActionSheetItem, ActionSheetSeparator } from './ActionSheet'
 
-const PageItem = ({ 
-  page, 
-  isActive, 
-  onSelect, 
-  onRename, 
-  onDelete, 
-  onToggleLock, 
+const PageItem = ({
+  page,
+  isActive,
+  onSelect,
+  onRename,
+  onDelete,
+  onToggleLock,
   onRemoveFromFolder,
   onMoveToFolder,
   sidebarOpen,
-  theme, 
-  tags, 
-  tempUnlockedPages, 
-  className, 
+  theme,
+  tags,
+  tempUnlockedPages,
+  className,
   isInsideFolder = false,
   onDuplicate
 }) => {
@@ -42,7 +42,6 @@ const PageItem = ({
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      // Exclude both the dropdown and the toggle button from click-outside detection
       if (
         dropdownRef.current &&
         !dropdownRef.current.contains(event.target) &&
@@ -71,12 +70,10 @@ const PageItem = ({
       let top = pageRect.bottom
       let left = pageRect.right - dropdownRect.width
 
-      // Adjust vertical position if dropdown would go off-screen
       if (top + dropdownRect.height > viewportHeight) {
         top = pageRect.top - dropdownRect.height
       }
 
-      // Adjust horizontal position if dropdown would go off-screen
       if (left < 0) {
         left = pageRect.left
       } else if (left + dropdownRect.width > viewportWidth) {
@@ -101,38 +98,41 @@ const PageItem = ({
   }, [isDropdownOpen])
 
   const getPageItemClasses = () => {
-    const baseClasses = 'flex items-center justify-between px-2 py-2 cursor-pointer text-sm w-full'
-    
+    const folderStyle = isInsideFolder
+      ? 'ml-5 mr-2 rounded-l-none border-l-2 ' + (theme === 'fallout' ? 'border-green-500/20' : theme === 'dark' ? 'border-[#3a3a3a]' : 'border-neutral-200')
+      : 'mx-2'
+    const baseClasses = `flex items-center justify-between px-3 py-2 cursor-pointer text-sm rounded-lg transition-colors duration-150 ${folderStyle}`
+
     if (isActive) {
       if (theme === 'fallout') {
-        return `${baseClasses} bg-green-700 text-gray-900`
+        return `${baseClasses} bg-green-700/30 text-green-300`
       } else if (theme === 'dark') {
-        return `${baseClasses} bg-blue-700 text-white`
+        return `${baseClasses} bg-[#2f2f2f] text-[#ececec]`
       } else {
-        return `${baseClasses} bg-blue-600 text-white`
+        return `${baseClasses} bg-neutral-200 text-neutral-900`
       }
     } else {
       if (theme === 'fallout') {
-        return `${baseClasses} hover:bg-gray-800 text-green-400 ${isInsideFolder ? 'bg-gray-900' : ''}`
+        return `${baseClasses} hover:bg-gray-800 text-green-400`
       } else if (theme === 'dark') {
-        return `${baseClasses} hover:bg-gray-800 text-white ${isInsideFolder ? 'bg-gray-800' : ''}`
+        return `${baseClasses} hover:bg-[#232323] text-[#c0c0c0]`
       } else {
-        return `${baseClasses} hover:bg-gray-200 text-black ${isInsideFolder ? 'bg-gray-200' : ''}`
+        return `${baseClasses} hover:bg-neutral-100 text-neutral-700`
       }
     }
   }
 
   const getIconClasses = () => {
     if (isActive) {
-      return theme === 'fallout' ? 'text-gray-900' : 'text-white'
+      return theme === 'fallout' ? 'text-green-300' : theme === 'dark' ? 'text-[#8e8e8e]' : 'text-neutral-500'
     } else {
       switch (theme) {
         case 'fallout':
           return 'text-green-400'
         case 'dark':
-          return 'text-gray-400'
+          return 'text-[#6b6b6b]'
         default:
-          return 'text-gray-600'
+          return 'text-neutral-400'
       }
     }
   }
@@ -140,11 +140,11 @@ const PageItem = ({
   const getDropdownClasses = () => {
     switch (theme) {
       case 'fallout':
-        return 'bg-gray-900 border border-green-600 text-green-400'
+        return 'bg-gray-900 border border-green-600/40 text-green-400'
       case 'dark':
-        return 'bg-gray-800 text-white'
+        return 'bg-[#2f2f2f] border border-[#3a3a3a] text-[#ececec] shadow-xl shadow-black/50'
       default:
-        return 'bg-white text-gray-900'
+        return 'bg-white border border-neutral-200 text-neutral-900 shadow-lg shadow-neutral-200/50'
     }
   }
 
@@ -153,9 +153,9 @@ const PageItem = ({
       case 'fallout':
         return 'text-green-400 hover:bg-gray-800'
       case 'dark':
-        return 'text-gray-300 hover:bg-gray-700'
+        return 'text-[#c0c0c0] hover:bg-[#3a3a3a]'
       default:
-        return 'text-gray-700 hover:bg-gray-100'
+        return 'text-neutral-600 hover:bg-neutral-100'
     }
   }
 
@@ -166,17 +166,16 @@ const PageItem = ({
       onClick={() => onSelect(page)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      style={{ minHeight: '2.5rem' }} // Ensure consistent height
+      style={{ minHeight: '2.25rem' }}
     >
       <div className="flex items-center flex-1 min-w-0">
         {sidebarOpen ? (
           <>
-            <FileText className={`h-4 w-4 mr-2 flex-shrink-0 ${getIconClasses()}`} />
-            <span className="mr-2 truncate" title={page.title}>
+            <span className="truncate" title={page.title}>
               {truncatePageTitle(page.title)}
             </span>
             {Array.isArray(page.tagNames) && page.tagNames.length > 0 && (
-              <StackedTags 
+              <StackedTags
                 tags={page.tagNames}
                 maxVisible={2}
                 className="ml-auto flex-shrink-0"
@@ -187,14 +186,14 @@ const PageItem = ({
             )}
           </>
         ) : (
-          <span className="truncate mr-2" title={page.title}>
+          <span className="truncate" title={page.title}>
             {page.title.slice(0, 3)}...
           </span>
         )}
       </div>
       <div className="flex items-center space-x-1">
         {page.password && page.password.hash && !tempUnlockedPages.has(page.id) && (
-          <Lock className={`h-4 w-4 ${getIconClasses()}`} />
+          <Lock className={`h-3.5 w-3.5 ${getIconClasses()}`} />
         )}
         {sidebarOpen && (
           <Button
@@ -225,7 +224,7 @@ const PageItem = ({
           id={`page-menu-${page.id}`}
           role="menu"
           aria-label={`Actions for ${page.title}`}
-          className={`fixed w-48 rounded-md shadow-lg ${getDropdownClasses()}`}
+          className={`fixed w-48 rounded-lg ${getDropdownClasses()}`}
           style={{
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`,
@@ -327,7 +326,6 @@ const PageItem = ({
         isOpen={isActionSheetOpen}
         onClose={() => setIsActionSheetOpen(false)}
         title={page.title}
-        icon={FileText}
       >
         <ActionSheetItem
           icon={Edit3}
