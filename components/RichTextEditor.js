@@ -1103,11 +1103,11 @@ export default function RichTextEditor() {
           <header className={`px-3 pt-4 pb-2 flex ${sidebarOpen ? 'justify-between' : 'justify-center'} items-center`}>
             {sidebarOpen ? (
               <div className="flex items-center space-x-2">
-                <img src="/icons/dash-logo.png" alt="Dash" className="h-7 w-7 rounded-md" />
+                <img src="./icons/dash-logo.png" alt="Dash" className="h-7 w-7 rounded-md" />
                 <span className={`text-base font-semibold ${theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-[#ececec]' : theme === 'darkblue' ? 'text-[#e0e6f0]' : 'text-neutral-900'}`}>Dash</span>
               </div>
             ) : (
-              <img src="/icons/dash-logo.png" alt="Dash" className="h-7 w-7 rounded-md" />
+              <img src="./icons/dash-logo.png" alt="Dash" className="h-7 w-7 rounded-md" />
             )}
             <div className="flex items-center space-x-1">
               {sidebarOpen && (
