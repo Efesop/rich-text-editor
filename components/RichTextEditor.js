@@ -138,6 +138,7 @@ export default function RichTextEditor() {
     passwordAttemptsRef.current = passwordAttemptsRef.current()
   }
   const [isClient, setIsClient] = useState(false)
+  const [isMacElectron, setIsMacElectron] = useState(false)
   const [wordCount, setWordCount] = useState(0)
   const [pageToRename, setPageToRename] = useState(null)
   const [newPageTitle, setNewPageTitle] = useState('')
@@ -305,6 +306,10 @@ export default function RichTextEditor() {
   // Essential useEffects
   useEffect(() => {
     setIsClient(true)
+    // Detect macOS Electron for frameless title bar
+    if (typeof window !== 'undefined' && window.electronPlatform?.isMac && window.electron?.invoke) {
+      setIsMacElectron(true)
+    }
   }, [])
 
   // Responsive: detect small screens and default to collapsed sidebar
@@ -1076,10 +1081,13 @@ export default function RichTextEditor() {
 
   return (
     <div
-      className={getMainContainerClasses()}
+      className={`${getMainContainerClasses()} ${isMacElectron ? 'mac-electron' : ''}`}
       role="application"
       aria-label="Rich Text Note Editor"
     >
+      {/* macOS Electron: draggable title bar region */}
+      {isMacElectron && <div className="electron-drag-region" />}
+
       {/* Mobile overlay */}
       {isSmallScreen && sidebarOpen && (
         <div
@@ -1100,7 +1108,7 @@ export default function RichTextEditor() {
           aria-label="Page navigation"
           aria-expanded={sidebarOpen}
         >
-          <header className={`px-3 pt-4 pb-2 flex ${sidebarOpen ? 'justify-between' : 'justify-center'} items-center`}>
+          <header className={`px-3 ${isMacElectron ? 'pt-10' : 'pt-4'} pb-2 flex ${sidebarOpen ? 'justify-between' : 'justify-center'} items-center`}>
             {sidebarOpen ? (
               <div className="flex items-center space-x-2">
                 <img src="./icons/dash-logo.png" alt="Dash" className="h-7 w-7 rounded-md" />
@@ -1285,7 +1293,7 @@ export default function RichTextEditor() {
         ) : (
         <>
         {/* Header */}
-        <div className={`flex flex-col px-6 py-3 ${theme === 'fallout' ? 'border-b border-green-600/20' : theme === 'dark' ? 'border-b border-[#2e2e2e]' : theme === 'darkblue' ? 'border-b border-[#1c2438]' : 'border-b border-neutral-100'} ${getHeaderClasses()} safe-area-top`}>
+        <div className={`flex flex-col px-6 ${isMacElectron ? 'pt-8 pb-3' : 'py-3'} ${theme === 'fallout' ? 'border-b border-green-600/20' : theme === 'dark' ? 'border-b border-[#2e2e2e]' : theme === 'darkblue' ? 'border-b border-[#1c2438]' : 'border-b border-neutral-100'} ${getHeaderClasses()} safe-area-top`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center min-w-0">
               {isSmallScreen && (

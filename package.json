@@ -80,7 +80,6 @@
     "dompurify": "^3.2.6",
     "dotenv": "^16.4.5",
     "editorjs-text-alignment-blocktune": "^1.0.3",
-    "editorjs-toggle-block": "^0.3.16",
     "editorjs-undo": "^2.0.28",
     "electron-log": "^4.4.8",
     "electron-updater": "^6.3.4",

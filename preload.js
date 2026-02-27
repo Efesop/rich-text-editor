@@ -1,5 +1,11 @@
 const { contextBridge, ipcRenderer, shell } = require('electron');
 
+contextBridge.exposeInMainWorld('electronPlatform', {
+  isMac: process.platform === 'darwin',
+  isWindows: process.platform === 'win32',
+  isLinux: process.platform === 'linux'
+});
+
 contextBridge.exposeInMainWorld('electron', {
   invoke: (channel, data) => {
     const validChannels = [

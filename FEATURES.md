@@ -28,7 +28,6 @@ Block-based editor powered by Editor.js with 15+ content types:
 | Image | Drag-and-drop or file picker (up to 5MB, stored locally) |
 | Embed | YouTube, Vimeo, GitHub, Twitter |
 | Delimiter | Visual section separator |
-| Toggle | Collapsible/expandable sections |
 
 ### Inline Formatting
 

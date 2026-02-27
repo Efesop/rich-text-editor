@@ -523,6 +523,34 @@
   box-shadow: inset 0 0 0 1px #1c2438 !important;
 }
 
+/* macOS Electron: frameless title bar with draggable region */
+.mac-electron {
+  position: relative;
+}
+
+.electron-drag-region {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 38px;
+  -webkit-app-region: drag;
+  z-index: 100;
+  pointer-events: auto;
+}
+
+/* Ensure interactive elements in the title bar area are clickable (not draggable) */
+.mac-electron button,
+.mac-electron input,
+.mac-electron select,
+.mac-electron textarea,
+.mac-electron a,
+.mac-electron [role="button"],
+.mac-electron [role="menuitem"],
+.mac-electron [data-radix-collection-item] {
+  -webkit-app-region: no-drag;
+}
+
 /* Thin scrollbar for sidebar elements */
 .thin-scrollbar::-webkit-scrollbar { width: 4px; }
 .thin-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -1664,67 +1692,3 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
     color: #16a34a !important;
   }
 
-  /* ===== Toggle Block Layout Fix & Theme Styling ===== */
-
-  /* Fix layout: icon is a span but plugin CSS only targets div children */
-  .toggle-block__selector {
-    display: flex;
-    align-items: flex-start;
-    gap: 4px;
-  }
-
-  .toggle-block__icon {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-    cursor: pointer;
-    padding-top: 2px;
-  }
-
-  .toggle-block__input {
-    flex: 1;
-    min-width: 0;
-    outline: none;
-  }
-
-  /* Dark theme */
-  .dark .toggle-block__input {
-    color: #ececec;
-  }
-  .dark .toggle-block__icon {
-    color: #8e8e8e;
-  }
-  .dark .toggle-block__icon:hover {
-    color: #ececec;
-  }
-  .dark .toggle-block__content-default {
-    color: #6b6b6b;
-  }
-
-  /* Dark Blue theme */
-  .darkblue .toggle-block__input {
-    color: #e0e6f0;
-  }
-  .darkblue .toggle-block__icon {
-    color: #5d6b88;
-  }
-  .darkblue .toggle-block__icon:hover {
-    color: #e0e6f0;
-  }
-  .darkblue .toggle-block__content-default {
-    color: #5d6b88;
-  }
-
-  /* Fallout theme */
-  .fallout .toggle-block__input {
-    color: #22c55e;
-  }
-  .fallout .toggle-block__icon {
-    color: #16a34a;
-  }
-  .fallout .toggle-block__icon:hover {
-    color: #22c55e;
-  }
-  .fallout .toggle-block__content-default {
-    color: #16a34a;
-  }

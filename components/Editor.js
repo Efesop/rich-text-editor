@@ -77,7 +77,6 @@ export default function Editor({ data, onChange, holder }) {
         NestedList,
         Underline,
         AlignmentTune,
-        ToggleBlock,
         Undo
       ] = await Promise.all([
         import('@editorjs/editorjs').then(m => m.default),
@@ -95,7 +94,6 @@ export default function Editor({ data, onChange, holder }) {
         import('@editorjs/nested-list').then(m => m.default),
         import('@editorjs/underline').then(m => m.default),
         import('editorjs-text-alignment-blocktune').then(m => m.default),
-        import('editorjs-toggle-block').then(m => m.default),
         import('editorjs-undo').then(m => m.default),
       ])
 
@@ -252,10 +250,6 @@ export default function Editor({ data, onChange, holder }) {
           config: {
             default: 'left'
           }
-        },
-        toggle: {
-          class: ToggleBlock,
-          inlineToolbar: true
         },
         paragraph: {
           class: Paragraph,

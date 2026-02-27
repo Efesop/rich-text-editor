@@ -106,11 +106,15 @@ autoUpdater.logger.transports.file.level = 'info';
 let mainWindow;
 
 function createWindow() {
+  const isMac = process.platform === 'darwin'
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 800,
     minHeight: 600,
+    titleBarStyle: isMac ? 'hiddenInset' : 'default',
+    trafficLightPosition: isMac ? { x: 12, y: 12 } : undefined,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
