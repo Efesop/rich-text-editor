@@ -70,12 +70,15 @@ export default function Editor({ data, onChange, holder }) {
         InlineCode,
         Marker,
         Table,
-        LinkTool,
         ImageTool,
         Embed,
         Delimiter,
         OriginalParagraph,
-        NestedList
+        NestedList,
+        Underline,
+        AlignmentTune,
+        ToggleBlock,
+        Undo
       ] = await Promise.all([
         import('@editorjs/editorjs').then(m => m.default),
         import('@editorjs/header').then(m => m.default),
@@ -85,13 +88,15 @@ export default function Editor({ data, onChange, holder }) {
         import('@editorjs/inline-code').then(m => m.default),
         import('@editorjs/marker').then(m => m.default),
         import('@editorjs/table').then(m => m.default),
-        import('@editorjs/link').then(m => m.default),
         import('@editorjs/image').then(m => m.default),
         import('@editorjs/embed').then(m => m.default),
         import('@editorjs/delimiter').then(m => m.default),
         import('@editorjs/paragraph').then(m => m.default),
         import('@editorjs/nested-list').then(m => m.default),
-
+        import('@editorjs/underline').then(m => m.default),
+        import('editorjs-text-alignment-blocktune').then(m => m.default),
+        import('editorjs-toggle-block').then(m => m.default),
+        import('editorjs-undo').then(m => m.default),
       ])
 
       // Enhanced Paragraph tool that preserves empty paragraphs and improves formatting
@@ -133,7 +138,7 @@ export default function Editor({ data, onChange, holder }) {
         header: {
           class: Header,
           inlineToolbar: ['marker', 'inlineCode'],
-
+          tunes: ['alignment'],
           config: {
             placeholder: 'Enter a header',
             levels: [2, 3, 4],
@@ -187,13 +192,6 @@ export default function Editor({ data, onChange, holder }) {
             withHeadings: true
           }
         },
-        linkTool: {
-          class: LinkTool,
-
-          config: {
-            endpoint: '/api/fetchUrl' // You might want to implement this for better link previews
-          }
-        },
         image: {
           class: ImageTool,
 
@@ -202,6 +200,11 @@ export default function Editor({ data, onChange, holder }) {
               uploadByFile(file) {
                 return new Promise((resolve, reject) => {
                   try {
+                    const MAX_SIZE = 5 * 1024 * 1024 // 5MB
+                    if (file.size > MAX_SIZE) {
+                      reject(new Error('Image too large. Maximum size is 5MB.'))
+                      return
+                    }
                     const reader = new FileReader()
                     reader.onload = function (e) {
                       resolve({
@@ -239,16 +242,29 @@ export default function Editor({ data, onChange, holder }) {
         },
         delimiter: {
           class: Delimiter,
-
+        },
+        underline: {
+          class: Underline,
+          shortcut: 'CMD+U'
+        },
+        alignment: {
+          class: AlignmentTune,
+          config: {
+            default: 'left'
+          }
+        },
+        toggle: {
+          class: ToggleBlock,
+          inlineToolbar: true
         },
         paragraph: {
           class: Paragraph,
           inlineToolbar: true,
-
+          tunes: ['alignment']
         }
       }
 
-      return { EditorJS, tools }
+      return { EditorJS, tools, Undo }
     } catch (error) {
       console.error('Error loading Editor.js tools:', error)
       throw error
@@ -269,13 +285,13 @@ export default function Editor({ data, onChange, holder }) {
 
         if (isCancelled) return
 
-        const { EditorJS, tools } = await initializeTools()
-        
+        const { EditorJS, tools, Undo } = await initializeTools()
+
         if (isCancelled) return
 
         // Validate data structure
-        const validData = data && typeof data === 'object' && Array.isArray(data.blocks) 
-          ? data 
+        const validData = data && typeof data === 'object' && Array.isArray(data.blocks)
+          ? data
           : { time: Date.now(), blocks: [], version: '2.30.6' }
 
         editorRef.current = new EditorJS({
@@ -287,11 +303,12 @@ export default function Editor({ data, onChange, holder }) {
         await editorRef.current.isReady
         isInitializedRef.current = true
 
+        // Enable undo/redo (Cmd+Z / Cmd+Shift+Z)
+        new Undo({ editor: editorRef.current })
+
         // Initialize multi-block tune enhancer
         if (!multiBlockEnhancerRef.current) {
-          console.log('🔧 Initializing MultiBlockTuneEnhancer...')
           multiBlockEnhancerRef.current = new MultiBlockTuneEnhancer(editorRef.current)
-          console.log('✅ MultiBlockTuneEnhancer initialized:', multiBlockEnhancerRef.current)
         }
 
       } catch (error) {
@@ -336,10 +353,15 @@ export default function Editor({ data, onChange, holder }) {
       const link = event.target.closest('a')
       if (link && link.href) {
         event.preventDefault()
+        const href = link.href
+        // Block dangerous URL schemes
+        if (href.startsWith('javascript:') || href.startsWith('data:')) {
+          return
+        }
         if (window.electron?.openExternal) {
-          window.electron.openExternal(link.href)
+          window.electron.openExternal(href)
         } else {
-          window.open(link.href, '_blank', 'noopener,noreferrer')
+          window.open(href, '_blank', 'noopener,noreferrer')
         }
       }
     }
