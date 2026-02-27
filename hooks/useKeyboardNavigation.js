@@ -7,6 +7,7 @@ export function useKeyboardNavigation({
   onToggleSidebar,
   onDeletePage,
   onDuplicatePage,
+  onToggleFocusMode,
   currentPage,
   pages,
   onSelectPage
@@ -57,6 +58,12 @@ export function useKeyboardNavigation({
         case 'b':
           event.preventDefault()
           onToggleSidebar?.()
+          break
+        case 'f':
+          if (shiftKey) {
+            event.preventDefault()
+            onToggleFocusMode?.()
+          }
           break
         case 'd':
           if (currentPage && !isInputFocused) {
@@ -134,6 +141,7 @@ export function useKeyboardNavigation({
     onToggleSidebar,
     onDeletePage,
     onDuplicatePage,
+    onToggleFocusMode,
     currentPage,
     pages,
     onSelectPage
@@ -152,6 +160,7 @@ export function useKeyboardNavigation({
       save: 'Ctrl+S',
       search: 'Ctrl+Shift+K or /',
       toggleSidebar: 'Ctrl+B',
+      focusMode: 'Ctrl+Shift+F',
       duplicate: 'Ctrl+D',
       delete: 'Ctrl+Backspace',
       navigateUp: 'Alt+↑',

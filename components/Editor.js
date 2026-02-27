@@ -66,7 +66,7 @@ export default function Editor({ data, onChange, holder }) {
         Header,
         Checklist,
         Quote,
-        CodeTool,
+        CodeBlock,
         InlineCode,
         Marker,
         Table,
@@ -83,7 +83,7 @@ export default function Editor({ data, onChange, holder }) {
         import('@editorjs/header').then(m => m.default),
         import('@editorjs/checklist').then(m => m.default),
         import('@editorjs/quote').then(m => m.default),
-        import('@editorjs/code').then(m => m.default),
+        import('./editor-tools/CodeBlock').then(m => m.default),
         import('@editorjs/inline-code').then(m => m.default),
         import('@editorjs/marker').then(m => m.default),
         import('@editorjs/table').then(m => m.default),
@@ -166,8 +166,7 @@ export default function Editor({ data, onChange, holder }) {
           }
         },
         code: {
-          class: CodeTool,
-
+          class: CodeBlock,
           config: {
             placeholder: 'Enter code'
           }

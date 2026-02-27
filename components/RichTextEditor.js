@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Minimize2 } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
@@ -331,36 +331,11 @@ export default function RichTextEditor() {
     }
   }, [currentPage])
 
-  // Comment out or remove these mode-related states and functions
-  /*
-  const [currentMode, setCurrentMode] = useState('default')
-  const [audioPlayer, setAudioPlayer] = useState(null)
-
-  const handleModeChange = (mode) => {
-    setCurrentMode(mode)
-    if (mode === 'cafe') {
-      playLofiMusic()
-    } else {
-      stopLofiMusic()
-    }
-  }
-
-  const playLofiMusic = () => {
-    if (!audioPlayer) {
-      const audio = new Audio('https://example.com/lofi-stream.mp3') // Replace with actual stream URL
-      audio.loop = true
-      setAudioPlayer(audio)
-    }
-    audioPlayer?.play()
-  }
-
-  const stopLofiMusic = () => {
-    audioPlayer?.pause()
-    if (audioPlayer) {
-      audioPlayer.currentTime = 0
-    }
-  }
-  */
+  // Focus Mode — hides sidebar, header, footer for distraction-free writing
+  const [focusMode, setFocusMode] = useState(false)
+  const toggleFocusMode = useCallback(() => {
+    setFocusMode(prev => !prev)
+  }, [])
 
   useEffect(() => {
     setIsClient(true)
@@ -965,6 +940,10 @@ export default function RichTextEditor() {
       setSidebarOpen(!sidebarOpen)
       announce(sidebarOpen ? 'Sidebar collapsed' : 'Sidebar expanded')
     },
+    onToggleFocusMode: () => {
+      toggleFocusMode()
+      announce(focusMode ? 'Focus mode off' : 'Focus mode on')
+    },
     onDeletePage: handleDeletePage,
     onDuplicatePage: handleDuplicatePage,
     currentPage,
@@ -1088,6 +1067,22 @@ export default function RichTextEditor() {
       {/* macOS Electron: draggable title bar region */}
       {isMacElectron && <div className="electron-drag-region" />}
 
+      {/* Focus Mode: floating exit button */}
+      {focusMode && (
+        <button
+          onClick={toggleFocusMode}
+          className={`fixed top-4 right-4 z-50 p-2 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-200 ${
+            theme === 'fallout' ? 'text-green-500 hover:bg-green-900/30' :
+            theme === 'dark' ? 'text-[#999] hover:bg-[#2a2a2a]' :
+            theme === 'darkblue' ? 'text-[#8b99b5] hover:bg-[#1c2438]' :
+            'text-neutral-400 hover:bg-neutral-100'
+          }`}
+          title="Exit Focus Mode (⌘+Shift+F)"
+        >
+          <Minimize2 size={18} />
+        </button>
+      )}
+
       {/* Mobile overlay */}
       {isSmallScreen && sidebarOpen && (
         <div
@@ -1100,7 +1095,9 @@ export default function RichTextEditor() {
       {/* Sidebar */}
       <SidebarErrorBoundary>
         <nav
-          className={`${getSidebarClasses()} ${isSmallScreen
+          className={`${getSidebarClasses()} ${focusMode
+            ? 'w-0 overflow-hidden opacity-0 pointer-events-none absolute transition-all duration-300'
+            : isSmallScreen
             ? `fixed z-50 inset-y-0 left-0 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-200 w-3/4 max-w-xs safe-area-top safe-area-bottom`
             : `${sidebarOpen ? 'w-64' : 'w-16'} relative transition-all duration-300`
             } flex flex-col overflow-visible`}
@@ -1293,7 +1290,7 @@ export default function RichTextEditor() {
         ) : (
         <>
         {/* Header */}
-        <div className={`flex flex-col px-6 ${isMacElectron ? 'pt-8 pb-3' : 'py-3'} ${theme === 'fallout' ? 'border-b border-green-600/20' : theme === 'dark' ? 'border-b border-[#2e2e2e]' : theme === 'darkblue' ? 'border-b border-[#1c2438]' : 'border-b border-neutral-100'} ${getHeaderClasses()} safe-area-top`}>
+        <div className={`flex flex-col px-6 ${isMacElectron ? 'pt-8 pb-3' : 'py-3'} ${theme === 'fallout' ? 'border-b border-green-600/20' : theme === 'dark' ? 'border-b border-[#2e2e2e]' : theme === 'darkblue' ? 'border-b border-[#1c2438]' : 'border-b border-neutral-100'} ${getHeaderClasses()} safe-area-top ${focusMode ? 'hidden' : ''}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center min-w-0">
               {isSmallScreen && (
@@ -1442,7 +1439,7 @@ export default function RichTextEditor() {
     </div>
 
         {/* Editor */ }
-  <div className={`flex-1 overflow-auto p-6 ${getMainContentClasses()}`}>
+  <div className={`flex-1 overflow-auto p-6 ${getMainContentClasses()} ${focusMode ? 'max-w-2xl mx-auto w-full' : ''}`}>
     {currentPage && (
       <EditorErrorBoundary>
         <DynamicEditor
@@ -1456,7 +1453,7 @@ export default function RichTextEditor() {
   </div>
 
   {/* Footer */}
-  <div className={`footer-fixed flex justify-between items-center px-6 py-2 text-xs ${getFooterClasses()} safe-area-bottom`}>
+  <div className={`footer-fixed flex justify-between items-center px-6 py-2 text-xs ${getFooterClasses()} safe-area-bottom ${focusMode ? 'hidden' : ''}`}>
     <div className="flex items-center space-x-3">
       {currentPage.createdAt && (
         <span>{format(new Date(currentPage.createdAt), 'MMM d, yyyy')}</span>

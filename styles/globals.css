@@ -1692,3 +1692,280 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
     color: #16a34a !important;
   }
 
+/* ========================================
+   Code Block — Syntax Highlighting Styles
+   ======================================== */
+
+/* Base code block styles */
+.code-block {
+  position: relative;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  margin: 0.5rem 0;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.code-block__header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 12px;
+  border-bottom: 1px solid transparent;
+}
+
+.code-block__select {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  outline: none;
+  -webkit-app-region: no-drag;
+}
+
+.code-block__body {
+  position: relative;
+  min-height: 60px;
+}
+
+.code-block__highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 12px 16px;
+  overflow: hidden;
+  pointer-events: none;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.code-block__highlight code {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.code-block__textarea {
+  display: block;
+  position: relative;
+  width: 100%;
+  min-height: 60px;
+  margin: 0;
+  padding: 12px 16px;
+  border: none;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: transparent;
+  caret-color: currentColor;
+  background: transparent;
+  -webkit-app-region: no-drag;
+  -webkit-text-fill-color: transparent;
+}
+
+.code-block__textarea::placeholder {
+  -webkit-text-fill-color: initial;
+}
+
+/* ---- Light theme ---- */
+.light .code-block {
+  background: #f6f8fa;
+  border: 1px solid #e1e4e8;
+}
+.light .code-block__header {
+  border-bottom-color: #e1e4e8;
+}
+.light .code-block__select {
+  background: #fff;
+  border-color: #d0d7de;
+  color: #57606a;
+}
+.light .code-block__textarea {
+  caret-color: #24292f;
+}
+.light .code-block__textarea::placeholder {
+  color: #8b949e;
+}
+
+/* Light theme syntax colors (GitHub-light inspired) */
+.light .code-block .hljs { color: #24292f; }
+.light .code-block .hljs-keyword,
+.light .code-block .hljs-selector-tag,
+.light .code-block .hljs-built_in { color: #cf222e; }
+.light .code-block .hljs-string,
+.light .code-block .hljs-attr { color: #0a3069; }
+.light .code-block .hljs-number,
+.light .code-block .hljs-literal { color: #0550ae; }
+.light .code-block .hljs-comment,
+.light .code-block .hljs-quote { color: #6e7781; font-style: italic; }
+.light .code-block .hljs-function,
+.light .code-block .hljs-title { color: #8250df; }
+.light .code-block .hljs-type,
+.light .code-block .hljs-class .hljs-title { color: #953800; }
+.light .code-block .hljs-variable,
+.light .code-block .hljs-template-variable { color: #953800; }
+.light .code-block .hljs-tag { color: #116329; }
+.light .code-block .hljs-name { color: #116329; }
+.light .code-block .hljs-attribute { color: #0550ae; }
+.light .code-block .hljs-regexp { color: #0a3069; }
+.light .code-block .hljs-symbol,
+.light .code-block .hljs-bullet { color: #0550ae; }
+.light .code-block .hljs-meta { color: #6e7781; }
+.light .code-block .hljs-deletion { color: #82071e; background: #ffebe9; }
+.light .code-block .hljs-addition { color: #116329; background: #dafbe1; }
+
+/* ---- Dark theme ---- */
+.dark .code-block {
+  background: #161616;
+  border: 1px solid #2e2e2e;
+}
+.dark .code-block__header {
+  border-bottom-color: #2e2e2e;
+}
+.dark .code-block__select {
+  background: #1e1e1e;
+  border-color: #3a3a3a;
+  color: #999;
+}
+.dark .code-block__textarea {
+  caret-color: #ececec;
+}
+.dark .code-block__textarea::placeholder {
+  color: #555;
+}
+
+/* Dark theme syntax colors (GitHub-dark inspired) */
+.dark .code-block .hljs { color: #e6edf3; }
+.dark .code-block .hljs-keyword,
+.dark .code-block .hljs-selector-tag,
+.dark .code-block .hljs-built_in { color: #ff7b72; }
+.dark .code-block .hljs-string,
+.dark .code-block .hljs-attr { color: #a5d6ff; }
+.dark .code-block .hljs-number,
+.dark .code-block .hljs-literal { color: #79c0ff; }
+.dark .code-block .hljs-comment,
+.dark .code-block .hljs-quote { color: #8b949e; font-style: italic; }
+.dark .code-block .hljs-function,
+.dark .code-block .hljs-title { color: #d2a8ff; }
+.dark .code-block .hljs-type,
+.dark .code-block .hljs-class .hljs-title { color: #ffa657; }
+.dark .code-block .hljs-variable,
+.dark .code-block .hljs-template-variable { color: #ffa657; }
+.dark .code-block .hljs-tag { color: #7ee787; }
+.dark .code-block .hljs-name { color: #7ee787; }
+.dark .code-block .hljs-attribute { color: #79c0ff; }
+.dark .code-block .hljs-regexp { color: #a5d6ff; }
+.dark .code-block .hljs-symbol,
+.dark .code-block .hljs-bullet { color: #79c0ff; }
+.dark .code-block .hljs-meta { color: #8b949e; }
+.dark .code-block .hljs-deletion { color: #ffa198; background: #490202; }
+.dark .code-block .hljs-addition { color: #7ee787; background: #04260f; }
+
+/* ---- Dark Blue theme ---- */
+.darkblue .code-block {
+  background: #111827;
+  border: 1px solid #1c2438;
+}
+.darkblue .code-block__header {
+  border-bottom-color: #1c2438;
+}
+.darkblue .code-block__select {
+  background: #0f1524;
+  border-color: #283350;
+  color: #8b99b5;
+}
+.darkblue .code-block__textarea {
+  caret-color: #e0e6f0;
+}
+.darkblue .code-block__textarea::placeholder {
+  color: #445068;
+}
+
+/* Dark Blue theme syntax colors */
+.darkblue .code-block .hljs { color: #d4ddf0; }
+.darkblue .code-block .hljs-keyword,
+.darkblue .code-block .hljs-selector-tag,
+.darkblue .code-block .hljs-built_in { color: #f472b6; }
+.darkblue .code-block .hljs-string,
+.darkblue .code-block .hljs-attr { color: #93c5fd; }
+.darkblue .code-block .hljs-number,
+.darkblue .code-block .hljs-literal { color: #67e8f9; }
+.darkblue .code-block .hljs-comment,
+.darkblue .code-block .hljs-quote { color: #5d6b88; font-style: italic; }
+.darkblue .code-block .hljs-function,
+.darkblue .code-block .hljs-title { color: #c4b5fd; }
+.darkblue .code-block .hljs-type,
+.darkblue .code-block .hljs-class .hljs-title { color: #fdba74; }
+.darkblue .code-block .hljs-variable,
+.darkblue .code-block .hljs-template-variable { color: #fdba74; }
+.darkblue .code-block .hljs-tag { color: #86efac; }
+.darkblue .code-block .hljs-name { color: #86efac; }
+.darkblue .code-block .hljs-attribute { color: #67e8f9; }
+.darkblue .code-block .hljs-regexp { color: #93c5fd; }
+.darkblue .code-block .hljs-symbol,
+.darkblue .code-block .hljs-bullet { color: #67e8f9; }
+.darkblue .code-block .hljs-meta { color: #5d6b88; }
+.darkblue .code-block .hljs-deletion { color: #fca5a5; background: #3b0a0a; }
+.darkblue .code-block .hljs-addition { color: #86efac; background: #052e16; }
+
+/* ---- Fallout theme ---- */
+.fallout .code-block {
+  background: #0a0a0a;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+.fallout .code-block__header {
+  border-bottom-color: rgba(34, 197, 94, 0.2);
+}
+.fallout .code-block__select {
+  background: #0d0d0d;
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #22c55e;
+}
+.fallout .code-block__select option {
+  background: #0d0d0d;
+  color: #22c55e;
+}
+.fallout .code-block__textarea {
+  caret-color: #22c55e;
+}
+.fallout .code-block__textarea::placeholder {
+  color: #16a34a;
+}
+
+/* Fallout theme syntax colors (terminal green) */
+.fallout .code-block .hljs { color: #22c55e; }
+.fallout .code-block .hljs-keyword,
+.fallout .code-block .hljs-selector-tag,
+.fallout .code-block .hljs-built_in { color: #4ade80; font-weight: bold; }
+.fallout .code-block .hljs-string,
+.fallout .code-block .hljs-attr { color: #86efac; }
+.fallout .code-block .hljs-number,
+.fallout .code-block .hljs-literal { color: #a7f3d0; }
+.fallout .code-block .hljs-comment,
+.fallout .code-block .hljs-quote { color: #166534; font-style: italic; }
+.fallout .code-block .hljs-function,
+.fallout .code-block .hljs-title { color: #bbf7d0; }
+.fallout .code-block .hljs-type,
+.fallout .code-block .hljs-class .hljs-title { color: #6ee7b7; }
+.fallout .code-block .hljs-variable,
+.fallout .code-block .hljs-template-variable { color: #6ee7b7; }
+.fallout .code-block .hljs-tag { color: #34d399; }
+.fallout .code-block .hljs-name { color: #34d399; }
+.fallout .code-block .hljs-attribute { color: #a7f3d0; }
+.fallout .code-block .hljs-regexp { color: #86efac; }
+.fallout .code-block .hljs-symbol,
+.fallout .code-block .hljs-bullet { color: #a7f3d0; }
+.fallout .code-block .hljs-meta { color: #166534; }
+.fallout .code-block .hljs-deletion { color: #fca5a5; background: rgba(153, 27, 27, 0.3); }
+.fallout .code-block .hljs-addition { color: #4ade80; background: rgba(22, 101, 52, 0.3); }
+
