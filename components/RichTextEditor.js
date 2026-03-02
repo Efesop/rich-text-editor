@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Minimize2, Lock } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Minimize2, Lock, LockKeyhole, Unlock, Timer, TimerOff } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
@@ -1224,7 +1224,7 @@ export default function RichTextEditor() {
             )}
             <div className="flex items-center space-x-1">
               {sidebarOpen && (
-                <div className="relative" ref={lockDropdownRef}>
+                <div ref={lockDropdownRef}>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1234,9 +1234,13 @@ export default function RichTextEditor() {
                   >
                     <Lock className="h-4 w-4" />
                   </Button>
-                  {isLockDropdownOpen && (
-                    <div className={`
-                      absolute right-0 top-full mt-1 w-48 rounded-xl shadow-lg border z-50 py-1 overflow-hidden
+                  {isLockDropdownOpen && lockDropdownRef.current && (() => {
+                    const rect = lockDropdownRef.current.getBoundingClientRect()
+                    return (
+                    <div
+                      style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left }}
+                      className={`
+                      w-48 rounded-xl shadow-lg border z-50 py-1 overflow-hidden
                       ${theme === 'fallout'
                         ? 'bg-gray-900 border-green-500/40'
                         : theme === 'darkblue'
@@ -1306,7 +1310,8 @@ export default function RichTextEditor() {
                         {appLock.isEnabled ? 'Lock Settings' : 'Set Up Lock'}
                       </button>
                     </div>
-                  )}
+                    )
+                  })()}
                 </div>
               )}
               {sidebarOpen && (
@@ -1512,6 +1517,30 @@ export default function RichTextEditor() {
                   <FolderIcon className="w-3 h-3 inline-block mr-1" />
                   {truncateFolderName((pages || []).find(item => item.id === currentPage.folderId)?.title || '')}
                 </span>
+              )}
+              {currentPage && (
+                <div className="flex items-center ml-2 space-x-0.5 flex-shrink-0">
+                  <button
+                    onClick={() => handleToggleLock(currentPage)}
+                    className={`p-1.5 rounded-lg transition-colors ${getButtonHoverClasses()}`}
+                    title={currentPage.password?.hash && !tempUnlockedPages.has(currentPage.id) ? 'Unlock page' : 'Lock page'}
+                  >
+                    {currentPage.password?.hash && !tempUnlockedPages.has(currentPage.id)
+                      ? <LockKeyhole className="h-3.5 w-3.5" />
+                      : <Unlock className="h-3.5 w-3.5" />
+                    }
+                  </button>
+                  <button
+                    onClick={() => currentPage.selfDestructAt ? handleCancelSelfDestruct(currentPage) : handleSelfDestruct(currentPage)}
+                    className={`p-1.5 rounded-lg transition-colors ${getButtonHoverClasses()}`}
+                    title={currentPage.selfDestructAt ? 'Cancel self-destruct' : 'Self-destruct'}
+                  >
+                    {currentPage.selfDestructAt
+                      ? <TimerOff className="h-3.5 w-3.5" />
+                      : <Timer className="h-3.5 w-3.5" />
+                    }
+                  </button>
+                </div>
               )}
             </div>
             <div className="flex items-center space-x-1">
