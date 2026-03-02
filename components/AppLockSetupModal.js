@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { ShieldCheck, X, Fingerprint, AlertCircle } from 'lucide-react'
+import { ShieldCheck, X, Fingerprint, AlertCircle, AlertTriangle } from 'lucide-react'
 import PasswordStrengthMeter from './PasswordStrengthMeter'
 
 const TIMEOUT_OPTIONS = [
@@ -75,7 +75,7 @@ export default function AppLockSetupModal({ isOpen, onClose, onConfirm, biometri
 
       <div
         className={`
-          relative w-full max-w-sm transform transition-all duration-200
+          relative w-full max-w-md transform transition-all duration-200
           ${isFallout
             ? 'bg-gray-900 border-2 border-green-500/60 shadow-[0_0_40px_rgba(34,197,94,0.15)]'
             : isDarkBlue
@@ -206,6 +206,22 @@ export default function AppLockSetupModal({ isOpen, onClose, onConfirm, biometri
                 }
               `}
             />
+          </div>
+
+          {/* Password warning */}
+          <div className={`
+            flex items-start gap-2.5 px-3 py-2.5 rounded-xl text-xs leading-relaxed
+            ${isFallout
+              ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 font-mono'
+              : isDarkBlue
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                : isDark
+                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+            }
+          `}>
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span>There is no way to recover this password. If you forget it, you will lose access to the app and any locked content. Write it down somewhere safe.</span>
           </div>
 
           {/* Timeout selection */}

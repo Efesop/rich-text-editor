@@ -122,7 +122,7 @@ export default function AppLockSettingsModal({
 
       <div
         className={`
-          relative w-full max-w-sm transform transition-all duration-200
+          relative w-full max-w-md transform transition-all duration-200
           ${isFallout
             ? 'bg-gray-900 border-2 border-green-500/60 shadow-[0_0_40px_rgba(34,197,94,0.15)]'
             : isDarkBlue

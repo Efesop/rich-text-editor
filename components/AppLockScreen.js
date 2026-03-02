@@ -71,7 +71,7 @@ export default function AppLockScreen({ onUnlock, onBiometricUnlock, biometricAv
         {/* Logo */}
         <div className="mb-8 flex flex-col items-center">
           <div className={`
-            p-4 rounded-2xl mb-4
+            p-4 rounded-2xl mb-4 flex flex-col items-center gap-2
             ${isFallout
               ? 'bg-green-500/10 border border-green-500/30'
               : isDarkBlue
@@ -81,8 +81,9 @@ export default function AppLockScreen({ onUnlock, onBiometricUnlock, biometricAv
                   : 'bg-white border border-gray-200 shadow-lg'
             }
           `}>
+            <img src="./icons/dash-logo.png" alt="Dash" className="h-10 w-10 rounded-xl" />
             <Lock className={`
-              w-8 h-8
+              w-5 h-5
               ${isFallout ? 'text-green-400' : isDarkBlue ? 'text-blue-400' : isDark ? 'text-[#c0c0c0]' : 'text-gray-700'}
             `} />
           </div>

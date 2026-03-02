@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Minimize2, Lock, Settings } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Minimize2, Lock } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
@@ -380,6 +380,8 @@ export default function RichTextEditor() {
   const [isAppLockSetupOpen, setIsAppLockSetupOpen] = useState(false)
   const [isAppLockSettingsOpen, setIsAppLockSettingsOpen] = useState(false)
   const [biometricAvailable, setBiometricAvailable] = useState(false)
+  const [isLockDropdownOpen, setIsLockDropdownOpen] = useState(false)
+  const lockDropdownRef = useRef(null)
 
   // Load app lock data on mount
   useEffect(() => {
@@ -391,6 +393,19 @@ export default function RichTextEditor() {
       }).catch(() => {})
     }
   }, [])
+
+  // Close lock dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (lockDropdownRef.current && !lockDropdownRef.current.contains(e.target)) {
+        setIsLockDropdownOpen(false)
+      }
+    }
+    if (isLockDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isLockDropdownOpen])
 
   // Idle timer for auto-lock
   useIdleTimer({
@@ -1208,38 +1223,91 @@ export default function RichTextEditor() {
               <img src="./icons/dash-logo.png" alt="Dash" className="h-7 w-7 rounded-md" />
             )}
             <div className="flex items-center space-x-1">
-              {sidebarOpen && appLock.isEnabled && (
-                <>
+              {sidebarOpen && (
+                <div className="relative" ref={lockDropdownRef}>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setIsAppLockSettingsOpen(true)}
+                    onClick={() => setIsLockDropdownOpen(!isLockDropdownOpen)}
                     className={`h-8 w-8 p-0 ${getButtonHoverClasses()}`}
-                    title="Lock settings"
-                  >
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleInstantLock}
-                    className={`h-8 w-8 p-0 ${getButtonHoverClasses()}`}
-                    title={`Lock now (${typeof navigator !== 'undefined' && /Mac/.test(navigator.userAgent) ? 'Cmd' : 'Ctrl'}+Shift+L)`}
+                    title="App lock"
                   >
                     <Lock className="h-4 w-4" />
                   </Button>
-                </>
-              )}
-              {sidebarOpen && !appLock.isEnabled && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsAppLockSetupOpen(true)}
-                  className={`h-8 w-8 p-0 ${getButtonHoverClasses()}`}
-                  title="Set up auto-lock"
-                >
-                  <Lock className="h-4 w-4" />
-                </Button>
+                  {isLockDropdownOpen && (
+                    <div className={`
+                      absolute right-0 top-full mt-1 w-48 rounded-xl shadow-lg border z-50 py-1 overflow-hidden
+                      ${theme === 'fallout'
+                        ? 'bg-gray-900 border-green-500/40'
+                        : theme === 'darkblue'
+                          ? 'bg-[#141825] border-[#1c2438]'
+                          : theme === 'dark'
+                            ? 'bg-[#1a1a1a] border-[#3a3a3a]'
+                            : 'bg-white border-gray-200'
+                      }
+                    `}>
+                      <button
+                        onClick={() => {
+                          if (appLock.isEnabled) {
+                            handleInstantLock()
+                            setIsLockDropdownOpen(false)
+                          }
+                        }}
+                        disabled={!appLock.isEnabled}
+                        className={`
+                          w-full flex items-center justify-between px-3 py-2 text-sm transition-colors
+                          ${!appLock.isEnabled
+                            ? theme === 'fallout'
+                              ? 'text-green-700 cursor-not-allowed'
+                              : theme === 'darkblue'
+                                ? 'text-[#3d4a63] cursor-not-allowed'
+                                : theme === 'dark'
+                                  ? 'text-[#4a4a4a] cursor-not-allowed'
+                                  : 'text-gray-300 cursor-not-allowed'
+                            : theme === 'fallout'
+                              ? 'text-green-400 hover:bg-green-500/20'
+                              : theme === 'darkblue'
+                                ? 'text-[#e0e6f0] hover:bg-[#1a2035]'
+                                : theme === 'dark'
+                                  ? 'text-[#ececec] hover:bg-[#2f2f2f]'
+                                  : 'text-gray-700 hover:bg-gray-100'
+                          }
+                        `}
+                      >
+                        <span>Lock Now</span>
+                        <span className={`
+                          text-xs
+                          ${theme === 'fallout' ? 'text-green-600' : theme === 'darkblue' ? 'text-[#5d6b88]' : theme === 'dark' ? 'text-[#6b6b6b]' : 'text-gray-400'}
+                        `}>
+                          {typeof navigator !== 'undefined' && /Mac/.test(navigator.userAgent) ? '⌘' : 'Ctrl'}⇧L
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsLockDropdownOpen(false)
+                          if (appLock.isEnabled) {
+                            setIsAppLockSettingsOpen(true)
+                          } else {
+                            setIsAppLockSetupOpen(true)
+                          }
+                        }}
+                        className={`
+                          w-full flex items-center px-3 py-2 text-sm transition-colors
+                          ${theme === 'fallout'
+                            ? 'text-green-400 hover:bg-green-500/20'
+                            : theme === 'darkblue'
+                              ? 'text-[#e0e6f0] hover:bg-[#1a2035]'
+                              : theme === 'dark'
+                                ? 'text-[#ececec] hover:bg-[#2f2f2f]'
+                                : 'text-gray-700 hover:bg-gray-100'
+                          }
+                        `}
+                      >
+                        {appLock.isEnabled ? 'Lock Settings' : 'Set Up Lock'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
               {sidebarOpen && (
                 <Button

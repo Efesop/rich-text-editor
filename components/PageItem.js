@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "./ui/button"
-import { Lock, Unlock, Trash2, MoreVertical, FolderMinus, FolderPlus, Copy, Edit3, Timer, TimerOff } from 'lucide-react'
+import { Lock, LockKeyhole, Unlock, Trash2, MoreVertical, FolderMinus, FolderPlus, Copy, Edit3, Timer, TimerOff } from 'lucide-react'
 import StackedTags from './StackedTags'
 import SelfDestructBadge from './SelfDestructBadge'
 import { isMobileDevice, isSmallScreen } from '@/utils/deviceUtils'
@@ -209,7 +209,7 @@ const PageItem = ({
           <SelfDestructBadge selfDestructAt={page.selfDestructAt} theme={theme} />
         )}
         {page.password && page.password.hash && !tempUnlockedPages.has(page.id) && (
-          <Lock className={`h-3.5 w-3.5 ${getIconClasses()}`} />
+          <LockKeyhole className={`h-3.5 w-3.5 ${getIconClasses()}`} />
         )}
         {sidebarOpen && (
           <Button

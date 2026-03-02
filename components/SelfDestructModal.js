@@ -10,6 +10,9 @@ const DURATIONS = [
 
 export default function SelfDestructModal({ isOpen, onClose, onConfirm, pageTitle, theme }) {
   const [selectedDuration, setSelectedDuration] = useState(DURATIONS[0].value)
+  const [isCustom, setIsCustom] = useState(false)
+  const [customValue, setCustomValue] = useState(2)
+  const [customUnit, setCustomUnit] = useState('hours')
 
   if (!isOpen) return null
 
@@ -17,13 +20,18 @@ export default function SelfDestructModal({ isOpen, onClose, onConfirm, pageTitl
   const isDark = theme === 'dark'
   const isDarkBlue = theme === 'darkblue'
 
-  const deleteDate = new Date(Date.now() + selectedDuration)
+  const customMs = customValue * (customUnit === 'days' ? 24 * 60 * 60 * 1000 : 60 * 60 * 1000)
+  const effectiveDuration = isCustom ? customMs : selectedDuration
+  const deleteDate = new Date(Date.now() + effectiveDuration)
   const formatDate = (d) => {
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
   }
 
+  const isValidCustom = isCustom ? customValue >= 1 && customValue <= (customUnit === 'days' ? 365 : 8760) : true
+
   const handleConfirm = () => {
-    onConfirm(selectedDuration)
+    if (!isValidCustom) return
+    onConfirm(effectiveDuration)
     onClose()
   }
 
@@ -116,11 +124,11 @@ export default function SelfDestructModal({ isOpen, onClose, onConfirm, pageTitl
             This page will be permanently deleted after:
           </p>
           {DURATIONS.map((d) => {
-            const isSelected = selectedDuration === d.value
+            const isSelected = !isCustom && selectedDuration === d.value
             return (
               <button
                 key={d.value}
-                onClick={() => setSelectedDuration(d.value)}
+                onClick={() => { setSelectedDuration(d.value); setIsCustom(false) }}
                 className={`
                   w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all
                   ${isSelected
@@ -145,6 +153,85 @@ export default function SelfDestructModal({ isOpen, onClose, onConfirm, pageTitl
               </button>
             )
           })}
+
+          {/* Custom duration */}
+          <button
+            onClick={() => setIsCustom(true)}
+            className={`
+              w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all
+              ${isCustom
+                ? isFallout
+                  ? 'bg-green-500/20 border-2 border-green-500/60 text-green-300'
+                  : isDarkBlue
+                    ? 'bg-blue-500/20 border-2 border-blue-500/60 text-[#e0e6f0]'
+                    : isDark
+                      ? 'bg-blue-500/20 border-2 border-blue-500/60 text-white'
+                      : 'bg-blue-50 border-2 border-blue-500 text-gray-900'
+                : isFallout
+                  ? 'bg-gray-800/50 border border-green-500/20 text-green-400 hover:border-green-500/40'
+                  : isDarkBlue
+                    ? 'bg-[#0c1017]/50 border border-[#1c2438] text-[#8b99b5] hover:border-[#232b42]'
+                    : isDark
+                      ? 'bg-[#2f2f2f]/50 border border-[#3a3a3a]/50 text-[#c0c0c0] hover:border-[#4a4a4a]'
+                      : 'bg-gray-50 border border-gray-200 text-gray-700 hover:border-gray-300'
+              }
+            `}
+          >
+            <span>Custom</span>
+          </button>
+
+          {isCustom && (
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                type="number"
+                min="1"
+                max={customUnit === 'days' ? 365 : 8760}
+                value={customValue}
+                onChange={(e) => setCustomValue(Math.max(1, parseInt(e.target.value) || 1))}
+                className={`
+                  w-20 px-3 py-2 rounded-lg text-sm text-center
+                  focus:outline-none focus:ring-2
+                  ${isFallout
+                    ? 'bg-gray-800 border border-green-500/40 text-green-400 font-mono focus:ring-green-500/50'
+                    : isDarkBlue
+                      ? 'bg-[#0c1017] border border-[#1c2438] text-[#e0e6f0] focus:ring-blue-500/50'
+                      : isDark
+                        ? 'bg-[#2f2f2f] border border-[#3a3a3a] text-white focus:ring-blue-500/50'
+                        : 'bg-white border border-gray-200 text-gray-900 focus:ring-blue-500/30'
+                  }
+                `}
+              />
+              <div className={`flex rounded-lg overflow-hidden border ${isFallout ? 'border-green-500/40' : isDarkBlue ? 'border-[#1c2438]' : isDark ? 'border-[#3a3a3a]' : 'border-gray-200'}`}>
+                {['hours', 'days'].map((unit) => (
+                  <button
+                    key={unit}
+                    onClick={() => setCustomUnit(unit)}
+                    className={`
+                      px-3 py-2 text-sm font-medium transition-all
+                      ${customUnit === unit
+                        ? isFallout
+                          ? 'bg-green-500/20 text-green-300'
+                          : isDarkBlue
+                            ? 'bg-blue-500/20 text-[#e0e6f0]'
+                            : isDark
+                              ? 'bg-blue-500/20 text-white'
+                              : 'bg-blue-50 text-blue-700'
+                        : isFallout
+                          ? 'bg-gray-800 text-green-500 hover:bg-gray-700'
+                          : isDarkBlue
+                            ? 'bg-[#0c1017] text-[#5d6b88] hover:bg-[#141825]'
+                            : isDark
+                              ? 'bg-[#2f2f2f] text-[#6b6b6b] hover:bg-[#3a3a3a]'
+                              : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                      }
+                    `}
+                  >
+                    {unit.charAt(0).toUpperCase() + unit.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Preview */}
           <div className={`
@@ -185,11 +272,13 @@ export default function SelfDestructModal({ isOpen, onClose, onConfirm, pageTitl
           </button>
           <button
             onClick={handleConfirm}
+            disabled={!isValidCustom}
             className={`
               flex-1 px-4 py-3 rounded-xl font-medium transition-all duration-200
+              disabled:opacity-40 disabled:cursor-not-allowed
               ${isFallout
-                ? 'bg-red-600 text-white hover:bg-red-500 font-mono'
-                : 'bg-red-600 text-white hover:bg-red-500'
+                ? 'bg-red-600 text-white hover:bg-red-500 disabled:hover:bg-red-600 font-mono'
+                : 'bg-red-600 text-white hover:bg-red-500 disabled:hover:bg-red-600'
               }
             `}
           >
