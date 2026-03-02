@@ -24,6 +24,8 @@ export function FolderItem({
   onToggleLock,
   onDuplicate,
   onMoveToFolder,
+  onSelfDestruct,
+  onCancelSelfDestruct,
   pagesCount,
   isDropTarget = false,
   isDndEnabled = false,
@@ -311,6 +313,8 @@ export function FolderItem({
                   isInsideFolder={true}
                   onDuplicate={onDuplicate}
                   onMoveToFolder={onMoveToFolder}
+                  onSelfDestruct={onSelfDestruct}
+                  onCancelSelfDestruct={onCancelSelfDestruct}
                 />
               )
             })}

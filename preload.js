@@ -19,7 +19,13 @@ contextBridge.exposeInMainWorld('electron', {
       'get-update-status',
       'get-app-version', 
       'create-github-issue',
-      'set-github-token'
+      'set-github-token',
+      'read-whats-new',
+      'save-whats-new',
+      'read-app-lock',
+      'save-app-lock',
+      'check-biometric-available',
+      'prompt-touch-id'
     ];
     
     if (validChannels.includes(channel)) {

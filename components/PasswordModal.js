@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react'
 import { useTheme } from 'next-themes'
-import { Lock, Unlock, X, ShieldCheck, AlertCircle } from 'lucide-react'
+import { Lock, Unlock, X, ShieldCheck, AlertCircle, Fingerprint } from 'lucide-react'
 import PasswordStrengthMeter from './PasswordStrengthMeter'
 
-const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordChange, password }) => {
+const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordChange, password, biometricAvailable, biometricEnabled, onBiometricUnlock }) => {
   const { theme } = useTheme()
   const inputRef = useRef(null)
 
@@ -298,6 +298,27 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
               </>
             )}
           </div>
+
+          {/* Biometric unlock for pages */}
+          {!isLocking && biometricAvailable && biometricEnabled && onBiometricUnlock && (
+            <button
+              onClick={onBiometricUnlock}
+              className={`
+                w-full mt-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2
+                ${isFallout
+                  ? 'bg-gray-800 border border-green-500/40 text-green-400 hover:bg-gray-700 font-mono'
+                  : isDarkBlue
+                    ? 'bg-[#0c1017] border border-[#1c2438] text-[#8b99b5] hover:bg-[#1a2035]'
+                    : isDark
+                      ? 'bg-[#2f2f2f] border border-[#3a3a3a] text-[#c0c0c0] hover:bg-[#3a3a3a]'
+                      : 'bg-gray-50 border border-gray-200 text-gray-700 hover:bg-gray-100'
+                }
+              `}
+            >
+              <Fingerprint className="w-5 h-5" />
+              Unlock with Touch ID
+            </button>
+          )}
         </div>
       </div>
     </div>

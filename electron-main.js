@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog } = require('electron');
+const { app, BrowserWindow, dialog, systemPreferences } = require('electron');
 const path = require('path');
 const url = require('url');
 const { ipcMain } = require('electron');
@@ -202,6 +202,72 @@ ipcMain.handle('save-tags', async (event, tags) => {
   }
 });
 
+// What's New modal persistence
+const whatsNewPath = path.join(app.getPath('userData'), 'whats-new.json');
+
+ipcMain.handle('read-whats-new', async () => {
+  try {
+    const data = await fs.readFile(whatsNewPath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    if (error.code === 'ENOENT') return {};
+    throw error;
+  }
+});
+
+ipcMain.handle('save-whats-new', async (event, data) => {
+  try {
+    await fs.writeFile(whatsNewPath, JSON.stringify(data, null, 2));
+  } catch (error) {
+    throw error;
+  }
+});
+
+// App Lock persistence
+const appLockPath = path.join(app.getPath('userData'), 'app-lock.json');
+
+ipcMain.handle('read-app-lock', async () => {
+  try {
+    const data = await fs.readFile(appLockPath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  }
+});
+
+ipcMain.handle('save-app-lock', async (event, data) => {
+  try {
+    await fs.writeFile(appLockPath, JSON.stringify(data, null, 2));
+  } catch (error) {
+    throw error;
+  }
+});
+
+// Biometric authentication (Touch ID on macOS)
+ipcMain.handle('check-biometric-available', async () => {
+  try {
+    if (process.platform === 'darwin' && systemPreferences.canPromptTouchID()) {
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+});
+
+ipcMain.handle('prompt-touch-id', async () => {
+  try {
+    if (process.platform === 'darwin') {
+      await systemPreferences.promptTouchID('unlock Dash');
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+});
+
 ipcMain.handle('read-pages', async () => {
   try {
     const data = await fs.readFile(path.join(app.getPath('userData'), 'pages.json'), 'utf8');
@@ -264,7 +330,8 @@ ipcMain.handle('save-pages', async (event, pages) => {
         createdAt: page.createdAt || new Date().toISOString(),
         password: page.password || null,
         folderId: page.folderId || null,
-        type: page.type || undefined
+        type: page.type || undefined,
+        selfDestructAt: page.selfDestructAt || null
       };
     });
 

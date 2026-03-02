@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Minimize2 } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Minimize2, Lock, Settings } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
@@ -52,6 +52,15 @@ import { getTagChipStyle } from '@/utils/colorUtils'
 import { ConfirmModal } from './ConfirmModal'
 import { shouldShowMobileInstall } from '@/utils/deviceUtils'
 import { MobileHeaderMenu } from './MobileHeaderMenu'
+import WhatsNewModal from './WhatsNewModal'
+import QuickSwitcher from './QuickSwitcher'
+import SelfDestructModal from './SelfDestructModal'
+import SelfDestructBadge from './SelfDestructBadge'
+import useAppLockStore from '../store/appLockStore'
+import { useIdleTimer } from '@/hooks/useIdleTimer'
+import AppLockScreen from './AppLockScreen'
+import AppLockSetupModal from './AppLockSetupModal'
+import AppLockSettingsModal from './AppLockSettingsModal'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
 
@@ -91,6 +100,8 @@ export default function RichTextEditor() {
     reorderWithinFolder,
     persistPages,
     movePageToContainer,
+    setSelfDestruct,
+    cancelSelfDestruct,
   } = usePagesManager()
 
   const {
@@ -336,6 +347,82 @@ export default function RichTextEditor() {
   const toggleFocusMode = useCallback(() => {
     setFocusMode(prev => !prev)
   }, [])
+
+  // Self-Destruct modal
+  const [isSelfDestructModalOpen, setIsSelfDestructModalOpen] = useState(false)
+  const [selfDestructPage, setSelfDestructPage] = useState(null)
+
+  const handleSelfDestruct = useCallback((page) => {
+    setSelfDestructPage(page)
+    setIsSelfDestructModalOpen(true)
+  }, [])
+
+  const handleSelfDestructConfirm = useCallback((durationMs) => {
+    if (selfDestructPage) {
+      setSelfDestruct(selfDestructPage.id, durationMs)
+    }
+    setIsSelfDestructModalOpen(false)
+    setSelfDestructPage(null)
+  }, [selfDestructPage, setSelfDestruct])
+
+  const handleCancelSelfDestruct = useCallback((page) => {
+    cancelSelfDestruct(page.id)
+  }, [cancelSelfDestruct])
+
+  // Quick Switcher (Cmd+P)
+  const [showQuickSwitcher, setShowQuickSwitcher] = useState(false)
+  const toggleQuickSwitcher = useCallback(() => {
+    setShowQuickSwitcher(prev => !prev)
+  }, [])
+
+  // App Lock
+  const appLock = useAppLockStore()
+  const [isAppLockSetupOpen, setIsAppLockSetupOpen] = useState(false)
+  const [isAppLockSettingsOpen, setIsAppLockSettingsOpen] = useState(false)
+  const [biometricAvailable, setBiometricAvailable] = useState(false)
+
+  // Load app lock data on mount
+  useEffect(() => {
+    appLock.loadData()
+    // Check biometric availability
+    if (typeof window !== 'undefined' && window.electron?.invoke) {
+      window.electron.invoke('check-biometric-available').then(available => {
+        setBiometricAvailable(available || false)
+      }).catch(() => {})
+    }
+  }, [])
+
+  // Idle timer for auto-lock
+  useIdleTimer({
+    timeoutMinutes: appLock.timeoutMinutes,
+    isEnabled: appLock.isEnabled && !appLock.isLocked,
+    onIdle: appLock.lock
+  })
+
+  const handleAppLockUnlock = useCallback((password) => {
+    return appLock.unlock(password)
+  }, [appLock.unlock])
+
+  const handleBiometricUnlock = useCallback(async () => {
+    if (typeof window !== 'undefined' && window.electron?.invoke) {
+      const success = await window.electron.invoke('prompt-touch-id')
+      if (success) {
+        appLock.unlockBiometric()
+        return true
+      }
+    }
+    return false
+  }, [appLock.unlockBiometric])
+
+  const handleAppLockSetup = useCallback((password, timeout, biometric) => {
+    appLock.enable(password, timeout, biometric)
+  }, [appLock.enable])
+
+  const handleInstantLock = useCallback(() => {
+    if (appLock.isEnabled) {
+      appLock.lock()
+    }
+  }, [appLock.isEnabled, appLock.lock])
 
   useEffect(() => {
     setIsClient(true)
@@ -944,6 +1031,12 @@ export default function RichTextEditor() {
       toggleFocusMode()
       announce(focusMode ? 'Focus mode off' : 'Focus mode on')
     },
+    onToggleQuickSwitcher: () => {
+      toggleQuickSwitcher()
+      announce('Quick switcher toggled')
+    },
+    onLockApp: handleInstantLock,
+    isLocked: appLock.isLocked,
     onDeletePage: handleDeletePage,
     onDuplicatePage: handleDuplicatePage,
     currentPage,
@@ -1115,6 +1208,39 @@ export default function RichTextEditor() {
               <img src="./icons/dash-logo.png" alt="Dash" className="h-7 w-7 rounded-md" />
             )}
             <div className="flex items-center space-x-1">
+              {sidebarOpen && appLock.isEnabled && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsAppLockSettingsOpen(true)}
+                    className={`h-8 w-8 p-0 ${getButtonHoverClasses()}`}
+                    title="Lock settings"
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleInstantLock}
+                    className={`h-8 w-8 p-0 ${getButtonHoverClasses()}`}
+                    title={`Lock now (${typeof navigator !== 'undefined' && /Mac/.test(navigator.userAgent) ? 'Cmd' : 'Ctrl'}+Shift+L)`}
+                  >
+                    <Lock className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+              {sidebarOpen && !appLock.isEnabled && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsAppLockSetupOpen(true)}
+                  className={`h-8 w-8 p-0 ${getButtonHoverClasses()}`}
+                  title="Set up auto-lock"
+                >
+                  <Lock className="h-4 w-4" />
+                </Button>
+              )}
               {sidebarOpen && (
                 <Button
                   variant="ghost"
@@ -1205,6 +1331,8 @@ export default function RichTextEditor() {
                         onToggleLock={handleToggleLock}
                         onDuplicate={handleDuplicatePage}
                         onMoveToFolder={handleMoveToFolder}
+                        onSelfDestruct={handleSelfDestruct}
+                        onCancelSelfDestruct={handleCancelSelfDestruct}
                         pagesCount={folderPageIds.length}
                       />
                     )
@@ -1223,6 +1351,8 @@ export default function RichTextEditor() {
                         onToggleLock={handleToggleLock}
                         onDuplicate={handleDuplicatePage}
                         onMoveToFolder={handleMoveToFolder}
+                        onSelfDestruct={handleSelfDestruct}
+                        onCancelSelfDestruct={handleCancelSelfDestruct}
                         sidebarOpen={sidebarOpen}
                         theme={theme}
                         tags={tags}
@@ -1515,6 +1645,24 @@ export default function RichTextEditor() {
         password={passwordInput}
         onPasswordChange={setPasswordInput}
         error={passwordError}
+        biometricAvailable={biometricAvailable}
+        biometricEnabled={appLock.biometricEnabled}
+        onBiometricUnlock={passwordAction !== 'lock' ? async () => {
+          try {
+            if (typeof window !== 'undefined' && window.electron?.invoke) {
+              const success = await window.electron.invoke('prompt-touch-id')
+              if (success && pageToAccess) {
+                setTempUnlockedPages(prev => new Set(prev).add(pageToAccess.id))
+                setCurrentPage(pageToAccess)
+                setIsPasswordModalOpen(false)
+                setPasswordInput('')
+                setPageToAccess(null)
+              }
+            }
+          } catch {
+            setPasswordError('Biometric authentication failed')
+          }
+        } : undefined}
       />
 
       <FolderModal
@@ -1604,6 +1752,58 @@ export default function RichTextEditor() {
         confirmText={confirmModal.confirmText}
         cancelText={confirmModal.cancelText}
         showCancel={confirmModal.showCancel}
+      />
+
+      <WhatsNewModal appVersion={appVersion} theme={theme} />
+
+      <SelfDestructModal
+        isOpen={isSelfDestructModalOpen}
+        onClose={() => { setIsSelfDestructModalOpen(false); setSelfDestructPage(null) }}
+        onConfirm={handleSelfDestructConfirm}
+        pageTitle={selfDestructPage?.title || ''}
+        theme={theme}
+      />
+
+      <QuickSwitcher
+        isOpen={showQuickSwitcher}
+        onClose={() => setShowQuickSwitcher(false)}
+        pages={pages}
+        onSelectPage={(page) => {
+          handlePageSelect(page)
+          setShowQuickSwitcher(false)
+        }}
+        theme={theme}
+      />
+
+      {appLock.isLocked && (
+        <AppLockScreen
+          onUnlock={handleAppLockUnlock}
+          onBiometricUnlock={handleBiometricUnlock}
+          biometricAvailable={biometricAvailable}
+          biometricEnabled={appLock.biometricEnabled}
+          theme={theme}
+        />
+      )}
+
+      <AppLockSetupModal
+        isOpen={isAppLockSetupOpen}
+        onClose={() => setIsAppLockSetupOpen(false)}
+        onConfirm={handleAppLockSetup}
+        biometricAvailable={biometricAvailable}
+        theme={theme}
+      />
+
+      <AppLockSettingsModal
+        isOpen={isAppLockSettingsOpen}
+        onClose={() => setIsAppLockSettingsOpen(false)}
+        currentTimeout={appLock.timeoutMinutes}
+        biometricEnabled={appLock.biometricEnabled}
+        biometricAvailable={biometricAvailable}
+        onUpdateTimeout={appLock.updateTimeout}
+        onChangePassword={appLock.updatePassword}
+        onToggleBiometric={appLock.toggleBiometric}
+        onDisable={appLock.disable}
+        theme={theme}
       />
     </div >
   )

@@ -23,7 +23,7 @@ Block-based editor powered by Editor.js with 15+ content types:
 | Nested List | Ordered and unordered with unlimited nesting |
 | Checklist | Interactive to-do items |
 | Quote | Block quotes with author caption |
-| Code | Code blocks with monospace formatting |
+| Code | Syntax-highlighted code blocks (20+ languages) |
 | Table | Rows, columns, and optional headings |
 | Image | Drag-and-drop or file picker (up to 5MB, stored locally) |
 | Embed | YouTube, Vimeo, GitHub, Twitter |
@@ -50,6 +50,10 @@ Full undo/redo history with Cmd+Z and Cmd+Shift+Z.
 ### Auto-Save
 
 Changes save automatically with a 300ms debounce. A save indicator shows current status.
+
+### Focus Mode
+
+Toggle a distraction-free writing mode (Cmd+Shift+F) that hides the sidebar and expands the editor to full width. A minimal floating button lets you exit focus mode.
 
 ### Word Count
 
@@ -81,6 +85,12 @@ Real-time word count displayed in the editor footer.
 - Combine search with tag filters
 - Instant results as you type
 
+### Quick Switcher (Cmd+P)
+- VS Code-style fuzzy search overlay to jump to any page instantly
+- Arrow keys + Enter for keyboard navigation, Escape to close
+- Recent pages shown at top
+- Highlights matching characters in results
+
 ---
 
 ## Themes
@@ -108,6 +118,21 @@ Theme preference persists across sessions.
 - **XSS protection** — DOMPurify sanitization, strict HTML whitelist
 - **No telemetry** — zero tracking, analytics, or cloud calls
 - **Offline-first** — works without internet, no data leaves your device
+
+### Auto-Lock on Inactivity
+- Lock the entire app after a configurable idle timeout (1, 5, 15, 30 minutes, or Never)
+- Master password required to unlock
+- **Touch ID / biometric unlock** — use Touch ID on macOS as an alternative to typing your password
+- Biometrics also available for unlocking individual locked pages
+- Instant lock with Cmd+Shift+L shortcut or sidebar lock button
+- Locks automatically on app launch if enabled
+- Settings persist across app updates
+
+### Self-Destructing Notes
+- Set a page to automatically delete after a time period (1 hour, 1 day, 7 days, or 30 days)
+- Countdown badge in the sidebar shows precise time remaining
+- Badge color shifts from green to orange to red as expiry approaches
+- Cancel self-destruct at any time via the page's context menu
 
 ---
 
@@ -140,6 +165,7 @@ All exports can optionally be **encrypted with a passphrase** (AES-GCM-256).
 - **Bug reporting** — built-in GitHub issue creator
 - **macOS Applications folder prompt** — guides users to install correctly
 - **Cross-platform builds** — macOS (Apple Silicon + Intel), Windows, Linux
+- **What's New modal** — shows new features on first launch after each update
 
 ---
 

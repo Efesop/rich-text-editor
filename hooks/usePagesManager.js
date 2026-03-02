@@ -875,6 +875,64 @@ export function usePagesManager() {
     }
   }, [savePagesToStorage])
 
+  // Self-destruct: set a timer on a page
+  const setSelfDestruct = useCallback((pageId, durationMs) => {
+    if (!pageId || !durationMs) return
+    const selfDestructAt = Date.now() + durationMs
+
+    setPages(prevPages => {
+      const newPages = prevPages.map(p =>
+        p.id === pageId ? { ...p, selfDestructAt } : p
+      )
+      pagesRef.current = newPages
+      savePagesToStorage(newPages)
+      return newPages
+    })
+
+    if (currentPageRef.current?.id === pageId) {
+      _setCurrentPage(prev => ({ ...prev, selfDestructAt }))
+    }
+  }, [savePagesToStorage])
+
+  // Self-destruct: cancel timer
+  const cancelSelfDestruct = useCallback((pageId) => {
+    if (!pageId) return
+
+    setPages(prevPages => {
+      const newPages = prevPages.map(p => {
+        if (p.id === pageId) {
+          const { selfDestructAt: _, ...rest } = p
+          return rest
+        }
+        return p
+      })
+      pagesRef.current = newPages
+      savePagesToStorage(newPages)
+      return newPages
+    })
+
+    if (currentPageRef.current?.id === pageId) {
+      _setCurrentPage(prev => {
+        const { selfDestructAt: _, ...rest } = prev
+        return rest
+      })
+    }
+  }, [savePagesToStorage])
+
+  // Self-destruct: check for expired pages every 60 seconds
+  useEffect(() => {
+    const checkExpired = () => {
+      const now = Date.now()
+      const expired = pagesRef.current.filter(
+        p => p.selfDestructAt && p.selfDestructAt <= now && p.type !== 'folder'
+      )
+      expired.forEach(page => deletePage(page))
+    }
+
+    const interval = setInterval(checkExpired, 60000)
+    return () => clearInterval(interval)
+  }, [deletePage])
+
   // Initialize on mount
   useEffect(() => {
     if (!isInitializedRef.current) {
@@ -927,5 +985,7 @@ export function usePagesManager() {
     reorderWithinFolder,
     persistPages,
     movePageToContainer,
+    setSelfDestruct,
+    cancelSelfDestruct,
   }
 }

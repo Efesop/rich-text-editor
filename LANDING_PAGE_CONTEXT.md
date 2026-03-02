@@ -55,6 +55,9 @@ Dash is a beautiful, privacy-first note-taking app that keeps your thoughts comp
 |---------|-------------|---------|
 | 100% Offline | No internet required, ever | Your data never leaves your device |
 | AES-256 Encryption | Military-grade encryption | Protect sensitive notes with passwords |
+| Auto-Lock on Inactivity | Lock the entire app after idle timeout | Unattended devices stay protected |
+| Touch ID / Biometric Unlock | Use Touch ID instead of typing a password | Fast, secure access on macOS |
+| Self-Destructing Notes | Set notes to auto-delete after a time period | Sensitive info doesn't linger |
 | No Account Required | Use immediately, no sign-up | Zero personal data collected |
 | No Tracking | Zero analytics or telemetry | Complete privacy, no profiling |
 | Local Storage | Data stored in user directory | You control where your data lives |
@@ -63,6 +66,8 @@ Dash is a beautiful, privacy-first note-taking app that keeps your thoughts comp
 | Feature | Description | Benefit |
 |---------|-------------|---------|
 | Rich Text Editor | Headers, lists, checklists, quotes, code blocks | Full formatting without complexity |
+| Syntax-Highlighted Code | 20+ languages with proper syntax coloring | Developer-friendly code snippets |
+| Focus Mode | Distraction-free writing with Cmd+Shift+F | Full-screen writing without clutter |
 | Multiple Block Types | Paragraphs, headers, lists, code, embeds | Flexible content creation |
 | Live Word Count | Real-time character/word counting | Track writing progress |
 | Auto-Save | Changes saved automatically | Never lose work |
@@ -81,6 +86,7 @@ Dash is a beautiful, privacy-first note-taking app that keeps your thoughts comp
 |---------|-------------|---------|
 | Folders | Nested organization | Keep notes structured |
 | Color-Coded Tags | Visual categorization | Quick identification |
+| Quick Switcher (Cmd+P) | VS Code-style fuzzy search overlay | Jump to any page instantly |
 | Fuzzy Search | Find-as-you-type | Instant results |
 | Smart Filtering | Filter by folder, tag, or search | Find anything fast |
 
@@ -114,6 +120,8 @@ Dash is a beautiful, privacy-first note-taking app that keeps your thoughts comp
 | No Account Required | ✅ | ❌ | ❌ | ❌ | ✅ |
 | No Subscription | ✅ | ❌ | ❌ | ✅ | ✅ |
 | End-to-End Encryption | ✅ | ❌ | ❌ | ⚠️ | ⚠️ |
+| Biometric Unlock | ✅ | ❌ | ❌ | ✅ | ❌ |
+| Self-Destructing Notes | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Open Source | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Cross-Platform | ✅ | ✅ | ✅ | ❌ | ✅ |
 | Rich Text Editor | ✅ | ✅ | ✅ | ✅ | ⚠️ |
@@ -149,6 +157,9 @@ Dash is a beautiful, privacy-first note-taking app that keeps your thoughts comp
 
 ### Security Features
 - AES-256-GCM encryption for password-protected pages
+- Auto-lock on inactivity with configurable timeout
+- Touch ID / biometric unlock (macOS)
+- Self-destructing notes with timed auto-deletion
 - DOMPurify sanitization to prevent XSS
 - No external network requests
 - Electron sandbox enabled
@@ -284,15 +295,27 @@ Dash is a beautiful, privacy-first note-taking app that keeps your thoughts comp
 
 ## Version History (Recent)
 
-### v1.3.85 (Current)
+### v1.3.101 (Current)
+- What's New modal — shows new features after each update
+- Quick Switcher (Cmd+P) — jump to any page instantly
+- Self-Destructing Notes — set pages to auto-delete after a time period
+- Auto-Lock on Inactivity — lock the app after idle timeout with password or Touch ID
+
+### v1.3.100
+- Focus Mode — distraction-free full-screen writing
+- Syntax-highlighted code blocks (20+ languages)
+
+### v1.3.98
+- Dark Blue theme
+- Tag system with color-coded tags
+- Drag-and-drop page reordering
+
+### v1.3.85
 - Fixed pages leaving folders after editing
 - Fixed folder data persistence
 - Redesigned modals with modern styling
 - Full theme support for all modals
 - Improved accessibility
-
-### v1.3.82
-- Previous stable release
 
 ---
 
@@ -321,4 +344,4 @@ Yes! The full source code is available on GitHub. You can audit it yourself.
 
 ---
 
-*This document was created on January 8, 2026 and reflects Dash v1.3.85*
+*This document was last updated on March 1, 2026 and reflects Dash v1.3.101*

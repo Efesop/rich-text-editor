@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "./ui/button"
-import { Lock, Unlock, Trash2, MoreVertical, FolderMinus, FolderPlus, Copy, Edit3 } from 'lucide-react'
+import { Lock, Unlock, Trash2, MoreVertical, FolderMinus, FolderPlus, Copy, Edit3, Timer, TimerOff } from 'lucide-react'
 import StackedTags from './StackedTags'
+import SelfDestructBadge from './SelfDestructBadge'
 import { isMobileDevice, isSmallScreen } from '@/utils/deviceUtils'
 import { ActionSheet, ActionSheetItem, ActionSheetSeparator } from './ActionSheet'
 
@@ -14,6 +15,8 @@ const PageItem = ({
   onToggleLock,
   onRemoveFromFolder,
   onMoveToFolder,
+  onSelfDestruct,
+  onCancelSelfDestruct,
   sidebarOpen,
   theme,
   tags,
@@ -202,6 +205,9 @@ const PageItem = ({
         )}
       </div>
       <div className="flex items-center space-x-1">
+        {page.selfDestructAt && (
+          <SelfDestructBadge selfDestructAt={page.selfDestructAt} theme={theme} />
+        )}
         {page.password && page.password.hash && !tempUnlockedPages.has(page.id) && (
           <Lock className={`h-3.5 w-3.5 ${getIconClasses()}`} />
         )}
@@ -301,6 +307,33 @@ const PageItem = ({
                 </>
               )}
             </button>
+            {page.selfDestructAt ? (
+              <button
+                role="menuitem"
+                className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onCancelSelfDestruct?.(page)
+                  setIsDropdownOpen(false)
+                }}
+              >
+                <TimerOff className="h-4 w-4 inline mr-2" aria-hidden="true" />
+                Cancel Self-Destruct
+              </button>
+            ) : (
+              <button
+                role="menuitem"
+                className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onSelfDestruct?.(page)
+                  setIsDropdownOpen(false)
+                }}
+              >
+                <Timer className="h-4 w-4 inline mr-2" aria-hidden="true" />
+                Self-Destruct
+              </button>
+            )}
             <button
               role="menuitem"
               className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
@@ -368,6 +401,18 @@ const PageItem = ({
           label={page.password && page.password.hash ? 'Unlock' : 'Lock'}
           onClick={() => {
             onToggleLock(page)
+            setIsActionSheetOpen(false)
+          }}
+        />
+        <ActionSheetItem
+          icon={page.selfDestructAt ? TimerOff : Timer}
+          label={page.selfDestructAt ? 'Cancel Self-Destruct' : 'Self-Destruct'}
+          onClick={() => {
+            if (page.selfDestructAt) {
+              onCancelSelfDestruct?.(page)
+            } else {
+              onSelfDestruct?.(page)
+            }
             setIsActionSheetOpen(false)
           }}
         />

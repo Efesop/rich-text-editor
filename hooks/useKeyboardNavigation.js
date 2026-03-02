@@ -8,6 +8,9 @@ export function useKeyboardNavigation({
   onDeletePage,
   onDuplicatePage,
   onToggleFocusMode,
+  onToggleQuickSwitcher,
+  onLockApp,
+  isLocked,
   currentPage,
   pages,
   onSelectPage
@@ -27,7 +30,10 @@ export function useKeyboardNavigation({
   const handleKeyDown = useCallback((event) => {
     const { key, ctrlKey, metaKey, shiftKey, altKey } = event
     const isModifierPressed = ctrlKey || metaKey
-    
+
+    // When app is locked, only allow the lock shortcut (no-op since already locked)
+    if (isLocked) return
+
     // Don't interfere when user is typing in inputs or editor
     const activeElement = document.activeElement
     const isInputFocused = activeElement && (
@@ -59,10 +65,20 @@ export function useKeyboardNavigation({
           event.preventDefault()
           onToggleSidebar?.()
           break
+        case 'p':
+          event.preventDefault()
+          onToggleQuickSwitcher?.()
+          break
         case 'f':
           if (shiftKey) {
             event.preventDefault()
             onToggleFocusMode?.()
+          }
+          break
+        case 'l':
+          if (shiftKey) {
+            event.preventDefault()
+            onLockApp?.()
           }
           break
         case 'd':
@@ -142,6 +158,9 @@ export function useKeyboardNavigation({
     onDeletePage,
     onDuplicatePage,
     onToggleFocusMode,
+    onToggleQuickSwitcher,
+    onLockApp,
+    isLocked,
     currentPage,
     pages,
     onSelectPage
@@ -161,6 +180,8 @@ export function useKeyboardNavigation({
       search: 'Ctrl+Shift+K or /',
       toggleSidebar: 'Ctrl+B',
       focusMode: 'Ctrl+Shift+F',
+      lockApp: 'Ctrl+Shift+L',
+      quickSwitcher: 'Ctrl+P',
       duplicate: 'Ctrl+D',
       delete: 'Ctrl+Backspace',
       navigateUp: 'Alt+↑',
