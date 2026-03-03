@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Button } from "./ui/button"
 import { Lock, LockKeyhole, Unlock, Trash2, MoreVertical, FolderMinus, FolderPlus, Copy, Edit3, Timer, TimerOff } from 'lucide-react'
 import StackedTags from './StackedTags'
 import { isMobileDevice, isSmallScreen } from '@/utils/deviceUtils'
@@ -180,7 +179,7 @@ const PageItem = ({
       onMouseLeave={() => setIsHovered(false)}
       style={{ minHeight: '2.25rem' }}
     >
-      <div className="flex items-center flex-1 min-w-0 overflow-hidden">
+      <div className="flex items-center flex-1 min-w-0">
         {page.password && page.password.hash && !tempUnlockedPages.has(page.id) && (
           <LockKeyhole className={`h-3 w-3 flex-shrink-0 mr-1.5 ${getIconClasses()}`} />
         )}
@@ -209,12 +208,10 @@ const PageItem = ({
           </span>
         )}
       </div>
-      <div className="flex items-center space-x-1">
+      <div className="flex items-center flex-shrink-0">
         {sidebarOpen && (
-          <Button
+          <button
             ref={buttonRef}
-            variant="ghost"
-            size="icon"
             onClick={(e) => {
               e.stopPropagation()
               if (isMobile) {
@@ -223,14 +220,15 @@ const PageItem = ({
                 setIsDropdownOpen(!isDropdownOpen)
               }
             }}
-            className={`h-6 w-6 p-0 flex-shrink-0 ${isMobile || isHovered ? 'opacity-100' : 'opacity-0'}`}
+            className="h-6 w-6 p-0 inline-flex items-center justify-center rounded-md"
+            style={{ opacity: isMobile || isHovered ? 1 : 0, transition: 'opacity 150ms' }}
             aria-haspopup="menu"
             aria-expanded={isDropdownOpen || isActionSheetOpen}
             aria-controls={`page-menu-${page.id}`}
             aria-label={`Actions for ${page.title}`}
           >
             <MoreVertical className={`h-4 w-4 ${getIconClasses()}`} />
-          </Button>
+          </button>
         )}
       </div>
       {isDropdownOpen && (

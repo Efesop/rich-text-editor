@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Folder, FolderOpen, Trash2, MoreVertical, Edit3, Plus, ChevronRight, ChevronDown } from 'lucide-react'
-import { Button } from './ui/button'
 import SortablePageItem from './SortablePageItem'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { isMobileDevice, isSmallScreen } from '@/utils/deviceUtils'
@@ -262,10 +261,8 @@ export function FolderItem({
           )}
         </div>
         {sidebarOpen && (
-          <Button
+          <button
             ref={buttonRef}
-            variant="ghost"
-            size="icon"
             onClick={(e) => {
               e.stopPropagation()
               if (isMobile) {
@@ -274,14 +271,15 @@ export function FolderItem({
                 setIsDropdownOpen(!isDropdownOpen)
               }
             }}
-            className={`h-6 w-6 p-0 ${isMobile ? 'opacity-100' : `opacity-0 ${isHovered ? 'opacity-100' : ''}`}`}
+            className="h-6 w-6 p-0 inline-flex items-center justify-center rounded-md flex-shrink-0"
+            style={{ opacity: isMobile || isHovered ? 1 : 0, transition: 'opacity 150ms' }}
             aria-haspopup="menu"
             aria-expanded={isDropdownOpen || isActionSheetOpen}
             aria-controls={`folder-menu-${folder.id}`}
             aria-label={`Actions for folder ${folder.title}`}
           >
             <MoreVertical className="h-4 w-4" aria-hidden="true" />
-          </Button>
+          </button>
         )}
       </div>
       {isExpanded && (

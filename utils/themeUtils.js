@@ -63,9 +63,9 @@ export function getThemeClasses(theme) {
     buttonHover: isFallout
       ? 'hover:bg-gray-800 hover:text-green-400'
       : isDarkBlue
-        ? 'hover:bg-[#1a2035] hover:text-[#e0e6f0]'
+        ? 'hover:bg-[#232b42] hover:text-[#e0e6f0]'
         : isDark
-          ? 'hover:bg-[#232323] hover:text-[#ececec]'
+          ? 'hover:bg-[#2f2f2f] hover:text-[#ececec]'
           : 'hover:bg-neutral-200 hover:text-neutral-900',
 
     // Header classes

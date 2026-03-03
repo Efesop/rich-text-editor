@@ -225,6 +225,42 @@
     background: hsl(var(--accent));
   }
 
+  /* Dark theme scrollbars */
+  .dark ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .dark ::-webkit-scrollbar-track {
+    background: #0d0d0d;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: #3a3a3a;
+    border-radius: 4px;
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: #4a4a4a;
+  }
+
+  /* Dark Blue theme scrollbars */
+  .darkblue ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .darkblue ::-webkit-scrollbar-track {
+    background: #0c1017;
+  }
+
+  .darkblue ::-webkit-scrollbar-thumb {
+    background: #1c2438;
+    border-radius: 4px;
+  }
+
+  .darkblue ::-webkit-scrollbar-thumb:hover {
+    background: #232b42;
+  }
+
   /* Enhance the terminal feel for the editor */
   .fallout .codex-editor {
     font-family: 'JetBrains Mono', 'Courier New', monospace !important;
