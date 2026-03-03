@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Button } from "./ui/button";
 import { ChevronDown } from 'lucide-react';
 import { useTheme } from 'next-themes';
 
@@ -74,15 +73,13 @@ const ExportDropdown = ({ onExport, className: wrapperClassName = '' }) => {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <Button
-        variant="ghost"
-        size="sm"
+      <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center ${wrapperClassName}`}
+        className={`p-2 rounded-lg transition-colors flex items-center text-sm ${wrapperClassName}`}
       >
         Export
         <ChevronDown className="ml-1 h-4 w-4" />
-      </Button>
+      </button>
       {isOpen && (
         <div className={`absolute right-0 mt-2 w-48 rounded-lg shadow-lg ${getDropdownClasses()} border z-[60]`}>
           <div className="py-1" role="menu" aria-orientation="vertical">

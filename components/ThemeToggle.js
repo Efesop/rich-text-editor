@@ -1,6 +1,5 @@
 import React from 'react'
 import { useTheme } from 'next-themes'
-import { Button } from "./ui/button"
 import { Sun, Moon, Terminal, CloudMoon } from 'lucide-react'
 
 const ThemeToggle = ({ className = '' }) => {
@@ -34,15 +33,13 @@ const ThemeToggle = ({ className = '' }) => {
   }
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
+    <button
       onClick={cycleTheme}
       title={`Current theme: ${theme || 'light'}`}
-      className={className}
+      className={`p-2 rounded-lg transition-colors ${className}`}
     >
       {getIcon()}
-    </Button>
+    </button>
   )
 }
 

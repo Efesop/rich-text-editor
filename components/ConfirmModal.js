@@ -6,6 +6,7 @@ export function ConfirmModal({
   isOpen,
   onClose,
   onConfirm,
+  onCancel,
   title = 'Confirm Action',
   message = 'Are you sure you want to proceed?',
   confirmText = 'Confirm',
@@ -178,7 +179,14 @@ export function ConfirmModal({
           <div className="flex gap-3">
             {showCancel && (
               <button
-                onClick={onClose}
+                onClick={() => {
+                  if (onCancel) {
+                    onCancel()
+                    onClose()
+                  } else {
+                    onClose()
+                  }
+                }}
                 className={`
                   flex-1 px-4 py-3 rounded-xl font-medium transition-all duration-200
                   ${isFallout

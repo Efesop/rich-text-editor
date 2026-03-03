@@ -411,6 +411,46 @@ export function usePagesManager() {
     }
   }, [savePagesToStorage])
 
+  const removeLockFromUnlockedPage = useCallback((pageId) => {
+    if (!pageId || !tempUnlockedPagesRef.current.has(pageId)) return false
+
+    // Page is already decrypted in memory — just strip password fields and save
+    setTempUnlockedPages(prev => {
+      const next = new Set(prev)
+      next.delete(pageId)
+      return next
+    })
+
+    encryptionKeysRef.current.delete(pageId)
+
+    setPages(prevPages => {
+      const newPages = prevPages.map(p => {
+        if (p.id === pageId) {
+          const updated = { ...p }
+          delete updated.password
+          delete updated.encryptedContent
+          return updated
+        }
+        return p
+      })
+      pagesRef.current = newPages
+      savePagesToStorage(newPages)
+      return newPages
+    })
+
+    // Update currentPage if it's the same page
+    if (currentPageRef.current?.id === pageId) {
+      _setCurrentPage(prev => {
+        const updated = { ...prev }
+        delete updated.password
+        delete updated.encryptedContent
+        return updated
+      })
+    }
+
+    return true
+  }, [savePagesToStorage])
+
   const addTagToPage = useCallback(async (pageId, tag) => {
     if (!pageId || !tag?.name) return
 
@@ -961,6 +1001,7 @@ export function usePagesManager() {
     renamePage,
     lockPage,
     unlockPage,
+    removeLockFromUnlockedPage,
     fetchPages,
     addTagToPage,
     removeTagFromPage,

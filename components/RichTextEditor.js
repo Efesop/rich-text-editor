@@ -77,6 +77,7 @@ export default function RichTextEditor() {
     renamePage,
     lockPage,
     unlockPage,
+    removeLockFromUnlockedPage,
     addTagToPage,
     removeTagFromPage,
     deleteTagFromAllPages,
@@ -715,6 +716,28 @@ export default function RichTextEditor() {
   }, [pageToRename, newPageTitle, renamePage])
 
   const handleToggleLock = useCallback((page) => {
+    // If page is temp-unlocked, show confirm modal with Re-lock / Remove Lock options
+    if (page.password && page.password.hash && tempUnlockedPages.has(page.id)) {
+      setConfirmModal({
+        isOpen: true,
+        title: 'Page Lock',
+        message: `"${page.title}" is currently unlocked. You can re-lock it or permanently remove the lock.`,
+        onConfirm: () => removeLockFromUnlockedPage(page.id),
+        onCancel: () => {
+          setTempUnlockedPages(prev => {
+            const next = new Set(prev)
+            next.delete(page.id)
+            return next
+          })
+        },
+        variant: 'warning',
+        confirmText: 'Remove Lock',
+        cancelText: 'Re-lock',
+        showCancel: true
+      })
+      return
+    }
+
     if (page.password && page.password.hash) {
       setPasswordAction('unlock')
     } else {
@@ -722,7 +745,7 @@ export default function RichTextEditor() {
     }
     setPageToAccess(page)
     setIsPasswordModalOpen(true)
-  }, [])
+  }, [tempUnlockedPages, removeLockFromUnlockedPage, setTempUnlockedPages])
 
   const persistLockouts = () => {
     try {
@@ -1540,7 +1563,22 @@ export default function RichTextEditor() {
                     }
                   </button>
                   <button
-                    onClick={() => currentPage.selfDestructAt ? handleCancelSelfDestruct(currentPage) : handleSelfDestruct(currentPage)}
+                    onClick={() => {
+                      if (currentPage.selfDestructAt) {
+                        setConfirmModal({
+                          isOpen: true,
+                          title: 'Remove Self-Destruct',
+                          message: `Remove the self-destruct timer from "${currentPage.title}"? The page will no longer be automatically deleted.`,
+                          onConfirm: () => cancelSelfDestruct(currentPage.id),
+                          variant: 'danger',
+                          confirmText: 'Remove Timer',
+                          cancelText: 'Keep Timer',
+                          showCancel: true
+                        })
+                      } else {
+                        handleSelfDestruct(currentPage)
+                      }
+                    }}
                     className={`p-1.5 rounded-lg transition-colors ${getButtonHoverClasses()}`}
                     title={currentPage.selfDestructAt ? 'Cancel self-destruct' : 'Self-destruct'}
                   >
@@ -1695,6 +1733,8 @@ export default function RichTextEditor() {
         <span>{format(new Date(currentPage.createdAt), 'MMM d, yyyy')}</span>
       )}
       <EncryptionStatusIndicator />
+    </div>
+    <div className="flex items-center space-x-3">
       {currentPage.selfDestructAt && (
         <button
           onClick={() => {
@@ -1709,14 +1749,13 @@ export default function RichTextEditor() {
               showCancel: true
             })
           }}
-          className="cursor-pointer hover:opacity-80 transition-opacity"
+          className="cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1.5"
           title="Click to remove self-destruct timer"
         >
+          <Timer className="h-3 w-3" />
           <SelfDestructBadge selfDestructAt={currentPage.selfDestructAt} theme={theme} />
         </button>
       )}
-    </div>
-    <div className="flex items-center space-x-3">
       <span>{wordCount} words</span>
       <span aria-live="polite" aria-atomic="true">
         {saveStatus === 'saving' && <span className={theme === 'fallout' ? 'text-yellow-400' : 'text-yellow-500'}>Saving...</span>}
@@ -1872,6 +1911,7 @@ export default function RichTextEditor() {
         isOpen={confirmModal.isOpen}
         onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
         onConfirm={confirmModal.onConfirm}
+        onCancel={confirmModal.onCancel}
         title={confirmModal.title}
         message={confirmModal.message}
         variant={confirmModal.variant}

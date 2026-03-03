@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "./ui/button"
 import { Lock, LockKeyhole, Unlock, Trash2, MoreVertical, FolderMinus, FolderPlus, Copy, Edit3, Timer, TimerOff } from 'lucide-react'
 import StackedTags from './StackedTags'
-import SelfDestructBadge from './SelfDestructBadge'
 import { isMobileDevice, isSmallScreen } from '@/utils/deviceUtils'
 import { ActionSheet, ActionSheetItem, ActionSheetSeparator } from './ActionSheet'
 
@@ -36,12 +35,9 @@ const PageItem = ({
   // On mobile/touch devices, always show the 3-dots button (no hover state)
   const isMobile = isMobileDevice() || isSmallScreen()
 
-  const hasLockOrBadge = (page.password?.hash && !tempUnlockedPages.has(page.id)) || page.selfDestructAt
-
   const truncatePageTitle = (title) => {
     if (page.tagNames && page.tagNames.length > 0) {
-      const maxLen = hasLockOrBadge ? 8 : 10
-      if (title.length > maxLen) return title.slice(0, maxLen) + '...'
+      if (title.length > 10) return title.slice(0, 10) + '...'
     }
     return title
   }
@@ -185,6 +181,12 @@ const PageItem = ({
       style={{ minHeight: '2.25rem' }}
     >
       <div className="flex items-center flex-1 min-w-0">
+        {page.password && page.password.hash && !tempUnlockedPages.has(page.id) && (
+          <LockKeyhole className={`h-3 w-3 flex-shrink-0 mr-1.5 ${getIconClasses()}`} />
+        )}
+        {page.selfDestructAt && (
+          <Timer className={`h-3 w-3 flex-shrink-0 mr-1.5 ${getIconClasses()}`} />
+        )}
         {sidebarOpen ? (
           <>
             <span className="truncate" title={page.title}>
@@ -193,7 +195,7 @@ const PageItem = ({
             {Array.isArray(page.tagNames) && page.tagNames.length > 0 && (
               <StackedTags
                 tags={page.tagNames}
-                maxVisible={hasLockOrBadge ? 1 : 2}
+                maxVisible={2}
                 className="ml-auto flex-shrink-0"
                 theme={theme}
                 tagColorMap={(tags || []).reduce((acc, t) => { acc[t.name] = t.color; return acc }, {})}
@@ -208,12 +210,6 @@ const PageItem = ({
         )}
       </div>
       <div className="flex items-center space-x-1">
-        {page.selfDestructAt && (
-          <SelfDestructBadge selfDestructAt={page.selfDestructAt} theme={theme} />
-        )}
-        {page.password && page.password.hash && !tempUnlockedPages.has(page.id) && (
-          <LockKeyhole className={`h-3.5 w-3.5 ${getIconClasses()}`} />
-        )}
         {sidebarOpen && (
           <Button
             ref={buttonRef}
