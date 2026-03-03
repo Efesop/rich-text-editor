@@ -7,6 +7,7 @@ export default function Editor({ data, onChange, holder }) {
   const dataRef = useRef(data)
   const onChangeRef = useRef(onChange)
   const multiBlockEnhancerRef = useRef(null)
+  const undoRef = useRef(null)
 
   // Update refs when props change
   useEffect(() => {
@@ -297,7 +298,20 @@ export default function Editor({ data, onChange, holder }) {
         isInitializedRef.current = true
 
         // Enable undo/redo (Cmd+Z / Cmd+Shift+Z)
-        new Undo({ editor: editorRef.current })
+        const undoInstance = new Undo({
+          editor: editorRef.current,
+          maxLength: 50,
+          config: {
+            debounceTimer: 250,
+            shortcuts: {
+              undo: 'CMD+Z',
+              redo: 'CMD+SHIFT+Z'
+            }
+          }
+        })
+        // Initialize with current data so undo doesn't revert to empty
+        undoInstance.initialize(validData)
+        undoRef.current = undoInstance
 
         // Initialize multi-block tune enhancer
         if (!multiBlockEnhancerRef.current) {
@@ -331,6 +345,10 @@ export default function Editor({ data, onChange, holder }) {
           
           await editorRef.current.render(validData)
           dataRef.current = data
+          // Reset undo history for the new page so undo doesn't cross pages
+          if (undoRef.current) {
+            undoRef.current.initialize(validData)
+          }
         } catch (error) {
           console.error('Error updating editor data:', error)
         }

@@ -3,7 +3,7 @@ import { useTheme } from 'next-themes'
 import { Lock, Unlock, X, ShieldCheck, AlertCircle, Fingerprint } from 'lucide-react'
 import PasswordStrengthMeter from './PasswordStrengthMeter'
 
-const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordChange, password, biometricAvailable, biometricEnabled, onBiometricUnlock }) => {
+const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordChange, password, biometricAvailable, biometricEnabled: _biometricEnabled, onBiometricUnlock }) => {
   const { theme } = useTheme()
   const inputRef = useRef(null)
 
@@ -300,7 +300,7 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
           </div>
 
           {/* Biometric unlock for pages */}
-          {!isLocking && biometricAvailable && biometricEnabled && onBiometricUnlock && (
+          {!isLocking && biometricAvailable && onBiometricUnlock && (
             <button
               onClick={onBiometricUnlock}
               className={`

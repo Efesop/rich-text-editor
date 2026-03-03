@@ -86,7 +86,7 @@ export default function StackedTags({
 
   return (
     <div 
-      className={`relative inline-flex items-center ${getContainerHeight()} ${className}`}
+      className={`relative isolate inline-flex items-center ${getContainerHeight()} ${className}`}
       style={{ minWidth: hasHiddenTags ? '80px' : 'auto' }}
     >
       {/* Visible tags */}

@@ -3,7 +3,7 @@ import { useTheme } from 'next-themes'
 import { Button } from "./ui/button"
 import { Sun, Moon, Terminal, CloudMoon } from 'lucide-react'
 
-const ThemeToggle = () => {
+const ThemeToggle = ({ className = '' }) => {
   const { theme, setTheme } = useTheme()
 
   const cycleTheme = () => {
@@ -39,6 +39,7 @@ const ThemeToggle = () => {
       size="icon"
       onClick={cycleTheme}
       title={`Current theme: ${theme || 'light'}`}
+      className={className}
     >
       {getIcon()}
     </Button>

@@ -1374,7 +1374,16 @@ export default function RichTextEditor() {
                 strategy={verticalListSortingStrategy}
                 disabled={!isDndEnabled}
               >
-                {sortPages(filteredPages(), sortOption).map(item => {
+                {(() => {
+                  const sortedItems = sortPages(filteredPages(), sortOption)
+                  // Build set of all page IDs owned by folders to prevent duplicates
+                  const folderOwnedPageIds = new Set()
+                  sortedItems.forEach(item => {
+                    if (item.type === 'folder' && Array.isArray(item.pages)) {
+                      item.pages.forEach(id => folderOwnedPageIds.add(id))
+                    }
+                  })
+                  return sortedItems.map(item => {
                   if (item.type === 'folder') {
                     const folderPageIds = getFolderPageIds(item.id)
                     return (
@@ -1410,7 +1419,7 @@ export default function RichTextEditor() {
                       />
                     )
                   }
-                  if (!item.folderId) {
+                  if (!item.folderId && !folderOwnedPageIds.has(item.id)) {
                     return (
                       <SortablePageItem
                         key={item.id}
@@ -1435,7 +1444,7 @@ export default function RichTextEditor() {
                     );
                   }
                   return null
-                })}
+                })})()}
               </SortableContext>
               <DragOverlay dropAnimation={null}>
                 {activeDragItem ? (
@@ -1553,7 +1562,7 @@ export default function RichTextEditor() {
                 />
               ) : (
                 <>
-                  <ExportDropdown onExport={handleExport} />
+                  <ExportDropdown onExport={handleExport} className={getButtonHoverClasses()} />
                   {shouldShowMobileInstall() && (
                     <button
                       onClick={() => setIsInstallModalOpen(true)}
@@ -1591,7 +1600,7 @@ export default function RichTextEditor() {
                       <span className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 ${theme === 'dark' ? 'border border-[#0d0d0d]' : theme === 'darkblue' ? 'border border-[#0c1017]' : theme === 'fallout' ? 'border border-gray-900' : 'border border-white'} shadow-sm`}></span>
                     )}
                   </button>
-                  <ThemeToggle />
+                  <ThemeToggle className={getButtonHoverClasses()} />
                 </>
               )}
             </div>
@@ -1686,6 +1695,26 @@ export default function RichTextEditor() {
         <span>{format(new Date(currentPage.createdAt), 'MMM d, yyyy')}</span>
       )}
       <EncryptionStatusIndicator />
+      {currentPage.selfDestructAt && (
+        <button
+          onClick={() => {
+            setConfirmModal({
+              isOpen: true,
+              title: 'Remove Self-Destruct',
+              message: `Remove the self-destruct timer from "${currentPage.title}"? The page will no longer be automatically deleted.`,
+              onConfirm: () => cancelSelfDestruct(currentPage.id),
+              variant: 'danger',
+              confirmText: 'Remove Timer',
+              cancelText: 'Keep Timer',
+              showCancel: true
+            })
+          }}
+          className="cursor-pointer hover:opacity-80 transition-opacity"
+          title="Click to remove self-destruct timer"
+        >
+          <SelfDestructBadge selfDestructAt={currentPage.selfDestructAt} theme={theme} />
+        </button>
+      )}
     </div>
     <div className="flex items-center space-x-3">
       <span>{wordCount} words</span>

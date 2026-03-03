@@ -36,12 +36,15 @@ const PageItem = ({
   // On mobile/touch devices, always show the 3-dots button (no hover state)
   const isMobile = isMobileDevice() || isSmallScreen()
 
+  const hasLockOrBadge = (page.password?.hash && !tempUnlockedPages.has(page.id)) || page.selfDestructAt
+
   const truncatePageTitle = (title) => {
-    if (title.length > 10 && page.tagNames && page.tagNames.length > 0) {
-      return title.slice(0, 10) + '...';
+    if (page.tagNames && page.tagNames.length > 0) {
+      const maxLen = hasLockOrBadge ? 8 : 10
+      if (title.length > maxLen) return title.slice(0, maxLen) + '...'
     }
-    return title;
-  };
+    return title
+  }
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -190,7 +193,7 @@ const PageItem = ({
             {Array.isArray(page.tagNames) && page.tagNames.length > 0 && (
               <StackedTags
                 tags={page.tagNames}
-                maxVisible={2}
+                maxVisible={hasLockOrBadge ? 1 : 2}
                 className="ml-auto flex-shrink-0"
                 theme={theme}
                 tagColorMap={(tags || []).reduce((acc, t) => { acc[t.name] = t.color; return acc }, {})}

@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { getTagChipStyle, ensureHex } from '@/utils/colorUtils'
-import { X, Plus, ArrowLeft } from 'lucide-react'
+import { X, Plus, ArrowLeft, Trash2 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
-export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, existingTags }) {
+export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, existingTags, deleteTagFromAllPages }) {
   const [tagName, setTagName] = useState('')
   const [tagColor, setTagColor] = useState('#3B82F6')
   const [isDeleting, setIsDeleting] = useState(false)
   const [showCreateNew, setShowCreateNew] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
   const { theme } = useTheme()
   const inputRef = useRef(null)
 
@@ -183,13 +185,61 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
                           <button
                             key={existingTag.id}
                             type="button"
+                            draggable
                             onClick={() => handleExistingTagSelect(existingTag)}
-                            className="inline-flex items-center rounded-md font-medium border px-2 py-1 text-xs transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData('text/plain', JSON.stringify({ id: existingTag.id, name: existingTag.name }))
+                              e.dataTransfer.effectAllowed = 'move'
+                              setIsDragging(true)
+                            }}
+                            onDragEnd={() => setIsDragging(false)}
+                            className="inline-flex items-center rounded-md font-medium border px-2 py-1 text-xs transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 cursor-grab active:cursor-grabbing"
                             style={getTagChipStyle(existingTag.color, theme)}
                           >
                             {existingTag.name}
                           </button>
                         ))}
+                      </div>
+                      {/* Trash drop zone - visible when dragging */}
+                      <div
+                        onDragOver={(e) => {
+                          e.preventDefault()
+                          e.dataTransfer.dropEffect = 'move'
+                          setIsDragOver(true)
+                        }}
+                        onDragLeave={() => setIsDragOver(false)}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          setIsDragOver(false)
+                          setIsDragging(false)
+                          try {
+                            const data = JSON.parse(e.dataTransfer.getData('text/plain'))
+                            if (data?.name && deleteTagFromAllPages) {
+                              deleteTagFromAllPages(data.name)
+                            }
+                          } catch {}
+                        }}
+                        className={`
+                          flex items-center justify-center gap-2 rounded-xl border-2 border-dashed py-3 mb-4 transition-all duration-200
+                          ${isDragging ? 'opacity-100 translate-y-0' : 'opacity-0 h-0 py-0 mb-0 overflow-hidden'}
+                          ${isDragOver
+                            ? theme === 'fallout'
+                              ? 'border-red-500 bg-red-500/20 text-red-400 scale-105'
+                              : 'border-red-400 bg-red-50 text-red-500 scale-105 dark:bg-red-500/15'
+                            : theme === 'fallout'
+                              ? 'border-green-600/40 text-green-500/60'
+                              : theme === 'darkblue'
+                                ? 'border-[#1c2438] text-[#5d6b88]'
+                                : theme === 'dark'
+                                  ? 'border-[#3a3a3a] text-[#6b6b6b]'
+                                  : 'border-gray-300 text-gray-400'
+                          }
+                        `}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className={`text-xs font-medium ${theme === 'fallout' ? 'font-mono' : ''}`}>
+                          {isDragOver ? 'Release to delete' : 'Drag here to delete'}
+                        </span>
                       </div>
                       <div className="relative">
                         <div className="absolute inset-0 flex items-center">

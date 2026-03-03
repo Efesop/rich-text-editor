@@ -34,9 +34,44 @@ export default class MultiBlockTuneEnhancer {
     // Listen for selection changes
     document.addEventListener('mouseup', this.handleSelection, { passive: true })
     document.addEventListener('keydown', this.handleKeyDown, { passive: true })
-    
+
+    // Preserve selection when cursor leaves the window or window loses focus
+    this.handleWindowBlur = () => {
+      if (this.selectedBlocks.size > 0) {
+        this.preservedSelection = new Set(this.selectedBlocks)
+      }
+    }
+    this.handleWindowFocus = () => {
+      if (this.preservedSelection && this.preservedSelection.size > 0) {
+        // Restore visual selection after a tick so DOM is ready
+        setTimeout(() => {
+          this.preservedSelection.forEach(index => {
+            const allBlocks = document.querySelectorAll('.ce-block')
+            if (allBlocks[index]) {
+              allBlocks[index].classList.add('ce-block--selected')
+            }
+          })
+          this.selectedBlocks = new Set(this.preservedSelection)
+          this.preservedSelection = null
+        }, 10)
+      }
+    }
+    window.addEventListener('blur', this.handleWindowBlur)
+    window.addEventListener('focus', this.handleWindowFocus)
+
+    // Prevent selection clearing when mouse leaves editor area
+    const editorHolder = document.querySelector('.codex-editor')
+    if (editorHolder) {
+      this.handleMouseLeave = () => {
+        if (this.selectedBlocks.size > 0) {
+          this.preservedSelection = new Set(this.selectedBlocks)
+        }
+      }
+      editorHolder.addEventListener('mouseleave', this.handleMouseLeave)
+    }
+
     // Check for selection changes periodically
-    setInterval(() => {
+    this._selectionInterval = setInterval(() => {
       this.updateSelection()
     }, 200)
   }
@@ -62,12 +97,21 @@ export default class MultiBlockTuneEnhancer {
     const selectedElements = document.querySelectorAll('.ce-block--selected')
     const previousSize = this.selectedBlocks.size
     
-    // Store previous multi-selection before updating
+    // Store previous multi-selection as block IDs before updating
     if (this.selectedBlocks.size > 1) {
-      this.previouslySelectedBlocks = new Set(this.selectedBlocks)
-      this.lastMultiSelectionTime = Date.now()
+      const prevIds = new Set()
+      this.selectedBlocks.forEach(index => {
+        try {
+          const block = this.editor.blocks.getBlockByIndex(index)
+          if (block && block.id) prevIds.add(block.id)
+        } catch {}
+      })
+      if (prevIds.size > 1) {
+        this.previouslySelectedBlocks = prevIds
+        this.lastMultiSelectionTime = Date.now()
+      }
     }
-    
+
     this.selectedBlocks.clear()
     
     selectedElements.forEach(element => {
@@ -137,7 +181,7 @@ export default class MultiBlockTuneEnhancer {
   shouldEnhanceTuneMenu() {
     // Enhance if we recently had multiple blocks selected
     const timeSinceMultiSelection = Date.now() - this.lastMultiSelectionTime
-    return this.previouslySelectedBlocks.size > 1 && timeSinceMultiSelection < 2000
+    return this.previouslySelectedBlocks.size > 1 && timeSinceMultiSelection < 5000
   }
 
   enhanceTuneMenu(popover) {
@@ -219,12 +263,8 @@ export default class MultiBlockTuneEnhancer {
         if (block && block.holder) {
           block.holder.classList.add('ce-block--selected')
         }
-      } catch (error) {
-        // Fallback: try to find by index
-        const blockIndex = Array.from(this.previouslySelectedBlocks).indexOf(blockId)
-        if (blockIndex !== -1 && allBlocks[blockIndex]) {
-          allBlocks[blockIndex].classList.add('ce-block--selected')
-        }
+      } catch {
+        // Block may have been removed, skip silently
       }
     })
   }
@@ -295,25 +335,40 @@ export default class MultiBlockTuneEnhancer {
     try {
       const blockIds = Array.from(this.previouslySelectedBlocks)
       let convertedCount = 0
-      
-      for (const blockId of blockIds) {
+
+      // Sort block IDs by their current index in reverse order (bottom-to-top)
+      // to prevent index shifting from affecting subsequent conversions
+      const sortedBlockIds = blockIds
+        .map(id => {
+          try {
+            const block = this.editor.blocks.getById(id)
+            return block ? { id, index: this.editor.blocks.getBlockIndex(block.id) } : null
+          } catch { return null }
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.index - a.index)
+        .map(item => item.id)
+
+      for (const blockId of sortedBlockIds) {
         try {
           const currentBlock = this.editor.blocks.getById(blockId)
-          
+
           if (currentBlock && currentBlock.name !== targetTool) {
             const blockData = await currentBlock.save()
             const convertedData = this.prepareDataForTool(targetTool, blockData)
             await this.editor.blocks.convert(blockId, targetTool, convertedData)
             convertedCount++
+            // Small delay between conversions to let Editor.js settle
+            await new Promise(resolve => setTimeout(resolve, 50))
           }
         } catch (blockError) {
           console.error(`Error converting block ID ${blockId}:`, blockError)
         }
       }
-      
+
       this.clearSelection()
       this.showNotification(`Converted ${convertedCount} blocks to ${targetTool}`)
-      
+
     } catch (error) {
       console.error('Error converting multiple blocks:', error)
       this.showNotification('Error converting blocks', 'error')
@@ -355,24 +410,25 @@ export default class MultiBlockTuneEnhancer {
 
   extractTextFromBlock(blockData) {
     if (!blockData?.data) return ''
-    
+
     const data = blockData.data
-    
+
+    // Preserve HTML inline formatting (bold, italic, links, etc.)
     if (typeof data.text === 'string') {
-      return this.stripHTML(data.text)
+      return data.text
     }
-    
+
     if (Array.isArray(data.items)) {
       return data.items.map(item => {
-        if (typeof item === 'string') return this.stripHTML(item)
-        if (item.text) return this.stripHTML(item.text)
-        if (item.content) return this.stripHTML(item.content)
+        if (typeof item === 'string') return item
+        if (item.text) return item.text
+        if (item.content) return item.content
         return ''
-      }).join('\n')
+      }).filter(Boolean).join('<br>')
     }
-    
+
     if (data.code) return data.code
-    
+
     return ''
   }
 
@@ -423,7 +479,18 @@ export default class MultiBlockTuneEnhancer {
   destroy() {
     document.removeEventListener('mouseup', this.handleSelection)
     document.removeEventListener('keydown', this.handleKeyDown)
-    
+    window.removeEventListener('blur', this.handleWindowBlur)
+    window.removeEventListener('focus', this.handleWindowFocus)
+
+    const editorHolder = document.querySelector('.codex-editor')
+    if (editorHolder && this.handleMouseLeave) {
+      editorHolder.removeEventListener('mouseleave', this.handleMouseLeave)
+    }
+
+    if (this._selectionInterval) {
+      clearInterval(this._selectionInterval)
+    }
+
     const style = document.getElementById('multi-block-tune-styles')
     if (style) {
       style.remove()

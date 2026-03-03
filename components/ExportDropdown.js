@@ -3,7 +3,7 @@ import { Button } from "./ui/button";
 import { ChevronDown } from 'lucide-react';
 import { useTheme } from 'next-themes';
 
-const ExportDropdown = ({ onExport }) => {
+const ExportDropdown = ({ onExport, className: wrapperClassName = '' }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
   const { theme } = useTheme();
@@ -78,7 +78,7 @@ const ExportDropdown = ({ onExport }) => {
         variant="ghost"
         size="sm"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center"
+        className={`flex items-center ${wrapperClassName}`}
       >
         Export
         <ChevronDown className="ml-1 h-4 w-4" />
