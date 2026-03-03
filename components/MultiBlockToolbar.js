@@ -376,36 +376,67 @@ export default class MultiBlockTuneEnhancer {
   }
 
   prepareDataForTool(toolName, originalData) {
+    const data = originalData?.data
     const text = this.extractTextFromBlock(originalData)
-    
+
     switch (toolName) {
       case 'paragraph':
         return { text }
-      
+
       case 'header':
         return { text, level: 2 }
-      
-      case 'nestedlist':
+
+      case 'nestedlist': {
+        // Preserve individual items when converting from checklist or other list
+        if (data && Array.isArray(data.items) && data.items.length > 1) {
+          const flatItems = this.flattenListItems(data.items)
+          return {
+            style: 'unordered',
+            items: flatItems.map(t => ({ content: t, items: [] }))
+          }
+        }
         return {
           style: 'unordered',
           items: [{ content: text, items: [] }]
         }
-      
-      case 'checklist':
+      }
+
+      case 'checklist': {
+        // Preserve individual items when converting from list or other multi-item block
+        if (data && Array.isArray(data.items) && data.items.length > 1) {
+          const flatItems = this.flattenListItems(data.items)
+          return {
+            items: flatItems.map(t => ({ text: t, checked: false }))
+          }
+        }
         return {
           items: [{ text, checked: false }]
         }
-      
+      }
+
       case 'quote':
         return {
           text,
           caption: '',
           alignment: 'left'
         }
-      
+
       default:
         return { text }
     }
+  }
+
+  flattenListItems(items) {
+    const result = []
+    for (const item of items) {
+      const text = typeof item === 'string' ? item : (item.text || item.content || '')
+      if (text) result.push(text)
+      // Flatten nested sub-items
+      if (item.items && Array.isArray(item.items) && item.items.length > 0) {
+        result.push(...this.flattenListItems(item.items))
+      }
+    }
+    return result
   }
 
   extractTextFromBlock(blockData) {

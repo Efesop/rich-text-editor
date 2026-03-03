@@ -20,7 +20,7 @@ const PageItem = ({
   theme,
   tags,
   tempUnlockedPages,
-  className,
+  className = '',
   isInsideFolder = false,
   onDuplicate
 }) => {
@@ -180,7 +180,7 @@ const PageItem = ({
       onMouseLeave={() => setIsHovered(false)}
       style={{ minHeight: '2.25rem' }}
     >
-      <div className="flex items-center flex-1 min-w-0">
+      <div className="flex items-center flex-1 min-w-0 overflow-hidden">
         {page.password && page.password.hash && !tempUnlockedPages.has(page.id) && (
           <LockKeyhole className={`h-3 w-3 flex-shrink-0 mr-1.5 ${getIconClasses()}`} />
         )}
@@ -223,7 +223,7 @@ const PageItem = ({
                 setIsDropdownOpen(!isDropdownOpen)
               }
             }}
-            className={`h-6 w-6 p-0 ${isMobile ? 'opacity-100' : `opacity-0 ${isHovered ? 'opacity-100' : ''}`}`}
+            className={`h-6 w-6 p-0 flex-shrink-0 ${isMobile || isHovered ? 'opacity-100' : 'opacity-0'}`}
             aria-haspopup="menu"
             aria-expanded={isDropdownOpen || isActionSheetOpen}
             aria-controls={`page-menu-${page.id}`}
