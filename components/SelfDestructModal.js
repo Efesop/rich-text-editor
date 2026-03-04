@@ -20,14 +20,14 @@ export default function SelfDestructModal({ isOpen, onClose, onConfirm, pageTitl
   const isDark = theme === 'dark'
   const isDarkBlue = theme === 'darkblue'
 
-  const customMs = customValue * (customUnit === 'days' ? 24 * 60 * 60 * 1000 : 60 * 60 * 1000)
+  const customMs = customValue * (customUnit === 'days' ? 24 * 60 * 60 * 1000 : customUnit === 'hours' ? 60 * 60 * 1000 : 60 * 1000)
   const effectiveDuration = isCustom ? customMs : selectedDuration
   const deleteDate = new Date(Date.now() + effectiveDuration)
   const formatDate = (d) => {
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
   }
 
-  const isValidCustom = isCustom ? customValue >= 1 && customValue <= (customUnit === 'days' ? 365 : 8760) : true
+  const isValidCustom = isCustom ? customValue >= 1 && customValue <= (customUnit === 'days' ? 365 : customUnit === 'hours' ? 8760 : 525600) : true
 
   const handleConfirm = () => {
     if (!isValidCustom) return
@@ -185,7 +185,7 @@ export default function SelfDestructModal({ isOpen, onClose, onConfirm, pageTitl
               <input
                 type="number"
                 min="1"
-                max={customUnit === 'days' ? 365 : 8760}
+                max={customUnit === 'days' ? 365 : customUnit === 'hours' ? 8760 : 525600}
                 value={customValue}
                 onChange={(e) => setCustomValue(Math.max(1, parseInt(e.target.value) || 1))}
                 className={`
@@ -202,7 +202,7 @@ export default function SelfDestructModal({ isOpen, onClose, onConfirm, pageTitl
                 `}
               />
               <div className={`flex rounded-lg overflow-hidden border ${isFallout ? 'border-green-500/40' : isDarkBlue ? 'border-[#1c2438]' : isDark ? 'border-[#3a3a3a]' : 'border-gray-200'}`}>
-                {['hours', 'days'].map((unit) => (
+                {['minutes', 'hours', 'days'].map((unit) => (
                   <button
                     key={unit}
                     onClick={() => setCustomUnit(unit)}

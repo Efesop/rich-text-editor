@@ -557,6 +557,13 @@ export function usePagesManager() {
     }
   }, [tempUnlockedPages])
 
+  // Direct page navigation that bypasses lock checks.
+  // Use after successful unlock (password or biometric) when the page
+  // is already verified/decrypted but tempUnlockedPages may not be flushed yet.
+  const navigateToPage = useCallback((page) => {
+    if (page) _setCurrentPage(page)
+  }, [])
+
   const updateTagInPages = useCallback(async (oldName, updatedTag) => {
     if (!oldName || !updatedTag?.name) return
 
@@ -1028,5 +1035,6 @@ export function usePagesManager() {
     movePageToContainer,
     setSelfDestruct,
     cancelSelfDestruct,
+    navigateToPage,
   }
 }

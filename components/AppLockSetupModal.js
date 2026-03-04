@@ -14,6 +14,9 @@ export default function AppLockSetupModal({ isOpen, onClose, onConfirm, biometri
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [selectedTimeout, setSelectedTimeout] = useState(5)
+  const [isCustomTimeout, setIsCustomTimeout] = useState(false)
+  const [customTimeoutValue, setCustomTimeoutValue] = useState(2)
+  const [customTimeoutUnit, setCustomTimeoutUnit] = useState('hours')
   const [enableBiometric, setEnableBiometric] = useState(false)
   const [error, setError] = useState('')
   const inputRef = useRef(null)
@@ -30,6 +33,9 @@ export default function AppLockSetupModal({ isOpen, onClose, onConfirm, biometri
       setPassword('')
       setConfirmPassword('')
       setSelectedTimeout(5)
+      setIsCustomTimeout(false)
+      setCustomTimeoutValue(2)
+      setCustomTimeoutUnit('hours')
       setEnableBiometric(false)
       setError('')
     }
@@ -50,7 +56,14 @@ export default function AppLockSetupModal({ isOpen, onClose, onConfirm, biometri
       setError('Passwords do not match')
       return
     }
-    onConfirm(password, selectedTimeout, enableBiometric)
+    const effectiveTimeout = isCustomTimeout
+      ? customTimeoutUnit === 'days'
+        ? customTimeoutValue * 24 * 60
+        : customTimeoutUnit === 'hours'
+          ? customTimeoutValue * 60
+          : customTimeoutValue
+      : selectedTimeout
+    onConfirm(password, effectiveTimeout, enableBiometric)
     onClose()
   }
 
@@ -113,7 +126,7 @@ export default function AppLockSetupModal({ isOpen, onClose, onConfirm, biometri
                   text-lg font-semibold
                   ${isFallout ? 'text-green-400 font-mono' : isDarkBlue ? 'text-[#e0e6f0]' : isDark ? 'text-white' : 'text-gray-900'}
                 `}>
-                  Set Up Auto-Lock
+                  Set Up App Lock
                 </h2>
                 <p className={`
                   text-sm mt-0.5
@@ -234,11 +247,11 @@ export default function AppLockSetupModal({ isOpen, onClose, onConfirm, biometri
             </label>
             <div className="space-y-1.5">
               {TIMEOUT_OPTIONS.map((opt) => {
-                const isSelected = selectedTimeout === opt.value
+                const isSelected = !isCustomTimeout && selectedTimeout === opt.value
                 return (
                   <button
                     key={opt.value}
-                    onClick={() => setSelectedTimeout(opt.value)}
+                    onClick={() => { setSelectedTimeout(opt.value); setIsCustomTimeout(false) }}
                     className={`
                       w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all
                       ${isSelected
@@ -263,6 +276,82 @@ export default function AppLockSetupModal({ isOpen, onClose, onConfirm, biometri
                   </button>
                 )
               })}
+              <button
+                onClick={() => setIsCustomTimeout(true)}
+                className={`
+                  w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all
+                  ${isCustomTimeout
+                    ? isFallout
+                      ? 'bg-green-500/20 border-2 border-green-500/60 text-green-300'
+                      : isDarkBlue
+                        ? 'bg-blue-500/20 border-2 border-blue-500/60 text-[#e0e6f0]'
+                        : isDark
+                          ? 'bg-blue-500/20 border-2 border-blue-500/60 text-white'
+                          : 'bg-blue-50 border-2 border-blue-500 text-gray-900'
+                    : isFallout
+                      ? 'bg-gray-800/50 border border-green-500/20 text-green-400 hover:border-green-500/40'
+                      : isDarkBlue
+                        ? 'bg-[#0c1017]/50 border border-[#1c2438] text-[#8b99b5] hover:border-[#232b42]'
+                        : isDark
+                          ? 'bg-[#2f2f2f]/50 border border-[#3a3a3a]/50 text-[#c0c0c0] hover:border-[#4a4a4a]'
+                          : 'bg-gray-50 border border-gray-200 text-gray-700 hover:border-gray-300'
+                  }
+                `}
+              >
+                <span>Custom</span>
+              </button>
+              {isCustomTimeout && (
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    type="number"
+                    min="1"
+                    max={customTimeoutUnit === 'days' ? 365 : customTimeoutUnit === 'hours' ? 8760 : 525600}
+                    value={customTimeoutValue}
+                    onChange={(e) => setCustomTimeoutValue(Math.max(1, parseInt(e.target.value) || 1))}
+                    className={`
+                      w-20 px-3 py-2 rounded-lg text-sm text-center
+                      focus:outline-none focus:ring-2
+                      ${isFallout
+                        ? 'bg-gray-800 border border-green-500/40 text-green-400 font-mono focus:ring-green-500/50'
+                        : isDarkBlue
+                          ? 'bg-[#0c1017] border border-[#1c2438] text-[#e0e6f0] focus:ring-blue-500/50'
+                          : isDark
+                            ? 'bg-[#2f2f2f] border border-[#3a3a3a] text-white focus:ring-blue-500/50'
+                            : 'bg-white border border-gray-200 text-gray-900 focus:ring-blue-500/30'
+                      }
+                    `}
+                  />
+                  <div className={`flex rounded-lg overflow-hidden border ${isFallout ? 'border-green-500/40' : isDarkBlue ? 'border-[#1c2438]' : isDark ? 'border-[#3a3a3a]' : 'border-gray-200'}`}>
+                    {['minutes', 'hours', 'days'].map((unit) => (
+                      <button
+                        key={unit}
+                        onClick={() => setCustomTimeoutUnit(unit)}
+                        className={`
+                          px-3 py-2 text-sm font-medium transition-all
+                          ${customTimeoutUnit === unit
+                            ? isFallout
+                              ? 'bg-green-500/20 text-green-300'
+                              : isDarkBlue
+                                ? 'bg-blue-500/20 text-[#e0e6f0]'
+                                : isDark
+                                  ? 'bg-blue-500/20 text-white'
+                                  : 'bg-blue-50 text-blue-700'
+                            : isFallout
+                              ? 'bg-gray-800 text-green-500 hover:bg-gray-700'
+                              : isDarkBlue
+                                ? 'bg-[#0c1017] text-[#5d6b88] hover:bg-[#141825]'
+                                : isDark
+                                  ? 'bg-[#2f2f2f] text-[#6b6b6b] hover:bg-[#3a3a3a]'
+                                  : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                          }
+                        `}
+                      >
+                        {unit.charAt(0).toUpperCase() + unit.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -359,7 +448,7 @@ export default function AppLockSetupModal({ isOpen, onClose, onConfirm, biometri
               }
             `}
           >
-            Enable Auto-Lock
+            Enable App Lock
           </button>
         </div>
       </div>

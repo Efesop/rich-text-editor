@@ -71,7 +71,7 @@ export default function AppLockScreen({ onUnlock, onBiometricUnlock, biometricAv
         {/* Logo */}
         <div className="mb-8 flex flex-col items-center">
           <div className={`
-            p-4 rounded-2xl mb-4 flex flex-col items-center gap-2
+            p-4 rounded-2xl mb-4 flex items-center gap-3
             ${isFallout
               ? 'bg-green-500/10 border border-green-500/30'
               : isDarkBlue

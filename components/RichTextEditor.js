@@ -103,6 +103,7 @@ export default function RichTextEditor() {
     movePageToContainer,
     setSelfDestruct,
     cancelSelfDestruct,
+    navigateToPage,
   } = usePagesManager()
 
   const {
@@ -827,6 +828,10 @@ export default function RichTextEditor() {
       if (pageToAccess?.id) {
         delete passwordAttemptsRef.current[pageToAccess.id]
       }
+      // Navigate to the unlocked page (bypasses lock check since tempUnlockedPages may not be flushed yet)
+      if (pageToAccess && (actionType === 'open' || actionType === 'removeLock')) {
+        navigateToPage(pageToAccess)
+      }
       setIsPasswordModalOpen(false)
       setPasswordInput('')
       setPageToAccess(null)
@@ -1305,7 +1310,7 @@ export default function RichTextEditor() {
                           }
                         `}
                       >
-                        <span>Lock Now</span>
+                        <span>Lock App Now</span>
                         <span className={`
                           text-xs
                           ${theme === 'fallout' ? 'text-green-600' : theme === 'darkblue' ? 'text-[#5d6b88]' : theme === 'dark' ? 'text-[#6b6b6b]' : 'text-gray-400'}
@@ -1334,7 +1339,7 @@ export default function RichTextEditor() {
                           }
                         `}
                       >
-                        {appLock.isEnabled ? 'Lock Settings' : 'Set Up Lock'}
+                        {appLock.isEnabled ? 'Lock App Settings' : 'Set Up App Lock'}
                       </button>
                     </div>
                     )
@@ -1562,8 +1567,8 @@ export default function RichTextEditor() {
                     title={currentPage.password?.hash && !tempUnlockedPages.has(currentPage.id) ? 'Unlock page' : 'Lock page'}
                   >
                     {currentPage.password?.hash && !tempUnlockedPages.has(currentPage.id)
-                      ? <LockKeyhole className="h-3.5 w-3.5" />
-                      : <Unlock className="h-3.5 w-3.5" />
+                      ? <LockKeyhole className="h-3.5 w-3.5 pointer-events-none" />
+                      : <Unlock className="h-3.5 w-3.5 pointer-events-none" />
                     }
                   </button>
                   <button
@@ -1587,8 +1592,8 @@ export default function RichTextEditor() {
                     title={currentPage.selfDestructAt ? 'Cancel self-destruct' : 'Self-destruct'}
                   >
                     {currentPage.selfDestructAt
-                      ? <TimerOff className="h-3.5 w-3.5" />
-                      : <Timer className="h-3.5 w-3.5" />
+                      ? <TimerOff className="h-3.5 w-3.5 pointer-events-none" />
+                      : <Timer className="h-3.5 w-3.5 pointer-events-none" />
                     }
                   </button>
                 </div>
@@ -1818,7 +1823,7 @@ export default function RichTextEditor() {
               const success = await window.electron.invoke('prompt-touch-id')
               if (success && pageToAccess) {
                 setTempUnlockedPages(prev => new Set(prev).add(pageToAccess.id))
-                setCurrentPage(pageToAccess)
+                navigateToPage(pageToAccess)
                 setIsPasswordModalOpen(false)
                 setPasswordInput('')
                 setPageToAccess(null)
