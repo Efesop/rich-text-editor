@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { FolderInput, X, FileText, Check } from 'lucide-react'
+import { FolderInput, X, FileText, Check, Plus } from 'lucide-react'
 
-export function AddPageToFolderModal({ isOpen, onClose, onConfirm, pages, currentFolderId, theme }) {
+export function AddPageToFolderModal({ isOpen, onClose, onConfirm, onCreateNewPage, pages, currentFolderId, theme }) {
   const [selectedPageIds, setSelectedPageIds] = useState([])
 
   useEffect(() => {
@@ -148,11 +148,34 @@ export function AddPageToFolderModal({ isOpen, onClose, onConfirm, pages, curren
                   No pages available
                 </h3>
                 <p className={`
-                  text-sm
+                  text-sm mb-4
                   ${isFallout ? 'text-green-600 font-mono' : isDarkBlue ? 'text-[#5d6b88]' : isDark ? 'text-[#6b6b6b]' : 'text-gray-500'}
                 `}>
-                  Create a new page first, or all pages are already in folders.
+                  All pages are already in folders.
                 </p>
+                {onCreateNewPage && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onCreateNewPage(currentFolderId)
+                      onClose()
+                    }}
+                    className={`
+                      inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-150
+                      ${isFallout
+                        ? 'bg-green-500 text-gray-900 hover:bg-green-400 font-mono'
+                        : isDarkBlue
+                          ? 'bg-blue-500 text-white hover:bg-blue-400'
+                          : isDark
+                            ? 'bg-blue-600 text-white hover:bg-blue-500'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }
+                    `}
+                  >
+                    <Plus className="w-4 h-4" />
+                    Create new page
+                  </button>
+                )}
               </div>
             ) : (
               <>
@@ -171,6 +194,31 @@ export function AddPageToFolderModal({ isOpen, onClose, onConfirm, pages, curren
                   `}>
                     {selectedPageIds.length} page{selectedPageIds.length !== 1 ? 's' : ''} selected
                   </div>
+                )}
+
+                {/* Create new page button */}
+                {onCreateNewPage && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onCreateNewPage(currentFolderId)
+                      onClose()
+                    }}
+                    className={`
+                      flex items-center gap-3 w-full p-3 rounded-xl transition-all duration-150 mb-2
+                      ${isFallout
+                        ? 'border border-dashed border-green-500/40 text-green-400 hover:bg-green-500/10 font-mono'
+                        : isDarkBlue
+                          ? 'border border-dashed border-[#1c2438] text-[#8b99b5] hover:bg-[#1a2035]'
+                          : isDark
+                            ? 'border border-dashed border-[#3a3a3a] text-[#8e8e8e] hover:bg-[#2f2f2f]'
+                            : 'border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50'
+                      }
+                    `}
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="text-sm font-medium">Create new page</span>
+                  </button>
                 )}
 
                 {/* Page list */}

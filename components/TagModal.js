@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { getTagChipStyle, ensureHex } from '@/utils/colorUtils'
-import { X, Plus, ArrowLeft, Trash2 } from 'lucide-react'
+import { X, Plus, ArrowLeft, Trash2, AlertTriangle } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
-export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, existingTags, deleteTagFromAllPages }) {
+export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, existingTags, deleteTagFromAllPages, pages = [] }) {
   const [tagName, setTagName] = useState('')
   const [tagColor, setTagColor] = useState('#3B82F6')
   const [isDeleting, setIsDeleting] = useState(false)
   const [showCreateNew, setShowCreateNew] = useState(false)
-  const [isDragging, setIsDragging] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState(null) // { tagName, affectedPages }
   const { theme } = useTheme()
   const inputRef = useRef(null)
 
@@ -25,6 +25,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
         setShowCreateNew(false)
       }
       setIsDeleting(false)
+      setDeleteConfirm(null)
     }
   }, [isOpen, tag])
 
@@ -119,11 +120,31 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
     onClose()
   }
 
+  const getAffectedPages = (name) => {
+    return pages.filter(p => (p.tagNames || []).includes(name)).map(p => p.title)
+  }
+
   const handleDelete = () => {
     if (isDeleting) {
       onDelete(tag.id)
     } else {
       setIsDeleting(true)
+    }
+  }
+
+  const handleDragDelete = (name) => {
+    const affected = getAffectedPages(name)
+    if (affected.length > 0) {
+      setDeleteConfirm({ tagName: name, affectedPages: affected })
+    } else {
+      deleteTagFromAllPages(name)
+    }
+  }
+
+  const confirmDragDelete = () => {
+    if (deleteConfirm) {
+      deleteTagFromAllPages(deleteConfirm.tagName)
+      setDeleteConfirm(null)
     }
   }
 
@@ -146,7 +167,7 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-4">
       <div className="relative w-full max-w-lg mx-auto">
-        <div className={`relative transform overflow-hidden rounded-lg shadow-xl transition-all ${getModalClasses()}`}>
+        <div className={`relative transform rounded-lg shadow-xl transition-all ${getModalClasses()}`}>
           <div className="absolute right-0 top-0 pr-6 pt-6">
             <button
               type="button"
@@ -190,10 +211,9 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
                             onDragStart={(e) => {
                               e.dataTransfer.setData('text/plain', JSON.stringify({ id: existingTag.id, name: existingTag.name }))
                               e.dataTransfer.effectAllowed = 'move'
-                              setIsDragging(true)
                             }}
-                            onDragEnd={() => setIsDragging(false)}
-                            className="inline-flex items-center rounded-md font-medium border px-2 py-1 text-xs transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 cursor-grab active:cursor-grabbing"
+                            onDragEnd={() => {}}
+                            className="inline-flex items-center rounded-md font-medium border px-2 py-1 text-xs transition-colors hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 cursor-grab active:cursor-grabbing"
                             style={getTagChipStyle(existingTag.color, theme)}
                           >
                             {existingTag.name}
@@ -211,17 +231,15 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
                         onDrop={(e) => {
                           e.preventDefault()
                           setIsDragOver(false)
-                          setIsDragging(false)
                           try {
                             const data = JSON.parse(e.dataTransfer.getData('text/plain'))
-                            if (data?.name && deleteTagFromAllPages) {
-                              deleteTagFromAllPages(data.name)
+                            if (data?.name) {
+                              handleDragDelete(data.name)
                             }
                           } catch {}
                         }}
                         className={`
                           flex items-center justify-center gap-2 rounded-xl border-2 border-dashed py-3 mb-4 transition-all duration-200
-                          ${isDragging ? 'opacity-100 translate-y-0' : 'opacity-0 h-0 py-0 mb-0 overflow-hidden'}
                           ${isDragOver
                             ? theme === 'fallout'
                               ? 'border-red-500 bg-red-500/20 text-red-400 scale-105'
@@ -353,6 +371,44 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
               </div>
             </div>
           </div>
+          {/* Delete confirmation overlay */}
+          {deleteConfirm && (
+            <div className={`px-6 py-4 ${theme === 'fallout' ? 'border-t border-green-600' : theme === 'darkblue' ? 'border-t border-[#1c2438]' : theme === 'dark' ? 'border-t border-[#3a3a3a]' : 'border-t border-gray-200'}`}>
+              <div className="flex items-start gap-3 mb-3">
+                <AlertTriangle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${theme === 'fallout' ? 'text-red-400' : 'text-amber-500'}`} />
+                <div>
+                  <p className={`text-sm font-medium mb-1 ${theme === 'fallout' ? 'font-mono' : ''}`}>
+                    Delete "{deleteConfirm.tagName}"?
+                  </p>
+                  <p className={`text-xs ${theme === 'fallout' ? 'text-green-300 font-mono' : theme === 'darkblue' ? 'text-[#8b99b5]' : theme === 'dark' ? 'text-[#8e8e8e]' : 'text-gray-500'}`}>
+                    This tag will be removed from {deleteConfirm.affectedPages.length} page{deleteConfirm.affectedPages.length !== 1 ? 's' : ''}:
+                  </p>
+                  <ul className={`text-xs mt-1 space-y-0.5 ${theme === 'fallout' ? 'text-green-300 font-mono' : theme === 'darkblue' ? 'text-[#8b99b5]' : theme === 'dark' ? 'text-[#8e8e8e]' : 'text-gray-500'}`}>
+                    {deleteConfirm.affectedPages.map((name, i) => (
+                      <li key={i}>• {name}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirm(null)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md ${getButtonClasses('cancel')}`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDragDelete}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md ${getButtonClasses('delete')}`}
+                >
+                  Delete from all pages
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className={`px-6 py-4 flex flex-col sm:flex-row-reverse gap-2 ${theme === 'fallout' ? 'border-t border-green-600' : theme === 'darkblue' ? 'bg-[#0c1017] border-t border-[#1c2438]' : theme === 'dark' ? 'bg-[#141414]' : 'bg-gray-50'}`}>
             {(tag || showCreateNew) && (
               <button
@@ -372,7 +428,14 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
                 onClick={handleDelete}
                 className={`px-4 py-2 text-sm font-medium rounded-md ${getButtonClasses('delete')}`}
               >
-                {isDeleting ? 'Confirm Delete' : 'Delete Tag'}
+                {isDeleting ? (
+                  (() => {
+                    const affected = getAffectedPages(tag.name)
+                    return affected.length > 0
+                      ? `Confirm — removes from ${affected.length} page${affected.length !== 1 ? 's' : ''}`
+                      : 'Confirm Delete'
+                  })()
+                ) : 'Delete Tag'}
               </button>
             )}
             <button

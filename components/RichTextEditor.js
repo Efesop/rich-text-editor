@@ -1796,6 +1796,7 @@ export default function RichTextEditor() {
         deleteTagFromAllPages={deleteTagFromAllPages}
         tag={tagToEdit}
         existingTags={tags}
+        pages={pages}
       />
 
       <PasswordModal
@@ -1841,6 +1842,12 @@ export default function RichTextEditor() {
         isOpen={isAddToFolderModalOpen}
         onClose={() => setIsAddToFolderModalOpen(false)}
         onConfirm={handleAddPageToFolder}
+        onCreateNewPage={async (folderId) => {
+          const newPage = await handleNewPage()
+          if (newPage && folderId) {
+            addPageToFolder(newPage.id, folderId)
+          }
+        }}
         pages={(pages || []).filter(page => page.type !== 'folder' && !page.folderId)}
         currentFolderId={selectedFolderId}
         theme={theme}

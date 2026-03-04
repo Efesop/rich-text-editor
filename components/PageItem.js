@@ -35,9 +35,9 @@ const PageItem = ({
   const isMobile = isMobileDevice() || isSmallScreen()
 
   const truncatePageTitle = (title) => {
-    if (page.tagNames && page.tagNames.length > 0) {
-      if (title.length > 10) return title.slice(0, 10) + '...'
-    }
+    const hasTags = page.tagNames && page.tagNames.length > 0
+    const maxLen = hasTags ? 10 : 22
+    if (title.length > maxLen) return title.slice(0, maxLen) + '...'
     return title
   }
 
@@ -188,7 +188,7 @@ const PageItem = ({
         )}
         {sidebarOpen ? (
           <>
-            <span className="truncate" title={page.title}>
+            <span className="truncate min-w-0" title={page.title}>
               {truncatePageTitle(page.title)}
             </span>
             {Array.isArray(page.tagNames) && page.tagNames.length > 0 && (
