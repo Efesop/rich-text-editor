@@ -1235,7 +1235,7 @@ export default function RichTextEditor() {
             : isSmallScreen
             ? `fixed z-50 inset-y-0 left-0 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-200 w-3/4 max-w-xs safe-area-top safe-area-bottom`
             : `${sidebarOpen ? 'w-64' : 'w-16'} relative transition-all duration-300`
-            } flex flex-col overflow-visible`}
+            } flex flex-col overflow-hidden`}
           role="navigation"
           aria-label="Page navigation"
           aria-expanded={sidebarOpen}

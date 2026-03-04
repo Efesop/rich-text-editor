@@ -243,9 +243,9 @@ export function FolderItem({
             />
           ) : (
             sidebarOpen ? (
-              <div className="flex items-center min-w-0">
+              <div className="flex items-center min-w-0 flex-1">
                 <span className="truncate text-sm font-medium mr-1" title={folder.title}>
-                  {folder.title.length > 20 ? `${folder.title.slice(0, 17)}...` : folder.title}
+                  {folder.title}
                 </span>
                 {pagesCount > 0 && (
                   <span className={`text-xs px-1.5 ml-1 rounded-full ${getFolderCountClasses()}`}>

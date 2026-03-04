@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Fix Radix ScrollArea viewport using display:table which defeats width constraints */
+[data-radix-scroll-area-viewport] > div {
+  display: block !important;
+}
+
 /* Import a monospace font for terminal effect */
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
