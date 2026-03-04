@@ -145,7 +145,7 @@ export default function StackedTags({
       <>
         <div
           ref={containerRef}
-          className={`relative inline-flex items-center h-5 ${className}`}
+          className={`relative isolate inline-flex items-center h-5 ${className}`}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
@@ -159,7 +159,7 @@ export default function StackedTags({
                   width: 18,
                   height: 18,
                   marginLeft: index === 0 ? 0 : -7,
-                  zIndex: 100 - index,
+                  zIndex: 3 - index,
                   flexShrink: 0,
                   ...(color.style || {}),
                 }}
