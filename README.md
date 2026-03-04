@@ -42,9 +42,6 @@ See [FEATURES.md](./FEATURES.md) for the full feature list.
 | Platform | Method |
 |----------|--------|
 | **macOS** | Native app ([download](https://dashnote.io)) |
-| **Windows** | Native app ([releases](https://github.com/Efesop/rich-text-editor/releases)) |
-| **Linux** | Native app ([releases](https://github.com/Efesop/rich-text-editor/releases)) |
-| **iOS / Android** | PWA (add to home screen) |
 | **Browser** | [Web version](https://efesop.github.io/rich-text-editor/) |
 
 ## Tech Stack
