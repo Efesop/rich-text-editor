@@ -32,7 +32,7 @@ export default function SortablePageItem({ id, disabled, theme, ...pageItemProps
   }
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="w-full min-w-0">
       {isOver && !isDragging && (
         <div
           className={`absolute top-0 left-2 right-2 h-0.5 -translate-y-0.5 rounded-full ${

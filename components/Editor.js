@@ -1,5 +1,6 @@
  import React, { useEffect, useRef, useCallback, useMemo } from 'react'
 import MultiBlockTuneEnhancer from './MultiBlockToolbar'
+import { migrateEditorData } from '@/utils/migrateBlocks'
 
 export default function Editor({ data, onChange, holder }) {
   const editorRef = useRef(null)
@@ -41,6 +42,10 @@ export default function Editor({ data, onChange, holder }) {
     },
     onChange: async (api, event) => {
       try {
+        // Renumber ordered list items on any editor change
+        if (typeof window !== 'undefined' && window._renumberListItems) {
+          window._renumberListItems()
+        }
         // Debounce the onChange to prevent excessive saves
         if (editorRef.current?.onChange) {
           clearTimeout(editorRef.current.onChange)
@@ -78,7 +83,10 @@ export default function Editor({ data, onChange, holder }) {
         NestedList,
         Underline,
         AlignmentTune,
-        Undo
+        Undo,
+        BulletListItem,
+        NumberedListItem,
+        ChecklistItemTool
       ] = await Promise.all([
         import('@editorjs/editorjs').then(m => m.default),
         import('@editorjs/header').then(m => m.default),
@@ -96,6 +104,9 @@ export default function Editor({ data, onChange, holder }) {
         import('@editorjs/underline').then(m => m.default),
         import('editorjs-text-alignment-blocktune').then(m => m.default),
         import('editorjs-undo').then(m => m.default),
+        import('./editor-tools/BulletListItem').then(m => m.default),
+        import('./editor-tools/NumberedListItem').then(m => m.default),
+        import('./editor-tools/ChecklistItem').then(m => m.default),
       ])
 
       // Enhanced Paragraph tool that preserves empty paragraphs and improves formatting
@@ -144,18 +155,36 @@ export default function Editor({ data, onChange, holder }) {
             defaultLevel: 2
           }
         },
-        nestedlist: {
-          class: NestedList,
+        bulletListItem: {
+          class: BulletListItem,
           inlineToolbar: true,
-
+        },
+        numberedListItem: {
+          class: NumberedListItem,
+          inlineToolbar: true,
+        },
+        checklistItem: {
+          class: ChecklistItemTool,
+          inlineToolbar: true,
+        },
+        // Legacy tools kept for backwards compatibility (migration converts data before render)
+        // Hidden from toolbox and conversion menus — only used to render unmigrated blocks
+        nestedlist: {
+          class: class extends NestedList {
+            static get toolbox() { return false }
+            static get conversionConfig() { return undefined }
+          },
+          inlineToolbar: true,
           config: {
             defaultStyle: 'unordered'
           }
         },
         checklist: {
-          class: Checklist,
+          class: class extends Checklist {
+            static get toolbox() { return false }
+            static get conversionConfig() { return undefined }
+          },
           inlineToolbar: true,
-
         },
         quote: {
           class: Quote,
@@ -288,10 +317,13 @@ export default function Editor({ data, onChange, holder }) {
           ? data
           : { time: Date.now(), blocks: [], version: '2.30.6' }
 
+        // Migrate old nestedlist/checklist blocks to individual item blocks
+        const migratedData = migrateEditorData(validData)
+
         editorRef.current = new EditorJS({
           ...editorConfig,
           tools,
-          data: validData
+          data: migratedData
         })
 
         await editorRef.current.isReady
@@ -310,7 +342,7 @@ export default function Editor({ data, onChange, holder }) {
           }
         })
         // Initialize with current data so undo doesn't revert to empty
-        undoInstance.initialize(validData)
+        undoInstance.initialize(migratedData)
         undoRef.current = undoInstance
 
         // Initialize multi-block tune enhancer
@@ -339,15 +371,17 @@ export default function Editor({ data, onChange, holder }) {
       if (editorRef.current && isInitializedRef.current && data !== dataRef.current) {
         try {
           await editorRef.current.isReady
-          const validData = data && typeof data === 'object' && Array.isArray(data.blocks) 
-            ? data 
+          const validData = data && typeof data === 'object' && Array.isArray(data.blocks)
+            ? data
             : { time: Date.now(), blocks: [], version: '2.30.6' }
-          
-          await editorRef.current.render(validData)
+
+          // Migrate old nestedlist/checklist blocks to individual item blocks
+          const migratedData = migrateEditorData(validData)
+          await editorRef.current.render(migratedData)
           dataRef.current = data
           // Reset undo history for the new page so undo doesn't cross pages
           if (undoRef.current) {
-            undoRef.current.initialize(validData)
+            undoRef.current.initialize(migratedData)
           }
         } catch (error) {
           console.error('Error updating editor data:', error)

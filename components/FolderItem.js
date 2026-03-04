@@ -210,7 +210,7 @@ export function FolderItem({
   return (
     <div className={`my-1 transition-all duration-150 ${isDropTarget ? `rounded-lg ${theme === 'fallout' ? 'ring-2 ring-green-500/50' : 'ring-2 ring-blue-500/50'}` : ''}`} ref={folderRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} data-theme={theme}>
       <div
-        className={`flex items-center justify-between px-3 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-150 ${getFolderHoverClasses()}`}
+        className={`flex items-center justify-between px-3 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-150 overflow-hidden ${getFolderHoverClasses()}`}
         onClick={toggleExpand}
       >
         <div className="flex items-center flex-grow min-w-0">

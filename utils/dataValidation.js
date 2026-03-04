@@ -79,7 +79,7 @@ function validateBlock(block) {
   const validTypes = [
     'paragraph', 'header', 'list', 'checklist', 'quote', 'code',
     'table', 'linkTool', 'image', 'embed', 'delimiter', 'marker',
-    'inlineCode', 'nestedlist'
+    'inlineCode', 'nestedlist', 'bulletListItem', 'numberedListItem', 'checklistItem'
   ]
 
   return {
@@ -132,12 +132,24 @@ function validateBlockData(data, type) {
     
     case 'table':
       return {
-        content: Array.isArray(data.content) ? data.content.map(row => 
+        content: Array.isArray(data.content) ? data.content.map(row =>
           Array.isArray(row) ? row.map(cell => typeof cell === 'string' ? cell : '') : []
         ) : [['']],
         withHeadings: Boolean(data.withHeadings)
       }
-    
+
+    case 'bulletListItem':
+    case 'numberedListItem':
+      return {
+        text: typeof data.text === 'string' ? data.text : ''
+      }
+
+    case 'checklistItem':
+      return {
+        text: typeof data.text === 'string' ? data.text : '',
+        checked: Boolean(data.checked)
+      }
+
     default:
       return data
   }

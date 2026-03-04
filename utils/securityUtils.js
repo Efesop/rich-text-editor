@@ -140,6 +140,20 @@ export function sanitizeEditorContent(content) {
         }
         break
 
+      case 'bulletListItem':
+      case 'numberedListItem':
+        if (block.data?.text) {
+          sanitizedBlock.data.text = DOMPurify.sanitize(block.data.text, sanitizerConfig)
+        }
+        break
+
+      case 'checklistItem':
+        if (block.data?.text) {
+          sanitizedBlock.data.text = DOMPurify.sanitize(block.data.text, sanitizerConfig)
+        }
+        sanitizedBlock.data.checked = Boolean(block.data?.checked)
+        break
+
       case 'delimiter':
         // Delimiter blocks don't need data sanitization
         break
@@ -172,7 +186,7 @@ function sanitizeBlockType(type) {
   const allowedTypes = [
     'paragraph', 'header', 'list', 'checklist', 'quote', 'code',
     'table', 'linkTool', 'image', 'embed', 'delimiter', 'marker',
-    'inlineCode', 'nestedlist'
+    'inlineCode', 'nestedlist', 'bulletListItem', 'numberedListItem', 'checklistItem'
   ]
   
   return allowedTypes.includes(type) ? type : 'paragraph'

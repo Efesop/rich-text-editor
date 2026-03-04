@@ -1,10 +1,32 @@
 /**
  * Multi-Block Tune Enhancer for Editor.js
- * Enhances the existing tune menu to support multi-block operations
- * 
- * @author Dash Team
- * @version 3.0.0
+ * Shows a settings button when multiple blocks are selected,
+ * allowing batch conversion via a popover menu.
  */
+
+const SETTINGS_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 18 18"><circle cx="9" cy="4" r="1.5"/><circle cx="9" cy="9" r="1.5"/><circle cx="9" cy="14" r="1.5"/><circle cx="4" cy="4" r="1.5"/><circle cx="4" cy="9" r="1.5"/><circle cx="4" cy="14" r="1.5"/></svg>'
+
+const FRIENDLY_NAMES = {
+  paragraph: 'Text',
+  header: 'Heading',
+  bulletListItem: 'Bullet List',
+  numberedListItem: 'Numbered List',
+  checklistItem: 'Checklist',
+  quote: 'Quote',
+  code: 'Code',
+}
+
+const CONVERT_OPTIONS = [
+  { label: 'Text', tool: 'paragraph', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M9 7L9 17"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M6 7H15C16.1046 7 17 7.89543 17 9V9C17 10.1046 16.1046 11 15 11H9"/></svg>' },
+  { label: 'Heading 1', tool: 'header', data: { level: 2 }, icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M6 7v10"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M6 12h6"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M12 7v10"/></svg>' },
+  { label: 'Heading 2', tool: 'header', data: { level: 3 }, icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M6 7v10"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M6 12h6"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M12 7v10"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M17 12a2 2 0 11.001 3.999A2 2 0 0117 12zm0 0V10m0 6h2"/></svg>' },
+  { label: 'Heading 3', tool: 'header', data: { level: 4 }, icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M6 7v10"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M6 12h6"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M12 7v10"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M17.5 11a1.5 1.5 0 10.001 2.999A1.5 1.5 0 0017.5 11zm0 3a1.5 1.5 0 10.001 2.999A1.5 1.5 0 0017.5 14z"/></svg>' },
+  { label: 'Bullet List', tool: 'bulletListItem', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><line x1="9" x2="19" y1="7" y2="7" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><line x1="9" x2="19" y1="12" y2="12" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><line x1="9" x2="19" y1="17" y2="17" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><circle cx="5" cy="7" r="1" fill="currentColor"/><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="5" cy="17" r="1" fill="currentColor"/></svg>' },
+  { label: 'Numbered List', tool: 'numberedListItem', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><line x1="12" x2="19" y1="7" y2="7" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><line x1="12" x2="19" y1="12" y2="12" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><line x1="12" x2="19" y1="17" y2="17" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M7.8 14V7.21c0-.08-.1-.13-.16-.08L5 9.5"/></svg>' },
+  { label: 'Checklist', tool: 'checklistItem', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M9.2 12L11.06 13.86c.08.08.2.08.28 0L14.7 10.5"/><rect width="14" height="14" x="5" y="5" stroke="currentColor" stroke-width="2" rx="4"/></svg>' },
+  { label: 'Quote', tool: 'quote', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M6 10h5V7a3 3 0 00-3-3H7"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M13 10h5V7a3 3 0 00-3-3h-1"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M6 10c0 3 1 5 5 7"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M13 10c0 3 1 5 5 7"/></svg>' },
+  { label: 'Code', tool: 'code', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M8 5l-5 7 5 7"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M16 5l5 7-5 7"/></svg>' },
+]
 
 export default class MultiBlockTuneEnhancer {
   constructor(editor) {
@@ -12,30 +34,79 @@ export default class MultiBlockTuneEnhancer {
     this.selectedBlocks = new Set()
     this.previouslySelectedBlocks = new Set()
     this.lastMultiSelectionTime = 0
-    this.isEnhancing = false
-    
-    // Bind methods
+    this.preservedSelection = null
+    this._settingsBtn = null
+    this._popover = null
+
     this.handleSelection = this.handleSelection.bind(this)
     this.handleKeyDown = this.handleKeyDown.bind(this)
-    
+    this.handleClickOutside = this.handleClickOutside.bind(this)
+
     this.init()
   }
 
   init() {
     this.editor.isReady.then(() => {
+      this.createSettingsButton()
       this.setupEventListeners()
-      this.watchForTuneMenus()
     }).catch(error => {
       console.error('Error initializing MultiBlockTuneEnhancer:', error)
     })
   }
 
+  createSettingsButton() {
+    this._settingsBtn = document.createElement('div')
+    this._settingsBtn.className = 'multi-block-settings-btn'
+    this._settingsBtn.innerHTML = SETTINGS_ICON
+    this._settingsBtn.style.cssText = `
+      position: absolute;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      z-index: 2001;
+      color: inherit;
+      opacity: 0.7;
+      transition: opacity 0.15s ease;
+    `
+    this._settingsBtn.addEventListener('mouseenter', () => {
+      this._settingsBtn.style.opacity = '1'
+    })
+    this._settingsBtn.addEventListener('mouseleave', () => {
+      this._settingsBtn.style.opacity = '0.7'
+    })
+    this._settingsBtn.addEventListener('mousedown', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      e.stopImmediatePropagation()
+    })
+    this._settingsBtn.addEventListener('mouseup', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      e.stopImmediatePropagation()
+    })
+    this._settingsBtn.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      e.stopImmediatePropagation()
+      this.togglePopover()
+    })
+
+    const editorHolder = document.querySelector('.codex-editor')
+    if (editorHolder) {
+      editorHolder.style.position = 'relative'
+      editorHolder.appendChild(this._settingsBtn)
+    }
+  }
+
   setupEventListeners() {
-    // Listen for selection changes
     document.addEventListener('mouseup', this.handleSelection, { passive: true })
     document.addEventListener('keydown', this.handleKeyDown, { passive: true })
+    document.addEventListener('mousedown', this.handleClickOutside, { passive: true })
 
-    // Preserve selection when cursor leaves the window or window loses focus
     this.handleWindowBlur = () => {
       if (this.selectedBlocks.size > 0) {
         this.preservedSelection = new Set(this.selectedBlocks)
@@ -43,7 +114,6 @@ export default class MultiBlockTuneEnhancer {
     }
     this.handleWindowFocus = () => {
       if (this.preservedSelection && this.preservedSelection.size > 0) {
-        // Restore visual selection after a tick so DOM is ready
         setTimeout(() => {
           this.preservedSelection.forEach(index => {
             const allBlocks = document.querySelectorAll('.ce-block')
@@ -59,7 +129,6 @@ export default class MultiBlockTuneEnhancer {
     window.addEventListener('blur', this.handleWindowBlur)
     window.addEventListener('focus', this.handleWindowFocus)
 
-    // Prevent selection clearing when mouse leaves editor area
     const editorHolder = document.querySelector('.codex-editor')
     if (editorHolder) {
       this.handleMouseLeave = () => {
@@ -70,7 +139,6 @@ export default class MultiBlockTuneEnhancer {
       editorHolder.addEventListener('mouseleave', this.handleMouseLeave)
     }
 
-    // Check for selection changes periodically
     this._selectionInterval = setInterval(() => {
       this.updateSelection()
     }, 200)
@@ -78,42 +146,67 @@ export default class MultiBlockTuneEnhancer {
 
   handleKeyDown(event) {
     if (event.key === 'Escape') {
-      this.closeTuneMenu()
+      this.hidePopover()
+      this.hideSettingsButton()
+    }
+  }
+
+  handleClickOutside(event) {
+    if (this._popover && !this._popover.contains(event.target) &&
+        !this._settingsBtn.contains(event.target)) {
+      this.hidePopover()
     }
   }
 
   handleSelection(event) {
-    // Don't interfere with toolbar interactions
-    if (event.target.closest('.ce-toolbar, .ce-popover, .ce-inline-toolbar')) {
+    if (event.target.closest('.multi-block-settings-btn, .multi-block-popover')) {
       return
     }
-    
+
     setTimeout(() => {
+      // Check if browser text selection spans multiple blocks
+      const sel = window.getSelection()
+      if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+        const range = sel.getRangeAt(0)
+        const startBlock = (range.startContainer.nodeType === Node.ELEMENT_NODE
+          ? range.startContainer
+          : range.startContainer.parentElement)?.closest('.ce-block')
+        const endBlock = (range.endContainer.nodeType === Node.ELEMENT_NODE
+          ? range.endContainer
+          : range.endContainer.parentElement)?.closest('.ce-block')
+
+        if (startBlock && endBlock && startBlock !== endBlock) {
+          const allBlocks = Array.from(document.querySelectorAll('.ce-block'))
+          const startIdx = allBlocks.indexOf(startBlock)
+          const endIdx = allBlocks.indexOf(endBlock)
+
+          if (startIdx !== -1 && endIdx !== -1) {
+            const min = Math.min(startIdx, endIdx)
+            const max = Math.max(startIdx, endIdx)
+
+            sel.removeAllRanges()
+            for (let i = min; i <= max; i++) {
+              allBlocks[i].classList.add('ce-block--selected')
+            }
+          }
+        }
+      }
+
       this.updateSelection()
     }, 50)
   }
 
   updateSelection() {
-    const selectedElements = document.querySelectorAll('.ce-block--selected')
-    const previousSize = this.selectedBlocks.size
-    
-    // Store previous multi-selection as block IDs before updating
-    if (this.selectedBlocks.size > 1) {
-      const prevIds = new Set()
-      this.selectedBlocks.forEach(index => {
-        try {
-          const block = this.editor.blocks.getBlockByIndex(index)
-          if (block && block.id) prevIds.add(block.id)
-        } catch {}
-      })
-      if (prevIds.size > 1) {
-        this.previouslySelectedBlocks = prevIds
-        this.lastMultiSelectionTime = Date.now()
-      }
+    // Don't clear selection while popover is open — restore it instead
+    if (this._popover && this.previouslySelectedBlocks.size > 1) {
+      this.restoreVisualSelection()
+      return
     }
 
+    const selectedElements = document.querySelectorAll('.ce-block--selected')
+
     this.selectedBlocks.clear()
-    
+
     selectedElements.forEach(element => {
       const blockIndex = this.getBlockIndex(element)
       if (blockIndex !== -1) {
@@ -121,16 +214,21 @@ export default class MultiBlockTuneEnhancer {
       }
     })
 
-    // Store current selection if it's multi-block - Use ACTUAL BLOCK IDs
     if (this.selectedBlocks.size > 1) {
       this.previouslySelectedBlocks = new Set()
       this.selectedBlocks.forEach(index => {
-        const block = this.editor.blocks.getBlockByIndex(index)
-        if (block && block.id) {
-          this.previouslySelectedBlocks.add(block.id)
-        }
+        try {
+          const block = this.editor.blocks.getBlockByIndex(index)
+          if (block && block.id) {
+            this.previouslySelectedBlocks.add(block.id)
+          }
+        } catch {}
       })
       this.lastMultiSelectionTime = Date.now()
+      this.positionSettingsButton()
+    } else {
+      this.hideSettingsButton()
+      this.hidePopover()
     }
   }
 
@@ -139,205 +237,159 @@ export default class MultiBlockTuneEnhancer {
     return Array.from(allBlocks).indexOf(blockElement)
   }
 
-  watchForTuneMenus() {
-    // Watch for tune menus (popovers) appearing in the DOM
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        mutation.addedNodes.forEach((node) => {
-          if (node.nodeType === Node.ELEMENT_NODE) {
-            // Look for tune popovers (.ce-popover)
-            let tunePopover = null
-            
-            // Check if the node itself is a popover
-            if (node.classList && node.classList.contains('ce-popover')) {
-              tunePopover = node
-            }
-            // Check if the node contains a popover
-            else if (node.querySelector) {
-              tunePopover = node.querySelector('.ce-popover')
-            }
-            
-            if (tunePopover && this.shouldEnhanceTuneMenu()) {
-              // Small delay to ensure the popover is fully rendered
-              setTimeout(() => {
-                this.enhanceTuneMenu(tunePopover)
-                // Restore selection again after a bit more time to be sure
-                setTimeout(() => {
-                  this.restoreVisualSelection()
-                }, 50)
-              }, 10)
-            }
-          }
-        })
-      })
-    })
+  positionSettingsButton() {
+    if (!this._settingsBtn) return
 
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    })
+    const firstIndex = Math.min(...this.selectedBlocks)
+    const allBlocks = document.querySelectorAll('.ce-block')
+    const firstBlock = allBlocks[firstIndex]
+    if (!firstBlock) return
+
+    const editorHolder = document.querySelector('.codex-editor')
+    if (!editorHolder) return
+
+    const blockRect = firstBlock.getBoundingClientRect()
+    const editorRect = editorHolder.getBoundingClientRect()
+
+    // Position to the left of the block content, vertically centered on first selected block
+    const contentEl = firstBlock.querySelector('.ce-block__content')
+    const contentRect = contentEl ? contentEl.getBoundingClientRect() : blockRect
+
+    this._settingsBtn.style.display = 'flex'
+    this._settingsBtn.style.top = `${blockRect.top - editorRect.top + blockRect.height / 2 - 12}px`
+    this._settingsBtn.style.left = `${contentRect.left - editorRect.left - 36}px`
   }
 
-  shouldEnhanceTuneMenu() {
-    // Enhance if we recently had multiple blocks selected
-    const timeSinceMultiSelection = Date.now() - this.lastMultiSelectionTime
-    return this.previouslySelectedBlocks.size > 1 && timeSinceMultiSelection < 5000
-  }
-
-  enhanceTuneMenu(popover) {
-    if (popover.querySelector('.multi-block-enhanced')) {
-      return // Already enhanced
+  hideSettingsButton() {
+    if (this._settingsBtn) {
+      this._settingsBtn.style.display = 'none'
     }
+  }
 
-    // Mark as enhanced
-    popover.classList.add('multi-block-enhanced')
+  togglePopover() {
+    if (this._popover) {
+      this.hidePopover()
+    } else {
+      this.showPopover()
+    }
+  }
 
-    // RESTORE VISUAL SELECTION - This is the key fix!
+  showPopover() {
+    this.hidePopover()
+
+    if (this.previouslySelectedBlocks.size < 2) return
+
+    // Immediately restore visual selection in case Editor.js cleared it
     this.restoreVisualSelection()
 
-    // Find conversion items and enhance them
-    const popoverItems = popover.querySelectorAll('.ce-popover__item, .ce-popover-item')
-    
-    let enhancedCount = 0
-    popoverItems.forEach((item, index) => {
-      const text = item.textContent?.toLowerCase().trim() || ''
-      const innerHTML = item.innerHTML?.toLowerCase() || ''
-      
-      // Enhanced detection - check for conversion options more broadly
-      const isConversion = (
-        text.includes('convert to') || 
-        text.includes('heading') || text.includes('header') ||
-        text.includes('list') || 
-        text.includes('checklist') || text.includes('checkbox') ||
-        text.includes('quote') || text.includes('blockquote') ||
-        text.includes('paragraph') || text.includes('text') ||
-        text.includes('code') ||
-        // Check HTML content too
-        innerHTML.includes('heading') || innerHTML.includes('header') ||
-        innerHTML.includes('list') || innerHTML.includes('checklist') ||
-        innerHTML.includes('quote') || innerHTML.includes('paragraph') ||
-        innerHTML.includes('code') ||
-        // Check for common Editor.js tool indicators
-        item.querySelector('i[class*="heading"]') ||
-        item.querySelector('i[class*="list"]') ||
-        item.querySelector('i[class*="quote"]') ||
-        item.querySelector('i[class*="paragraph"]') ||
-        item.querySelector('i[class*="code"]')
-      )
-      
-      if (isConversion) {
-        // Intercept clicks
-        const clickHandler = (e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          e.stopImmediatePropagation()
-          
-          const toolName = this.getToolNameFromText(text, innerHTML)
-          if (toolName) {
-            this.convertMultipleBlocks(toolName)
-            this.closeTuneMenu()
-          }
-          return false
-        }
-        
-        item.addEventListener('click', clickHandler, true)
-        item.addEventListener('mousedown', clickHandler, true)
-        enhancedCount++
-      }
+    this._popover = document.createElement('div')
+    this._popover.className = 'multi-block-popover ce-popover'
+    this._popover.style.cssText = `
+      position: absolute;
+      z-index: 2002;
+      min-width: 180px;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 3px 15px -3px rgba(13,20,33,.13), 0 0 0 1px rgba(0,0,0,.05);
+    `
+
+    // Title
+    const title = document.createElement('div')
+    title.textContent = `Convert ${this.previouslySelectedBlocks.size} blocks`
+    title.style.cssText = `
+      padding: 8px 12px 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      opacity: 0.5;
+    `
+    this._popover.appendChild(title)
+
+    CONVERT_OPTIONS.forEach(option => {
+      const item = document.createElement('div')
+      item.className = 'ce-popover-item'
+      item.style.cssText = `
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background 0.1s;
+      `
+
+      const icon = document.createElement('span')
+      icon.innerHTML = option.icon
+      icon.style.cssText = 'display: flex; align-items: center; width: 20px; height: 20px; flex-shrink: 0;'
+
+      const label = document.createElement('span')
+      label.textContent = option.label
+
+      item.appendChild(icon)
+      item.appendChild(label)
+
+      item.addEventListener('mouseenter', () => {
+        item.style.background = 'var(--color-bg-secondary, rgba(0,0,0,0.04))'
+      })
+      item.addEventListener('mouseleave', () => {
+        item.style.background = ''
+      })
+      item.addEventListener('mousedown', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+      })
+      item.addEventListener('click', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        const extraData = option.data || {}
+        this.convertMultipleBlocks(option.tool, extraData)
+        this.hidePopover()
+        this.hideSettingsButton()
+      })
+
+      this._popover.appendChild(item)
     })
 
-    this.addThemeStyles()
+    // Position popover below the settings button
+    const editorHolder = document.querySelector('.codex-editor')
+    if (!editorHolder) return
+
+    editorHolder.appendChild(this._popover)
+
+    const btnRect = this._settingsBtn.getBoundingClientRect()
+    const editorRect = editorHolder.getBoundingClientRect()
+
+    this._popover.style.top = `${btnRect.bottom - editorRect.top + 4}px`
+    this._popover.style.left = `${btnRect.left - editorRect.left}px`
+
+    // Restore selection highlights that clicking might have cleared
+    this.restoreVisualSelection()
+  }
+
+  hidePopover() {
+    if (this._popover) {
+      this._popover.remove()
+      this._popover = null
+    }
   }
 
   restoreVisualSelection() {
-    // Get all blocks and remove selection
-    const allBlocks = document.querySelectorAll('.ce-block')
-    allBlocks.forEach(block => {
-      block.classList.remove('ce-block--selected')
-    })
-    
-    // Add selection back using block IDs
     this.previouslySelectedBlocks.forEach(blockId => {
       try {
         const block = this.editor.blocks.getById(blockId)
         if (block && block.holder) {
           block.holder.classList.add('ce-block--selected')
         }
-      } catch {
-        // Block may have been removed, skip silently
-      }
+      } catch {}
     })
   }
 
-  getToolNameFromText(text, innerHTML = '') {
-    const textLower = text.toLowerCase()
-    const htmlLower = innerHTML.toLowerCase()
-    const combined = textLower + ' ' + htmlLower
-    
-    if (combined.includes('paragraph') || combined.includes('text')) {
-      return 'paragraph'
-    }
-    if (combined.includes('heading') || combined.includes('header')) {
-      return 'header'
-    }
-    if (combined.includes('list') && !combined.includes('check')) {
-      return 'nestedlist'
-    }
-    if (combined.includes('checklist') || combined.includes('check') || combined.includes('checkbox')) {
-      return 'checklist'
-    }
-    if (combined.includes('quote') || combined.includes('blockquote')) {
-      return 'quote'
-    }
-    if (combined.includes('code')) {
-      return 'code'
-    }
-    
-    return null
-  }
-
-  addThemeStyles() {
-    if (document.getElementById('multi-block-tune-styles')) return
-    
-    const style = document.createElement('style')
-    style.id = 'multi-block-tune-styles'
-    style.textContent = `
-      /* Dark theme styles */
-      .dark .multi-block-indicator {
-        background: #374151 !important;
-        border-color: #4b5563 !important;
-        color: #e5e7eb !important;
-      }
-
-      /* Dark Blue theme styles */
-      .darkblue .multi-block-indicator {
-        background: #1a2035 !important;
-        border-color: #1c2438 !important;
-        color: #e0e6f0 !important;
-      }
-
-      /* Fallout theme styles */
-      .fallout .multi-block-indicator {
-        background: #1a2e1a !important;
-        border-color: #22c55e !important;
-        color: #22c55e !important;
-      }
-    `
-    document.head.appendChild(style)
-  }
-
-  closeTuneMenu() {
-    const popovers = document.querySelectorAll('.ce-popover')
-    popovers.forEach(popover => popover.remove())
-  }
-
-  async convertMultipleBlocks(targetTool) {
+  async convertMultipleBlocks(targetTool, extraData = {}) {
     try {
       const blockIds = Array.from(this.previouslySelectedBlocks)
       let convertedCount = 0
 
-      // Sort block IDs by their current index in reverse order (bottom-to-top)
-      // to prevent index shifting from affecting subsequent conversions
       const sortedBlockIds = blockIds
         .map(id => {
           try {
@@ -355,10 +407,9 @@ export default class MultiBlockTuneEnhancer {
 
           if (currentBlock && currentBlock.name !== targetTool) {
             const blockData = await currentBlock.save()
-            const convertedData = this.prepareDataForTool(targetTool, blockData)
+            const convertedData = { ...this.prepareDataForTool(targetTool, blockData), ...extraData }
             await this.editor.blocks.convert(blockId, targetTool, convertedData)
             convertedCount++
-            // Small delay between conversions to let Editor.js settle
             await new Promise(resolve => setTimeout(resolve, 50))
           }
         } catch (blockError) {
@@ -367,7 +418,8 @@ export default class MultiBlockTuneEnhancer {
       }
 
       this.clearSelection()
-      this.showNotification(`Converted ${convertedCount} blocks to ${targetTool}`)
+      const friendlyName = FRIENDLY_NAMES[targetTool] || targetTool
+      this.showNotification(`Converted ${convertedCount} blocks to ${friendlyName}`)
 
     } catch (error) {
       console.error('Error converting multiple blocks:', error)
@@ -376,7 +428,6 @@ export default class MultiBlockTuneEnhancer {
   }
 
   prepareDataForTool(toolName, originalData) {
-    const data = originalData?.data
     const text = this.extractTextFromBlock(originalData)
 
     switch (toolName) {
@@ -386,57 +437,24 @@ export default class MultiBlockTuneEnhancer {
       case 'header':
         return { text, level: 2 }
 
-      case 'nestedlist': {
-        // Preserve individual items when converting from checklist or other list
-        if (data && Array.isArray(data.items) && data.items.length > 1) {
-          const flatItems = this.flattenListItems(data.items)
-          return {
-            style: 'unordered',
-            items: flatItems.map(t => ({ content: t, items: [] }))
-          }
-        }
-        return {
-          style: 'unordered',
-          items: [{ content: text, items: [] }]
-        }
-      }
+      case 'bulletListItem':
+        return { text }
 
-      case 'checklist': {
-        // Preserve individual items when converting from list or other multi-item block
-        if (data && Array.isArray(data.items) && data.items.length > 1) {
-          const flatItems = this.flattenListItems(data.items)
-          return {
-            items: flatItems.map(t => ({ text: t, checked: false }))
-          }
-        }
-        return {
-          items: [{ text, checked: false }]
-        }
-      }
+      case 'numberedListItem':
+        return { text }
+
+      case 'checklistItem':
+        return { text, checked: false }
 
       case 'quote':
-        return {
-          text,
-          caption: '',
-          alignment: 'left'
-        }
+        return { text, caption: '', alignment: 'left' }
+
+      case 'code':
+        return { code: text }
 
       default:
         return { text }
     }
-  }
-
-  flattenListItems(items) {
-    const result = []
-    for (const item of items) {
-      const text = typeof item === 'string' ? item : (item.text || item.content || '')
-      if (text) result.push(text)
-      // Flatten nested sub-items
-      if (item.items && Array.isArray(item.items) && item.items.length > 0) {
-        result.push(...this.flattenListItems(item.items))
-      }
-    }
-    return result
   }
 
   extractTextFromBlock(blockData) {
@@ -444,10 +462,8 @@ export default class MultiBlockTuneEnhancer {
 
     const data = blockData.data
 
-    // Preserve HTML inline formatting (bold, italic, links, etc.)
-    if (typeof data.text === 'string') {
-      return data.text
-    }
+    if (typeof data.text === 'string') return data.text
+    if (typeof data.code === 'string') return data.code
 
     if (Array.isArray(data.items)) {
       return data.items.map(item => {
@@ -458,21 +474,16 @@ export default class MultiBlockTuneEnhancer {
       }).filter(Boolean).join('<br>')
     }
 
-    if (data.code) return data.code
-
     return ''
-  }
-
-  stripHTML(html) {
-    const tmp = document.createElement('div')
-    tmp.innerHTML = html
-    return tmp.textContent || tmp.innerText || ''
   }
 
   clearSelection() {
     const selectedElements = document.querySelectorAll('.ce-block--selected')
     selectedElements.forEach(el => el.classList.remove('ce-block--selected'))
     this.selectedBlocks.clear()
+    this.previouslySelectedBlocks.clear()
+    this.hideSettingsButton()
+    this.hidePopover()
   }
 
   showNotification(message, type = 'success') {
@@ -492,14 +503,14 @@ export default class MultiBlockTuneEnhancer {
       transition: all 0.2s ease;
     `
     notification.textContent = message
-    
+
     document.body.appendChild(notification)
-    
+
     setTimeout(() => {
       notification.style.opacity = '1'
       notification.style.transform = 'translateY(0)'
     }, 10)
-    
+
     setTimeout(() => {
       notification.style.opacity = '0'
       notification.style.transform = 'translateY(-10px)'
@@ -510,6 +521,7 @@ export default class MultiBlockTuneEnhancer {
   destroy() {
     document.removeEventListener('mouseup', this.handleSelection)
     document.removeEventListener('keydown', this.handleKeyDown)
+    document.removeEventListener('mousedown', this.handleClickOutside)
     window.removeEventListener('blur', this.handleWindowBlur)
     window.removeEventListener('focus', this.handleWindowFocus)
 
@@ -522,9 +534,9 @@ export default class MultiBlockTuneEnhancer {
       clearInterval(this._selectionInterval)
     }
 
-    const style = document.getElementById('multi-block-tune-styles')
-    if (style) {
-      style.remove()
+    if (this._settingsBtn) {
+      this._settingsBtn.remove()
     }
+    this.hidePopover()
   }
 }

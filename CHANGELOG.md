@@ -5,6 +5,22 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Individual list item blocks** — Bullet lists, numbered lists, and checklists now use one block per item instead of monolithic blocks. Each item can be independently selected, converted, and reordered.
+- **Multi-block convert menu** — Select multiple blocks and click the floating settings icon to convert them all at once (Text, H1, H2, H3, Bullet List, Numbered List, Checklist, Quote, Code).
+- **Custom Editor.js tools** — Three new tools: `BulletListItem`, `NumberedListItem`, `ChecklistItem` with full Enter/Backspace/slash-menu support.
+- **Block migration** — Existing pages with old `nestedlist` and `checklist` blocks are automatically migrated to individual item blocks on load.
+
+### Fixed
+- **Header toolbar alignment** — The block toolbar (+/settings icons) now vertically aligns with header text instead of appearing above it.
+- **Numbered list numbering in exports** — PDF, Markdown, Plain Text, RTF, and DOCX exports now include proper sequential numbering that resets after non-list blocks.
+- **Word count includes list items** — Bullet, numbered, and checklist items are now counted in the word count.
+
+### Security
+- **Explicit sanitization for new block types** — `bulletListItem`, `numberedListItem`, and `checklistItem` have dedicated DOMPurify sanitization cases in `securityUtils.js`.
+
 ## [1.3.93] - 2026-02-26
 
 ### Security

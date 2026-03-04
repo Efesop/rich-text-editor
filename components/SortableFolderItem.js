@@ -31,7 +31,7 @@ export default function SortableFolderItem({ id, disabled, theme, isDndEnabled, 
   }
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="w-full min-w-0">
       <FolderItem
         {...folderItemProps}
         theme={theme}

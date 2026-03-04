@@ -24,10 +24,15 @@ dash/
 ├── components/               # React UI components
 │   ├── RichTextEditor.js     # Main app container + DnD orchestration
 │   ├── Editor.js             # Editor.js wrapper
+│   ├── MultiBlockToolbar.js  # Multi-block selection toolbar (convert menu)
 │   ├── PageItem.js           # Page list item (rendering + menu)
 │   ├── FolderItem.js         # Folder list item + nested SortableContext
 │   ├── SortablePageItem.js   # Sortable wrapper for PageItem (dnd-kit)
 │   ├── SortableFolderItem.js # Sortable wrapper for FolderItem (dnd-kit)
+│   ├── editor-tools/         # Custom Editor.js block tools
+│   │   ├── BulletListItem.js   # Individual bullet list item
+│   │   ├── NumberedListItem.js # Individual numbered list item
+│   │   └── ChecklistItem.js    # Individual checklist item
 │   └── ...
 ├── hooks/
 │   ├── usePagesManager.js    # Page/folder CRUD + DnD reorder operations
@@ -40,7 +45,8 @@ dash/
 │   ├── securityUtils.js      # Content sanitization
 │   ├── passwordUtils.js      # AES-256 encryption
 │   ├── exportUtils.js        # Export to PDF, Markdown, etc.
-│   └── dataUtils.js          # Data validation/repair
+│   ├── dataValidation.js     # Data structure validation
+│   └── migrateBlocks.js      # Legacy block migration (nestedlist → individual items)
 ├── electron-main.js          # Electron main process
 ├── preload.js                # Electron preload script (IPC bridge)
 └── pages/                    # Next.js pages
@@ -256,20 +262,38 @@ Dash uses [Editor.js](https://editorjs.io/) for rich text editing:
 // Editor.js tools configuration
 const tools = {
   header: Header,
-  list: List,
-  checklist: Checklist,
+  bulletListItem: BulletListItem,     // Custom: one block per bullet item
+  numberedListItem: NumberedListItem, // Custom: one block per numbered item
+  checklistItem: ChecklistItem,       // Custom: one block per checklist item
   quote: Quote,
   code: CodeTool,
   table: Table,
-  // ... more tools
+  // Legacy tools (hidden, kept for backwards compatibility)
+  nestedlist: NestedList,  // toolbox: false, conversionConfig: undefined
+  checklist: Checklist,    // toolbox: false, conversionConfig: undefined
 }
 ```
+
+### Custom List Tools
+
+Instead of using Editor.js's built-in list/checklist (which group all items into one block), Dash uses custom tools where **each list item is its own `.ce-block`**. This enables:
+- Individual item selection and conversion
+- Drag-to-select across list items
+- Per-item inline toolbar access
+
+Each tool handles Enter (split at cursor), Backspace (exit to paragraph), and `/` (slash menu) natively.
+
+Numbered list ordering is computed via JavaScript DOM traversal (`renumberAll()`) — numbers are stored as `data-number` attributes, not in block data.
+
+### Block Migration
+
+`utils/migrateBlocks.js` automatically converts legacy `nestedlist` and `checklist` blocks to individual item blocks on page load. This is transparent and non-destructive (original data is preserved if no migration is needed).
 
 The `Editor` component:
 1. Initializes Editor.js with configured tools
 2. Handles content changes with debounced saves
 3. Injects theme-specific CSS
-4. Manages the MultiBlockTuneEnhancer for multi-block editing
+4. Manages the MultiBlockToolbar for multi-block selection and conversion
 
 ## State Management
 
@@ -285,10 +309,11 @@ const currentPageRef = useRef(null)
 
 ## Themes
 
-Three themes are supported:
+Four themes are supported:
 1. **Light**: Clean, professional look
 2. **Dark**: Easy on the eyes for night use
-3. **Fallout**: Terminal-style green phosphor aesthetic
+3. **Dark Blue**: Professional navy-tinted dark mode
+4. **Fallout**: Terminal-style green phosphor aesthetic
 
 Theme is applied via:
 - Tailwind CSS classes with theme conditions

@@ -19,15 +19,20 @@ Block-based editor powered by Editor.js with 15+ content types:
 | Block Type | Description |
 |-----------|-------------|
 | Paragraph | Standard text with inline formatting |
-| Header | H2, H3, H4 levels |
-| Nested List | Ordered and unordered with unlimited nesting |
-| Checklist | Interactive to-do items |
+| Header | H1, H2, H3, H4 levels |
+| Bullet List | Individual bullet items, each its own block |
+| Numbered List | Individual numbered items with auto-numbering |
+| Checklist | Interactive checkbox items, each its own block |
 | Quote | Block quotes with author caption |
 | Code | Syntax-highlighted code blocks (20+ languages) |
 | Table | Rows, columns, and optional headings |
 | Image | Drag-and-drop or file picker (up to 5MB, stored locally) |
 | Embed | YouTube, Vimeo, GitHub, Twitter |
 | Delimiter | Visual section separator |
+
+### Multi-Block Selection & Conversion
+
+Select multiple blocks by dragging across them, then click the floating settings icon to convert them all at once. Supports converting to: Text, Heading 1, Heading 2, Heading 3, Bullet List, Numbered List, Checklist, Quote, and Code.
 
 ### Inline Formatting
 

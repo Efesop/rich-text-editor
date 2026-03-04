@@ -16,7 +16,8 @@ export const exportToPDF = (content, title) => {
     yOffset += fontSize * 0.5 * lines.length;
   };
 
-  content.blocks.forEach((block) => {
+  let pdfNumCounter = 0;
+  content.blocks.forEach((block, blockIndex) => {
     switch (block.type) {
       case 'header':
         addText(block.data.text || '', 16 + (6 - (block.data.level || 1)) * 2, true);
@@ -43,6 +44,21 @@ export const exportToPDF = (content, title) => {
           addText(`${checkbox} ${item.text}`, 12);
         });
         break;
+      case 'bulletListItem':
+        addText(`• ${block.data.text || ''}`, 12);
+        break;
+      case 'numberedListItem': {
+        const prev = content.blocks[blockIndex - 1];
+        if (!prev || prev.type !== 'numberedListItem') pdfNumCounter = 0;
+        pdfNumCounter++;
+        addText(`${pdfNumCounter}. ${block.data.text || ''}`, 12);
+        break;
+      }
+      case 'checklistItem': {
+        const cb = block.data.checked ? '☑' : '☐';
+        addText(`${cb} ${block.data.text || ''}`, 12);
+        break;
+      }
       case 'table':
         const startY = yOffset;
         const cellPadding = 2;
@@ -113,7 +129,8 @@ export const exportToMarkdown = (content) => {
     }).join('');
   };
 
-  return content.blocks.map((block) => {
+  let mdNumCounter = 0;
+  return content.blocks.map((block, blockIndex) => {
     switch (block.type) {
       case 'header':
         return '#'.repeat(block.data.level || 1) + ' ' + (block.data.text || '') + '\n\n';
@@ -138,6 +155,16 @@ export const exportToMarkdown = (content) => {
         return `---\n\n`;
       case 'nestedlist':
         return createNestedMarkdownList(block.data.items) + '\n';
+      case 'bulletListItem':
+        return `- ${block.data.text || ''}\n`;
+      case 'numberedListItem': {
+        const prev = content.blocks[blockIndex - 1];
+        if (!prev || prev.type !== 'numberedListItem') mdNumCounter = 0;
+        mdNumCounter++;
+        return `${mdNumCounter}. ${block.data.text || ''}\n`;
+      }
+      case 'checklistItem':
+        return `- [${block.data.checked ? 'x' : ' '}] ${block.data.text || ''}\n`;
       default:
         return '';
     }
@@ -156,7 +183,8 @@ export const exportToPlainText = (content) => {
     }).join('');
   };
 
-  return content.blocks.map((block) => {
+  let ptNumCounter = 0;
+  return content.blocks.map((block, blockIndex) => {
     switch (block.type) {
       case 'header':
       case 'paragraph':
@@ -177,6 +205,16 @@ export const exportToPlainText = (content) => {
         return `---\n\n`;
       case 'nestedlist':
         return createNestedPlainTextList(block.data.items) + '\n';
+      case 'bulletListItem':
+        return `• ${block.data.text || ''}\n`;
+      case 'numberedListItem': {
+        const prev = content.blocks[blockIndex - 1];
+        if (!prev || prev.type !== 'numberedListItem') ptNumCounter = 0;
+        ptNumCounter++;
+        return `${ptNumCounter}. ${block.data.text || ''}\n`;
+      }
+      case 'checklistItem':
+        return `[${block.data.checked ? 'x' : ' '}] ${block.data.text || ''}\n`;
       default:
         return '';
     }
@@ -186,7 +224,8 @@ export const exportToPlainText = (content) => {
 export const exportToRTF = (content) => {
   let rtf = '{\\rtf1\\ansi\\deff0 {\\fonttbl{\\f0 Times New Roman;}}\n';
   
-  content.blocks.forEach((block) => {
+  let rtfNumCounter = 0;
+  content.blocks.forEach((block, blockIndex) => {
     switch (block.type) {
       case 'header':
         rtf += `{\\b\\fs${28 + (6 - (block.data.level || 1)) * 2} ${block.data.text || ''}}\n\\par\n`;
@@ -234,19 +273,33 @@ export const exportToRTF = (content) => {
         };
         renderNestedListRTF(block.data.items);
         break;
+      case 'bulletListItem':
+        rtf += `{\\pntext\\f0 \\'B7\\tab}{\\*\\pn\\pnlvlblt\\pnf0\\pnindent0{\\pntxtb\\'B7}}${block.data.text || ''}\n\\par\n`;
+        break;
+      case 'numberedListItem': {
+        const prev = content.blocks[blockIndex - 1];
+        if (!prev || prev.type !== 'numberedListItem') rtfNumCounter = 0;
+        rtfNumCounter++;
+        rtf += `${rtfNumCounter}. ${block.data.text || ''}\n\\par\n`;
+        break;
+      }
+      case 'checklistItem':
+        rtf += `${block.data.checked ? '[x]' : '[ ]'} ${block.data.text || ''}\n\\par\n`;
+        break;
     }
   });
-  
+
   rtf += '}';
   return rtf;
 };
 
 export const exportToDocx = async (content) => {
   console.log('exportToDocx called with content:', content);
+  let docxNumCounter = 0;
   const doc = new Document({
     sections: [{
       properties: {},
-      children: content.blocks.map(block => {
+      children: content.blocks.map((block, blockIndex) => {
         switch (block.type) {
           case 'header':
             return new Paragraph({
@@ -298,6 +351,23 @@ export const exportToDocx = async (content) => {
             return new Paragraph(`[Image: ${block.data.caption}]`);
           case 'delimiter':
             return new Paragraph('---');
+          case 'bulletListItem':
+            return new Paragraph({
+              text: block.data.text || '',
+              bullet: { level: 0 }
+            });
+          case 'numberedListItem': {
+            const prev = content.blocks[blockIndex - 1];
+            if (!prev || prev.type !== 'numberedListItem') docxNumCounter = 0;
+            docxNumCounter++;
+            return new Paragraph({
+              children: [new TextRun(`${docxNumCounter}. ${block.data.text || ''}`)]
+            });
+          }
+          case 'checklistItem':
+            return new Paragraph({
+              children: [new TextRun(`${block.data.checked ? '[x]' : '[ ]'} ${block.data.text || ''}`)]
+            });
           default:
             return new Paragraph('');
         }
@@ -343,6 +413,12 @@ export const exportToCSV = (content) => {
           });
         };
         return flattenNestedList(block.data.items);
+      case 'bulletListItem':
+        return [['Bullet Item', '', block.data.text || '']];
+      case 'numberedListItem':
+        return [['Numbered Item', '', block.data.text || '']];
+      case 'checklistItem':
+        return [['Checklist Item', block.data.checked ? 'Checked' : 'Unchecked', block.data.text || '']];
       default:
         return [];
     }
@@ -423,9 +499,19 @@ export const exportToXML = (content) => {
         const nestedList = root.ele('nestedList');
         createNestedXMLList(nestedList, block.data.items);
         break;
+      case 'bulletListItem':
+        root.ele('bulletItem').txt(block.data.text || '');
+        break;
+      case 'numberedListItem':
+        root.ele('numberedItem').txt(block.data.text || '');
+        break;
+      case 'checklistItem':
+        root.ele('checklistItem', { checked: block.data.checked })
+          .txt(block.data.text || '');
+        break;
     }
   });
-  
+
   return root.end({ prettyPrint: true });
 };
 

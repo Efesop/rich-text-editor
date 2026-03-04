@@ -525,7 +525,11 @@ export default function RichTextEditor() {
           }
           text = flattenNestedList(block.data.items || []).join(' ')
           break
-        // Add more cases for any other custom block types you might have
+        case 'bulletListItem':
+        case 'numberedListItem':
+        case 'checklistItem':
+          text = block.data.text || ''
+          break
         default:
           text = ''
       }
