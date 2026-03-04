@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { Timer } from 'lucide-react'
 
 function formatCountdown(targetTimestamp) {
   const now = Date.now()
@@ -48,10 +49,11 @@ export default function SelfDestructBadge({ selfDestructAt, theme }) {
 
   return (
     <span className={`
-      inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded border flex-shrink-0
+      inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded border flex-shrink-0
       ${isFallout ? 'font-mono' : ''}
       ${colorClass}
     `}>
+      <Timer className="h-3 w-3" />
       {countdown.text}
     </span>
   )

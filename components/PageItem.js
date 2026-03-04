@@ -34,13 +34,6 @@ const PageItem = ({
   // On mobile/touch devices, always show the 3-dots button (no hover state)
   const isMobile = isMobileDevice() || isSmallScreen()
 
-  const truncatePageTitle = (title) => {
-    const hasTags = page.tagNames && page.tagNames.length > 0
-    const maxLen = hasTags ? 10 : 22
-    if (title.length > maxLen) return title.slice(0, maxLen) + '...'
-    return title
-  }
-
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -188,14 +181,14 @@ const PageItem = ({
         )}
         {sidebarOpen ? (
           <>
-            <span className="truncate min-w-0" title={page.title}>
-              {truncatePageTitle(page.title)}
+            <span className="flex-1 truncate min-w-0" title={page.title}>
+              {page.title}
             </span>
             {Array.isArray(page.tagNames) && page.tagNames.length > 0 && (
               <StackedTags
                 tags={page.tagNames}
                 maxVisible={2}
-                className="ml-auto flex-shrink-0"
+                className="ml-2 flex-shrink-0"
                 theme={theme}
                 tagColorMap={(tags || []).reduce((acc, t) => { acc[t.name] = t.color; return acc }, {})}
                 hovered={isHovered}

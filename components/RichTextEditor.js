@@ -1670,11 +1670,7 @@ export default function RichTextEditor() {
                     <X
                       className="h-3 w-3 transition-opacity hover:opacity-75"
                       style={{
-                        color: theme === 'dark' || theme === 'darkblue'
-                          ? getTagChipStyle(tag.color, theme).color
-                          : theme === 'light'
-                            ? '#6b7280'
-                            : getTagChipStyle(tag.color, theme).color
+                        color: getTagChipStyle(tag.color, theme).color
                       }}
                     />
                   </button>
@@ -1749,10 +1745,9 @@ export default function RichTextEditor() {
               showCancel: true
             })
           }}
-          className="cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1.5"
+          className="cursor-pointer hover:opacity-80 transition-opacity flex items-center"
           title="Click to remove self-destruct timer"
         >
-          <Timer className="h-3 w-3" />
           <SelfDestructBadge selfDestructAt={currentPage.selfDestructAt} theme={theme} />
         </button>
       )}

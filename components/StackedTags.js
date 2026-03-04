@@ -110,11 +110,13 @@ export default function StackedTags({
           className={`
             inline-flex items-center justify-center rounded-md text-xs font-medium border h-5 px-1.5
             ml-1 transition-all duration-200 relative
-            ${currentTheme === 'fallout' 
+            ${currentTheme === 'fallout'
               ? 'bg-gray-800 text-green-400 border-green-600'
-              : currentTheme === 'dark' 
+              : currentTheme === 'dark'
                 ? 'bg-[#2f2f2f] text-[#c0c0c0] border-[#3a3a3a]'
-                : 'bg-gray-200 text-gray-600 border-gray-300'
+                : currentTheme === 'darkblue'
+                  ? 'bg-[#1a2035] text-[#8b99b5] border-[#1c2438]'
+                  : 'bg-gray-200 text-gray-600 border-gray-300'
             }
           `}
           style={{ 
@@ -135,7 +137,13 @@ export default function StackedTags({
         <div
           ref={popupRef}
           className={`absolute top-full left-0 mt-1 rounded-md border shadow-lg z-50 p-2 ${
-            currentTheme === 'fallout' ? 'bg-gray-900 border-green-600' : currentTheme === 'dark' ? 'bg-[#2f2f2f] border-[#3a3a3a]' : 'bg-white border-gray-200'
+            currentTheme === 'fallout'
+              ? 'bg-gray-900 border-green-600'
+              : currentTheme === 'dark'
+                ? 'bg-[#2f2f2f] border-[#3a3a3a]'
+                : currentTheme === 'darkblue'
+                  ? 'bg-[#1a2035] border-[#1c2438]'
+                  : 'bg-white border-gray-200'
           }`}
           role="dialog"
         >
