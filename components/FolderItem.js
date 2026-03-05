@@ -25,6 +25,8 @@ export function FolderItem({
   onMoveToFolder,
   onSelfDestruct,
   onCancelSelfDestruct,
+  selfDestructingPages,
+  completeSelfDestruct,
   pagesCount,
   isDropTarget = false,
   isDndEnabled = false,
@@ -313,6 +315,8 @@ export function FolderItem({
                   onMoveToFolder={onMoveToFolder}
                   onSelfDestruct={onSelfDestruct}
                   onCancelSelfDestruct={onCancelSelfDestruct}
+                  isSelfDestructing={selfDestructingPages && selfDestructingPages.has(page.id)}
+                  onSelfDestructComplete={completeSelfDestruct}
                 />
               )
             })}

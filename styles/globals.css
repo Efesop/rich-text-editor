@@ -1080,6 +1080,101 @@ button:focus {
   outline-width: 2px;
 }
 
+/* Self-destruct timer milestone animations */
+@keyframes dash-sd-pulse-anim {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+@keyframes dash-sd-pulse-double-anim {
+  0%, 100% { transform: scale(1); }
+  25% { transform: scale(1.12); }
+  50% { transform: scale(1); }
+  75% { transform: scale(1.12); }
+}
+
+@keyframes dash-sd-shake-anim {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-2px); }
+  40% { transform: translateX(2px); }
+  60% { transform: translateX(-1px); }
+  80% { transform: translateX(1px); }
+}
+
+@keyframes dash-sd-urgent-pulse-anim {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50% { transform: scale(1.05); box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.2); }
+}
+
+@keyframes dash-sd-icon-pulse-anim {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.dash-sd-pulse { animation: dash-sd-pulse-anim 600ms ease; }
+.dash-sd-pulse-double { animation: dash-sd-pulse-double-anim 800ms ease; }
+.dash-sd-shake { animation: dash-sd-shake-anim 500ms ease; }
+.dash-sd-urgent-pulse { animation: dash-sd-urgent-pulse-anim 800ms ease infinite; }
+.dash-sd-icon-pulse { animation: dash-sd-icon-pulse-anim 2s ease infinite; }
+
+/* Sidebar icon: brief pulse then idle, repeats every 8s (feels like once per minute-ish) */
+@keyframes dash-sd-icon-blink-anim {
+  0%, 8%, 100% { opacity: 1; }
+  3% { opacity: 0.3; }
+  6% { opacity: 1; }
+}
+.dash-sd-icon-blink { animation: dash-sd-icon-blink-anim 8s ease infinite; }
+
+/* Fallout theme: green glow instead of red for urgent pulse */
+.fallout .dash-sd-urgent-pulse {
+  animation-name: dash-sd-urgent-pulse-fallout-anim;
+}
+
+@keyframes dash-sd-urgent-pulse-fallout-anim {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  50% { transform: scale(1.05); box-shadow: 0 0 8px 2px rgba(34, 197, 94, 0.2); }
+}
+
+/* Self-destruct sidebar dissolve animation */
+@keyframes dash-sd-dissolve-anim {
+  0% { opacity: 1; transform: scaleY(1); max-height: 44px; }
+  60% { opacity: 0.3; transform: scaleY(0.8); filter: blur(1px); }
+  100% { opacity: 0; transform: scaleY(0); max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; overflow: hidden; }
+}
+
+.dash-sd-dissolve {
+  animation: dash-sd-dissolve-anim 800ms ease forwards;
+  transform-origin: top center;
+}
+
+/* Fallout variant: green flash before dissolve */
+@keyframes dash-sd-dissolve-fallout-anim {
+  0% { opacity: 1; transform: scaleY(1); max-height: 44px; box-shadow: inset 0 0 0 0 rgba(34, 197, 94, 0); }
+  20% { opacity: 1; box-shadow: inset 0 0 20px 2px rgba(34, 197, 94, 0.3); }
+  60% { opacity: 0.3; transform: scaleY(0.8); }
+  100% { opacity: 0; transform: scaleY(0); max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; overflow: hidden; }
+}
+
+.fallout .dash-sd-dissolve {
+  animation-name: dash-sd-dissolve-fallout-anim;
+}
+
+/* Self-destruct overlay animations */
+@keyframes dash-sd-overlay-fade-anim {
+  0% { opacity: 0; backdrop-filter: blur(0px); }
+  100% { opacity: 1; backdrop-filter: blur(8px); }
+}
+
+@keyframes dash-sd-overlay-icon-anim {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.7); opacity: 0; }
+}
+
+@keyframes dash-sd-overlay-text-anim {
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
   * {

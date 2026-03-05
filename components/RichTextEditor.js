@@ -56,6 +56,7 @@ import WhatsNewModal from './WhatsNewModal'
 import QuickSwitcher from './QuickSwitcher'
 import SelfDestructModal from './SelfDestructModal'
 import SelfDestructBadge from './SelfDestructBadge'
+import SelfDestructOverlay from './SelfDestructOverlay'
 import useAppLockStore from '../store/appLockStore'
 import { useIdleTimer } from '@/hooks/useIdleTimer'
 import AppLockScreen from './AppLockScreen'
@@ -104,6 +105,8 @@ export default function RichTextEditor() {
     setSelfDestruct,
     cancelSelfDestruct,
     navigateToPage,
+    selfDestructingPages,
+    completeSelfDestruct,
   } = usePagesManager()
 
   const {
@@ -1447,6 +1450,8 @@ export default function RichTextEditor() {
                         onMoveToFolder={handleMoveToFolder}
                         onSelfDestruct={handleSelfDestruct}
                         onCancelSelfDestruct={handleCancelSelfDestruct}
+                        selfDestructingPages={selfDestructingPages}
+                        completeSelfDestruct={completeSelfDestruct}
                         pagesCount={folderPageIds.length}
                       />
                     )
@@ -1472,6 +1477,8 @@ export default function RichTextEditor() {
                         tags={tags}
                         tempUnlockedPages={tempUnlockedPages}
                         isInsideFolder={false}
+                        isSelfDestructing={selfDestructingPages.has(item.id)}
+                        onSelfDestructComplete={completeSelfDestruct}
                       />
                     );
                   }
@@ -1560,15 +1567,15 @@ export default function RichTextEditor() {
                 </span>
               )}
               {currentPage && (
-                <div className="flex items-center ml-2 space-x-0.5 flex-shrink-0">
+                <div className="flex items-center ml-2 space-x-1 flex-shrink-0">
                   <button
                     onClick={() => handleToggleLock(currentPage)}
-                    className={`p-1.5 rounded-lg transition-colors ${getButtonHoverClasses()}`}
+                    className={`p-2 rounded-lg transition-colors ${getButtonHoverClasses()}`}
                     title={currentPage.password?.hash && !tempUnlockedPages.has(currentPage.id) ? 'Unlock page' : 'Lock page'}
                   >
                     {currentPage.password?.hash && !tempUnlockedPages.has(currentPage.id)
-                      ? <LockKeyhole className="h-3.5 w-3.5 pointer-events-none" />
-                      : <Unlock className="h-3.5 w-3.5 pointer-events-none" />
+                      ? <LockKeyhole className="h-3.5 w-3.5" />
+                      : <Unlock className="h-3.5 w-3.5" />
                     }
                   </button>
                   <button
@@ -1588,12 +1595,12 @@ export default function RichTextEditor() {
                         handleSelfDestruct(currentPage)
                       }
                     }}
-                    className={`p-1.5 rounded-lg transition-colors ${getButtonHoverClasses()}`}
+                    className={`p-2 rounded-lg transition-colors ${getButtonHoverClasses()}`}
                     title={currentPage.selfDestructAt ? 'Cancel self-destruct' : 'Self-destruct'}
                   >
                     {currentPage.selfDestructAt
-                      ? <TimerOff className="h-3.5 w-3.5 pointer-events-none" />
-                      : <Timer className="h-3.5 w-3.5 pointer-events-none" />
+                      ? <TimerOff className="h-3.5 w-3.5" />
+                      : <Timer className="h-3.5 w-3.5" />
                     }
                   </button>
                 </div>
@@ -1737,7 +1744,10 @@ export default function RichTextEditor() {
       {currentPage.createdAt && (
         <span>{format(new Date(currentPage.createdAt), 'MMM d, yyyy')}</span>
       )}
-      <EncryptionStatusIndicator />
+      <EncryptionStatusIndicator
+        currentPage={currentPage}
+        onEncryptPage={() => handleToggleLock(currentPage)}
+      />
     </div>
     <div className="flex items-center space-x-3">
       {currentPage.selfDestructAt && (
@@ -1982,6 +1992,23 @@ export default function RichTextEditor() {
         onDisable={appLock.disable}
         theme={theme}
       />
+
+      {currentPage && selfDestructingPages.has(currentPage.id) && (
+        <SelfDestructOverlay
+          theme={theme}
+          onComplete={() => {
+            const destroyedId = currentPage.id
+            const nextPage = pages.find(p => p.type !== 'folder' && p.id !== destroyedId)
+            if (nextPage) {
+              handlePageSelect(nextPage)
+            } else {
+              setCurrentPage(null)
+            }
+            // Delete after navigating away
+            setTimeout(() => completeSelfDestruct(destroyedId), 50)
+          }}
+        />
+      )}
     </div >
   )
 }

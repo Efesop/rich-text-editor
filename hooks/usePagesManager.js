@@ -966,17 +966,43 @@ export function usePagesManager() {
     }
   }, [savePagesToStorage])
 
-  // Self-destruct: check for expired pages every 60 seconds
+  // Self-destruct: track pages currently animating out
+  const [selfDestructingPages, setSelfDestructingPages] = useState(new Set())
+
+  const completeSelfDestruct = useCallback((pageId) => {
+    setSelfDestructingPages(prev => {
+      const next = new Set(prev)
+      next.delete(pageId)
+      return next
+    })
+    const page = pagesRef.current.find(p => p.id === pageId)
+    if (page) deletePage(page)
+  }, [deletePage])
+
+  // Self-destruct: check for expired pages every 5 seconds
   useEffect(() => {
     const checkExpired = () => {
       const now = Date.now()
       const expired = pagesRef.current.filter(
         p => p.selfDestructAt && p.selfDestructAt <= now && p.type !== 'folder'
       )
-      expired.forEach(page => deletePage(page))
+      expired.forEach(page => {
+        // If currently viewing this page, show overlay animation first
+        if (currentPageRef.current?.id === page.id) {
+          setSelfDestructingPages(prev => {
+            if (prev.has(page.id)) return prev
+            const next = new Set(prev)
+            next.add(page.id)
+            return next
+          })
+        } else {
+          // Not viewing it — delete directly (sidebar dissolve handled via CSS)
+          deletePage(page)
+        }
+      })
     }
 
-    const interval = setInterval(checkExpired, 60000)
+    const interval = setInterval(checkExpired, 5000)
     return () => clearInterval(interval)
   }, [deletePage])
 
@@ -1036,5 +1062,7 @@ export function usePagesManager() {
     setSelfDestruct,
     cancelSelfDestruct,
     navigateToPage,
+    selfDestructingPages,
+    completeSelfDestruct,
   }
 }

@@ -21,7 +21,9 @@ const PageItem = ({
   tempUnlockedPages,
   className = '',
   isInsideFolder = false,
-  onDuplicate
+  onDuplicate,
+  isSelfDestructing = false,
+  onSelfDestructComplete
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false)
@@ -137,6 +139,20 @@ const PageItem = ({
     }
   }
 
+  const getSelfDestructIconClasses = () => {
+    if (!page.selfDestructAt) return getIconClasses()
+    const remaining = page.selfDestructAt - Date.now()
+    if (remaining <= 5 * 60 * 1000) {
+      // Under 5 min: red with brief pulse every ~minute (CSS handles timing)
+      return 'text-red-500 dash-sd-icon-blink'
+    }
+    if (remaining <= 2 * 60 * 60 * 1000) {
+      // Under 2 hours: orange/red
+      return theme === 'fallout' ? 'text-red-400' : 'text-orange-500'
+    }
+    return getIconClasses()
+  }
+
   const getDropdownClasses = () => {
     switch (theme) {
       case 'fallout':
@@ -166,18 +182,23 @@ const PageItem = ({
   return (
     <div
       ref={pageItemRef}
-      className={`${getPageItemClasses()} ${className}`}
-      onClick={() => onSelect(page)}
+      className={`${getPageItemClasses()} ${className} ${isSelfDestructing ? 'dash-sd-dissolve' : ''}`}
+      onClick={() => !isSelfDestructing && onSelect(page)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      style={{ minHeight: '2.25rem' }}
+      onAnimationEnd={(e) => {
+        if (e.animationName.startsWith('dash-sd-dissolve') && onSelfDestructComplete) {
+          onSelfDestructComplete(page.id)
+        }
+      }}
+      style={{ minHeight: isSelfDestructing ? undefined : '2.25rem' }}
     >
       <div className="flex items-center flex-1 min-w-0">
         {page.password && page.password.hash && !tempUnlockedPages.has(page.id) && (
           <LockKeyhole className={`h-3 w-3 flex-shrink-0 mr-1.5 ${getIconClasses()}`} />
         )}
         {page.selfDestructAt && (
-          <Timer className={`h-3 w-3 flex-shrink-0 mr-1.5 ${getIconClasses()}`} />
+          <Timer className={`h-3 w-3 flex-shrink-0 mr-1.5 ${getSelfDestructIconClasses()}`} />
         )}
         {sidebarOpen ? (
           <>
