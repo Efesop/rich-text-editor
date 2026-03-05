@@ -229,6 +229,8 @@ export function usePagesManager() {
   const savePage = useCallback(async (pageContent) => {
     const currentPageData = currentPageRef.current
     if (!currentPageData || !pageContent) return
+    // Block saves for pages that are self-destructing
+    if (selfDestructingPagesRef.current.has(currentPageData.id)) return
 
     try {
       // Sanitize the content before saving
@@ -248,22 +250,24 @@ export function usePagesManager() {
 
       // Update pages state atomically
       setPages(prevPages => {
+        // If the page no longer exists in state (was deleted), don't re-add it
+        if (!prevPages.find(p => p.id === validation.sanitized.id)) {
+          return prevPages
+        }
+
         const newPages = prevPages.map(p =>
           p.id === validation.sanitized.id ? validation.sanitized : p
         )
-
-        // If page not found, add it (shouldn't happen but safety check)
-        if (!newPages.find(p => p.id === validation.sanitized.id)) {
-          newPages.unshift(validation.sanitized)
-        }
 
         pagesRef.current = newPages
         savePagesToStorage(newPages)
         return newPages
       })
 
-      // Update current page if it's the one being saved
-      _setCurrentPage(validation.sanitized)
+      // Update current page if it's the one being saved (and still exists)
+      if (pagesRef.current.find(p => p.id === validation.sanitized.id)) {
+        _setCurrentPage(validation.sanitized)
+      }
     } catch (error) {
       console.error('Error saving page:', error)
       // Show user-friendly error message
@@ -1083,8 +1087,10 @@ export function usePagesManager() {
 
   // Self-destruct: track pages currently animating out
   const [selfDestructingPages, setSelfDestructingPages] = useState(new Set())
+  const selfDestructingPagesRef = useRef(new Set())
 
   const completeSelfDestruct = useCallback((pageId) => {
+    selfDestructingPagesRef.current.delete(pageId)
     setSelfDestructingPages(prev => {
       const next = new Set(prev)
       next.delete(pageId)
@@ -1104,12 +1110,14 @@ export function usePagesManager() {
       expired.forEach(page => {
         // If currently viewing this page, show overlay animation first
         if (currentPageRef.current?.id === page.id) {
-          setSelfDestructingPages(prev => {
-            if (prev.has(page.id)) return prev
-            const next = new Set(prev)
-            next.add(page.id)
-            return next
-          })
+          if (!selfDestructingPagesRef.current.has(page.id)) {
+            selfDestructingPagesRef.current.add(page.id)
+            setSelfDestructingPages(prev => {
+              const next = new Set(prev)
+              next.add(page.id)
+              return next
+            })
+          }
         } else {
           // Not viewing it — delete directly (sidebar dissolve handled via CSS)
           deletePage(page)

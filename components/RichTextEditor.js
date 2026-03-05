@@ -57,6 +57,7 @@ import QuickSwitcher from './QuickSwitcher'
 import SelfDestructModal from './SelfDestructModal'
 import SelfDestructBadge from './SelfDestructBadge'
 import SelfDestructOverlay from './SelfDestructOverlay'
+import EncryptionChoiceModal from './EncryptionChoiceModal'
 import { deriveKeyFromPassphrase } from '@/utils/cryptoUtils'
 import useAppLockStore from '../store/appLockStore'
 import { useIdleTimer } from '@/hooks/useIdleTimer'
@@ -389,6 +390,7 @@ export default function RichTextEditor() {
   const appLock = useAppLockStore()
   const [isAppLockSetupOpen, setIsAppLockSetupOpen] = useState(false)
   const [isAppLockSettingsOpen, setIsAppLockSettingsOpen] = useState(false)
+  const [isEncryptionChoiceOpen, setIsEncryptionChoiceOpen] = useState(false)
   const [biometricAvailable, setBiometricAvailable] = useState(false)
   const [isLockDropdownOpen, setIsLockDropdownOpen] = useState(false)
   const lockDropdownRef = useRef(null)
@@ -850,23 +852,15 @@ export default function RichTextEditor() {
   }, [tempUnlockedPages, removeLockFromUnlockedPage, setTempUnlockedPages])
 
   const handleEncryptBadgeClick = useCallback((page) => {
-    // If page already has a lock or app lock is on, use normal toggle
-    if ((page.password && page.password.hash) || appLock.isEnabled) {
+    // If page already has a lock, use normal toggle (re-lock / remove lock)
+    if (page.password && page.password.hash) {
       handleToggleLock(page)
       return
     }
-    // Show choice: individual page lock vs app lock
-    setConfirmModal({
-      isOpen: true,
-      title: 'Encrypt This Page',
-      message: 'You can lock just this page with its own password, or enable App Lock to encrypt all your pages at once with a single password.',
-      onConfirm: () => handleToggleLock(page),
-      onCancel: () => setIsAppLockSetupOpen(true),
-      variant: 'info',
-      confirmText: 'Lock This Page',
-      cancelText: 'Enable App Lock',
-      showCancel: true
-    })
+    // If app lock is already enabled, no choice needed
+    if (appLock.isEnabled) return
+    // Show choice modal: individual page lock vs app lock
+    setIsEncryptionChoiceOpen(true)
   }, [appLock.isEnabled, handleToggleLock])
 
   const persistLockouts = () => {
@@ -1683,8 +1677,8 @@ export default function RichTextEditor() {
               {currentPage && (
                 <div className="flex items-center ml-2 space-x-1 flex-shrink-0">
                   <button
-                    onClick={() => handleToggleLock(currentPage)}
-                    className={`p-2 rounded-lg transition-colors ${getButtonHoverClasses()}`}
+                    onClick={() => handleEncryptBadgeClick(currentPage)}
+                    className={`p-2 rounded-lg transition-colors cursor-pointer ${getButtonHoverClasses()}`}
                     title={currentPage.password?.hash && !tempUnlockedPages.has(currentPage.id) ? 'Unlock page' : 'Lock page'}
                   >
                     {currentPage.password?.hash && !tempUnlockedPages.has(currentPage.id)
@@ -1709,7 +1703,7 @@ export default function RichTextEditor() {
                         handleSelfDestruct(currentPage)
                       }
                     }}
-                    className={`p-2 rounded-lg transition-colors ${getButtonHoverClasses()}`}
+                    className={`p-2 rounded-lg transition-colors cursor-pointer ${getButtonHoverClasses()}`}
                     title={currentPage.selfDestructAt ? 'Cancel self-destruct' : 'Self-destruct'}
                   >
                     {currentPage.selfDestructAt
@@ -1730,11 +1724,11 @@ export default function RichTextEditor() {
                 />
               ) : (
                 <>
-                  <ExportDropdown onExport={handleExport} className={getButtonHoverClasses()} />
+                  <ExportDropdown onExport={handleExport} className={`cursor-pointer ${getButtonHoverClasses()}`} />
                   {shouldShowMobileInstall() && (
                     <button
                       onClick={() => setIsInstallModalOpen(true)}
-                      className={`p-2 rounded-lg ${getButtonHoverClasses()}`}
+                      className={`p-2 rounded-lg cursor-pointer ${getButtonHoverClasses()}`}
                       title="Use on your phone"
                     >
                       <Smartphone className="h-4 w-4" />
@@ -1742,7 +1736,7 @@ export default function RichTextEditor() {
                   )}
                   <button
                     onClick={handleImportBundleClick}
-                    className={`p-2 rounded-lg ${getButtonHoverClasses()}`}
+                    className={`p-2 rounded-lg cursor-pointer ${getButtonHoverClasses()}`}
                     title={isImporting ? 'Importing…' : 'Import encrypted bundle'}
                     disabled={isImporting}
                   >
@@ -1752,7 +1746,7 @@ export default function RichTextEditor() {
                     onClick={() => {
                       window.open('https://github.com/Efesop/rich-text-editor/issues/new', '_blank', 'noopener,noreferrer');
                     }}
-                    className={`p-2 rounded-lg ${getButtonHoverClasses()}`}
+                    className={`p-2 rounded-lg cursor-pointer ${getButtonHoverClasses()}`}
                     title="Report a bug or request a feature"
                   >
                     <Bug className="h-4 w-4" />
@@ -1760,7 +1754,7 @@ export default function RichTextEditor() {
                   <button
                     onClick={handleBellClick}
                     disabled={!canCheckForUpdates}
-                    className={`relative p-2 rounded-lg ${getButtonHoverClasses()} ${!canCheckForUpdates ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`relative p-2 rounded-lg cursor-pointer ${getIconClasses()} ${getButtonHoverClasses()} ${!canCheckForUpdates ? 'opacity-50 cursor-not-allowed' : ''}`}
                     title="Check for updates"
                   >
                     <Bell className={`h-4 w-4 ${isCheckingForUpdates ? 'animate-pulse' : ''}`} />
@@ -1768,7 +1762,7 @@ export default function RichTextEditor() {
                       <span className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 ${theme === 'dark' ? 'border border-[#0d0d0d]' : theme === 'darkblue' ? 'border border-[#0c1017]' : theme === 'fallout' ? 'border border-gray-900' : 'border border-white'} shadow-sm`}></span>
                     )}
                   </button>
-                  <ThemeToggle className={getButtonHoverClasses()} />
+                  <ThemeToggle className={`cursor-pointer ${getButtonHoverClasses()}`} />
                 </>
               )}
             </div>
@@ -1839,7 +1833,7 @@ export default function RichTextEditor() {
     </div>
 
         {/* Editor */ }
-  <div className={`flex-1 overflow-auto p-6 ${getMainContentClasses()} ${focusMode ? 'max-w-2xl mx-auto w-full' : ''}`}>
+  <div className={`flex-1 overflow-auto p-6 ${getMainContentClasses()} ${focusMode ? 'max-w-2xl mx-auto w-full' : ''} ${currentPage && selfDestructingPages.has(currentPage.id) ? 'pointer-events-none' : ''}`}>
     {currentPage && (
       <EditorErrorBoundary>
         <DynamicEditor
@@ -2108,19 +2102,18 @@ export default function RichTextEditor() {
         theme={theme}
       />
 
+      <EncryptionChoiceModal
+        isOpen={isEncryptionChoiceOpen}
+        onClose={() => setIsEncryptionChoiceOpen(false)}
+        onLockPage={() => handleToggleLock(currentPage)}
+        onSetupAppLock={() => setIsAppLockSetupOpen(true)}
+      />
+
       {currentPage && selfDestructingPages.has(currentPage.id) && (
         <SelfDestructOverlay
           theme={theme}
           onComplete={() => {
-            const destroyedId = currentPage.id
-            const nextPage = pages.find(p => p.type !== 'folder' && p.id !== destroyedId)
-            if (nextPage) {
-              handlePageSelect(nextPage)
-            } else {
-              setCurrentPage(null)
-            }
-            // Delete after navigating away
-            setTimeout(() => completeSelfDestruct(destroyedId), 50)
+            completeSelfDestruct(currentPage.id)
           }}
         />
       )}

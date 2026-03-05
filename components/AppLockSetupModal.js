@@ -17,7 +17,7 @@ export default function AppLockSetupModal({ isOpen, onClose, onConfirm, biometri
   const [isCustomTimeout, setIsCustomTimeout] = useState(false)
   const [customTimeoutValue, setCustomTimeoutValue] = useState(2)
   const [customTimeoutUnit, setCustomTimeoutUnit] = useState('hours')
-  const [enableBiometric, setEnableBiometric] = useState(false)
+  const [enableBiometric, setEnableBiometric] = useState(true)
   const [error, setError] = useState('')
   const inputRef = useRef(null)
 
@@ -36,7 +36,7 @@ export default function AppLockSetupModal({ isOpen, onClose, onConfirm, biometri
       setIsCustomTimeout(false)
       setCustomTimeoutValue(2)
       setCustomTimeoutUnit('hours')
-      setEnableBiometric(false)
+      setEnableBiometric(true)
       setError('')
     }
   }, [isOpen])
@@ -157,6 +157,55 @@ export default function AppLockSetupModal({ isOpen, onClose, onConfirm, biometri
 
         {/* Content */}
         <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+          {/* Biometric toggle */}
+          {biometricAvailable && (
+            <button
+              onClick={() => setEnableBiometric(!enableBiometric)}
+              className={`
+                w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm transition-all
+                ${enableBiometric
+                  ? isFallout
+                    ? 'bg-green-500/20 border-2 border-green-500/60 text-green-300'
+                    : isDarkBlue
+                      ? 'bg-blue-500/20 border-2 border-blue-500/60 text-[#e0e6f0]'
+                      : isDark
+                        ? 'bg-blue-500/20 border-2 border-blue-500/60 text-white'
+                        : 'bg-blue-50 border-2 border-blue-500 text-gray-900'
+                  : isFallout
+                    ? 'bg-gray-800/50 border border-green-500/20 text-green-400 hover:border-green-500/40'
+                    : isDarkBlue
+                      ? 'bg-[#0c1017]/50 border border-[#1c2438] text-[#8b99b5] hover:border-[#232b42]'
+                      : isDark
+                        ? 'bg-[#2f2f2f]/50 border border-[#3a3a3a]/50 text-[#c0c0c0] hover:border-[#4a4a4a]'
+                        : 'bg-gray-50 border border-gray-200 text-gray-700 hover:border-gray-300'
+                }
+              `}
+            >
+              <Fingerprint className="w-5 h-5" />
+              <div className="text-left flex-1">
+                <div className="font-medium">Enable Touch ID</div>
+                <div className={`
+                  text-xs mt-0.5
+                  ${isFallout ? 'text-green-600' : isDarkBlue ? 'text-[#5d6b88]' : isDark ? 'text-[#6b6b6b]' : 'text-gray-500'}
+                `}>
+                  Use fingerprint as a backup to unlock your notes
+                </div>
+              </div>
+              <div className={`
+                w-9 h-5 rounded-full transition-colors relative flex-shrink-0
+                ${enableBiometric
+                  ? isFallout ? 'bg-green-500' : isDarkBlue ? 'bg-blue-500' : isDark ? 'bg-blue-500' : 'bg-blue-600'
+                  : isFallout ? 'bg-gray-700' : isDarkBlue ? 'bg-[#232b42]' : isDark ? 'bg-[#3a3a3a]' : 'bg-gray-300'
+                }
+              `}>
+                <div className={`
+                  absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform
+                  ${enableBiometric ? 'translate-x-4' : 'translate-x-0.5'}
+                `} />
+              </div>
+            </button>
+          )}
+
           {/* Password */}
           <div>
             <label className={`
@@ -354,43 +403,6 @@ export default function AppLockSetupModal({ isOpen, onClose, onConfirm, biometri
               )}
             </div>
           </div>
-
-          {/* Biometric toggle */}
-          {biometricAvailable && (
-            <button
-              onClick={() => setEnableBiometric(!enableBiometric)}
-              className={`
-                w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm transition-all
-                ${enableBiometric
-                  ? isFallout
-                    ? 'bg-green-500/20 border-2 border-green-500/60 text-green-300'
-                    : isDarkBlue
-                      ? 'bg-blue-500/20 border-2 border-blue-500/60 text-[#e0e6f0]'
-                      : isDark
-                        ? 'bg-blue-500/20 border-2 border-blue-500/60 text-white'
-                        : 'bg-blue-50 border-2 border-blue-500 text-gray-900'
-                  : isFallout
-                    ? 'bg-gray-800/50 border border-green-500/20 text-green-400 hover:border-green-500/40'
-                    : isDarkBlue
-                      ? 'bg-[#0c1017]/50 border border-[#1c2438] text-[#8b99b5] hover:border-[#232b42]'
-                      : isDark
-                        ? 'bg-[#2f2f2f]/50 border border-[#3a3a3a]/50 text-[#c0c0c0] hover:border-[#4a4a4a]'
-                        : 'bg-gray-50 border border-gray-200 text-gray-700 hover:border-gray-300'
-                }
-              `}
-            >
-              <Fingerprint className="w-5 h-5" />
-              <div className="text-left">
-                <div className="font-medium">Enable Touch ID</div>
-                <div className={`
-                  text-xs mt-0.5
-                  ${isFallout ? 'text-green-600' : isDarkBlue ? 'text-[#5d6b88]' : isDark ? 'text-[#6b6b6b]' : 'text-gray-500'}
-                `}>
-                  Use biometrics as an alternative to password
-                </div>
-              </div>
-            </button>
-          )}
 
           {/* Error */}
           {error && (
