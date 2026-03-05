@@ -234,7 +234,7 @@ export default function AppLockSetupModal({ isOpen, onClose, onConfirm, biometri
             }
           `}>
             <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <span>There is no way to recover this password. If you forget it, you will lose access to the app and any locked content. Write it down somewhere safe.</span>
+            <span>Your notes will be encrypted with this password. There is no way to recover it. If you forget it and don&apos;t have biometric unlock enabled, you will permanently lose access to your notes.</span>
           </div>
 
           {/* Timeout selection */}

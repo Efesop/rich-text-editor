@@ -57,6 +57,7 @@ import QuickSwitcher from './QuickSwitcher'
 import SelfDestructModal from './SelfDestructModal'
 import SelfDestructBadge from './SelfDestructBadge'
 import SelfDestructOverlay from './SelfDestructOverlay'
+import { deriveKeyFromPassphrase } from '@/utils/cryptoUtils'
 import useAppLockStore from '../store/appLockStore'
 import { useIdleTimer } from '@/hooks/useIdleTimer'
 import AppLockScreen from './AppLockScreen'
@@ -107,6 +108,10 @@ export default function RichTextEditor() {
     navigateToPage,
     selfDestructingPages,
     completeSelfDestruct,
+    decryptAllAppLockPages,
+    encryptAndClearAppLockPages,
+    reEncryptAppLockPages,
+    removeAppLockEncryption,
   } = usePagesManager()
 
   const {
@@ -412,37 +417,126 @@ export default function RichTextEditor() {
     }
   }, [isLockDropdownOpen])
 
-  // Idle timer for auto-lock
+  // Idle timer for auto-lock (encrypts before locking)
+  const handleInstantLock = useCallback(async () => {
+    if (appLock.isEnabled) {
+      await encryptAndClearAppLockPages()
+      appLock.lock()
+    }
+  }, [appLock.isEnabled, appLock.lock, encryptAndClearAppLockPages])
+
   useIdleTimer({
     timeoutMinutes: appLock.timeoutMinutes,
     isEnabled: appLock.isEnabled && !appLock.isLocked,
-    onIdle: appLock.lock
+    onIdle: handleInstantLock
   })
 
-  const handleAppLockUnlock = useCallback((password) => {
-    return appLock.unlock(password)
-  }, [appLock.unlock])
+  const handleAppLockUnlock = useCallback(async (password) => {
+    const valid = appLock.unlock(password)
+    if (!valid) return false
+
+    // Derive encryption key
+    let salt
+    if (appLock.encryptionSalt) {
+      salt = new Uint8Array(appLock.encryptionSalt)
+    } else {
+      // Migration: existing user with app lock but no encryption yet
+      salt = crypto.getRandomValues(new Uint8Array(16))
+      await appLock.setEncryptionSalt(Array.from(salt))
+    }
+    const key = await deriveKeyFromPassphrase(password, salt)
+    appLock.setEncryptionKey(key, salt)
+
+    // Decrypt all app-lock-encrypted pages
+    await decryptAllAppLockPages(key, salt)
+
+    // Store password in safeStorage if biometric is enabled
+    if (appLock.biometricEnabled && window.electron?.invoke) {
+      await window.electron.invoke('safe-storage-store', 'app-lock-password', password).catch(() => {})
+    }
+
+    return true
+  }, [appLock, decryptAllAppLockPages])
 
   const handleBiometricUnlock = useCallback(async () => {
     if (typeof window !== 'undefined' && window.electron?.invoke) {
       const success = await window.electron.invoke('prompt-touch-id')
       if (success) {
+        // Retrieve password from safeStorage for encryption key derivation
+        const password = await window.electron.invoke('safe-storage-retrieve', 'app-lock-password')
+        if (password) {
+          return handleAppLockUnlock(password)
+        }
+        // Fallback: biometric succeeded but no stored password (shouldn't happen)
         appLock.unlockBiometric()
         return true
       }
     }
     return false
-  }, [appLock.unlockBiometric])
+  }, [appLock.unlockBiometric, handleAppLockUnlock])
 
-  const handleAppLockSetup = useCallback((password, timeout, biometric) => {
-    appLock.enable(password, timeout, biometric)
-  }, [appLock.enable])
+  const handleAppLockSetup = useCallback(async (password, timeout, biometric) => {
+    // Generate encryption salt and derive key
+    const salt = crypto.getRandomValues(new Uint8Array(16))
+    const key = await deriveKeyFromPassphrase(password, salt)
 
-  const handleInstantLock = useCallback(() => {
-    if (appLock.isEnabled) {
-      appLock.lock()
+    await appLock.enable(password, timeout, biometric, Array.from(salt))
+    appLock.setEncryptionKey(key, salt)
+
+    // Store password in safeStorage if biometric enabled
+    if (biometric && window.electron?.invoke) {
+      await window.electron.invoke('safe-storage-store', 'app-lock-password', password).catch(() => {})
     }
-  }, [appLock.isEnabled, appLock.lock])
+  }, [appLock])
+
+  // Handle app lock password change — re-encrypt with new key
+  const handleAppLockChangePassword = useCallback(async (currentPassword, newPassword) => {
+    const success = await appLock.updatePassword(currentPassword, newPassword)
+    if (!success) return false
+
+    // Derive new encryption key
+    const newSalt = crypto.getRandomValues(new Uint8Array(16))
+    const newKey = await deriveKeyFromPassphrase(newPassword, newSalt)
+
+    await appLock.setEncryptionSalt(Array.from(newSalt))
+    appLock.setEncryptionKey(newKey, newSalt)
+    await reEncryptAppLockPages(newKey, newSalt)
+
+    // Update safeStorage if biometric enabled
+    if (appLock.biometricEnabled && window.electron?.invoke) {
+      await window.electron.invoke('safe-storage-store', 'app-lock-password', newPassword).catch(() => {})
+    }
+
+    return true
+  }, [appLock, reEncryptAppLockPages])
+
+  // Handle app lock disable — decrypt everything and save plaintext
+  const handleAppLockDisable = useCallback(async () => {
+    await removeAppLockEncryption()
+    await appLock.disable()
+  }, [appLock, removeAppLockEncryption])
+
+  // Handle biometric toggle — need password for safeStorage
+  const handleAppLockToggleBiometric = useCallback(async (enabled, password) => {
+    await appLock.toggleBiometric(enabled)
+    if (enabled && password && window.electron?.invoke) {
+      await window.electron.invoke('safe-storage-store', 'app-lock-password', password).catch(() => {})
+    } else if (!enabled && window.electron?.invoke) {
+      await window.electron.invoke('safe-storage-delete', 'app-lock-password').catch(() => {})
+    }
+  }, [appLock])
+
+  // Encrypt pages before window closes
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (appLock.isEnabled && !appLock.isLocked && appLock.getEncryptionKey()) {
+        // Synchronous — best effort to trigger save
+        encryptAndClearAppLockPages()
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [appLock.isEnabled, appLock.isLocked, encryptAndClearAppLockPages])
 
   useEffect(() => {
     setIsClient(true)
@@ -754,6 +848,26 @@ export default function RichTextEditor() {
     setPageToAccess(page)
     setIsPasswordModalOpen(true)
   }, [tempUnlockedPages, removeLockFromUnlockedPage, setTempUnlockedPages])
+
+  const handleEncryptBadgeClick = useCallback((page) => {
+    // If page already has a lock or app lock is on, use normal toggle
+    if ((page.password && page.password.hash) || appLock.isEnabled) {
+      handleToggleLock(page)
+      return
+    }
+    // Show choice: individual page lock vs app lock
+    setConfirmModal({
+      isOpen: true,
+      title: 'Encrypt This Page',
+      message: 'You can lock just this page with its own password, or enable App Lock to encrypt all your pages at once with a single password.',
+      onConfirm: () => handleToggleLock(page),
+      onCancel: () => setIsAppLockSetupOpen(true),
+      variant: 'info',
+      confirmText: 'Lock This Page',
+      cancelText: 'Enable App Lock',
+      showCancel: true
+    })
+  }, [appLock.isEnabled, handleToggleLock])
 
   const persistLockouts = () => {
     try {
@@ -1746,7 +1860,8 @@ export default function RichTextEditor() {
       )}
       <EncryptionStatusIndicator
         currentPage={currentPage}
-        onEncryptPage={() => handleToggleLock(currentPage)}
+        onEncryptPage={() => handleEncryptBadgeClick(currentPage)}
+        appLockEnabled={appLock.isEnabled}
       />
     </div>
     <div className="flex items-center space-x-3">
@@ -1987,9 +2102,9 @@ export default function RichTextEditor() {
         biometricEnabled={appLock.biometricEnabled}
         biometricAvailable={biometricAvailable}
         onUpdateTimeout={appLock.updateTimeout}
-        onChangePassword={appLock.updatePassword}
-        onToggleBiometric={appLock.toggleBiometric}
-        onDisable={appLock.disable}
+        onChangePassword={handleAppLockChangePassword}
+        onToggleBiometric={handleAppLockToggleBiometric}
+        onDisable={handleAppLockDisable}
         theme={theme}
       />
 

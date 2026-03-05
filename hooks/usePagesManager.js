@@ -29,6 +29,9 @@ export function usePagesManager() {
   const encryptionKeysRef = useRef(new Map()) // pageId -> { key: CryptoKey, salt: Uint8Array }
   const tempUnlockedPagesRef = useRef(new Set())
 
+  // App lock encryption: cached key for bulk encrypt/decrypt
+  const appLockKeyRef = useRef(null) // { key: CryptoKey, salt: Uint8Array }
+
   // Update refs when state changes
   useEffect(() => {
     pagesRef.current = pages
@@ -64,6 +67,30 @@ export function usePagesManager() {
         result.push(page)
       }
     }
+
+    // App lock encryption: encrypt all non-individually-locked pages
+    const appLockKey = appLockKeyRef.current
+    if (appLockKey) {
+      const encrypted = []
+      for (const page of result) {
+        // Skip folders, individually locked pages, and already app-lock-encrypted pages
+        if (page.type === 'folder' || page.password?.hash || page.appLockEncrypted) {
+          encrypted.push(page)
+        } else if (page.content) {
+          try {
+            const encryptedContent = await encryptJsonWithKey(page.content, appLockKey.key, appLockKey.salt)
+            encrypted.push({ ...page, content: null, encryptedContent, appLockEncrypted: true })
+          } catch (error) {
+            console.error('Failed to app-lock encrypt page:', page.id, error)
+            encrypted.push(page) // Fallback: save plaintext
+          }
+        } else {
+          encrypted.push(page)
+        }
+      }
+      return encrypted
+    }
+
     return result
   }
 
@@ -966,6 +993,94 @@ export function usePagesManager() {
     }
   }, [savePagesToStorage])
 
+  // App lock encryption: decrypt all app-lock-encrypted pages after unlock
+  const decryptAllAppLockPages = useCallback(async (key, salt) => {
+    appLockKeyRef.current = { key, salt }
+    const currentPages = pagesRef.current
+    const hasAppLockPages = currentPages.some(p => p.appLockEncrypted && p.encryptedContent)
+    if (!hasAppLockPages) return
+
+    const decrypted = []
+    for (const page of currentPages) {
+      if (page.appLockEncrypted && page.encryptedContent) {
+        try {
+          const content = await decryptJsonWithKey(page.encryptedContent, key)
+          const { appLockEncrypted: _, encryptedContent: __, ...rest } = page
+          decrypted.push({ ...rest, content })
+        } catch (err) {
+          console.error('Failed to decrypt app-lock page:', page.id, err)
+          decrypted.push(page) // Keep encrypted on failure
+        }
+      } else {
+        decrypted.push(page)
+      }
+    }
+    setPages(decrypted)
+    pagesRef.current = decrypted
+    // Update currentPage if it was decrypted
+    if (currentPageRef.current) {
+      const updated = decrypted.find(p => p.id === currentPageRef.current.id)
+      if (updated) _setCurrentPage(updated)
+    }
+  }, [])
+
+  // App lock encryption: encrypt all pages and clear plaintext from memory
+  const encryptAndClearAppLockPages = useCallback(async () => {
+    const appLockKey = appLockKeyRef.current
+    if (!appLockKey) return
+
+    // First save to storage (preparePagesForStorage will encrypt)
+    await savePagesToStorage(pagesRef.current)
+
+    // Wait for debounced save to complete
+    await new Promise(resolve => setTimeout(resolve, 300))
+
+    // Clear plaintext from in-memory state
+    const encrypted = []
+    for (const page of pagesRef.current) {
+      if (page.type === 'folder' || page.password?.hash || page.appLockEncrypted) {
+        encrypted.push(page)
+      } else if (page.content) {
+        try {
+          const encryptedContent = await encryptJsonWithKey(page.content, appLockKey.key, appLockKey.salt)
+          encrypted.push({ ...page, content: null, encryptedContent, appLockEncrypted: true })
+        } catch (err) {
+          console.error('Failed to encrypt page for lock:', page.id, err)
+          encrypted.push(page)
+        }
+      } else {
+        encrypted.push(page)
+      }
+    }
+    setPages(encrypted)
+    pagesRef.current = encrypted
+    appLockKeyRef.current = null
+  }, [savePagesToStorage])
+
+  // App lock encryption: re-encrypt all pages with a new key (password change)
+  const reEncryptAppLockPages = useCallback(async (newKey, newSalt) => {
+    appLockKeyRef.current = { key: newKey, salt: newSalt }
+    // Pages are already decrypted in memory (user is unlocked)
+    // Just save — preparePagesForStorage will encrypt with the new key
+    await savePagesToStorage(pagesRef.current)
+  }, [savePagesToStorage])
+
+  // App lock encryption: remove all app-lock encryption (disable app lock)
+  const removeAppLockEncryption = useCallback(async () => {
+    // Pages should already be decrypted in memory
+    const cleaned = pagesRef.current.map(p => {
+      if (p.appLockEncrypted) {
+        const { appLockEncrypted: _, ...rest } = p
+        return rest
+      }
+      return p
+    })
+    appLockKeyRef.current = null
+    setPages(cleaned)
+    pagesRef.current = cleaned
+    await savePagesToStorage(cleaned)
+  }, [savePagesToStorage])
+
   // Self-destruct: track pages currently animating out
   const [selfDestructingPages, setSelfDestructingPages] = useState(new Set())
 
@@ -1064,5 +1179,9 @@ export function usePagesManager() {
     navigateToPage,
     selfDestructingPages,
     completeSelfDestruct,
+    decryptAllAppLockPages,
+    encryptAndClearAppLockPages,
+    reEncryptAppLockPages,
+    removeAppLockEncryption,
   }
 }

@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "guides": [
+    {
+      "slug": "encryption",
+      "title": "Encryption",
+      "subtitle": "AES-256 Encryption & How Dash Protects Your Notes",
+      "description": "Learn how AES-256-GCM encryption works, what PBKDF2 key derivation is, and how Dash encrypts your pages with zero-knowledge client-side encryption.",
+      "file": "encryption.md",
+      "tags": ["security", "encryption", "aes-256", "privacy"],
+      "relatedFeatures": ["page-locking", "password-protection"],
+      "lastUpdated": "2026-03-05"
+    },
+    {
+      "slug": "self-destructing-notes",
+      "title": "Self-Destructing Notes",
+      "subtitle": "Ephemeral Notes That Delete Themselves",
+      "description": "Understand what self-destructing notes are, why they're useful for sensitive information, and how Dash implements timed automatic deletion.",
+      "file": "self-destructing-notes.md",
+      "tags": ["privacy", "self-destruct", "ephemeral", "security"],
+      "relatedFeatures": ["self-destruct-timer", "page-management"],
+      "lastUpdated": "2026-03-05"
+    },
+    {
+      "slug": "offline-first",
+      "title": "Offline-First Apps",
+      "subtitle": "How Offline-First Architecture Keeps Your Data Local",
+      "description": "Learn what offline-first architecture means, how it compares to cloud-based apps, and how Dash stores everything on your device without requiring an internet connection.",
+      "file": "offline-first.md",
+      "tags": ["architecture", "offline", "local-storage", "pwa"],
+      "relatedFeatures": ["local-storage", "cross-platform"],
+      "lastUpdated": "2026-03-05"
+    },
+    {
+      "slug": "privacy-first-note-taking",
+      "title": "Privacy-First Note Taking",
+      "subtitle": "What Privacy-First Means & Why It Matters",
+      "description": "Explore what privacy-first design means compared to traditional cloud note apps, zero-knowledge architecture, and how Dash ensures your data never leaves your device.",
+      "file": "privacy-first-note-taking.md",
+      "tags": ["privacy", "zero-knowledge", "security", "design"],
+      "relatedFeatures": ["encryption", "local-storage", "no-telemetry"],
+      "lastUpdated": "2026-03-05"
+    },
+    {
+      "slug": "app-lock",
+      "title": "App Lock & Full-Device Encryption",
+      "subtitle": "Real Encryption Behind Your Lock Screen",
+      "description": "Learn how Dash's app lock goes beyond a simple password screen to provide real AES-256 encryption for all your notes, with Touch ID support and automatic locking.",
+      "file": "app-lock.md",
+      "tags": ["security", "encryption", "app-lock", "biometric", "touch-id"],
+      "relatedFeatures": ["app-lock", "biometric-unlock", "auto-lock", "encryption"],
+      "lastUpdated": "2026-03-05"
+    }
+  ]
+}

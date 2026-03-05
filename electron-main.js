@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, systemPreferences } = require('electron');
+const { app, BrowserWindow, dialog, systemPreferences, safeStorage } = require('electron');
 const path = require('path');
 const url = require('url');
 const { ipcMain } = require('electron');
@@ -266,6 +266,39 @@ ipcMain.handle('prompt-touch-id', async () => {
   } catch {
     return false;
   }
+});
+
+// Secure storage for biometric encryption key (uses OS keychain)
+ipcMain.handle('safe-storage-store', async (event, key, plaintext) => {
+  try {
+    if (!safeStorage.isEncryptionAvailable()) return false;
+    const encrypted = safeStorage.encryptString(plaintext);
+    const filePath = path.join(app.getPath('userData'), `safe-${key}.enc`);
+    await fs.writeFile(filePath, encrypted);
+    return true;
+  } catch {
+    return false;
+  }
+});
+
+ipcMain.handle('safe-storage-retrieve', async (event, key) => {
+  try {
+    if (!safeStorage.isEncryptionAvailable()) return null;
+    const filePath = path.join(app.getPath('userData'), `safe-${key}.enc`);
+    const encrypted = await fs.readFile(filePath);
+    return safeStorage.decryptString(encrypted);
+  } catch (e) {
+    if (e.code === 'ENOENT') return null;
+    return null;
+  }
+});
+
+ipcMain.handle('safe-storage-delete', async (event, key) => {
+  try {
+    const filePath = path.join(app.getPath('userData'), `safe-${key}.enc`);
+    await fs.unlink(filePath);
+  } catch {}
+  return true;
 });
 
 ipcMain.handle('read-pages', async () => {

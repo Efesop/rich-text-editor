@@ -25,7 +25,10 @@ contextBridge.exposeInMainWorld('electron', {
       'read-app-lock',
       'save-app-lock',
       'check-biometric-available',
-      'prompt-touch-id'
+      'prompt-touch-id',
+      'safe-storage-store',
+      'safe-storage-retrieve',
+      'safe-storage-delete'
     ];
     
     if (validChannels.includes(channel)) {

@@ -1,12 +1,12 @@
 import { ShieldCheck, ShieldOff } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
-export default function EncryptionStatusIndicator ({ currentPage, onEncryptPage }) {
+export default function EncryptionStatusIndicator ({ currentPage, onEncryptPage, appLockEnabled }) {
   const { theme } = useTheme()
 
   if (!currentPage) return null
 
-  const isEncrypted = !!(currentPage.password && currentPage.password.hash)
+  const isEncrypted = !!(currentPage.password && currentPage.password.hash) || appLockEnabled
 
   const getEncryptedClasses = () => {
     if (theme === 'fallout') {
@@ -49,11 +49,11 @@ export default function EncryptionStatusIndicator ({ currentPage, onEncryptPage 
     <button
       onClick={onEncryptPage}
       className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border transition-all ${getUnencryptedClasses()}`}
-      title="This page is not encrypted. Click to lock and encrypt it."
+      title="Add a password to encrypt this page with AES-256-GCM"
     >
       <ShieldOff className="w-3 h-3 mr-1.5" />
-      <span className="hidden sm:inline">Not Encrypted</span>
-      <span className="sm:hidden">Not Encrypted</span>
+      <span className="hidden sm:inline">Lock to Encrypt</span>
+      <span className="sm:hidden">Encrypt</span>
     </button>
   )
 }
