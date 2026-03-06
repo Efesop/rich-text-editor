@@ -45,7 +45,7 @@ export function AddPageToFolderModal({ isOpen, onClose, onConfirm, onCreateNewPa
       onClick={handleOverlayClick}
     >
       {/* Backdrop with blur */}
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       
       {/* Modal */}
       <div 

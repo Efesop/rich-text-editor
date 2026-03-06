@@ -470,12 +470,13 @@ export default function RichTextEditor() {
         if (password) {
           return handleAppLockUnlock(password)
         }
-        // Stored password missing — don't unlock without decryption key
-        return false
+        // Touch ID succeeded but no stored password (e.g. upgraded from older version)
+        // Return 'needs-password' so the lock screen can prompt for it
+        return 'needs-password'
       }
     }
     return false
-  }, [appLock.unlockBiometric, handleAppLockUnlock])
+  }, [handleAppLockUnlock])
 
   const handleAppLockSetup = useCallback(async (password, timeout, biometric) => {
     // Generate encryption salt and derive key
@@ -1327,7 +1328,7 @@ export default function RichTextEditor() {
           }`}
           title="Exit Focus Mode (⌘+Shift+F)"
         >
-          <Minimize2 size={18} />
+          <Minimize2 size={18} className="pointer-events-none" />
         </button>
       )}
 
@@ -1669,8 +1670,8 @@ export default function RichTextEditor() {
                     title={currentPage.password?.hash && !tempUnlockedPages.has(currentPage.id) ? 'Unlock page' : 'Lock page'}
                   >
                     {currentPage.password?.hash && !tempUnlockedPages.has(currentPage.id)
-                      ? <LockKeyhole className="h-3.5 w-3.5" />
-                      : <Unlock className="h-3.5 w-3.5" />
+                      ? <LockKeyhole className="h-3.5 w-3.5 pointer-events-none" />
+                      : <Unlock className="h-3.5 w-3.5 pointer-events-none" />
                     }
                   </button>
                   <button
@@ -1694,8 +1695,8 @@ export default function RichTextEditor() {
                     title={currentPage.selfDestructAt ? 'Cancel self-destruct' : 'Self-destruct'}
                   >
                     {currentPage.selfDestructAt
-                      ? <TimerOff className="h-3.5 w-3.5" />
-                      : <Timer className="h-3.5 w-3.5" />
+                      ? <TimerOff className="h-3.5 w-3.5 pointer-events-none" />
+                      : <Timer className="h-3.5 w-3.5 pointer-events-none" />
                     }
                   </button>
                 </div>
@@ -1718,7 +1719,7 @@ export default function RichTextEditor() {
                       className={`p-2 rounded-lg cursor-pointer ${getButtonHoverClasses()}`}
                       title="Use on your phone"
                     >
-                      <Smartphone className="h-4 w-4" />
+                      <Smartphone className="h-4 w-4 pointer-events-none" />
                     </button>
                   )}
                   <button
@@ -1727,7 +1728,7 @@ export default function RichTextEditor() {
                     title={isImporting ? 'Importing…' : 'Import encrypted bundle'}
                     disabled={isImporting}
                   >
-                    <Import className={`h-4 w-4 ${isImporting ? 'animate-pulse' : ''}`} />
+                    <Import className={`h-4 w-4 pointer-events-none ${isImporting ? 'animate-pulse' : ''}`} />
                   </button>
                   <button
                     onClick={() => {
@@ -1736,7 +1737,7 @@ export default function RichTextEditor() {
                     className={`p-2 rounded-lg cursor-pointer ${getButtonHoverClasses()}`}
                     title="Report a bug or request a feature"
                   >
-                    <Bug className="h-4 w-4" />
+                    <Bug className="h-4 w-4 pointer-events-none" />
                   </button>
                   <button
                     onClick={handleBellClick}
@@ -1744,7 +1745,7 @@ export default function RichTextEditor() {
                     className={`relative p-2 rounded-lg cursor-pointer ${getIconClasses()} ${getButtonHoverClasses()} ${!canCheckForUpdates ? 'opacity-50 cursor-not-allowed' : ''}`}
                     title="Check for updates"
                   >
-                    <Bell className={`h-4 w-4 ${isCheckingForUpdates ? 'animate-pulse' : ''}`} />
+                    <Bell className={`h-4 w-4 pointer-events-none ${isCheckingForUpdates ? 'animate-pulse' : ''}`} />
                     {updateInfo?.available && (
                       <span className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 ${theme === 'dark' ? 'border border-[#0d0d0d]' : theme === 'darkblue' ? 'border border-[#0c1017]' : theme === 'fallout' ? 'border border-gray-900' : 'border border-white'} shadow-sm`}></span>
                     )}

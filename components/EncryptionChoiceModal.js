@@ -30,7 +30,7 @@ export default function EncryptionChoiceModal ({ isOpen, onClose, onLockPage, on
       role="dialog"
       aria-modal="true"
     >
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" aria-hidden="true" />
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" aria-hidden="true" onClick={onClose} />
 
       <div
         className={`

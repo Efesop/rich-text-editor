@@ -47,7 +47,7 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
       aria-labelledby="password-modal-title"
     >
       {/* Backdrop with blur */}
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       
       {/* Modal */}
       <div 

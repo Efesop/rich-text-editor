@@ -45,7 +45,7 @@ export function FolderModal({ isOpen, onClose, onConfirm }) {
       onClick={handleOverlayClick}
     >
       {/* Backdrop with blur */}
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       
       {/* Modal */}
       <div 

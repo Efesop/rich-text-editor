@@ -162,10 +162,16 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
     '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1'
   ]
 
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose()
+    }
+  }
+
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-4" onClick={handleOverlayClick}>
       <div className="relative w-full max-w-lg mx-auto">
         <div className={`relative transform rounded-lg shadow-xl transition-all ${getModalClasses()}`}>
           <div className="absolute right-0 top-0 pr-6 pt-6">

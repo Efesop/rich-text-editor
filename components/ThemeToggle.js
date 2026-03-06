@@ -20,15 +20,15 @@ const ThemeToggle = ({ className = '' }) => {
   const getIcon = () => {
     switch (theme) {
       case 'light':
-        return <Sun className="h-4 w-4" />
+        return <Sun className="h-4 w-4 pointer-events-none" />
       case 'dark':
-        return <Moon className="h-4 w-4" />
+        return <Moon className="h-4 w-4 pointer-events-none" />
       case 'darkblue':
-        return <CloudMoon className="h-4 w-4" />
+        return <CloudMoon className="h-4 w-4 pointer-events-none" />
       case 'fallout':
-        return <Terminal className="h-4 w-4" />
+        return <Terminal className="h-4 w-4 pointer-events-none" />
       default:
-        return <Sun className="h-4 w-4" />
+        return <Sun className="h-4 w-4 pointer-events-none" />
     }
   }
 

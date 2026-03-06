@@ -43,7 +43,7 @@ export function RenameModal({ isOpen, onClose, onConfirm, title, onTitleChange }
       onClick={handleOverlayClick}
     >
       {/* Backdrop with blur */}
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       
       {/* Modal */}
       <div 

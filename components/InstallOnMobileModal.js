@@ -82,8 +82,14 @@ export function InstallOnMobileModal ({ isOpen, onClose, pwaUrl }) {
 
   const styles = getModalStyles()
 
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose()
+    }
+  }
+
   return (
-    <div className={styles.overlay}>
+    <div className={styles.overlay} onClick={handleOverlayClick}>
       <div className={styles.modal}>
         <h2 className={`text-xl font-bold mb-4 ${styles.text}`}>📱 Install Dash on Your Phone</h2>
         

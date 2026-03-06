@@ -98,8 +98,11 @@ export default function AppLockScreen({ onUnlock, onBiometricUnlock, biometricAv
 
   const handleBiometric = async () => {
     try {
-      const success = await onBiometricUnlock()
-      if (!success) {
+      const result = await onBiometricUnlock()
+      if (result === 'needs-password') {
+        setError('Enter your password once to re-link Touch ID')
+        inputRef.current?.focus()
+      } else if (!result) {
         setError('Biometric authentication failed')
       }
     } catch {

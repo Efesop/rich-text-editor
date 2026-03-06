@@ -107,7 +107,7 @@ export default function QuickSwitcher({ isOpen, onClose, pages, onSelectPage, th
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
       {/* Switcher panel */}
       <div
