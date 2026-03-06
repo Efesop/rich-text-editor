@@ -55,7 +55,7 @@ export default function WhatsNewModal({ appVersion, theme }) {
       onClick={handleOverlayClick}
     >
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={handleDismiss} />
 
       {/* Modal */}
       <div
