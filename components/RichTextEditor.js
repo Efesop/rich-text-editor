@@ -858,8 +858,11 @@ export default function RichTextEditor() {
       handleToggleLock(page)
       return
     }
-    // If app lock is already enabled, no choice needed
-    if (appLock.isEnabled) return
+    // If app lock is already enabled, go straight to page lock
+    if (appLock.isEnabled) {
+      handleToggleLock(page)
+      return
+    }
     // Show choice modal: individual page lock vs app lock
     setIsEncryptionChoiceOpen(true)
   }, [appLock.isEnabled, handleToggleLock])
