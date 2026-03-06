@@ -32,7 +32,8 @@ import { format } from 'date-fns'
 import PasswordModal from '@/components/PasswordModal'
 import { usePagesManager } from '@/hooks/usePagesManager'
 import ThemeToggle from '@/components/ThemeToggle'
-import SearchInput from '@/components/SearchInput'
+import SearchTrigger from '@/components/SearchTrigger'
+import SearchModal from '@/components/SearchModal'
 import SortDropdown from '@/components/SortDropdown'
 import { FolderModal } from '@/components/FolderModal'
 import { AddPageToFolderModal } from './AddPageToFolderModal'
@@ -43,7 +44,6 @@ import EncryptionStatusIndicator from './EncryptionStatusIndicator'
 import { useUpdateManager } from '@/hooks/useUpdateManager'
 import { EditorErrorBoundary, SidebarErrorBoundary } from './ErrorBoundary'
 import { useKeyboardNavigation, useScreenReader, useSkipNavigation } from '@/hooks/useKeyboardNavigation'
-import TagsFilter from './TagsFilter'
 import { DndContext, closestCorners, PointerSensor, TouchSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import SortablePageItem from './SortablePageItem'
@@ -167,6 +167,7 @@ export default function RichTextEditor() {
   const [tagToEdit, setTagToEdit] = useState(null)
   const [searchFilter, setSearchFilter] = useState('all')
   const [selectedTagsFilter, setSelectedTagsFilter] = useState([])
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
   const [passwordInput, setPasswordInput] = useState('')
   const [sortOption, setSortOption] = useState('custom')
   const [selectedFolderId, setSelectedFolderId] = useState(null)
@@ -1175,11 +1176,8 @@ export default function RichTextEditor() {
     onNewPage: handleNewPage,
     onSavePage: () => savePage(currentPage?.content),
     onSearch: () => {
-      const searchInput = document.querySelector('input[placeholder*="Search"]')
-      if (searchInput) {
-        searchInput.focus()
-        announce('Search field focused')
-      }
+      setIsSearchModalOpen(true)
+      announce('Search modal opened')
     },
     onToggleSidebar: () => {
       setSidebarOpen(!sidebarOpen)
@@ -1480,27 +1478,17 @@ export default function RichTextEditor() {
             </div>
           </header>
           {sidebarOpen && (
-            <div className="px-3 mb-2 pt-1 space-y-2">
-              <SearchInput
-                value={searchTerm}
-                onChange={setSearchTerm}
-                filter={searchFilter}
-                onFilterChange={setSearchFilter}
-                placeholder="Search everything"
-                pages={(pages || []).filter(p => p.type !== 'folder')}
-                folders={(pages || []).filter(p => p.type === 'folder')}
-                tags={(tags || []).map(t => t.name)}
-                onSelectPage={handleSelectPageFromSearch}
-                onSelectFolder={handleSelectFolderFromSearch}
-                onSelectTag={handleSelectTagFromSearch}
-                showDropdown={true}
-              />
-
-              <TagsFilter
-                tags={(tags || []).map(t => t.name)}
+            <div className="px-3 mb-2 pt-1">
+              <SearchTrigger
+                searchTerm={searchTerm}
                 selectedTags={selectedTagsFilter}
-                onTagToggle={handleTagToggle}
-                onClearAllTags={handleClearAllTagsFilter}
+                onClick={() => setIsSearchModalOpen(true)}
+                onClear={() => {
+                  setSearchTerm('')
+                  setSelectedTagsFilter([])
+                }}
+                theme={theme}
+                tagColorMap={(tags || []).reduce((acc, t) => { acc[t.name] = t.color; return acc }, {})}
               />
             </div>
           )}
@@ -2099,6 +2087,29 @@ export default function RichTextEditor() {
         onChangePassword={handleAppLockChangePassword}
         onToggleBiometric={handleAppLockToggleBiometric}
         onDisable={handleAppLockDisable}
+        theme={theme}
+      />
+
+      <SearchModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        searchTerm={searchTerm}
+        onSearchTermChange={setSearchTerm}
+        selectedTags={selectedTagsFilter}
+        onTagToggle={handleTagToggle}
+        onClearAllTags={handleClearAllTagsFilter}
+        allTags={(tags || []).map(t => t.name)}
+        tagColorMap={(tags || []).reduce((acc, t) => { acc[t.name] = t.color; return acc }, {})}
+        pages={(pages || []).filter(p => p.type !== 'folder')}
+        folders={(pages || []).filter(p => p.type === 'folder')}
+        onSelectPage={(page) => {
+          handleSelectPageFromSearch(page)
+          setIsSearchModalOpen(false)
+        }}
+        onSelectFolder={(folder) => {
+          handleSelectFolderFromSearch(folder)
+          setIsSearchModalOpen(false)
+        }}
         theme={theme}
       />
 

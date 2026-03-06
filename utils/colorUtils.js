@@ -84,6 +84,13 @@ export function getTagChipStyle (hex, theme) {
   }
 }
 
+const TAG_COLOR_PALETTE = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EC4899', '#06B6D4', '#84CC16', '#F97316']
+
+export function getTagColorHex (tagName) {
+  const index = String(tagName || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % TAG_COLOR_PALETTE.length
+  return TAG_COLOR_PALETTE[index]
+}
+
 export function ensureHex (hex, fallback = '#a3a3a3') {
   return normalizeHex(hex) || fallback
 }
@@ -91,6 +98,7 @@ export function ensureHex (hex, fallback = '#a3a3a3') {
 export default {
   lightenHex,
   getTagChipStyle,
+  getTagColorHex,
   ensureHex
 }
 
