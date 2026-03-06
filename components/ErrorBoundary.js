@@ -1,6 +1,6 @@
 import React from 'react'
 import { useTheme } from 'next-themes'
-import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
+import { AlertTriangle, RefreshCw, Home, Download } from 'lucide-react'
 import { Button } from './ui/button'
 
 // Main Error Boundary Class Component
@@ -92,6 +92,63 @@ class ErrorBoundary extends React.Component {
   }
 }
 
+// Standalone update checker for the error fallback — works even when main app is crashed
+function ErrorUpdateChecker() {
+  const [updateStatus, setUpdateStatus] = React.useState(null) // null | 'checking' | 'available' | 'downloading' | 'ready'
+  const [progress, setProgress] = React.useState(0)
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || !window.electron) return
+
+    // Check for updates immediately
+    window.electron.invoke('check-for-updates').catch(() => {})
+
+    const onAvailable = (info) => setUpdateStatus('available')
+    const onDownloaded = () => setUpdateStatus('ready')
+    const onProgress = (p) => { setProgress(p?.percent || 0); setUpdateStatus('downloading') }
+
+    window.electron.on('update-available', onAvailable)
+    window.electron.on('update-downloaded', onDownloaded)
+    window.electron.on('download-progress', onProgress)
+
+    return () => {
+      window.electron.removeListener('update-available', onAvailable)
+      window.electron.removeListener('update-downloaded', onDownloaded)
+      window.electron.removeListener('download-progress', onProgress)
+    }
+  }, [])
+
+  if (!updateStatus || typeof window === 'undefined' || !window.electron) return null
+
+  if (updateStatus === 'ready') {
+    return (
+      <Button onClick={() => window.electron.invoke('install-update')} className="w-full" variant="default">
+        <Download className="w-4 h-4 mr-2" />
+        Install Update &amp; Restart
+      </Button>
+    )
+  }
+
+  if (updateStatus === 'downloading') {
+    return (
+      <div className="w-full text-center text-sm opacity-70">
+        Downloading update... {Math.round(progress)}%
+      </div>
+    )
+  }
+
+  if (updateStatus === 'available') {
+    return (
+      <Button onClick={() => { window.electron.invoke('download-update'); setUpdateStatus('downloading') }} className="w-full" variant="default">
+        <Download className="w-4 h-4 mr-2" />
+        Download Update
+      </Button>
+    )
+  }
+
+  return null
+}
+
 // Functional Error Fallback Component
 function ErrorFallback({ error, errorInfo, errorId, onReload, onReset }) {
   const { theme } = useTheme()
@@ -124,7 +181,9 @@ function ErrorFallback({ error, errorInfo, errorId, onReload, onReset }) {
         </div>
 
         <div className="space-y-3">
-          <Button 
+          <ErrorUpdateChecker />
+
+          <Button
             onClick={onReset}
             className="w-full"
             variant="default"
@@ -133,7 +192,7 @@ function ErrorFallback({ error, errorInfo, errorId, onReload, onReset }) {
             Try Again
           </Button>
 
-          <Button 
+          <Button
             onClick={onReload}
             variant="outline"
             className="w-full"
