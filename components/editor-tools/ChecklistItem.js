@@ -1,3 +1,5 @@
+import DOMPurify from 'isomorphic-dompurify'
+
 const CHECKLIST_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M9.2 12L11.0586 13.8586C11.1367 13.9367 11.2633 13.9367 11.3414 13.8586L14.7 10.5"/><rect width="14" height="14" x="5" y="5" stroke="currentColor" stroke-width="2" rx="4"/></svg>'
 const CHECK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M7 12L10.4884 15.8372C10.5677 15.9245 10.705 15.9245 10.7844 15.8372L17 9"/></svg>'
 
@@ -78,7 +80,7 @@ export default class ChecklistItem {
     this._textEl = document.createElement('div')
     this._textEl.classList.add('dash-checklist-text')
     this._textEl.contentEditable = !this.readOnly
-    this._textEl.innerHTML = this._data.text
+    this._textEl.innerHTML = DOMPurify.sanitize(this._data.text)
     this._textEl.dataset.placeholder = 'Checklist item'
 
     if (!this.readOnly) {

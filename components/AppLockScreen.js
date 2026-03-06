@@ -4,12 +4,37 @@ import { Lock, Fingerprint, AlertCircle } from 'lucide-react'
 export default function AppLockScreen({ onUnlock, onBiometricUnlock, biometricAvailable, biometricEnabled, theme }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [attempts, setAttempts] = useState(0)
+  const [attempts, setAttempts] = useState(() => {
+    try { return parseInt(sessionStorage.getItem('dash-lock-attempts') || '0', 10) } catch { return 0 }
+  })
+  const [lockedUntil, setLockedUntil] = useState(() => {
+    try { return parseInt(sessionStorage.getItem('dash-lock-until') || '0', 10) } catch { return 0 }
+  })
+  const [cooldownRemaining, setCooldownRemaining] = useState(0)
   const inputRef = useRef(null)
 
   const isFallout = theme === 'fallout'
   const isDark = theme === 'dark'
   const isDarkBlue = theme === 'darkblue'
+
+  // Cooldown timer
+  useEffect(() => {
+    if (lockedUntil <= Date.now()) {
+      setCooldownRemaining(0)
+      return
+    }
+    setCooldownRemaining(Math.ceil((lockedUntil - Date.now()) / 1000))
+    const interval = setInterval(() => {
+      const remaining = Math.ceil((lockedUntil - Date.now()) / 1000)
+      if (remaining <= 0) {
+        setCooldownRemaining(0)
+        clearInterval(interval)
+      } else {
+        setCooldownRemaining(remaining)
+      }
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [lockedUntil])
 
   useEffect(() => {
     if (inputRef.current) {
@@ -29,16 +54,43 @@ export default function AppLockScreen({ onUnlock, onBiometricUnlock, biometricAv
   const handleSubmit = (e) => {
     e?.preventDefault()
     if (!password.trim()) return
+    if (cooldownRemaining > 0) return
 
     const success = onUnlock(password)
     if (success) {
       setPassword('')
       setError('')
       setAttempts(0)
+      try { sessionStorage.removeItem('dash-lock-attempts'); sessionStorage.removeItem('dash-lock-until') } catch {}
     } else {
       const newAttempts = attempts + 1
       setAttempts(newAttempts)
-      setError(newAttempts >= 3 ? 'Incorrect password. Please try again carefully.' : 'Incorrect password')
+      try { sessionStorage.setItem('dash-lock-attempts', String(newAttempts)) } catch {}
+
+      // Increasing cooldowns: 3 attempts = 1s, 5 = 5s, 7 = 15s, 9+ = 30s
+      if (newAttempts >= 9) {
+        const until = Date.now() + 30000
+        setLockedUntil(until)
+        try { sessionStorage.setItem('dash-lock-until', String(until)) } catch {}
+        setError('Too many attempts. Please wait 30 seconds.')
+      } else if (newAttempts >= 7) {
+        const until = Date.now() + 15000
+        setLockedUntil(until)
+        try { sessionStorage.setItem('dash-lock-until', String(until)) } catch {}
+        setError('Too many attempts. Please wait 15 seconds.')
+      } else if (newAttempts >= 5) {
+        const until = Date.now() + 5000
+        setLockedUntil(until)
+        try { sessionStorage.setItem('dash-lock-until', String(until)) } catch {}
+        setError('Too many attempts. Please wait 5 seconds.')
+      } else if (newAttempts >= 3) {
+        const until = Date.now() + 1000
+        setLockedUntil(until)
+        try { sessionStorage.setItem('dash-lock-until', String(until)) } catch {}
+        setError('Incorrect password. Please try again carefully.')
+      } else {
+        setError('Incorrect password')
+      }
       setPassword('')
       inputRef.current?.focus()
     }
@@ -143,7 +195,7 @@ export default function AppLockScreen({ onUnlock, onBiometricUnlock, biometricAv
 
           <button
             type="submit"
-            disabled={!password.trim()}
+            disabled={!password.trim() || cooldownRemaining > 0}
             className={`
               w-full px-4 py-3 rounded-xl font-medium transition-all duration-200
               disabled:opacity-40 disabled:cursor-not-allowed
@@ -157,7 +209,7 @@ export default function AppLockScreen({ onUnlock, onBiometricUnlock, biometricAv
               }
             `}
           >
-            Unlock
+            {cooldownRemaining > 0 ? `Wait ${cooldownRemaining}s` : 'Unlock'}
           </button>
 
           {biometricAvailable && biometricEnabled && (

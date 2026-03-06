@@ -1,3 +1,5 @@
+import DOMPurify from 'isomorphic-dompurify'
+
 const ORDERED_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><line x1="12" x2="19" y1="7" y2="7" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><line x1="12" x2="19" y1="12" y2="12" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><line x1="12" x2="19" y1="17" y2="17" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M7.79999 14L7.79999 7.2135C7.79999 7.12872 7.7011 7.0824 7.63597 7.13668L4.79999 9.5"/></svg>'
 
 export default class NumberedListItem {
@@ -69,7 +71,7 @@ export default class NumberedListItem {
     this._element = document.createElement('div')
     this._element.classList.add('dash-numbered-item')
     this._element.contentEditable = !this.readOnly
-    this._element.innerHTML = this._data.text
+    this._element.innerHTML = DOMPurify.sanitize(this._data.text)
     this._element.dataset.placeholder = 'List item'
 
     setTimeout(() => NumberedListItem.renumberAll(), 0)

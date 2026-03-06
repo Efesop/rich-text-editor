@@ -199,7 +199,7 @@ export function usePagesManager() {
 
   const createNewPage = useCallback(async () => {
     const newPage = {
-      id: Date.now().toString() + Math.random().toString(36).slice(2, 11), // More unique IDs
+      id: crypto.randomUUID(), // More unique IDs
       title: 'New Page',
       content: {
         time: Date.now(),
@@ -296,7 +296,7 @@ export function usePagesManager() {
       // Ensure we always have at least one page
       if (updatedPages.filter(p => p.type !== 'folder').length === 0) {
         const defaultPage = {
-          id: Date.now().toString() + Math.random().toString(36).slice(2, 11),
+          id: crypto.randomUUID(),
           title: 'New Page',
           content: { time: Date.now(), blocks: [], version: '2.30.6' },
           tags: [],
@@ -628,7 +628,7 @@ export function usePagesManager() {
     if (!folderName) return
 
     const newFolder = {
-      id: Date.now().toString() + Math.random().toString(36).slice(2, 11),
+      id: crypto.randomUUID(),
       title: folderName.slice(0, 30),
       type: 'folder',
       pages: [],
@@ -797,7 +797,7 @@ export function usePagesManager() {
 
     const newPage = {
       ...page,
-      id: Date.now().toString() + Math.random().toString(36).slice(2, 11),
+      id: crypto.randomUUID(),
       title: `${page.title} (Copy)`,
       createdAt: new Date().toISOString(),
     }
@@ -931,10 +931,16 @@ export function usePagesManager() {
   const importPages = useCallback(async (importedItems) => {
     if (!Array.isArray(importedItems) || importedItems.length === 0) return
 
+    // Sanitize imported items before merging
+    const sanitizedItems = importedItems.map(item => {
+      if (item.type === 'folder' || !item.content?.blocks) return item
+      return { ...item, content: sanitizeEditorContent(item.content) }
+    })
+
     setPages(prevPages => {
       // Merge: imported items overwrite existing items with same ID
       const map = new Map(prevPages.map(item => [item.id, item]))
-      importedItems.forEach(item => {
+      sanitizedItems.forEach(item => {
         map.set(item.id, item)
       })
       const newPages = Array.from(map.values())
@@ -946,7 +952,7 @@ export function usePagesManager() {
 
     // Update currentPage if it was overwritten by import
     if (currentPageRef.current) {
-      const importedCurrent = importedItems.find(item => item.id === currentPageRef.current.id)
+      const importedCurrent = sanitizedItems.find(item => item.id === currentPageRef.current.id)
       if (importedCurrent) {
         _setCurrentPage(importedCurrent)
       }
@@ -1033,11 +1039,17 @@ export function usePagesManager() {
     const appLockKey = appLockKeyRef.current
     if (!appLockKey) return
 
-    // First save to storage (preparePagesForStorage will encrypt)
-    await savePagesToStorage(pagesRef.current)
-
-    // Wait for debounced save to complete
-    await new Promise(resolve => setTimeout(resolve, 300))
+    // Flush: cancel any pending debounce and save immediately
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+      saveTimeoutRef.current = null
+    }
+    // Wait for any in-progress save to finish before we save
+    while (saveInProgressRef.current) {
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+    saveVersionRef.current += 1
+    await executeSave(pagesRef.current, saveVersionRef.current)
 
     // Clear plaintext from in-memory state
     const encrypted = []
@@ -1059,7 +1071,7 @@ export function usePagesManager() {
     setPages(encrypted)
     pagesRef.current = encrypted
     appLockKeyRef.current = null
-  }, [savePagesToStorage])
+  }, [executeSave])
 
   // App lock encryption: re-encrypt all pages with a new key (password change)
   const reEncryptAppLockPages = useCallback(async (newKey, newSalt) => {

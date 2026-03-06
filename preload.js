@@ -66,5 +66,12 @@ contextBridge.exposeInMainWorld('electron', {
     }
   },
   
-  openExternal: (url) => shell.openExternal(url)
+  openExternal: (url) => {
+    try {
+      const parsed = new URL(url)
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        shell.openExternal(url)
+      }
+    } catch {}
+  }
 });

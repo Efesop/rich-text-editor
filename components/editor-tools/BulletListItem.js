@@ -1,3 +1,5 @@
+import DOMPurify from 'isomorphic-dompurify'
+
 const BULLET_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><line x1="9" x2="19" y1="7" y2="7" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><line x1="9" x2="19" y1="12" y2="12" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><line x1="9" x2="19" y1="17" y2="17" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M5.00001 17H4.99002"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M5.00001 12H4.99002"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M5.00001 7H4.99002"/></svg>'
 
 export default class BulletListItem {
@@ -55,7 +57,7 @@ export default class BulletListItem {
     this._element = document.createElement('div')
     this._element.classList.add('dash-bullet-item')
     this._element.contentEditable = !this.readOnly
-    this._element.innerHTML = this._data.text
+    this._element.innerHTML = DOMPurify.sanitize(this._data.text)
     this._element.dataset.placeholder = 'List item'
 
     if (!this.readOnly) {

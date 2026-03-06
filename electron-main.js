@@ -162,19 +162,34 @@ function createWindow() {
   // Open DevTools for debugging
   //mainWindow.webContents.openDevTools();
 
+  // Security: Only allow http/https URLs to be opened externally
+  const isSafeUrl = (url) => {
+    try {
+      const parsed = new URL(url)
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+    } catch { return false }
+  }
+
   // Security: Prevent new window creation and redirect to external browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    require('electron').shell.openExternal(url);
+    if (isSafeUrl(url)) {
+      require('electron').shell.openExternal(url);
+    }
     return { action: 'deny' };
   });
 
   // Security: Block navigation to external sites
   mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
-    const parsedUrl = new URL(navigationUrl)
-
-    if (parsedUrl.origin !== startUrl && !navigationUrl.startsWith('file://')) {
+    try {
+      const parsedUrl = new URL(navigationUrl)
+      if (parsedUrl.origin !== startUrl && !navigationUrl.startsWith('file://')) {
+        event.preventDefault()
+        if (isSafeUrl(navigationUrl)) {
+          require('electron').shell.openExternal(navigationUrl)
+        }
+      }
+    } catch {
       event.preventDefault()
-      require('electron').shell.openExternal(navigationUrl)
     }
   });
 }
@@ -269,8 +284,11 @@ ipcMain.handle('prompt-touch-id', async () => {
 });
 
 // Secure storage for biometric encryption key (uses OS keychain)
+const isSafeStorageKey = (key) => typeof key === 'string' && /^[a-zA-Z0-9-]+$/.test(key);
+
 ipcMain.handle('safe-storage-store', async (event, key, plaintext) => {
   try {
+    if (!isSafeStorageKey(key)) return false;
     if (!safeStorage.isEncryptionAvailable()) return false;
     const encrypted = safeStorage.encryptString(plaintext);
     const filePath = path.join(app.getPath('userData'), `safe-${key}.enc`);
@@ -283,6 +301,7 @@ ipcMain.handle('safe-storage-store', async (event, key, plaintext) => {
 
 ipcMain.handle('safe-storage-retrieve', async (event, key) => {
   try {
+    if (!isSafeStorageKey(key)) return null;
     if (!safeStorage.isEncryptionAvailable()) return null;
     const filePath = path.join(app.getPath('userData'), `safe-${key}.enc`);
     const encrypted = await fs.readFile(filePath);
@@ -295,6 +314,7 @@ ipcMain.handle('safe-storage-retrieve', async (event, key) => {
 
 ipcMain.handle('safe-storage-delete', async (event, key) => {
   try {
+    if (!isSafeStorageKey(key)) return true;
     const filePath = path.join(app.getPath('userData'), `safe-${key}.enc`);
     await fs.unlink(filePath);
   } catch {}
@@ -345,19 +365,27 @@ ipcMain.handle('save-pages', async (event, pages) => {
         };
       }
 
-      // Fix corrupted content automatically (fallback safety check for pages)
-      const content = (page.content && typeof page.content === 'object')
-        ? page.content
-        : { time: Date.now(), blocks: [], version: '2.30.6' };
+      // Encrypted pages have content: null and encryptedContent: {...}
+      // Don't force a fallback content object when encrypted content exists
+      const hasEncryptedContent = page.encryptedContent && typeof page.encryptedContent === 'object'
+      const content = hasEncryptedContent
+        ? null
+        : (page.content && typeof page.content === 'object')
+          ? page.content
+          : { time: Date.now(), blocks: [], version: '2.30.6' };
 
       return {
         id: page.id,
         title: page.title.slice(0, 200), // Limit title length
-        content: {
-          time: content.time || Date.now(),
-          blocks: Array.isArray(content.blocks) ? content.blocks : [],
-          version: content.version || '2.30.6'
-        },
+        content: content
+          ? {
+              time: content.time || Date.now(),
+              blocks: Array.isArray(content.blocks) ? content.blocks : [],
+              version: content.version || '2.30.6'
+            }
+          : null,
+        encryptedContent: hasEncryptedContent ? page.encryptedContent : null,
+        appLockEncrypted: hasEncryptedContent ? !!page.appLockEncrypted : false,
         tags: Array.isArray(page.tags) ? page.tags : [],
         tagNames: Array.isArray(page.tagNames) ? page.tagNames : [],
         createdAt: page.createdAt || new Date().toISOString(),
@@ -368,7 +396,16 @@ ipcMain.handle('save-pages', async (event, pages) => {
       };
     });
 
-    await fs.writeFile(path.join(app.getPath('userData'), 'pages.json'), JSON.stringify(sanitizedPages, null, 2));
+    const pagesPath = path.join(app.getPath('userData'), 'pages.json');
+    const tempPath = pagesPath + '.tmp';
+    const backupPath = pagesPath + '.bak';
+    const data = JSON.stringify(sanitizedPages, null, 2);
+
+    // Atomic write: write to temp file, backup existing, then rename
+    await fs.writeFile(tempPath, data);
+    try { await fs.copyFile(pagesPath, backupPath); } catch { /* no existing file to backup */ }
+    await fs.rename(tempPath, pagesPath);
+
     return { success: true };
   } catch (error) {
     console.error('Error saving pages:', error);

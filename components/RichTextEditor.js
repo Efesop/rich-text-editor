@@ -470,9 +470,8 @@ export default function RichTextEditor() {
         if (password) {
           return handleAppLockUnlock(password)
         }
-        // Fallback: biometric succeeded but no stored password (shouldn't happen)
-        appLock.unlockBiometric()
-        return true
+        // Stored password missing — don't unlock without decryption key
+        return false
       }
     }
     return false
