@@ -7,17 +7,17 @@ contextBridge.exposeInMainWorld('electronPlatform', {
 });
 
 contextBridge.exposeInMainWorld('electron', {
-  invoke: (channel, data) => {
+  invoke: (channel, ...args) => {
     const validChannels = [
-      'read-pages', 
-      'save-pages', 
-      'read-tags', 
-      'save-tags', 
-      'check-for-updates', 
-      'download-update', 
-      'install-update', 
+      'read-pages',
+      'save-pages',
+      'read-tags',
+      'save-tags',
+      'check-for-updates',
+      'download-update',
+      'install-update',
       'get-update-status',
-      'get-app-version', 
+      'get-app-version',
       'create-github-issue',
       'set-github-token',
       'read-whats-new',
@@ -30,9 +30,9 @@ contextBridge.exposeInMainWorld('electron', {
       'safe-storage-retrieve',
       'safe-storage-delete'
     ];
-    
+
     if (validChannels.includes(channel)) {
-      return ipcRenderer.invoke(channel, data);
+      return ipcRenderer.invoke(channel, ...args);
     }
   },
   
