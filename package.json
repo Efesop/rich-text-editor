@@ -79,6 +79,7 @@
     "docx": "^8.5.0",
     "dompurify": "^3.2.6",
     "dotenv": "^16.4.5",
+    "editorjs-drag-drop": "^1.1.16",
     "editorjs-text-alignment-blocktune": "^1.0.3",
     "editorjs-undo": "^2.0.28",
     "electron-log": "^4.4.8",

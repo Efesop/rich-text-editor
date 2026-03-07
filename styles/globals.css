@@ -577,7 +577,7 @@
   height: 38px;
   -webkit-app-region: drag;
   z-index: 100;
-  pointer-events: auto;
+  pointer-events: none;
 }
 
 /* Ensure interactive elements in the title bar area are clickable (not draggable) */

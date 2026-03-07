@@ -23,8 +23,8 @@ export function KeyboardShortcutsModal({ isOpen, onClose, theme }) {
     {
       title: 'Page Management',
       shortcuts: [
-        { label: 'Duplicate page', keys: [mod, 'D'] },
-        { label: 'Delete page', keys: [mod, '⌫'] },
+        { label: 'Duplicate page', keys: [mod, 'Shift', 'D'] },
+        { label: 'Delete page', keys: [mod, 'Shift', '⌫'] },
         { label: 'Previous page', keys: ['Alt', '↑'] },
         { label: 'Next page', keys: ['Alt', '↓'] },
         { label: 'Exit focus mode', keys: ['Esc'] }

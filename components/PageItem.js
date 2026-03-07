@@ -95,8 +95,8 @@ const PageItem = ({
 
   const getPageItemClasses = () => {
     const folderStyle = isInsideFolder
-      ? 'ml-5 mr-2 rounded-l-none border-l-2 ' + (theme === 'fallout' ? 'border-green-500/20' : theme === 'dark' ? 'border-[#3a3a3a]' : theme === 'darkblue' ? 'border-[#2a3454]' : 'border-neutral-200')
-      : 'mx-2'
+      ? 'ml-5 mr-1 rounded-l-none border-l-2 ' + (theme === 'fallout' ? 'border-green-500/20' : theme === 'dark' ? 'border-[#3a3a3a]' : theme === 'darkblue' ? 'border-[#2a3454]' : 'border-neutral-200')
+      : 'mx-1'
     const baseClasses = `flex items-center justify-between px-3 py-2 cursor-pointer text-sm rounded-lg transition-colors duration-150 overflow-hidden ${folderStyle}`
 
     if (isActive) {

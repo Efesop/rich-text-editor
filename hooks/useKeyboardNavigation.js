@@ -93,13 +93,13 @@ export function useKeyboardNavigation({
           }
           break
         case 'd':
-          if (currentPage && !isInputFocused) {
+          if (shiftKey && currentPage) {
             event.preventDefault()
             onDuplicatePage?.(currentPage)
           }
           break
         case 'backspace':
-          if (currentPage && !isInputFocused) {
+          if (shiftKey && currentPage) {
             event.preventDefault()
             onDeletePage?.(currentPage)
           }
@@ -198,8 +198,8 @@ export function useKeyboardNavigation({
       focusMode: 'Ctrl+Shift+F',
       lockApp: 'Ctrl+Shift+L',
       quickSwitcher: 'Ctrl+P',
-      duplicate: 'Ctrl+D',
-      delete: 'Ctrl+Backspace',
+      duplicate: 'Ctrl+Shift+D',
+      delete: 'Ctrl+Shift+Backspace',
       navigateUp: 'Alt+↑',
       navigateDown: 'Alt+↓',
       firstPage: 'Alt+Home',

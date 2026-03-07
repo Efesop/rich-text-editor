@@ -84,6 +84,7 @@ export default function Editor({ data, onChange, holder }) {
         Underline,
         AlignmentTune,
         Undo,
+        DragDrop,
         BulletListItem,
         NumberedListItem,
         ChecklistItemTool
@@ -104,6 +105,7 @@ export default function Editor({ data, onChange, holder }) {
         import('@editorjs/underline').then(m => m.default),
         import('editorjs-text-alignment-blocktune').then(m => m.default),
         import('editorjs-undo').then(m => m.default),
+        import('editorjs-drag-drop').then(m => m.default),
         import('./editor-tools/BulletListItem').then(m => m.default),
         import('./editor-tools/NumberedListItem').then(m => m.default),
         import('./editor-tools/ChecklistItem').then(m => m.default),
@@ -287,7 +289,7 @@ export default function Editor({ data, onChange, holder }) {
         }
       }
 
-      return { EditorJS, tools, Undo }
+      return { EditorJS, tools, Undo, DragDrop }
     } catch (error) {
       console.error('Error loading Editor.js tools:', error)
       throw error
@@ -308,7 +310,7 @@ export default function Editor({ data, onChange, holder }) {
 
         if (isCancelled) return
 
-        const { EditorJS, tools, Undo } = await initializeTools()
+        const { EditorJS, tools, Undo, DragDrop } = await initializeTools()
 
         if (isCancelled) return
 
@@ -344,6 +346,9 @@ export default function Editor({ data, onChange, holder }) {
         // Initialize with current data so undo doesn't revert to empty
         undoInstance.initialize(migratedData)
         undoRef.current = undoInstance
+
+        // Enable drag-and-drop block reordering
+        new DragDrop(editorRef.current)
 
         // Initialize multi-block tune enhancer
         if (!multiBlockEnhancerRef.current) {
