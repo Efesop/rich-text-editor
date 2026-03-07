@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { X, Sparkles, Search, Timer, ShieldCheck, Focus, Code, Palette, Lock, GripVertical, Undo2 } from 'lucide-react'
+import { X, Sparkles, Search, Timer, ShieldCheck, Focus, Code, Palette, Lock, GripVertical, Undo2, Keyboard } from 'lucide-react'
 import useWhatsNewStore from '../store/whatsNewStore'
 import { releaseNotes } from '@/lib/releaseNotes'
 
@@ -13,7 +13,8 @@ const iconMap = {
   Palette,
   Lock,
   GripVertical,
-  Undo2
+  Undo2,
+  Keyboard
 }
 
 export default function WhatsNewModal({ appVersion, theme }) {

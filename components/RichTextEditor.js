@@ -1266,29 +1266,41 @@ export default function RichTextEditor() {
       const containerCenter = containerRect.top + containerRect.height / 2
       const offset = blockCenter - containerCenter
 
-      scrollContainer.scrollBy({ top: offset, behavior: 'smooth' })
+      if (Math.abs(offset) > 5) {
+        scrollContainer.scrollBy({ top: offset, behavior: 'smooth' })
+      }
     }
 
-    // Use MutationObserver to detect when ce-block--focused class changes
-    const observer = new MutationObserver(() => {
+    // Center on every input event (typing, pasting, deleting)
+    const handleInput = () => {
       requestAnimationFrame(scrollActiveBlockToCenter)
-    })
+    }
+
+    // Center on click (selecting a different block)
+    const handleClick = () => {
+      setTimeout(scrollActiveBlockToCenter, 50)
+    }
+
+    // Center on keydown for all keys (navigation, enter, typing)
+    const handleKeydown = () => {
+      setTimeout(scrollActiveBlockToCenter, 50)
+    }
 
     const editorEl = document.querySelector('.codex-editor')
     if (editorEl) {
-      observer.observe(editorEl, { attributes: true, subtree: true, attributeFilter: ['class'] })
-    }
-
-    // Also scroll on keydown (for typing within a block)
-    const handleKeydown = (e) => {
-      if (e.key === 'Enter' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        setTimeout(scrollActiveBlockToCenter, 50)
-      }
+      editorEl.addEventListener('input', handleInput)
+      editorEl.addEventListener('click', handleClick)
     }
     document.addEventListener('keydown', handleKeydown)
 
+    // Initial center when typewriter mode is enabled
+    setTimeout(scrollActiveBlockToCenter, 100)
+
     return () => {
-      observer.disconnect()
+      if (editorEl) {
+        editorEl.removeEventListener('input', handleInput)
+        editorEl.removeEventListener('click', handleClick)
+      }
       document.removeEventListener('keydown', handleKeydown)
     }
   }, [focusMode, typewriterMode])
