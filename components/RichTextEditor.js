@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Minimize2, Lock, LockKeyhole, Unlock, Timer, TimerOff } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
@@ -64,6 +64,7 @@ import { useIdleTimer } from '@/hooks/useIdleTimer'
 import AppLockScreen from './AppLockScreen'
 import AppLockSetupModal from './AppLockSetupModal'
 import AppLockSettingsModal from './AppLockSettingsModal'
+import { KeyboardShortcutsModal } from './KeyboardShortcutsModal'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
 
@@ -356,9 +357,53 @@ export default function RichTextEditor() {
 
   // Focus Mode — hides sidebar, header, footer for distraction-free writing
   const [focusMode, setFocusMode] = useState(false)
+  const [typewriterMode, setTypewriterMode] = useState(() => {
+    try { return localStorage.getItem('dash-typewriter-mode') === 'true' } catch { return false }
+  })
+  const [paragraphDimming, setParagraphDimming] = useState(() => {
+    try { return localStorage.getItem('dash-paragraph-dimming') === 'true' } catch { return false }
+  })
+  const focusSessionRef = useRef(null)
+  const [focusSessionStats, setFocusSessionStats] = useState(null)
+
   const toggleFocusMode = useCallback(() => {
-    setFocusMode(prev => !prev)
+    setFocusMode(prev => {
+      if (!prev) {
+        // Entering focus mode — record session start
+        focusSessionRef.current = { startTime: Date.now(), startWordCount: wordCount }
+      } else {
+        // Exiting focus mode — calculate stats
+        if (focusSessionRef.current) {
+          const elapsed = Date.now() - focusSessionRef.current.startTime
+          const wordsWritten = wordCount - focusSessionRef.current.startWordCount
+          setFocusSessionStats({ elapsed, wordsWritten })
+          focusSessionRef.current = null
+          // Auto-dismiss after 4 seconds
+          setTimeout(() => setFocusSessionStats(null), 4000)
+        }
+      }
+      return !prev
+    })
+  }, [wordCount])
+
+  const toggleTypewriterMode = useCallback(() => {
+    setTypewriterMode(prev => {
+      const next = !prev
+      try { localStorage.setItem('dash-typewriter-mode', String(next)) } catch {}
+      return next
+    })
   }, [])
+
+  const toggleParagraphDimming = useCallback(() => {
+    setParagraphDimming(prev => {
+      const next = !prev
+      try { localStorage.setItem('dash-paragraph-dimming', String(next)) } catch {}
+      return next
+    })
+  }, [])
+
+  // Keyboard Shortcuts modal
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false)
 
   // Self-Destruct modal
   const [isSelfDestructModalOpen, setIsSelfDestructModalOpen] = useState(false)
@@ -1196,12 +1241,57 @@ export default function RichTextEditor() {
     },
     onLockApp: handleInstantLock,
     isLocked: appLock.isLocked,
+    isFocusMode: focusMode,
     onDeletePage: handleDeletePage,
     onDuplicatePage: handleDuplicatePage,
     currentPage,
     pages: (Array.isArray(pages) ? pages : []).filter(page => page.type !== 'folder'), // Use pages directly instead of filteredPages()
-    onSelectPage: handlePageSelect
+    onSelectPage: handlePageSelect,
+    onToggleShortcutsModal: () => setIsShortcutsModalOpen(true)
   })
+
+  // Typewriter scrolling — keep active block vertically centered in focus mode
+  useEffect(() => {
+    if (!focusMode || !typewriterMode) return
+
+    const scrollActiveBlockToCenter = () => {
+      const focusedBlock = document.querySelector('.ce-block--focused')
+      if (!focusedBlock) return
+      const scrollContainer = focusedBlock.closest('.overflow-auto')
+      if (!scrollContainer) return
+
+      const blockRect = focusedBlock.getBoundingClientRect()
+      const containerRect = scrollContainer.getBoundingClientRect()
+      const blockCenter = blockRect.top + blockRect.height / 2
+      const containerCenter = containerRect.top + containerRect.height / 2
+      const offset = blockCenter - containerCenter
+
+      scrollContainer.scrollBy({ top: offset, behavior: 'smooth' })
+    }
+
+    // Use MutationObserver to detect when ce-block--focused class changes
+    const observer = new MutationObserver(() => {
+      requestAnimationFrame(scrollActiveBlockToCenter)
+    })
+
+    const editorEl = document.querySelector('.codex-editor')
+    if (editorEl) {
+      observer.observe(editorEl, { attributes: true, subtree: true, attributeFilter: ['class'] })
+    }
+
+    // Also scroll on keydown (for typing within a block)
+    const handleKeydown = (e) => {
+      if (e.key === 'Enter' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        setTimeout(scrollActiveBlockToCenter, 50)
+      }
+    }
+    document.addEventListener('keydown', handleKeydown)
+
+    return () => {
+      observer.disconnect()
+      document.removeEventListener('keydown', handleKeydown)
+    }
+  }, [focusMode, typewriterMode])
 
   // Force override Editor.js styles for fallout theme
   useEffect(() => {
@@ -1319,20 +1409,72 @@ export default function RichTextEditor() {
       {/* macOS Electron: draggable title bar region */}
       {isMacElectron && <div className="electron-drag-region" />}
 
-      {/* Focus Mode: floating exit button */}
+      {/* Focus Mode: floating bottom bar with toggles + exit */}
       {focusMode && (
-        <button
-          onClick={toggleFocusMode}
-          className={`fixed top-4 right-4 z-50 p-2 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-200 ${
-            theme === 'fallout' ? 'text-green-500 hover:bg-green-900/30' :
-            theme === 'dark' ? 'text-[#999] hover:bg-[#2a2a2a]' :
-            theme === 'darkblue' ? 'text-[#8b99b5] hover:bg-[#1c2438]' :
-            'text-neutral-400 hover:bg-neutral-100'
+        <div
+          className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 px-2 py-1.5 rounded-full text-xs font-medium opacity-30 hover:opacity-100 transition-opacity duration-200 ${
+            theme === 'fallout' ? 'text-green-500 bg-green-900/40 border border-green-500/30' :
+            theme === 'dark' ? 'text-[#999] bg-[#1a1a1a] border border-[#3a3a3a]/50' :
+            theme === 'darkblue' ? 'text-[#8b99b5] bg-[#141825] border border-[#1c2438]' :
+            'text-neutral-500 bg-white border border-neutral-200 shadow-sm'
           }`}
-          title="Exit Focus Mode (⌘+Shift+F)"
         >
-          <Minimize2 size={18} className="pointer-events-none" />
-        </button>
+          <button
+            onClick={toggleTypewriterMode}
+            className={`px-2 py-1 rounded-full transition-colors ${
+              typewriterMode
+                ? theme === 'fallout' ? 'bg-green-500/30 text-green-300' :
+                  theme === 'dark' ? 'bg-[#3a3a3a] text-[#ddd]' :
+                  theme === 'darkblue' ? 'bg-[#2a3550] text-[#c0ccdf]' :
+                  'bg-neutral-200 text-neutral-800'
+                : 'hover:opacity-80'
+            }`}
+            title="Typewriter scrolling"
+          >
+            Typewriter
+          </button>
+          <button
+            onClick={toggleParagraphDimming}
+            className={`px-2 py-1 rounded-full transition-colors ${
+              paragraphDimming
+                ? theme === 'fallout' ? 'bg-green-500/30 text-green-300' :
+                  theme === 'dark' ? 'bg-[#3a3a3a] text-[#ddd]' :
+                  theme === 'darkblue' ? 'bg-[#2a3550] text-[#c0ccdf]' :
+                  'bg-neutral-200 text-neutral-800'
+                : 'hover:opacity-80'
+            }`}
+            title="Dim unfocused paragraphs"
+          >
+            Dimming
+          </button>
+          <div className={`mx-1 w-px h-4 ${
+            theme === 'fallout' ? 'bg-green-500/30' :
+            theme === 'dark' ? 'bg-[#3a3a3a]' :
+            theme === 'darkblue' ? 'bg-[#1c2438]' :
+            'bg-neutral-200'
+          }`} />
+          <button
+            onClick={toggleFocusMode}
+            className="px-2 py-1 rounded-full hover:opacity-80 transition-colors"
+            title="Click or press Esc to exit focus mode"
+          >
+            Esc to exit
+          </button>
+        </div>
+      )}
+
+      {/* Focus Session Stats toast */}
+      {focusSessionStats && (
+        <div
+          className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl text-sm font-medium animate-fade-in ${
+            theme === 'fallout' ? 'text-green-400 bg-green-900/60 border border-green-500/30' :
+            theme === 'dark' ? 'text-[#ccc] bg-[#1a1a1a] border border-[#3a3a3a]/50' :
+            theme === 'darkblue' ? 'text-[#c0ccdf] bg-[#141825] border border-[#1c2438]' :
+            'text-neutral-700 bg-white border border-neutral-200 shadow-lg'
+          }`}
+        >
+          {focusSessionStats.wordsWritten >= 0 ? '+' : ''}{focusSessionStats.wordsWritten} words in {Math.max(1, Math.round(focusSessionStats.elapsed / 60000))} min
+        </div>
       )}
 
       {/* Mobile overlay */}
@@ -1824,17 +1966,19 @@ export default function RichTextEditor() {
     </div>
 
         {/* Editor */ }
-  <div className={`flex-1 overflow-auto p-6 ${getMainContentClasses()} ${focusMode ? 'max-w-2xl mx-auto w-full' : ''} ${currentPage && selfDestructingPages.has(currentPage.id) ? 'pointer-events-none' : ''}`}>
-    {currentPage && (
-      <EditorErrorBoundary>
-        <DynamicEditor
-          key={currentPage.id} // Add this line
-          data={currentPage.content}
-          onChange={handleEditorChange}
-          holder="editorjs"
-        />
-      </EditorErrorBoundary>
-    )}
+  <div className={`flex-1 overflow-auto p-6 ${getMainContentClasses()} ${focusMode ? 'focus-mode-scroll pt-16' : ''} ${currentPage && selfDestructingPages.has(currentPage.id) ? 'pointer-events-none' : ''}`}>
+    <div className={`${focusMode ? 'max-w-2xl mx-auto w-full' : ''} ${focusMode && paragraphDimming ? 'paragraph-dimming' : ''}`}>
+      {currentPage && (
+        <EditorErrorBoundary>
+          <DynamicEditor
+            key={currentPage.id}
+            data={currentPage.content}
+            onChange={handleEditorChange}
+            holder="editorjs"
+          />
+        </EditorErrorBoundary>
+      )}
+    </div>
   </div>
 
   {/* Footer */}
@@ -1871,6 +2015,18 @@ export default function RichTextEditor() {
         </button>
       )}
       <span>{wordCount} words</span>
+      <button
+        onClick={() => setIsShortcutsModalOpen(true)}
+        className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-colors ${
+          theme === 'fallout' ? 'text-green-600 hover:text-green-400 hover:bg-green-900/30' :
+          theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0] hover:bg-[#2a2a2a]' :
+          theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5] hover:bg-[#1c2438]' :
+          'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100'
+        }`}
+        title="Keyboard shortcuts (?)"
+      >
+        <Keyboard size={12} className="pointer-events-none" />
+      </button>
       <span aria-live="polite" aria-atomic="true">
         {saveStatus === 'saving' && <span className={theme === 'fallout' ? 'text-yellow-400' : 'text-yellow-500'}>Saving...</span>}
         {saveStatus === 'saved' && <span className={theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-[#6b6b6b]' : theme === 'darkblue' ? 'text-[#445068]' : 'text-neutral-400'}>Saved</span>}
@@ -2039,6 +2195,12 @@ export default function RichTextEditor() {
         confirmText={confirmModal.confirmText}
         cancelText={confirmModal.cancelText}
         showCancel={confirmModal.showCancel}
+      />
+
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsModalOpen}
+        onClose={() => setIsShortcutsModalOpen(false)}
+        theme={theme}
       />
 
       <WhatsNewModal appVersion={appVersion} theme={theme} />

@@ -11,9 +11,11 @@ export function useKeyboardNavigation({
   onToggleQuickSwitcher,
   onLockApp,
   isLocked,
+  isFocusMode,
   currentPage,
   pages,
-  onSelectPage
+  onSelectPage,
+  onToggleShortcutsModal
 }) {
   const currentPageIndexRef = useRef(0)
 
@@ -44,6 +46,13 @@ export function useKeyboardNavigation({
       activeElement.closest('[contenteditable="true"]')
     )
 
+    // Escape exits focus mode regardless of where cursor is
+    if (key === 'Escape' && isFocusMode) {
+      event.preventDefault()
+      onToggleFocusMode?.()
+      return
+    }
+
     // Global shortcuts that work even when typing
     if (isModifierPressed) {
       switch (key.toLowerCase()) {
@@ -62,8 +71,10 @@ export function useKeyboardNavigation({
           }
           break
         case 'b':
-          event.preventDefault()
-          onToggleSidebar?.()
+          if (shiftKey) {
+            event.preventDefault()
+            onToggleSidebar?.()
+          }
           break
         case 'p':
           event.preventDefault()
@@ -139,7 +150,6 @@ export function useKeyboardNavigation({
           }
           break
         case 'Escape':
-          // Clear focus from any active element
           if (activeElement && activeElement.blur) {
             activeElement.blur()
           }
@@ -147,6 +157,10 @@ export function useKeyboardNavigation({
         case '/':
           event.preventDefault()
           onSearch?.()
+          break
+        case '?':
+          event.preventDefault()
+          onToggleShortcutsModal?.()
           break
       }
     }
@@ -161,9 +175,11 @@ export function useKeyboardNavigation({
     onToggleQuickSwitcher,
     onLockApp,
     isLocked,
+    isFocusMode,
     currentPage,
     pages,
-    onSelectPage
+    onSelectPage,
+    onToggleShortcutsModal
   ])
 
   useEffect(() => {
@@ -178,7 +194,7 @@ export function useKeyboardNavigation({
       newPage: 'Ctrl+N',
       save: 'Ctrl+S',
       search: 'Ctrl+Shift+K or /',
-      toggleSidebar: 'Ctrl+B',
+      toggleSidebar: 'Ctrl+Shift+B',
       focusMode: 'Ctrl+Shift+F',
       lockApp: 'Ctrl+Shift+L',
       quickSwitcher: 'Ctrl+P',
@@ -188,7 +204,8 @@ export function useKeyboardNavigation({
       navigateDown: 'Alt+↓',
       firstPage: 'Alt+Home',
       lastPage: 'Alt+End',
-      escape: 'Esc'
+      escape: 'Esc',
+      shortcuts: '?'
     }
   }
 }
