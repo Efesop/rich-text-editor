@@ -365,6 +365,8 @@ export default function RichTextEditor() {
   })
   const focusSessionRef = useRef(null)
   const [focusSessionStats, setFocusSessionStats] = useState(null)
+  const [focusPillVisible, setFocusPillVisible] = useState(true)
+  const focusPillTimerRef = useRef(null)
 
   const toggleFocusMode = useCallback(() => {
     setFocusMode(prev => {
@@ -1250,58 +1252,71 @@ export default function RichTextEditor() {
     onToggleShortcutsModal: () => setIsShortcutsModalOpen(true)
   })
 
+  // Focus mode pill — show on mouse move, hide after 2s idle
+  useEffect(() => {
+    if (!focusMode) return
+    setFocusPillVisible(true)
+
+    const handleMouseMove = () => {
+      setFocusPillVisible(true)
+      clearTimeout(focusPillTimerRef.current)
+      focusPillTimerRef.current = setTimeout(() => setFocusPillVisible(false), 2000)
+    }
+
+    // Start the initial hide timer
+    focusPillTimerRef.current = setTimeout(() => setFocusPillVisible(false), 2000)
+
+    document.addEventListener('mousemove', handleMouseMove)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      clearTimeout(focusPillTimerRef.current)
+    }
+  }, [focusMode])
+
   // Typewriter scrolling — keep active block vertically centered in focus mode
   useEffect(() => {
     if (!focusMode || !typewriterMode) return
 
-    const scrollActiveBlockToCenter = () => {
-      const focusedBlock = document.querySelector('.ce-block--focused')
-      if (!focusedBlock) return
-      const scrollContainer = focusedBlock.closest('.overflow-auto')
-      if (!scrollContainer) return
+    const scrollCaretToCenter = () => {
+      // Find the active block using the caret/selection position
+      const sel = window.getSelection()
+      if (!sel || sel.rangeCount === 0) return
+      const range = sel.getRangeAt(0)
+      const node = range.startContainer
+      const element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node
+      if (!element) return
 
-      const blockRect = focusedBlock.getBoundingClientRect()
+      // Walk up to find the .ce-block ancestor
+      const block = element.closest('.ce-block')
+      if (!block) return
+
+      // Find the scroll container (the overflow-auto div)
+      const scrollContainer = block.closest('[class*="overflow-auto"]') || block.closest('.flex-1')
+      if (!scrollContainer || scrollContainer.scrollHeight <= scrollContainer.clientHeight) return
+
+      const blockRect = block.getBoundingClientRect()
       const containerRect = scrollContainer.getBoundingClientRect()
       const blockCenter = blockRect.top + blockRect.height / 2
       const containerCenter = containerRect.top + containerRect.height / 2
       const offset = blockCenter - containerCenter
 
-      if (Math.abs(offset) > 5) {
-        scrollContainer.scrollBy({ top: offset, behavior: 'smooth' })
+      if (Math.abs(offset) > 2) {
+        scrollContainer.scrollTop += offset
       }
     }
 
-    // Center on every input event (typing, pasting, deleting)
-    const handleInput = () => {
-      requestAnimationFrame(scrollActiveBlockToCenter)
+    const scheduleScroll = () => {
+      requestAnimationFrame(scrollCaretToCenter)
     }
 
-    // Center on click (selecting a different block)
-    const handleClick = () => {
-      setTimeout(scrollActiveBlockToCenter, 50)
-    }
+    // Use selectionchange — fires whenever the caret moves (typing, clicking, arrow keys)
+    document.addEventListener('selectionchange', scheduleScroll)
 
-    // Center on keydown for all keys (navigation, enter, typing)
-    const handleKeydown = () => {
-      setTimeout(scrollActiveBlockToCenter, 50)
-    }
-
-    const editorEl = document.querySelector('.codex-editor')
-    if (editorEl) {
-      editorEl.addEventListener('input', handleInput)
-      editorEl.addEventListener('click', handleClick)
-    }
-    document.addEventListener('keydown', handleKeydown)
-
-    // Initial center when typewriter mode is enabled
-    setTimeout(scrollActiveBlockToCenter, 100)
+    // Initial center
+    setTimeout(scrollCaretToCenter, 100)
 
     return () => {
-      if (editorEl) {
-        editorEl.removeEventListener('input', handleInput)
-        editorEl.removeEventListener('click', handleClick)
-      }
-      document.removeEventListener('keydown', handleKeydown)
+      document.removeEventListener('selectionchange', scheduleScroll)
     }
   }, [focusMode, typewriterMode])
 
@@ -1421,15 +1436,18 @@ export default function RichTextEditor() {
       {/* macOS Electron: draggable title bar region */}
       {isMacElectron && <div className="electron-drag-region" />}
 
-      {/* Focus Mode: floating bottom bar with toggles + exit */}
+      {/* Focus Mode: floating bottom bar with toggles + exit — hidden when idle */}
       {focusMode && (
         <div
-          className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 px-2 py-1.5 rounded-full text-xs font-medium opacity-30 hover:opacity-100 transition-opacity duration-200 ${
+          className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 px-2 py-1.5 rounded-full text-xs font-medium transition-opacity duration-300 ${
+            focusPillVisible ? 'opacity-80 hover:opacity-100' : 'opacity-0 pointer-events-none'
+          } ${
             theme === 'fallout' ? 'text-green-500 bg-green-900/40 border border-green-500/30' :
             theme === 'dark' ? 'text-[#999] bg-[#1a1a1a] border border-[#3a3a3a]/50' :
             theme === 'darkblue' ? 'text-[#8b99b5] bg-[#141825] border border-[#1c2438]' :
             'text-neutral-500 bg-white border border-neutral-200 shadow-sm'
           }`}
+          onMouseEnter={() => setFocusPillVisible(true)}
         >
           <button
             onClick={toggleTypewriterMode}
@@ -1979,7 +1997,7 @@ export default function RichTextEditor() {
 
         {/* Editor */ }
   <div className={`flex-1 overflow-auto p-6 ${getMainContentClasses()} ${focusMode ? 'focus-mode-scroll pt-16' : ''} ${currentPage && selfDestructingPages.has(currentPage.id) ? 'pointer-events-none' : ''}`}>
-    <div className={`${focusMode ? 'max-w-2xl mx-auto w-full' : ''} ${focusMode && paragraphDimming ? 'paragraph-dimming' : ''}`}>
+    <div className={`${focusMode ? 'max-w-2xl mx-auto w-full' : ''} ${focusMode && paragraphDimming ? 'paragraph-dimming' : ''} ${focusMode && typewriterMode ? 'pb-[50vh]' : ''}`}>
       {currentPage && (
         <EditorErrorBoundary>
           <DynamicEditor
