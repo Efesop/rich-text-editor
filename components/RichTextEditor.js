@@ -105,6 +105,7 @@ export default function RichTextEditor() {
     reorderItems,
     reorderWithinFolder,
     enterDuressHideMode,
+    recoverFromDuressMode,
     movePageToContainer,
     setSelfDestruct,
     cancelSelfDestruct,
@@ -522,6 +523,12 @@ export default function RichTextEditor() {
     const valid = appLock.unlock(password)
     if (!valid) return false
 
+    // If recovering from duress hide mode, reload pages and tags from disk
+    const wasInDuress = await recoverFromDuressMode()
+    if (wasInDuress) {
+      await useTagStore.getState().loadTags()
+    }
+
     // Derive encryption key
     let salt
     if (appLock.encryptionSalt) {
@@ -543,7 +550,7 @@ export default function RichTextEditor() {
     }
 
     return true
-  }, [appLock, decryptAllAppLockPages])
+  }, [appLock, decryptAllAppLockPages, recoverFromDuressMode])
 
   const handleBiometricUnlock = useCallback(async () => {
     if (typeof window !== 'undefined' && window.electron?.invoke) {
@@ -609,9 +616,12 @@ export default function RichTextEditor() {
 
     // Hide mode only: clear UI but keep encrypted data safe on disk
     // Blocks ALL saves so disk data is never overwritten
-    // Data recoverable by restarting app and entering real password
+    // Data recoverable by locking again and entering real password
     enterDuressHideMode()
     appLock.clearEncryptionKey()
+
+    // Clear tags from UI so attacker can't see tag names
+    useTagStore.setState({ tags: [] })
 
     // Unlock the screen silently — attacker sees empty app
     useAppLockStore.setState({ isLocked: false })

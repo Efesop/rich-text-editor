@@ -908,6 +908,18 @@ export function usePagesManager() {
     _setCurrentPage(null)
   }, [])
 
+  // Recover from duress hide mode: unblock saves and reload pages from disk
+  // Only reloads if duress mode is active (savesBlockedRef), otherwise no-op
+  const recoverFromDuressMode = useCallback(async () => {
+    if (!savesBlockedRef.current) return false
+    savesBlockedRef.current = false
+    const data = await readPages()
+    const validPages = Array.isArray(data) ? data : []
+    setPages(validPages)
+    pagesRef.current = validPages
+    return true
+  }, [])
+
   // Move a page between containers (folder↔root, folder↔folder)
   const movePageToContainer = useCallback((pageId, fromContainer, toContainer, nearItemId) => {
     setPages(prevPages => {
@@ -1062,10 +1074,13 @@ export function usePagesManager() {
     }
     setPages(decrypted)
     pagesRef.current = decrypted
-    // Update currentPage if it was decrypted
+    // Update currentPage if it was decrypted, or select first page after duress recovery
     if (currentPageRef.current) {
       const updated = decrypted.find(p => p.id === currentPageRef.current.id)
       if (updated) _setCurrentPage(updated)
+    } else if (decrypted.length > 0) {
+      const firstPage = decrypted.find(p => p.type !== 'folder') || decrypted[0]
+      _setCurrentPage(firstPage)
     }
   }, [])
 
@@ -1230,6 +1245,7 @@ export function usePagesManager() {
     persistPages,
     wipeAllPages,
     enterDuressHideMode,
+    recoverFromDuressMode,
     movePageToContainer,
     setSelfDestruct,
     cancelSelfDestruct,

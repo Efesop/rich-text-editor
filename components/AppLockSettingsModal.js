@@ -555,7 +555,7 @@ export default function AppLockSettingsModal({
                           : 'bg-blue-50 border border-blue-200 text-blue-700'
                   }`}>
                     <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-                    Duress password is active ({duressAction === 'wipe' ? 'wipe all data' : 'hide data'})
+                    Duress password is active (hide data)
                   </div>
                   <button
                     onClick={() => { onClearDuress(); }}
