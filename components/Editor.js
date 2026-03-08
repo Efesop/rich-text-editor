@@ -1,8 +1,9 @@
  import React, { useEffect, useRef, useCallback, useMemo } from 'react'
 import MultiBlockTuneEnhancer from './MultiBlockToolbar'
 import { migrateEditorData } from '@/utils/migrateBlocks'
+import { PageLinkInlineTool } from './editor-tools/PageLink'
 
-export default function Editor({ data, onChange, holder }) {
+export default function Editor({ data, onChange, holder, onPageLinkClick }) {
   const editorRef = useRef(null)
   const isInitializedRef = useRef(false)
   const dataRef = useRef(data)
@@ -19,7 +20,7 @@ export default function Editor({ data, onChange, holder }) {
   // Memoize editor configuration to prevent unnecessary re-initializations
   const editorConfig = useMemo(() => ({
     holder: holder,
-    placeholder: 'Start writing...',
+    placeholder: "Start typing or press '/'",
     minHeight: 100,
     autofocus: true,
     defaultBlock: 'paragraph',
@@ -36,7 +37,9 @@ export default function Editor({ data, onChange, holder }) {
       a: {
         href: true,
         target: '_blank',
-        rel: 'noopener noreferrer'
+        rel: 'noopener noreferrer',
+        'data-page-id': true,
+        class: true
       },
       br: true
     },
@@ -87,7 +90,8 @@ export default function Editor({ data, onChange, holder }) {
         DragDrop,
         BulletListItem,
         NumberedListItem,
-        ChecklistItemTool
+        ChecklistItemTool,
+        SeedPhraseTool
       ] = await Promise.all([
         import('@editorjs/editorjs').then(m => m.default),
         import('@editorjs/header').then(m => m.default),
@@ -109,6 +113,7 @@ export default function Editor({ data, onChange, holder }) {
         import('./editor-tools/BulletListItem').then(m => m.default),
         import('./editor-tools/NumberedListItem').then(m => m.default),
         import('./editor-tools/ChecklistItem').then(m => m.default),
+        import('./editor-tools/SeedPhrase').then(m => m.default),
       ])
 
       // Enhanced Paragraph tool that preserves empty paragraphs and improves formatting
@@ -128,7 +133,9 @@ export default function Editor({ data, onChange, holder }) {
               a: {
                 href: true,
                 target: '_blank',
-                rel: 'noopener noreferrer'
+                rel: 'noopener noreferrer',
+                'data-page-id': true,
+                class: true
               }
             }
           }
@@ -168,6 +175,9 @@ export default function Editor({ data, onChange, holder }) {
         checklistItem: {
           class: ChecklistItemTool,
           inlineToolbar: true,
+        },
+        seedPhrase: {
+          class: SeedPhraseTool,
         },
         // Legacy tools kept for backwards compatibility (migration converts data before render)
         // Hidden from toolbox and conversion menus — only used to render unmigrated blocks
@@ -210,6 +220,9 @@ export default function Editor({ data, onChange, holder }) {
         marker: {
           class: Marker,
           shortcut: 'CMD+SHIFT+H'
+        },
+        pageLink: {
+          class: PageLinkInlineTool,
         },
         table: {
           class: Table,
@@ -397,11 +410,25 @@ export default function Editor({ data, onChange, holder }) {
     updateEditorData()
   }, [data])
 
-  // Handle link clicks
+  // Handle link clicks (page links + external links)
+  const onPageLinkClickRef = useRef(onPageLinkClick)
+  useEffect(() => { onPageLinkClickRef.current = onPageLinkClick }, [onPageLinkClick])
+
   useEffect(() => {
     const handleLinkClick = (event) => {
       const link = event.target.closest('a')
-      if (link && link.href) {
+      if (!link) return
+
+      // Check for internal page link first
+      const pageId = link.getAttribute('data-page-id')
+      if (pageId) {
+        event.preventDefault()
+        event.stopPropagation()
+        onPageLinkClickRef.current?.(pageId)
+        return
+      }
+
+      if (link.href) {
         event.preventDefault()
         const href = link.href
         // Block dangerous URL schemes

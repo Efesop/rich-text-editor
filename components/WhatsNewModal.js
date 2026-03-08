@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { X, Sparkles, Search, Timer, ShieldCheck, Focus, Code, Palette, Lock, GripVertical, Undo2, Keyboard } from 'lucide-react'
+import { X, Sparkles, Search, Timer, ShieldCheck, Focus, Code, Palette, Lock, GripVertical, Undo2, Keyboard, Link, KeyRound, ShieldAlert } from 'lucide-react'
 import useWhatsNewStore from '../store/whatsNewStore'
 import { releaseNotes } from '@/lib/releaseNotes'
 
@@ -14,7 +14,10 @@ const iconMap = {
   Lock,
   GripVertical,
   Undo2,
-  Keyboard
+  Keyboard,
+  Link,
+  KeyRound,
+  ShieldAlert
 }
 
 export default function WhatsNewModal({ appVersion, theme }) {
@@ -123,41 +126,53 @@ export default function WhatsNewModal({ appVersion, theme }) {
         </div>
 
         {/* Feature list */}
-        <div className="p-6 space-y-4 max-h-80 overflow-y-auto">
-          {releaseNotes.map((feature, index) => {
-            const Icon = iconMap[feature.icon] || Sparkles
-            return (
-              <div key={index} className="flex gap-3">
-                <div className={`
-                  flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center
-                  ${isFallout
-                    ? 'bg-green-500/10 text-green-400'
-                    : isDarkBlue
-                      ? 'bg-[#1a2035] text-[#8b99b5]'
-                      : isDark
-                        ? 'bg-[#2f2f2f] text-[#8e8e8e]'
-                        : 'bg-gray-100 text-gray-500'
-                  }
-                `}>
-                  <Icon className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className={`
-                    text-sm font-medium
-                    ${isFallout ? 'text-green-300 font-mono' : isDarkBlue ? 'text-[#e0e6f0]' : isDark ? 'text-[#ececec]' : 'text-gray-900'}
-                  `}>
-                    {feature.title}
-                  </h3>
-                  <p className={`
-                    text-xs mt-0.5 leading-relaxed
-                    ${isFallout ? 'text-green-600 font-mono' : isDarkBlue ? 'text-[#5d6b88]' : isDark ? 'text-[#6b6b6b]' : 'text-gray-500'}
-                  `}>
-                    {feature.description}
-                  </p>
-                </div>
+        <div className="p-6 space-y-5 max-h-80 overflow-y-auto">
+          {releaseNotes.map((group, gi) => (
+            <div key={gi}>
+              <h3 className={`
+                text-[11px] font-semibold uppercase tracking-wider mb-3
+                ${isFallout ? 'text-green-600 font-mono' : isDarkBlue ? 'text-[#3d4d6b]' : isDark ? 'text-[#555]' : 'text-gray-300'}
+              `}>
+                {group.group}
+              </h3>
+              <div className="space-y-3">
+                {group.features.map((feature, fi) => {
+                  const Icon = iconMap[feature.icon] || Sparkles
+                  return (
+                    <div key={fi} className="flex gap-3">
+                      <div className={`
+                        flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center
+                        ${isFallout
+                          ? 'bg-green-500/10 text-green-400'
+                          : isDarkBlue
+                            ? 'bg-[#1a2035] text-[#8b99b5]'
+                            : isDark
+                              ? 'bg-[#2f2f2f] text-[#8e8e8e]'
+                              : 'bg-gray-100 text-gray-500'
+                        }
+                      `}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className={`
+                          text-sm font-medium
+                          ${isFallout ? 'text-green-300 font-mono' : isDarkBlue ? 'text-[#e0e6f0]' : isDark ? 'text-[#ececec]' : 'text-gray-900'}
+                        `}>
+                          {feature.title}
+                        </h3>
+                        <p className={`
+                          text-xs mt-0.5 leading-relaxed
+                          ${isFallout ? 'text-green-600 font-mono' : isDarkBlue ? 'text-[#5d6b88]' : isDark ? 'text-[#6b6b6b]' : 'text-gray-500'}
+                        `}>
+                          {feature.description}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-            )
-          })}
+            </div>
+          ))}
         </div>
 
         {/* Footer */}

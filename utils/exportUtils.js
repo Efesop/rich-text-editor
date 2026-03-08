@@ -59,6 +59,14 @@ export const exportToPDF = (content, title) => {
         addText(`${cb} ${block.data.text || ''}`, 12);
         break;
       }
+      case 'seedPhrase': {
+        addText('Seed Phrase:', 12, true);
+        const words = block.data.words || [];
+        for (let i = 0; i < words.length; i++) {
+          addText(`${i + 1}. ${words[i] || ''}`, 10);
+        }
+        break;
+      }
       case 'table':
         const startY = yOffset;
         const cellPadding = 2;
@@ -165,6 +173,8 @@ export const exportToMarkdown = (content) => {
       }
       case 'checklistItem':
         return `- [${block.data.checked ? 'x' : ' '}] ${block.data.text || ''}\n`;
+      case 'seedPhrase':
+        return `**Seed Phrase:**\n${(block.data.words || []).map((w, i) => `${i + 1}. ${w}`).join('\n')}\n\n`;
       default:
         return '';
     }
@@ -215,6 +225,8 @@ export const exportToPlainText = (content) => {
       }
       case 'checklistItem':
         return `[${block.data.checked ? 'x' : ' '}] ${block.data.text || ''}\n`;
+      case 'seedPhrase':
+        return `Seed Phrase:\n${(block.data.words || []).map((w, i) => `${i + 1}. ${w}`).join('\n')}\n\n`;
       default:
         return '';
     }
@@ -285,6 +297,12 @@ export const exportToRTF = (content) => {
       }
       case 'checklistItem':
         rtf += `${block.data.checked ? '[x]' : '[ ]'} ${block.data.text || ''}\n\\par\n`;
+        break;
+      case 'seedPhrase':
+        rtf += `{\\b Seed Phrase:}\n\\par\n`;
+        (block.data.words || []).forEach((w, i) => {
+          rtf += `${i + 1}. ${w}\n\\par\n`;
+        });
         break;
     }
   });
@@ -368,6 +386,13 @@ export const exportToDocx = async (content) => {
             return new Paragraph({
               children: [new TextRun(`${block.data.checked ? '[x]' : '[ ]'} ${block.data.text || ''}`)]
             });
+          case 'seedPhrase':
+            return [
+              new Paragraph({ children: [new TextRun({ text: 'Seed Phrase:', bold: true })] }),
+              ...(block.data.words || []).map((w, i) => new Paragraph({
+                children: [new TextRun(`${i + 1}. ${w}`)]
+              }))
+            ];
           default:
             return new Paragraph('');
         }
@@ -419,6 +444,8 @@ export const exportToCSV = (content) => {
         return [['Numbered Item', '', block.data.text || '']];
       case 'checklistItem':
         return [['Checklist Item', block.data.checked ? 'Checked' : 'Unchecked', block.data.text || '']];
+      case 'seedPhrase':
+        return (block.data.words || []).map((w, i) => ['Seed Phrase', i + 1, w]);
       default:
         return [];
     }
@@ -509,6 +536,13 @@ export const exportToXML = (content) => {
         root.ele('checklistItem', { checked: block.data.checked })
           .txt(block.data.text || '');
         break;
+      case 'seedPhrase': {
+        const sp = root.ele('seedPhrase', { count: block.data.count || 12 });
+        (block.data.words || []).forEach((w, i) => {
+          sp.ele('word', { index: i + 1 }).txt(w);
+        });
+        break;
+      }
     }
   });
 

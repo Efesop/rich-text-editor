@@ -186,7 +186,7 @@ function sanitizeBlockType(type) {
   const allowedTypes = [
     'paragraph', 'header', 'list', 'checklist', 'quote', 'code',
     'table', 'linkTool', 'image', 'embed', 'delimiter', 'marker',
-    'inlineCode', 'nestedlist', 'bulletListItem', 'numberedListItem', 'checklistItem'
+    'inlineCode', 'nestedlist', 'bulletListItem', 'numberedListItem', 'checklistItem', 'seedPhrase'
   ]
   
   return allowedTypes.includes(type) ? type : 'paragraph'

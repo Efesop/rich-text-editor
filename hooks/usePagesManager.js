@@ -873,6 +873,13 @@ export function usePagesManager() {
     savePagesToStorage(pagesRef.current)
   }, [savePagesToStorage])
 
+  const wipeAllPages = useCallback(() => {
+    setPages([])
+    pagesRef.current = []
+    setCurrentPage(null)
+    savePagesToStorage([])
+  }, [savePagesToStorage])
+
   // Move a page between containers (folder↔root, folder↔folder)
   const movePageToContainer = useCallback((pageId, fromContainer, toContainer, nearItemId) => {
     setPages(prevPages => {
@@ -1193,6 +1200,7 @@ export function usePagesManager() {
     reorderItems,
     reorderWithinFolder,
     persistPages,
+    wipeAllPages,
     movePageToContainer,
     setSelfDestruct,
     cancelSelfDestruct,

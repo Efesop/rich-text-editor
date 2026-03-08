@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { Search, FileText, FolderIcon, X } from 'lucide-react'
+import { Search, FileText, FolderIcon, X, Lock } from 'lucide-react'
 import Fuse from 'fuse.js'
 
 export default function QuickSwitcher({ isOpen, onClose, pages, onSelectPage, theme }) {
@@ -184,9 +184,15 @@ export default function QuickSwitcher({ isOpen, onClose, pages, onSelectPage, th
                   onClick={() => handleSelect(page)}
                   onMouseEnter={() => setSelectedIndex(index)}
                 >
-                  <FileText className={`w-4 h-4 flex-shrink-0 ${
-                    isFallout ? 'text-green-500' : isDarkBlue ? 'text-[#5d6b88]' : isDark ? 'text-[#6b6b6b]' : 'text-gray-400'
-                  }`} />
+                  {page.password?.hash ? (
+                    <Lock className={`w-4 h-4 flex-shrink-0 ${
+                      isFallout ? 'text-green-600' : isDarkBlue ? 'text-amber-400' : isDark ? 'text-amber-400' : 'text-amber-500'
+                    }`} />
+                  ) : (
+                    <FileText className={`w-4 h-4 flex-shrink-0 ${
+                      isFallout ? 'text-green-500' : isDarkBlue ? 'text-[#5d6b88]' : isDark ? 'text-[#6b6b6b]' : 'text-gray-400'
+                    }`} />
+                  )}
                   <div className="min-w-0 flex-1">
                     <span className={`
                       text-sm truncate block

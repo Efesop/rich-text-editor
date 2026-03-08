@@ -32,7 +32,10 @@ dash/
 │   ├── editor-tools/         # Custom Editor.js block tools
 │   │   ├── BulletListItem.js   # Individual bullet list item
 │   │   ├── NumberedListItem.js # Individual numbered list item
-│   │   └── ChecklistItem.js    # Individual checklist item
+│   │   ├── ChecklistItem.js    # Individual checklist item
+│   │   ├── SeedPhrase.js       # Seed phrase storage grid (12/24 words, BIP-39)
+│   │   ├── PageLink.js         # Page linking inline tool + [[ interceptor + dropdown
+│   │   └── CodeBlock.js        # Syntax-highlighted code block
 │   └── ...
 ├── hooks/
 │   ├── usePagesManager.js    # Page/folder CRUD + DnD reorder operations
@@ -41,11 +44,15 @@ dash/
 ├── lib/
 │   ├── storage.js            # Storage abstraction layer
 │   └── mobileStorage.js      # PWA-specific storage
+├── store/
+│   ├── tagStore.js            # Zustand store for tags
+│   └── appLockStore.js        # App lock state, duress password, biometric settings
 ├── utils/
 │   ├── securityUtils.js      # Content sanitization
 │   ├── passwordUtils.js      # AES-256 encryption
 │   ├── exportUtils.js        # Export to PDF, Markdown, etc.
 │   ├── dataValidation.js     # Data structure validation
+│   ├── bip39wordlist.js      # BIP-39 English wordlist (2048 words)
 │   └── migrateBlocks.js      # Legacy block migration (nestedlist → individual items)
 ├── electron-main.js          # Electron main process
 ├── preload.js                # Electron preload script (IPC bridge)
@@ -268,11 +275,23 @@ const tools = {
   quote: Quote,
   code: CodeTool,
   table: Table,
+  seedPhrase: SeedPhraseTool,        // Secure seed phrase grid (12/24 words)
+  pageLink: PageLinkInlineTool,      // Inline tool: page linking via toolbar
   // Legacy tools (hidden, kept for backwards compatibility)
   nestedlist: NestedList,  // toolbox: false, conversionConfig: undefined
   checklist: Checklist,    // toolbox: false, conversionConfig: undefined
 }
 ```
+
+### Page Linking Architecture
+
+Page linking works via two mechanisms:
+
+1. **`[[` interceptor** — `usePageLinkInterceptor` hook listens for `input` events in the editor, detects `[[` typed in text nodes, and shows a floating autocomplete dropdown. On selection, replaces the `[[query` text with an `<a data-page-id="..." class="page-link">` element.
+
+2. **Inline toolbar tool** — `PageLinkInlineTool` is an Editor.js inline tool (like bold/italic). When text is selected and the page link button is clicked, it dispatches a `dash-page-link-toolbar` CustomEvent with the saved range. React catches this event and shows a searchable dropdown. On selection, `PageLinkInlineTool.insertLink()` restores the range and wraps the selection in a page link element.
+
+Both mechanisms produce the same HTML: `<a data-page-id="uuid" class="page-link" href="#">Page Title</a>`. The `data-page-id` attribute is whitelisted in DOMPurify sanitization.
 
 ### Custom List Tools
 
@@ -295,9 +314,22 @@ The `Editor` component:
 3. Injects theme-specific CSS
 4. Manages the MultiBlockToolbar for multi-block selection and conversion
 
+### App Lock & Duress Password
+
+The app lock system (`store/appLockStore.js`) manages:
+
+- **Master password** — bcrypt-hashed, stored persistently
+- **Encryption key** — AES-256 key derived from password via PBKDF2, cached in module-level variable (not serialized in Zustand)
+- **Duress password** — separate bcrypt hash, checked before the real password on the lock screen
+- **Duress actions**:
+  - *Hide*: clears in-memory state (`setPages([])`) without writing to disk. Data preserved on disk, restored on next real unlock.
+  - *Wipe*: calls `wipeAllPages()` which synchronously sets `pagesRef.current = []` and saves empty state to disk. Also calls `appLock.disable()` which clears all lock settings.
+
+On lock, all pages are encrypted with AES-256-GCM and plaintext is cleared from memory. On unlock, pages are decrypted back into memory.
+
 ## State Management
 
-- **Zustand**: Global state for tags (`store/tagStore.js`)
+- **Zustand**: Global state for tags (`store/tagStore.js`) and app lock (`store/appLockStore.js`)
 - **React hooks**: Local component state
 - **Refs**: Prevent stale closures in async operations
 

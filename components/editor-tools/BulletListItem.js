@@ -40,7 +40,9 @@ export default class BulletListItem {
         a: {
           href: true,
           target: '_blank',
-          rel: 'noopener noreferrer'
+          rel: 'noopener noreferrer',
+          'data-page-id': true,
+          class: true
         }
       }
     }

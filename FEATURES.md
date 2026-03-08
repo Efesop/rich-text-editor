@@ -19,20 +19,30 @@ Block-based editor powered by Editor.js with 15+ content types:
 | Block Type | Description |
 |-----------|-------------|
 | Paragraph | Standard text with inline formatting |
-| Header | H1, H2, H3, H4 levels |
+| Header | H2, H3, H4 levels |
 | Bullet List | Individual bullet items, each its own block |
 | Numbered List | Individual numbered items with auto-numbering |
 | Checklist | Interactive checkbox items, each its own block |
 | Quote | Block quotes with author caption |
-| Code | Syntax-highlighted code blocks (20+ languages) |
+| Code | Syntax-highlighted code blocks (22 languages) |
 | Table | Rows, columns, and optional headings |
 | Image | Drag-and-drop or file picker (up to 5MB, stored locally) |
 | Embed | YouTube, Vimeo, GitHub, Twitter |
 | Delimiter | Visual section separator |
+| Seed Phrase | Secure numbered grid for cryptocurrency recovery phrases (12 or 24 words) with BIP-39 validation |
 
 ### Multi-Block Selection & Conversion
 
 Select multiple blocks by dragging across them, then click the floating settings icon to convert them all at once. Supports converting to: Text, Heading 1, Heading 2, Heading 3, Bullet List, Numbered List, Checklist, Quote, and Code.
+
+### Page Linking
+
+Link between pages using wiki-style `[[` syntax:
+- Type `[[` anywhere in text to trigger an autocomplete dropdown of existing pages
+- Filter by typing after `[[`, then press Enter or click to insert the link
+- Or highlight text and click the Page Link button in the inline toolbar
+- Clicking a page link navigates to that page instantly
+- Links are styled distinctly from external URLs and work across all themes
 
 ### Inline Formatting
 
@@ -43,6 +53,7 @@ Select multiple blocks by dragging across them, then click the floating settings
 - **Highlight / Marker** (Cmd+Shift+H)
 - **Inline Code** (Cmd+Shift+M)
 - **Links** (Cmd+K)
+- **Page Link** (via toolbar or `[[` shortcut)
 
 ### Text Alignment
 
@@ -58,7 +69,12 @@ Changes save automatically with a 300ms debounce. A save indicator shows current
 
 ### Focus Mode
 
-Toggle a distraction-free writing mode (Cmd+Shift+F) that hides the sidebar and expands the editor to full width. A minimal floating button lets you exit focus mode.
+Toggle a distraction-free writing mode (Cmd+Shift+F) that hides the sidebar, header, and footer:
+
+- **Typewriter mode** — keeps the current line centered vertically as you type
+- **Paragraph dimming** — dims all paragraphs except the one you're editing
+- **Session stats** — tracks words written and time spent; displayed when you exit
+- Exit with Esc key or the floating exit button (auto-hides after 2 seconds of inactivity)
 
 ### Word Count
 
@@ -85,8 +101,17 @@ Real-time word count displayed in the editor footer.
 - Filter pages by one or more tags
 - Tag management modal for bulk operations
 
+### Sort Modes
+- **Custom** — manual drag-and-drop reordering (drag only enabled in this mode)
+- **Newest** — by creation date, most recent first
+- **Oldest** — by creation date, oldest first
+- **A-Z** — alphabetical ascending
+- **Z-A** — alphabetical descending
+- **By Tag** — grouped by assigned tags
+
 ### Search
 - Full-text search across all page titles and content (powered by Fuse.js)
+- Locked pages show with a lock icon in search results
 - Combine search with tag filters
 - Instant results as you type
 
@@ -124,14 +149,32 @@ Theme preference persists across sessions.
 - **No telemetry** — zero tracking, analytics, or cloud calls
 - **Offline-first** — works without internet, no data leaves your device
 
-### Auto-Lock on Inactivity
-- Lock the entire app after a configurable idle timeout (1, 5, 15, 30 minutes, or Never)
+### App Lock & Auto-Lock
+- Lock the entire app after a configurable idle timeout (1, 5, 15, 30 minutes, custom, or Never)
 - Master password required to unlock
 - **Touch ID / biometric unlock** — use Touch ID on macOS as an alternative to typing your password
 - Biometrics also available for unlocking individual locked pages
 - Instant lock with Cmd+Shift+L shortcut or sidebar lock button
 - Locks automatically on app launch if enabled
 - Settings persist across app updates
+
+### Duress Password
+- Set a secondary password during app lock setup or in settings
+- When entered at the lock screen, silently triggers a panic action — the attacker sees a normal empty app
+- **Hide mode** — clears the app from memory but preserves data on disk. Re-entering the real password restores everything.
+- **Wipe mode** — permanently deletes all pages. Irreversible.
+- Must be different from the real password
+- No visual indication that a duress action was triggered
+
+### Seed Phrase Storage
+- Dedicated Editor.js block type for storing cryptocurrency wallet recovery phrases
+- Numbered grid of 12 or 24 word inputs (toggle between modes)
+- BIP-39 English wordlist validation (green checkmark for valid words, red X for invalid)
+- Multi-word paste support — paste a full phrase and words distribute across inputs
+- "Copy All" button with automatic clipboard clearing after 30 seconds
+- Tab/Enter navigation between inputs
+- Autocomplete, spellcheck, and autocorrect disabled for security
+- Data saved as standard Editor.js block JSON — benefits from page encryption when the page is locked
 
 ### Self-Destructing Notes
 - Set a page to automatically delete after a time period (1 hour, 1 day, 7 days, or 30 days)

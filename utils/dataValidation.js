@@ -79,7 +79,7 @@ function validateBlock(block) {
   const validTypes = [
     'paragraph', 'header', 'list', 'checklist', 'quote', 'code',
     'table', 'linkTool', 'image', 'embed', 'delimiter', 'marker',
-    'inlineCode', 'nestedlist', 'bulletListItem', 'numberedListItem', 'checklistItem'
+    'inlineCode', 'nestedlist', 'bulletListItem', 'numberedListItem', 'checklistItem', 'seedPhrase'
   ]
 
   return {
@@ -148,6 +148,12 @@ function validateBlockData(data, type) {
       return {
         text: typeof data.text === 'string' ? data.text : '',
         checked: Boolean(data.checked)
+      }
+
+    case 'seedPhrase':
+      return {
+        words: Array.isArray(data.words) ? data.words.map(w => typeof w === 'string' ? w : '').slice(0, 24) : [],
+        count: data.count === 24 ? 24 : 12
       }
 
     default:

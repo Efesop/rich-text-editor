@@ -50,6 +50,46 @@
       "tags": ["security", "encryption", "app-lock", "biometric", "touch-id"],
       "relatedFeatures": ["app-lock", "biometric-unlock", "auto-lock", "encryption"],
       "lastUpdated": "2026-03-05"
+    },
+    {
+      "slug": "page-linking",
+      "title": "Page Linking",
+      "subtitle": "Wiki-Style Links Between Your Notes",
+      "description": "Learn how to connect your notes with [[wiki links]], build a personal knowledge base, and navigate between pages instantly.",
+      "file": "page-linking.md",
+      "tags": ["editor", "linking", "wiki", "knowledge-base"],
+      "relatedFeatures": ["page-linking", "inline-toolbar"],
+      "lastUpdated": "2026-03-07"
+    },
+    {
+      "slug": "seed-phrase-storage",
+      "title": "Seed Phrase Storage",
+      "subtitle": "Secure Cryptocurrency Recovery Phrase Storage",
+      "description": "Store crypto wallet seed phrases in a secure numbered grid with BIP-39 validation. Understand how Dash keeps your recovery phrases safe with local-only storage and encryption.",
+      "file": "seed-phrase-storage.md",
+      "tags": ["security", "crypto", "seed-phrase", "bip39"],
+      "relatedFeatures": ["seed-phrase", "encryption", "page-locking"],
+      "lastUpdated": "2026-03-07"
+    },
+    {
+      "slug": "duress-password",
+      "title": "Duress Password",
+      "subtitle": "Silent Panic Protection Under Coercion",
+      "description": "Set a secondary password that silently wipes or hides your data when entered at the lock screen. Learn how Dash's duress password feature provides plausible deniability.",
+      "file": "duress-password.md",
+      "tags": ["security", "privacy", "duress", "coercion", "plausible-deniability"],
+      "relatedFeatures": ["duress-password", "app-lock", "encryption"],
+      "lastUpdated": "2026-03-07"
+    },
+    {
+      "slug": "features",
+      "title": "All Features",
+      "subtitle": "Complete Feature Guide for Dash",
+      "description": "A comprehensive overview of every feature in Dash — encryption, self-destructing notes, focus mode, themes, keyboard shortcuts, and more.",
+      "file": "features.md",
+      "tags": ["features", "overview", "guide", "security", "editor"],
+      "relatedFeatures": ["encryption", "app-lock", "focus-mode", "themes", "shortcuts"],
+      "lastUpdated": "2026-03-08"
     }
   ]
 }

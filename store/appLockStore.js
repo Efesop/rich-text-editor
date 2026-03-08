@@ -12,6 +12,9 @@ const useAppLockStore = create((set, get) => ({
   biometricEnabled: false,
   isLoaded: false,
   encryptionSalt: null, // Array of numbers (serialized Uint8Array)
+  duressEnabled: false,
+  duressPasswordHash: null,
+  duressAction: 'hide', // 'wipe' or 'hide'
 
   loadData: async () => {
     try {
@@ -31,7 +34,10 @@ const useAppLockStore = create((set, get) => ({
           biometricEnabled: data.biometricEnabled || false,
           encryptionSalt: data.encryptionSalt || null,
           isLocked: data.isEnabled || false, // Lock on launch if enabled
-          isLoaded: true
+          isLoaded: true,
+          duressEnabled: data.duressEnabled || false,
+          duressPasswordHash: data.duressPasswordHash || null,
+          duressAction: data.duressAction || 'hide'
         })
       } else {
         set({ isLoaded: true })
@@ -43,8 +49,8 @@ const useAppLockStore = create((set, get) => ({
   },
 
   _persist: async () => {
-    const { isEnabled, timeoutMinutes, passwordHash, biometricEnabled, encryptionSalt } = get()
-    const data = { isEnabled, timeoutMinutes, passwordHash, biometricEnabled, encryptionSalt }
+    const { isEnabled, timeoutMinutes, passwordHash, biometricEnabled, encryptionSalt, duressEnabled, duressPasswordHash, duressAction } = get()
+    const data = { isEnabled, timeoutMinutes, passwordHash, biometricEnabled, encryptionSalt, duressEnabled, duressPasswordHash, duressAction }
     try {
       if (typeof window !== 'undefined' && window.electron?.invoke) {
         await window.electron.invoke('save-app-lock', data)
@@ -77,7 +83,10 @@ const useAppLockStore = create((set, get) => ({
       passwordHash: null,
       biometricEnabled: false,
       encryptionSalt: null,
-      isLocked: false
+      isLocked: false,
+      duressEnabled: false,
+      duressPasswordHash: null,
+      duressAction: 'hide'
     })
     await get()._persist()
     // Clean up safeStorage
@@ -92,6 +101,12 @@ const useAppLockStore = create((set, get) => ({
       _appLockKey = null
       set({ isLocked: true })
     }
+  },
+
+  checkPassword: (password) => {
+    const { passwordHash } = get()
+    if (!passwordHash) return false
+    return bcrypt.compareSync(password, passwordHash)
   },
 
   unlock: (password) => {
@@ -144,6 +159,24 @@ const useAppLockStore = create((set, get) => ({
 
   toggleBiometric: async (enabled) => {
     set({ biometricEnabled: enabled })
+    await get()._persist()
+  },
+
+  setDuress: async (password, action) => {
+    const salt = bcrypt.genSaltSync(10)
+    const hash = bcrypt.hashSync(password, salt)
+    set({ duressEnabled: true, duressPasswordHash: hash, duressAction: action })
+    await get()._persist()
+  },
+
+  checkDuress: (password) => {
+    const { duressEnabled, duressPasswordHash } = get()
+    if (!duressEnabled || !duressPasswordHash) return false
+    return bcrypt.compareSync(password, duressPasswordHash)
+  },
+
+  clearDuress: async () => {
+    set({ duressEnabled: false, duressPasswordHash: null, duressAction: 'hide' })
     await get()._persist()
   }
 }))

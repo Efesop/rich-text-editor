@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Lock, Fingerprint, AlertCircle } from 'lucide-react'
 
-export default function AppLockScreen({ onUnlock, onBiometricUnlock, biometricAvailable, biometricEnabled, theme }) {
+export default function AppLockScreen({ onUnlock, onBiometricUnlock, biometricAvailable, biometricEnabled, onDuressUnlock, duressEnabled, theme }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [attempts, setAttempts] = useState(() => {
@@ -55,6 +55,18 @@ export default function AppLockScreen({ onUnlock, onBiometricUnlock, biometricAv
     e?.preventDefault()
     if (!password.trim()) return
     if (cooldownRemaining > 0) return
+
+    // Check duress password first (silently triggers duress action)
+    if (duressEnabled && onDuressUnlock) {
+      const isDuress = onDuressUnlock(password)
+      if (isDuress) {
+        setPassword('')
+        setError('')
+        setAttempts(0)
+        try { sessionStorage.removeItem('dash-lock-attempts'); sessionStorage.removeItem('dash-lock-until') } catch {}
+        return
+      }
+    }
 
     const success = onUnlock(password)
     if (success) {

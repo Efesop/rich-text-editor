@@ -41,7 +41,9 @@ export default class ChecklistItem {
         a: {
           href: true,
           target: '_blank',
-          rel: 'noopener noreferrer'
+          rel: 'noopener noreferrer',
+          'data-page-id': true,
+          class: true
         }
       }
     }

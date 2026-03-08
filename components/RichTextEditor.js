@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
@@ -65,6 +65,8 @@ import AppLockScreen from './AppLockScreen'
 import AppLockSetupModal from './AppLockSetupModal'
 import AppLockSettingsModal from './AppLockSettingsModal'
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal'
+import FeaturesPanel from './FeaturesPanel'
+import { usePageLinkInterceptor, PageLinkDropdown, PageLinkInlineTool } from './editor-tools/PageLink'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
 
@@ -103,7 +105,7 @@ export default function RichTextEditor() {
     movePageToFolder,
     reorderItems,
     reorderWithinFolder,
-    persistPages,
+    wipeAllPages,
     movePageToContainer,
     setSelfDestruct,
     cancelSelfDestruct,
@@ -407,6 +409,42 @@ export default function RichTextEditor() {
   // Keyboard Shortcuts modal
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false)
 
+  // Features panel
+  const [isFeaturesOpen, setIsFeaturesOpen] = useState(false)
+  const [showFeaturesTooltip, setShowFeaturesTooltip] = useState(false)
+
+  useEffect(() => {
+    const key = 'dash-features-tooltip-seen'
+    const checkTooltip = async () => {
+      try {
+        let seen = false
+        if (typeof window !== 'undefined' && window.electron?.invoke) {
+          const data = await window.electron.invoke('read-whats-new')
+          seen = data?.featuresTooltipSeen === true
+        } else {
+          seen = localStorage.getItem(key) === 'true'
+        }
+        if (!seen) {
+          setTimeout(() => setShowFeaturesTooltip(true), 2000)
+        }
+      } catch {}
+    }
+    checkTooltip()
+  }, [])
+
+  const dismissFeaturesTooltip = useCallback(async () => {
+    setShowFeaturesTooltip(false)
+    const key = 'dash-features-tooltip-seen'
+    try {
+      if (typeof window !== 'undefined' && window.electron?.invoke) {
+        const data = await window.electron.invoke('read-whats-new')
+        await window.electron.invoke('save-whats-new', { ...data, featuresTooltipSeen: true })
+      } else {
+        localStorage.setItem(key, 'true')
+      }
+    } catch {}
+  }, [])
+
   // Self-Destruct modal
   const [isSelfDestructModalOpen, setIsSelfDestructModalOpen] = useState(false)
   const [selfDestructPage, setSelfDestructPage] = useState(null)
@@ -565,6 +603,29 @@ export default function RichTextEditor() {
     await removeAppLockEncryption()
     await appLock.disable()
   }, [appLock, removeAppLockEncryption])
+
+  // Handle duress password unlock — triggers panic action
+  const handleDuressUnlock = useCallback((password) => {
+    if (!appLock.checkDuress(password)) return false
+
+    const action = appLock.duressAction || 'hide'
+
+    if (action === 'wipe') {
+      // Permanently wipe all data and save empty state to disk
+      wipeAllPages()
+      appLock.disable()
+    } else {
+      // Hide mode: clear in-memory state but keep data on disk
+      setPages([])
+      setCurrentPage(null)
+      appLock.clearEncryptionKey()
+    }
+
+    // Unlock the screen silently — attacker sees empty app
+    useAppLockStore.setState({ isLocked: false })
+
+    return true
+  }, [appLock, wipeAllPages])
 
   // Handle biometric toggle — need password for safeStorage
   const handleAppLockToggleBiometric = useCallback(async (enabled, password) => {
@@ -1251,6 +1312,42 @@ export default function RichTextEditor() {
     onSelectPage: handlePageSelect,
     onToggleShortcutsModal: () => setIsShortcutsModalOpen(true)
   })
+
+  // Page link [[wiki links]] interceptor
+  const handlePageLinkClick = useCallback((pageId) => {
+    const allPages = (Array.isArray(pages) ? pages : []).filter(p => p.type !== 'folder')
+    const targetPage = allPages.find(p => p.id === pageId)
+    if (targetPage) {
+      handlePageSelect(targetPage)
+    }
+  }, [pages, handlePageSelect])
+
+  const pageLinkData = usePageLinkInterceptor({
+    pages: (Array.isArray(pages) ? pages : []).filter(p => p.type !== 'folder'),
+    onSelectPage: handlePageSelect,
+    editorHolder: 'editorjs'
+  })
+
+  // Toolbar-initiated page link picker
+  const [toolbarLinkState, setToolbarLinkState] = useState(null)
+  useEffect(() => {
+    const handler = (e) => {
+      setToolbarLinkState({
+        position: { top: e.detail.top, left: e.detail.left },
+        range: e.detail.range,
+        text: e.detail.text
+      })
+    }
+    window.addEventListener('dash-page-link-toolbar', handler)
+    return () => window.removeEventListener('dash-page-link-toolbar', handler)
+  }, [])
+
+  const handleToolbarPageLinkSelect = useCallback((page) => {
+    if (toolbarLinkState?.range) {
+      PageLinkInlineTool.insertLink(toolbarLinkState.range, page)
+    }
+    setToolbarLinkState(null)
+  }, [toolbarLinkState])
 
   // Focus mode pill — show on mouse move, hide after 2s idle
   useEffect(() => {
@@ -2005,6 +2102,7 @@ export default function RichTextEditor() {
             data={currentPage.content}
             onChange={handleEditorChange}
             holder="editorjs"
+            onPageLinkClick={handlePageLinkClick}
           />
         </EditorErrorBoundary>
       )}
@@ -2045,6 +2143,42 @@ export default function RichTextEditor() {
         </button>
       )}
       <span>{wordCount} words</span>
+      <div className="relative">
+        <button
+          onClick={() => {
+            setIsFeaturesOpen(true)
+            if (showFeaturesTooltip) dismissFeaturesTooltip()
+          }}
+          className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-colors ${
+            theme === 'fallout' ? 'text-green-600 hover:text-green-400 hover:bg-green-900/30' :
+            theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0] hover:bg-[#2a2a2a]' :
+            theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5] hover:bg-[#1c2438]' :
+            'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100'
+          }`}
+          title="Features"
+        >
+          <Sparkles size={12} className="pointer-events-none" />
+        </button>
+        {showFeaturesTooltip && (
+          <div
+            className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shadow-lg animate-bounce-subtle ${
+              theme === 'fallout' ? 'bg-green-500 text-gray-900' :
+              theme === 'dark' ? 'bg-[#2f2f2f] text-[#e0e0e0] border border-[#3a3a3a]' :
+              theme === 'darkblue' ? 'bg-[#1c2438] text-[#8b99b5] border border-[#2a3452]' :
+              'bg-gray-800 text-white'
+            }`}
+            onClick={dismissFeaturesTooltip}
+          >
+            See what Dash can do
+            <div className={`absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent ${
+              theme === 'fallout' ? 'border-t-green-500' :
+              theme === 'dark' ? 'border-t-[#2f2f2f]' :
+              theme === 'darkblue' ? 'border-t-[#1c2438]' :
+              'border-t-gray-800'
+            }`} />
+          </div>
+        )}
+      </div>
       <button
         onClick={() => setIsShortcutsModalOpen(true)}
         className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-colors ${
@@ -2235,6 +2369,34 @@ export default function RichTextEditor() {
 
       <WhatsNewModal appVersion={appVersion} theme={theme} />
 
+      <FeaturesPanel
+        isOpen={isFeaturesOpen}
+        onClose={() => setIsFeaturesOpen(false)}
+        theme={theme}
+      />
+
+      <PageLinkDropdown
+        isOpen={pageLinkData.isOpen}
+        query={pageLinkData.query}
+        position={pageLinkData.position}
+        filteredPages={pageLinkData.filteredPages}
+        selectedIndex={pageLinkData.selectedIndex}
+        onSelect={pageLinkData.insertPageLink}
+        theme={theme}
+      />
+
+      <PageLinkDropdown
+        isOpen={!!toolbarLinkState}
+        query=""
+        position={toolbarLinkState?.position || { top: 0, left: 0 }}
+        filteredPages={(Array.isArray(pages) ? pages : []).filter(p => p.type !== 'folder')}
+        selectedIndex={0}
+        onSelect={handleToolbarPageLinkSelect}
+        onClose={() => setToolbarLinkState(null)}
+        showSearch
+        theme={theme}
+      />
+
       <SelfDestructModal
         isOpen={isSelfDestructModalOpen}
         onClose={() => { setIsSelfDestructModalOpen(false); setSelfDestructPage(null) }}
@@ -2260,6 +2422,8 @@ export default function RichTextEditor() {
           onBiometricUnlock={handleBiometricUnlock}
           biometricAvailable={biometricAvailable}
           biometricEnabled={appLock.biometricEnabled}
+          onDuressUnlock={handleDuressUnlock}
+          duressEnabled={appLock.duressEnabled}
           theme={theme}
         />
       )}
@@ -2269,6 +2433,7 @@ export default function RichTextEditor() {
         onClose={() => setIsAppLockSetupOpen(false)}
         onConfirm={handleAppLockSetup}
         biometricAvailable={biometricAvailable}
+        onSetDuress={appLock.setDuress}
         theme={theme}
       />
 
@@ -2282,6 +2447,11 @@ export default function RichTextEditor() {
         onChangePassword={handleAppLockChangePassword}
         onToggleBiometric={handleAppLockToggleBiometric}
         onDisable={handleAppLockDisable}
+        duressEnabled={appLock.duressEnabled}
+        duressAction={appLock.duressAction}
+        onSetDuress={appLock.setDuress}
+        onClearDuress={appLock.clearDuress}
+        checkIsRealPassword={appLock.checkPassword}
         theme={theme}
       />
 

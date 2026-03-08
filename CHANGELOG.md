@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Page linking (`[[wiki links]]`)** — Type `[[` anywhere in text to trigger an autocomplete dropdown of existing pages. Select a page to insert a styled, clickable inline link. Links navigate instantly when clicked. Also available via the inline toolbar (highlight text → click Page Link button).
+- **Seed phrase storage** — New Editor.js block type for storing cryptocurrency wallet recovery phrases. Available from the `+` block menu. Features a numbered grid of 12 or 24 word inputs with BIP-39 validation, multi-word paste, "Copy All" with 30-second auto-clear, and Tab/Enter navigation.
+- **Duress password** — Set a secondary password that silently triggers a panic action when entered at the lock screen. Configurable during initial app lock setup or in settings. Two modes: "Hide" (clears memory, preserves data on disk) or "Wipe" (permanently deletes all data).
+- **Focus mode enhancements** — Typewriter scrolling, paragraph dimming, and session word count stats.
+- **Quick switcher lock icons** — Locked pages show a lock icon in Quick Switcher and Search results.
 - **Individual list item blocks** — Bullet lists, numbered lists, and checklists now use one block per item instead of monolithic blocks. Each item can be independently selected, converted, and reordered.
 - **Multi-block convert menu** — Select multiple blocks and click the floating settings icon to convert them all at once (Text, H1, H2, H3, Bullet List, Numbered List, Checklist, Quote, Code).
 - **Custom Editor.js tools** — Three new tools: `BulletListItem`, `NumberedListItem`, `ChecklistItem` with full Enter/Backspace/slash-menu support.
@@ -17,9 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Header toolbar alignment** — The block toolbar (+/settings icons) now vertically aligns with header text instead of appearing above it.
 - **Numbered list numbering in exports** — PDF, Markdown, Plain Text, RTF, and DOCX exports now include proper sequential numbering that resets after non-list blocks.
 - **Word count includes list items** — Bullet, numbered, and checklist items are now counted in the word count.
+- **Page lock button** — Fixed page lock button doing nothing when app lock was enabled.
 
 ### Security
-- **Explicit sanitization for new block types** — `bulletListItem`, `numberedListItem`, and `checklistItem` have dedicated DOMPurify sanitization cases in `securityUtils.js`.
+- **Explicit sanitization for new block types** — `bulletListItem`, `numberedListItem`, `checklistItem`, and `seedPhrase` have dedicated DOMPurify sanitization cases in `securityUtils.js`.
+- **Page link sanitization** — `data-page-id` and `class` attributes whitelisted on `<a>` tags in DOMPurify config across all editor tools.
+- **Duress password validation** — Duress password must differ from the real password. Disabled when app lock is disabled.
 
 ## [1.3.93] - 2026-02-26
 

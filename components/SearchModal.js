@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react'
-import { Search, X, FileText, Folder, Tag, ArrowUp, ArrowDown, CornerDownLeft } from 'lucide-react'
+import { Search, X, FileText, Folder, Tag, ArrowUp, ArrowDown, CornerDownLeft, Lock } from 'lucide-react'
 import { getTagChipStyle, getTagColorHex, ensureHex } from '@/utils/colorUtils'
 
 export default function SearchModal ({
@@ -71,12 +71,14 @@ export default function SearchModal ({
       })
       .slice(0, 5)
       .forEach(page => {
+        const isLocked = Boolean(page.password?.hash)
         items.push({
           type: 'page',
           id: page.id,
           title: page.title || 'Untitled',
-          subtitle: page.tagNames?.length ? page.tagNames.join(', ') : 'No tags',
-          icon: FileText,
+          subtitle: isLocked ? 'Locked' : page.tagNames?.length ? page.tagNames.join(', ') : 'No tags',
+          icon: isLocked ? Lock : FileText,
+          isLocked,
           data: page
         })
       })
@@ -209,7 +211,13 @@ export default function SearchModal ({
     return isSelected ? 'bg-neutral-100' : 'hover:bg-neutral-50'
   }
 
-  const getResultIconClasses = (type) => {
+  const getResultIconClasses = (type, isLocked) => {
+    if (isLocked) {
+      if (isFallout) return 'text-green-600'
+      if (isDarkBlue) return 'text-amber-400'
+      if (isDark) return 'text-amber-400'
+      return 'text-amber-500'
+    }
     if (isFallout) return type === 'folder' ? 'text-green-500' : 'text-green-400'
     if (isDarkBlue) return type === 'folder' ? 'text-yellow-400' : 'text-blue-400'
     if (isDark) return type === 'folder' ? 'text-yellow-500' : 'text-blue-400'
@@ -348,7 +356,7 @@ export default function SearchModal ({
                     onClick={() => handleSelectResult(result)}
                     className={`w-full text-left px-5 py-2.5 flex items-center gap-3 transition-colors cursor-pointer ${getResultHoverClasses(index)}`}
                   >
-                    <IconComponent className={`h-4 w-4 flex-shrink-0 ${getResultIconClasses(result.type)}`} />
+                    <IconComponent className={`h-4 w-4 flex-shrink-0 ${getResultIconClasses(result.type, result.isLocked)}`} />
                     <div className="flex-1 min-w-0">
                       <div className={`text-sm font-medium truncate ${titleClasses}`}>
                         {result.title}
