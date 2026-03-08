@@ -73,7 +73,6 @@ const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false 
 export default function RichTextEditor() {
   const {
     pages,
-    setPages,
     currentPage,
     saveStatus,
     setCurrentPage,
@@ -105,7 +104,7 @@ export default function RichTextEditor() {
     movePageToFolder,
     reorderItems,
     reorderWithinFolder,
-    wipeAllPages,
+    enterDuressHideMode,
     movePageToContainer,
     setSelfDestruct,
     cancelSelfDestruct,
@@ -608,24 +607,17 @@ export default function RichTextEditor() {
   const handleDuressUnlock = useCallback((password) => {
     if (!appLock.checkDuress(password)) return false
 
-    const action = appLock.duressAction || 'hide'
-
-    if (action === 'wipe') {
-      // Permanently wipe all data and save empty state to disk
-      wipeAllPages()
-      appLock.disable()
-    } else {
-      // Hide mode: clear in-memory state but keep data on disk
-      setPages([])
-      setCurrentPage(null)
-      appLock.clearEncryptionKey()
-    }
+    // Hide mode only: clear UI but keep encrypted data safe on disk
+    // Blocks ALL saves so disk data is never overwritten
+    // Data recoverable by restarting app and entering real password
+    enterDuressHideMode()
+    appLock.clearEncryptionKey()
 
     // Unlock the screen silently — attacker sees empty app
     useAppLockStore.setState({ isLocked: false })
 
     return true
-  }, [appLock, wipeAllPages])
+  }, [appLock, enterDuressHideMode])
 
   // Handle biometric toggle — need password for safeStorage
   const handleAppLockToggleBiometric = useCallback(async (enabled, password) => {

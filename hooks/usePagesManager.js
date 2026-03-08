@@ -32,6 +32,9 @@ export function usePagesManager() {
   // App lock encryption: cached key for bulk encrypt/decrypt
   const appLockKeyRef = useRef(null) // { key: CryptoKey, salt: Uint8Array }
 
+  // Duress hide mode: blocks ALL saves to prevent overwriting encrypted data on disk
+  const savesBlockedRef = useRef(false)
+
   // Update refs when state changes
   useEffect(() => {
     pagesRef.current = pages
@@ -96,6 +99,7 @@ export function usePagesManager() {
 
   // Execute the actual save operation with race condition protection
   const executeSave = useCallback(async (pagesToSave, version) => {
+    if (savesBlockedRef.current) return // Duress hide mode: never write to disk
     try {
       // Encrypt temp-unlocked pages before writing to disk
       const pagesForStorage = await preparePagesForStorage(pagesToSave)
@@ -876,9 +880,33 @@ export function usePagesManager() {
   const wipeAllPages = useCallback(() => {
     setPages([])
     pagesRef.current = []
-    setCurrentPage(null)
-    savePagesToStorage([])
-  }, [savePagesToStorage])
+    _setCurrentPage(null)
+    // Wipe must save immediately, bypassing debounce
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
+    pendingSaveRef.current = null
+    saveVersionRef.current += 1
+    executeSave([], saveVersionRef.current)
+  }, [executeSave])
+
+  // Duress hide mode: clear UI state but preserve encrypted data on disk
+  // CRITICAL: blocks ALL future saves so disk data is never overwritten
+  const enterDuressHideMode = useCallback(() => {
+    // Block all saves FIRST, before anything else
+    savesBlockedRef.current = true
+    // Cancel any pending saves
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+      saveTimeoutRef.current = null
+    }
+    pendingSaveRef.current = null
+    // Clear encryption keys so nothing can re-encrypt
+    appLockKeyRef.current = null
+    encryptionKeysRef.current.clear()
+    // Clear in-memory state (disk untouched)
+    setPages([])
+    pagesRef.current = []
+    _setCurrentPage(null)
+  }, [])
 
   // Move a page between containers (folder↔root, folder↔folder)
   const movePageToContainer = useCallback((pageId, fromContainer, toContainer, nearItemId) => {
@@ -1201,6 +1229,7 @@ export function usePagesManager() {
     reorderWithinFolder,
     persistPages,
     wipeAllPages,
+    enterDuressHideMode,
     movePageToContainer,
     setSelfDestruct,
     cancelSelfDestruct,

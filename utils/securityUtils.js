@@ -158,6 +158,13 @@ export function sanitizeEditorContent(content) {
         // Delimiter blocks don't need data sanitization
         break
 
+      case 'seedPhrase':
+        sanitizedBlock.data = {
+          words: Array.isArray(block.data?.words) ? block.data.words.map(w => typeof w === 'string' ? w : '').slice(0, 24) : [],
+          count: block.data?.count === 24 ? 24 : 12
+        }
+        break
+
       default:
         // For unknown block types, sanitize all string values
         if (block.data && typeof block.data === 'object') {
