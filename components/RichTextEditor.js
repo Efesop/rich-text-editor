@@ -1645,7 +1645,7 @@ export default function RichTextEditor() {
             )}
             <div className="flex items-center space-x-1">
               {sidebarOpen && (
-                <div ref={lockDropdownRef}>
+                <div ref={lockDropdownRef} className="relative">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1655,6 +1655,15 @@ export default function RichTextEditor() {
                   >
                     <Lock className="h-4 w-4" />
                   </Button>
+                  {appLock.isEnabled && (
+                    <span className={`absolute top-1 right-0.5 flex items-center justify-center h-2.5 w-2.5 rounded-full pointer-events-none z-[1] ${
+                      theme === 'fallout' ? 'bg-green-500' : 'bg-blue-500'
+                    }`}>
+                      <svg width="6" height="6" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M2 6l3 3 5-5" />
+                      </svg>
+                    </span>
+                  )}
                   {isLockDropdownOpen && lockDropdownRef.current && (() => {
                     const rect = lockDropdownRef.current.getBoundingClientRect()
                     return (
