@@ -10,6 +10,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
   const onChangeRef = useRef(onChange)
   const multiBlockEnhancerRef = useRef(null)
   const undoRef = useRef(null)
+  const lastSavedRef = useRef(null) // Dedup: prevent MutationObserver feedback loops
 
   // Update refs when props change
   useEffect(() => {
@@ -56,6 +57,16 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
         editorRef.current.onChange = setTimeout(async () => {
           try {
             const content = await api.saver.save()
+            // Dedup: EditorJS MutationObserver fires onChange on ANY DOM mutation,
+            // including React re-renders from our own save flow. Compare blocks
+            // structurally to only propagate actual user edits.
+            const blocksStr = JSON.stringify(content.blocks)
+            if (blocksStr === lastSavedRef.current) {
+              if (window.__DASH_DEBUG) console.log('[editor] onChange skipped — no structural change')
+              return
+            }
+            lastSavedRef.current = blocksStr
+            if (window.__DASH_DEBUG) console.log('[editor] onChange →', content.blocks?.length, 'blocks')
             onChangeRef.current?.(content)
           } catch (error) {
             console.error('Error saving editor content:', error)
@@ -388,6 +399,8 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
     const updateEditorData = async () => {
       if (editorRef.current && isInitializedRef.current && data !== dataRef.current && JSON.stringify(data) !== JSON.stringify(dataRef.current)) {
         try {
+          if (window.__DASH_DEBUG) console.log('[editor] data prop changed, re-rendering')
+          lastSavedRef.current = null // Reset dedup on page switch
           await editorRef.current.isReady
           const validData = data && typeof data === 'object' && Array.isArray(data.blocks)
             ? data

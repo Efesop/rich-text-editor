@@ -330,7 +330,8 @@ export function validatePageStructure(page) {
     createdAt: page.createdAt || new Date().toISOString(),
     password: page.password || null,
     folderId: page.folderId || null,
-    type: page.type || undefined
+    type: page.type || undefined,
+    selfDestructAt: page.selfDestructAt || undefined
   }
 
   return { isValid: true, errors: [], sanitized }

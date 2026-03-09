@@ -140,7 +140,7 @@ export function FolderItem({
       case 'dark':
         return 'bg-[#2a2a2a] text-[#6b6b6b]'
       case 'darkblue':
-        return 'bg-[#1a2035] text-[#8b99b5]'
+        return 'bg-[#1e2740] text-[#8b99b5]'
       default:
         return 'bg-neutral-200 text-neutral-500'
     }
@@ -153,7 +153,7 @@ export function FolderItem({
       case 'dark':
         return 'bg-[#2f2f2f] border border-[#3a3a3a] text-[#ececec] shadow-xl shadow-black/50'
       case 'darkblue':
-        return 'bg-[#1a2035] border border-[#1c2438] text-[#e0e6f0] shadow-xl shadow-black/50'
+        return 'bg-[#1e2740] border border-[#2a3452] text-[#e0e6f0] shadow-xl shadow-black/50'
       default:
         return 'bg-white border border-neutral-200 text-neutral-900 shadow-lg shadow-neutral-200/50'
     }

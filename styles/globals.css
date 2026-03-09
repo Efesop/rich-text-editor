@@ -1124,7 +1124,7 @@
 
 .dark .page-link,
 .dark .ce-block a.page-link {
-  color: #e7f0fe;
+  color: #f5f8fe;
   background-color: #27313e;
   border: 1px solid #21324a;
 }
@@ -1136,14 +1136,14 @@
 
 .darkblue .page-link,
 .darkblue .ce-block a.page-link {
-  color: #e7f0fe;
-  background-color: #192042;
-  border: 1px solid #0c3595;
+  color: #ffffff;
+  background-color: #1d2967;
+  border: 1px solid #39447c;
 }
 
 .darkblue .page-link:hover,
 .darkblue .ce-block a.page-link:hover {
-  background-color: #25326b;
+  background-color: #2c3b88;
 }
 
 .fallout .page-link,

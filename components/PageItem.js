@@ -105,7 +105,7 @@ const PageItem = ({
       } else if (theme === 'dark') {
         return `${baseClasses} bg-[#2f2f2f] text-[#ececec]`
       } else if (theme === 'darkblue') {
-        return `${baseClasses} bg-[#1a2035] text-[#e0e6f0]`
+        return `${baseClasses} bg-[#1e2740] text-[#e0e6f0]`
       } else {
         return `${baseClasses} bg-neutral-200 text-neutral-900`
       }
@@ -160,7 +160,7 @@ const PageItem = ({
       case 'dark':
         return 'bg-[#2f2f2f] border border-[#3a3a3a] text-[#ececec] shadow-xl shadow-black/50'
       case 'darkblue':
-        return 'bg-[#1a2035] border border-[#1c2438] text-[#e0e6f0] shadow-xl shadow-black/50'
+        return 'bg-[#1e2740] border border-[#2a3452] text-[#e0e6f0] shadow-xl shadow-black/50'
       default:
         return 'bg-white border border-neutral-200 text-neutral-900 shadow-lg shadow-neutral-200/50'
     }

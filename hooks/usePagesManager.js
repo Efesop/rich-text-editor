@@ -5,6 +5,13 @@ import { deriveKeyFromPassphrase, encryptJsonWithKey, decryptJsonWithKey } from 
 import useTagStore from '../store/tagStore'
 import { readPages, savePages as savePagesToFallback } from '@/lib/storage'
 
+// Debug logger: enable in browser console with window.__DASH_DEBUG = true
+const dbg = (category, ...args) => {
+  if (typeof window !== 'undefined' && window.__DASH_DEBUG) {
+    console.log(`[${category}]`, ...args)
+  }
+}
+
 export function usePagesManager() {
   const [pages, setPages] = useState([])
   const [currentPage, _setCurrentPage] = useState(null)
@@ -99,7 +106,10 @@ export function usePagesManager() {
 
   // Execute the actual save operation with race condition protection
   const executeSave = useCallback(async (pagesToSave, version) => {
-    if (savesBlockedRef.current) return // Duress hide mode: never write to disk
+    if (savesBlockedRef.current) {
+      dbg('save', 'BLOCKED by duress mode, skipping disk write')
+      return
+    }
     try {
       // Encrypt temp-unlocked pages before writing to disk
       const pagesForStorage = await preparePagesForStorage(pagesToSave)
@@ -111,10 +121,16 @@ export function usePagesManager() {
       }
       // Only mark as saved if this is still the latest version
       if (version === saveVersionRef.current) {
+        dbg('save', 'disk write complete v' + version)
+        // Sync React state after disk write — single batched re-render.
+        // We defer this from savePage to avoid re-render during editing
+        // which triggers EditorJS MutationObserver feedback loops.
+        setPages(pagesRef.current)
         setSaveStatus('saved')
       }
     } catch (error) {
       console.error('Error saving pages:', error)
+      dbg('save', 'ERROR v' + version, error.message)
       if (version === saveVersionRef.current) {
         setSaveStatus('error')
       }
@@ -155,16 +171,19 @@ export function usePagesManager() {
     // Clear any pending debounce timer
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current)
+      dbg('save', 'debounce reset')
     }
-
-    setSaveStatus('saving')
 
     // Increment version to track save ordering
     saveVersionRef.current += 1
     const currentVersion = saveVersionRef.current
 
+    dbg('save', 'queued v' + currentVersion)
+
     // Debounce: wait before actually saving to batch rapid updates
     saveTimeoutRef.current = setTimeout(() => {
+      setSaveStatus('saving')
+      dbg('save', 'debounce fired v' + currentVersion)
       // Always save the latest pages data, not stale closure data
       const pagesToSave = pagesRef.current
 
@@ -178,15 +197,17 @@ export function usePagesManager() {
     try {
       const data = await readPages()
       const validPages = Array.isArray(data) ? data : []
+      dbg('pages', 'fetched', validPages.length, 'pages', validPages.filter(p => p.type === 'folder').length, 'folders')
 
       setPages(validPages)
       pagesRef.current = validPages
 
       if (validPages.length > 0 && !currentPageRef.current) {
         const firstPage = validPages[0]
+        dbg('pages', 'selecting first page:', firstPage.title || firstPage.id)
         setCurrentPage(firstPage)
       } else if (validPages.length === 0) {
-        // Create initial page if none exist
+        dbg('pages', 'no pages found, creating initial page')
         const newPage = await createNewPage()
         setCurrentPage(newPage)
       }
@@ -194,7 +215,7 @@ export function usePagesManager() {
       isInitializedRef.current = true
     } catch (error) {
       console.error('Error fetching pages:', error)
-      // Create a default page if we can't fetch any
+      dbg('pages', 'ERROR fetching:', error.message)
       const newPage = await createNewPage()
       setCurrentPage(newPage)
       isInitializedRef.current = true
@@ -202,6 +223,7 @@ export function usePagesManager() {
   }, [])
 
   const createNewPage = useCallback(async () => {
+    dbg('pages', 'creating new page')
     const newPage = {
       id: crypto.randomUUID(), // More unique IDs
       title: 'New Page',
@@ -230,11 +252,21 @@ export function usePagesManager() {
     return newPage
   }, [createNewPage])
 
+  const lastSavedContentRef = useRef(null)
+
   const savePage = useCallback(async (pageContent) => {
     const currentPageData = currentPageRef.current
     if (!currentPageData || !pageContent) return
     // Block saves for pages that are self-destructing
     if (selfDestructingPagesRef.current.has(currentPageData.id)) return
+
+    // Skip save if content hasn't structurally changed
+    const contentStr = JSON.stringify(pageContent.blocks)
+    if (contentStr === lastSavedContentRef.current) {
+      dbg('save', 'skipped — content unchanged')
+      return
+    }
+    lastSavedContentRef.current = contentStr
 
     try {
       // Sanitize the content before saving
@@ -252,26 +284,20 @@ export function usePagesManager() {
         throw new Error('Invalid page data structure')
       }
 
-      // Update pages state atomically
-      setPages(prevPages => {
-        // If the page no longer exists in state (was deleted), don't re-add it
-        if (!prevPages.find(p => p.id === validation.sanitized.id)) {
-          return prevPages
-        }
+      // Update pagesRef and queue disk save. We intentionally do NOT call
+      // setPages or _setCurrentPage here — those cause React re-renders which
+      // trigger EditorJS's MutationObserver, firing onChange again.
+      // Instead, pagesRef is the source of truth during edits.
+      // lockPage/unlockPage read from pagesRef for latest content.
+      const currentPages = pagesRef.current
+      if (!currentPages.find(p => p.id === validation.sanitized.id)) return
 
-        const newPages = prevPages.map(p =>
-          p.id === validation.sanitized.id ? validation.sanitized : p
-        )
-
-        pagesRef.current = newPages
-        savePagesToStorage(newPages)
-        return newPages
-      })
-
-      // Update current page if it's the one being saved (and still exists)
-      if (pagesRef.current.find(p => p.id === validation.sanitized.id)) {
-        _setCurrentPage(validation.sanitized)
-      }
+      const newPages = currentPages.map(p =>
+        p.id === validation.sanitized.id ? validation.sanitized : p
+      )
+      pagesRef.current = newPages
+      currentPageRef.current = validation.sanitized
+      savePagesToStorage(newPages)
     } catch (error) {
       console.error('Error saving page:', error)
       // Show user-friendly error message
@@ -281,6 +307,7 @@ export function usePagesManager() {
   }, [savePagesToStorage])
 
   const deletePage = useCallback(async (pageToDelete) => {
+    dbg('pages', 'deleting:', pageToDelete.title || pageToDelete.id, pageToDelete.type === 'folder' ? '(folder)' : '')
     setPages(prevPages => {
       let updatedPages = prevPages.filter(p => p.id !== pageToDelete.id)
 
@@ -345,6 +372,7 @@ export function usePagesManager() {
 
   const lockPage = useCallback(async (page, password) => {
     if (!page || !password) return false
+    dbg('encrypt', 'locking page:', page.title || page.id)
 
     try {
       const hashedPassword = await hashPassword(password)
@@ -356,7 +384,9 @@ export function usePagesManager() {
 
       // Keep plaintext in memory, mark as temp-unlocked so user can keep editing
       // The save pipeline will encrypt before writing to disk
-      const updatedPage = { ...page, password: { hash: hashedPassword } }
+      // Use pagesRef to get latest content (savePage updates ref before React state)
+      const latestPage = pagesRef.current.find(p => p.id === page.id) || page
+      const updatedPage = { ...latestPage, password: { hash: hashedPassword } }
       setTempUnlockedPages(prev => new Set(prev).add(page.id))
 
       setPages(prevPages => {
@@ -381,10 +411,14 @@ export function usePagesManager() {
 
   const unlockPage = useCallback(async (page, password, temporary = false) => {
     if (!page?.password?.hash || !password) return false
+    dbg('encrypt', 'unlocking page:', page.title || page.id, temporary ? '(temp)' : '(permanent)')
 
     try {
       const isPasswordCorrect = await verifyPassword(password, page.password.hash)
-      if (!isPasswordCorrect) return false
+      if (!isPasswordCorrect) {
+        dbg('encrypt', 'wrong password for:', page.title || page.id)
+        return false
+      }
 
       // Decrypt content if encrypted, or use plaintext for legacy pages
       let decryptedContent
@@ -578,6 +612,8 @@ export function usePagesManager() {
 
   const setCurrentPage = useCallback((page) => {
     if (!page) return
+    dbg('nav', 'setCurrentPage:', page.title || page.id, page.password ? '(locked)' : '')
+    lastSavedContentRef.current = null // Reset dedup on page switch
 
     // Note: We no longer clear temp unlocks on page switch.
     // Temp unlocks persist for the session, cleared only on:
@@ -585,10 +621,13 @@ export function usePagesManager() {
     // 2. Explicitly re-locking a page via lockPage()
 
     if (page.password && !tempUnlockedPages.has(page.id)) {
+      dbg('nav', 'page is locked, showing password modal')
       setPageToAccess(page)
       setIsPasswordModalOpen(true)
     } else {
-      _setCurrentPage(page)
+      // Use pagesRef for latest content (savePage updates ref before React state)
+      const latest = pagesRef.current.find(p => p.id === page.id) || page
+      _setCurrentPage(latest)
     }
   }, [tempUnlockedPages])
 
@@ -891,6 +930,7 @@ export function usePagesManager() {
   // Duress hide mode: clear UI state but preserve encrypted data on disk
   // CRITICAL: blocks ALL future saves so disk data is never overwritten
   const enterDuressHideMode = useCallback(() => {
+    dbg('duress', 'ENTERING duress hide mode — blocking all saves')
     // Block all saves FIRST, before anything else
     savesBlockedRef.current = true
     // Cancel any pending saves
@@ -912,9 +952,11 @@ export function usePagesManager() {
   // Only reloads if duress mode is active (savesBlockedRef), otherwise no-op
   const recoverFromDuressMode = useCallback(async () => {
     if (!savesBlockedRef.current) return false
+    dbg('duress', 'RECOVERING from duress — unblocking saves, reloading from disk')
     savesBlockedRef.current = false
     const data = await readPages()
     const validPages = Array.isArray(data) ? data : []
+    dbg('duress', 'recovered', validPages.length, 'pages from disk')
     setPages(validPages)
     pagesRef.current = validPages
     return true
@@ -1055,7 +1097,11 @@ export function usePagesManager() {
     appLockKeyRef.current = { key, salt }
     const currentPages = pagesRef.current
     const hasAppLockPages = currentPages.some(p => p.appLockEncrypted && p.encryptedContent)
-    if (!hasAppLockPages) return
+    dbg('applock', 'decrypting all pages, encrypted count:', currentPages.filter(p => p.appLockEncrypted).length)
+    if (!hasAppLockPages) {
+      dbg('applock', 'no encrypted pages to decrypt')
+      return
+    }
 
     const decrypted = []
     for (const page of currentPages) {
@@ -1072,6 +1118,7 @@ export function usePagesManager() {
         decrypted.push(page)
       }
     }
+    dbg('applock', 'decrypted', decrypted.filter(p => p.content).length, 'pages successfully')
     setPages(decrypted)
     pagesRef.current = decrypted
     // Update currentPage if it was decrypted, or select first page after duress recovery
@@ -1080,6 +1127,7 @@ export function usePagesManager() {
       if (updated) _setCurrentPage(updated)
     } else if (decrypted.length > 0) {
       const firstPage = decrypted.find(p => p.type !== 'folder') || decrypted[0]
+      dbg('applock', 'selecting first page after recovery:', firstPage.title || firstPage.id)
       _setCurrentPage(firstPage)
     }
   }, [])
@@ -1088,6 +1136,7 @@ export function usePagesManager() {
   const encryptAndClearAppLockPages = useCallback(async () => {
     const appLockKey = appLockKeyRef.current
     if (!appLockKey) return
+    dbg('applock', 'encrypting all pages for lock')
 
     // Flush: cancel any pending debounce and save immediately
     if (saveTimeoutRef.current) {

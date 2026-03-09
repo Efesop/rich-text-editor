@@ -520,12 +520,17 @@ export default function RichTextEditor() {
   })
 
   const handleAppLockUnlock = useCallback(async (password) => {
+    if (window.__DASH_DEBUG) console.log('[applock] unlock attempt')
     const valid = appLock.unlock(password)
-    if (!valid) return false
+    if (!valid) {
+      if (window.__DASH_DEBUG) console.log('[applock] wrong password')
+      return false
+    }
 
     // If recovering from duress hide mode, reload pages and tags from disk
     const wasInDuress = await recoverFromDuressMode()
     if (wasInDuress) {
+      if (window.__DASH_DEBUG) console.log('[applock] recovered from duress, reloading tags')
       await useTagStore.getState().loadTags()
     }
 
@@ -613,6 +618,7 @@ export default function RichTextEditor() {
   // Handle duress password unlock — triggers panic action
   const handleDuressUnlock = useCallback((password) => {
     if (!appLock.checkDuress(password)) return false
+    if (window.__DASH_DEBUG) console.log('[duress] duress password entered — hiding data')
 
     // Hide mode only: clear UI but keep encrypted data safe on disk
     // Blocks ALL saves so disk data is never overwritten
