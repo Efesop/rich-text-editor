@@ -386,7 +386,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
   // Update editor data when data prop changes (without re-initializing)
   useEffect(() => {
     const updateEditorData = async () => {
-      if (editorRef.current && isInitializedRef.current && data !== dataRef.current) {
+      if (editorRef.current && isInitializedRef.current && data !== dataRef.current && JSON.stringify(data) !== JSON.stringify(dataRef.current)) {
         try {
           await editorRef.current.isReady
           const validData = data && typeof data === 'object' && Array.isArray(data.blocks)

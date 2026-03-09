@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* Fix Radix ScrollArea viewport using display:table which defeats width constraints */
-[data-radix-scroll-area-viewport] > div {
+[data-radix-scroll-area-viewport]>div {
   display: block !important;
 }
 
@@ -58,48 +58,76 @@
 
   /* Dark Blue Theme — navy-tinted dark theme */
   .darkblue {
-    --background: 220 40% 7%;       /* #0c1017 — very dark navy */
-    --foreground: 216 30% 90%;      /* #e0e6f0 — cool white text */
-    --card: 222 35% 12%;            /* #141825 — dark navy card */
+    --background: 220 40% 7%;
+    /* #0c1017 — very dark navy */
+    --foreground: 216 30% 90%;
+    /* #e0e6f0 — cool white text */
+    --card: 222 35% 12%;
+    /* #141825 — dark navy card */
     --card-foreground: 216 30% 90%;
-    --popover: 222 30% 15%;         /* #1a2035 — navy popover */
+    --popover: 222 30% 15%;
+    /* #1a2035 — navy popover */
     --popover-foreground: 216 30% 90%;
-    --primary: 216 30% 90%;         /* Cool white for primary */
+    --primary: 216 30% 90%;
+    /* Cool white for primary */
     --primary-foreground: 220 40% 7%;
-    --secondary: 222 30% 15%;      /* Navy secondary */
+    --secondary: 222 30% 15%;
+    /* Navy secondary */
     --secondary-foreground: 216 30% 90%;
     --muted: 222 30% 15%;
-    --muted-foreground: 218 20% 52%;  /* #5d6b88 — muted blue-gray */
+    --muted-foreground: 218 20% 52%;
+    /* #5d6b88 — muted blue-gray */
     --accent: 222 30% 15%;
     --accent-foreground: 216 30% 90%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 220 25% 17%;          /* #1c2438 — navy border */
+    --border: 220 25% 17%;
+    /* #1c2438 — navy border */
     --input: 222 30% 15%;
-    --ring: 217 91% 60%;            /* Blue focus ring */
+    --ring: 217 91% 60%;
+    /* Blue focus ring */
   }
 
   /* Fallout 4 Terminal Theme */
   .fallout {
-    --background: 0 0% 8%; /* Very dark background - consistent everywhere */
-    --foreground: 120 100% 70%; /* Bright green text */
-    --card: 0 0% 8%; /* Same dark background for cards/modals */
-    --card-foreground: 120 100% 70%; /* Green text on cards */
-    --popover: 0 0% 8%; /* Dark popover background */
-    --popover-foreground: 120 100% 70%; /* Green popover text */
-    --primary: 120 100% 50%; /* Pure green for primary elements */
-    --primary-foreground: 0 0% 8%; /* Dark text on green backgrounds */
-    --secondary: 0 0% 12%; /* Slightly lighter dark for secondary elements */
-    --secondary-foreground: 120 80% 60%; /* Slightly dimmer green */
-    --muted: 0 0% 12%; /* Muted backgrounds */
-    --muted-foreground: 120 60% 50%; /* Muted green text */
-    --accent: 120 100% 40%; /* Darker green for accents */
-    --accent-foreground: 120 100% 90%; /* Light green on dark green */
-    --destructive: 0 84% 60%; /* Red for destructive actions */
-    --destructive-foreground: 0 0% 98%; /* White text on red */
-    --border: 120 50% 25%; /* Green borders */
-    --input: 0 0% 12%; /* Dark input backgrounds */
-    --ring: 120 100% 50%; /* Green focus rings */
+    --background: 0 0% 8%;
+    /* Very dark background - consistent everywhere */
+    --foreground: 120 100% 70%;
+    /* Bright green text */
+    --card: 0 0% 8%;
+    /* Same dark background for cards/modals */
+    --card-foreground: 120 100% 70%;
+    /* Green text on cards */
+    --popover: 0 0% 8%;
+    /* Dark popover background */
+    --popover-foreground: 120 100% 70%;
+    /* Green popover text */
+    --primary: 120 100% 50%;
+    /* Pure green for primary elements */
+    --primary-foreground: 0 0% 8%;
+    /* Dark text on green backgrounds */
+    --secondary: 0 0% 12%;
+    /* Slightly lighter dark for secondary elements */
+    --secondary-foreground: 120 80% 60%;
+    /* Slightly dimmer green */
+    --muted: 0 0% 12%;
+    /* Muted backgrounds */
+    --muted-foreground: 120 60% 50%;
+    /* Muted green text */
+    --accent: 120 100% 40%;
+    /* Darker green for accents */
+    --accent-foreground: 120 100% 90%;
+    /* Light green on dark green */
+    --destructive: 0 84% 60%;
+    /* Red for destructive actions */
+    --destructive-foreground: 0 0% 98%;
+    /* White text on red */
+    --border: 120 50% 25%;
+    /* Green borders */
+    --input: 0 0% 12%;
+    /* Dark input backgrounds */
+    --ring: 120 100% 50%;
+    /* Green focus rings */
     --radius: 0.5rem;
   }
 
@@ -123,8 +151,14 @@
   }
 
   /* Reduced glow effects - only subtle glow on interactive elements */
-  .fallout h1, .fallout h2, .fallout h3, .fallout h4, .fallout h5, .fallout h6 {
-    text-shadow: none; /* Remove glow from headings */
+  .fallout h1,
+  .fallout h2,
+  .fallout h3,
+  .fallout h4,
+  .fallout h5,
+  .fallout h6 {
+    text-shadow: none;
+    /* Remove glow from headings */
   }
 
   /* Remove glow from all text by default */
@@ -188,7 +222,8 @@
     background-color: hsl(var(--secondary)) !important;
     color: hsl(var(--secondary-foreground)) !important;
     border: 1px solid hsl(var(--border)) !important;
-    box-shadow: none; /* Remove glow from tags */
+    box-shadow: none;
+    /* Remove glow from tags */
   }
 
   .fallout .tag:hover,
@@ -288,8 +323,8 @@
   /* Force header and footer to use correct fallout colors */
   .fallout .flex.flex-col.p-4.border-b,
   .fallout .footer-fixed,
-  .fallout [role="main"] > .flex.flex-col.p-4.border-b,
-  .fallout [role="main"] > .footer-fixed {
+  .fallout [role="main"]>.flex.flex-col.p-4.border-b,
+  .fallout [role="main"]>.footer-fixed {
     background-color: hsl(var(--background)) !important;
     color: hsl(var(--foreground)) !important;
     border-color: hsl(var(--border)) !important;
@@ -551,14 +586,17 @@
   background: linear-gradient(to bottom, #161616, #1f1f1f) !important;
   box-shadow: inset 0 0 0 1px #2e2e2e !important;
 }
+
 .sidebar-panel-light {
   background: linear-gradient(to bottom, #f0f0f0, #f7f7f7) !important;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06) !important;
 }
+
 .fallout .sidebar-panel-fallout {
   background: linear-gradient(to bottom, #1f2a1f, #111a11) !important;
   box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.15) !important;
 }
+
 .darkblue .sidebar-panel-darkblue {
   background: linear-gradient(to bottom, #111827, #0f1520) !important;
   box-shadow: inset 0 0 0 1px #1c2438 !important;
@@ -593,21 +631,52 @@
 }
 
 /* Thin scrollbar for sidebar elements */
-.thin-scrollbar::-webkit-scrollbar { width: 4px; }
-.thin-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.thin-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); border-radius: 2px; }
-.thin-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.25); }
-.dark .thin-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); }
-.dark .thin-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
-.darkblue .thin-scrollbar::-webkit-scrollbar-thumb { background: rgba(140, 160, 200, 0.15); }
-.darkblue .thin-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(140, 160, 200, 0.25); }
-.fallout .thin-scrollbar::-webkit-scrollbar-thumb { background: rgba(34, 197, 94, 0.2); }
-.fallout .thin-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(34, 197, 94, 0.35); }
+.thin-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 2px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.dark .thin-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.dark .thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.darkblue .thin-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(140, 160, 200, 0.15);
+}
+
+.darkblue .thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 160, 200, 0.25);
+}
+
+.fallout .thin-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(34, 197, 94, 0.2);
+}
+
+.fallout .thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 197, 94, 0.35);
+}
 
 /* Focus mode: hide scrollbar while keeping scroll functionality */
 .focus-mode-scroll::-webkit-scrollbar {
   display: none;
 }
+
 .focus-mode-scroll {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -618,6 +687,7 @@
   opacity: 0.25;
   transition: opacity 0.2s ease;
 }
+
 .paragraph-dimming .ce-block--focused,
 .paragraph-dimming .ce-block:focus-within {
   opacity: 1;
@@ -625,9 +695,17 @@
 
 /* Focus session stats toast animation */
 @keyframes fade-in-up {
-  from { opacity: 0; transform: translate(-50%, 8px); }
-  to { opacity: 1; transform: translate(-50%, 0); }
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
+
 .animate-fade-in {
   animation: fade-in-up 0.3s ease-out forwards;
 }
@@ -635,68 +713,68 @@
 /* Your custom styles */
 
 .codex-editor h1 {
-    font-size: 2.5em;
-    font-weight: bold;
-    margin-top: 0;
-    padding-top: 1em;
-    margin-bottom: 0.5em;
-    line-height: 1.3;
-  }
+  font-size: 2.5em;
+  font-weight: bold;
+  margin-top: 0;
+  padding-top: 1em;
+  margin-bottom: 0.5em;
+  line-height: 1.3;
+}
 
-  .codex-editor h2 {
-    font-size: 2em;
-    font-weight: bold;
-    margin-top: 0;
-    padding-top: 0.83em;
-    margin-bottom: 0.5em;
-    line-height: 1.3;
-  }
+.codex-editor h2 {
+  font-size: 2em;
+  font-weight: bold;
+  margin-top: 0;
+  padding-top: 0.83em;
+  margin-bottom: 0.5em;
+  line-height: 1.3;
+}
 
-  .codex-editor h3 {
-    font-size: 1.75em;
-    font-weight: bold;
-    margin-top: 0;
-    padding-top: 1em;
-    margin-bottom: 0.5em;
-    line-height: 1.3;
-  }
+.codex-editor h3 {
+  font-size: 1.75em;
+  font-weight: bold;
+  margin-top: 0;
+  padding-top: 1em;
+  margin-bottom: 0.5em;
+  line-height: 1.3;
+}
 
-  .codex-editor h4 {
-    font-size: 1.5em;
-    font-weight: bold;
-    margin-top: 0;
-    padding-top: 1.33em;
-    margin-bottom: 0.5em;
-    line-height: 1.3;
-  }
+.codex-editor h4 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-top: 0;
+  padding-top: 1.33em;
+  margin-bottom: 0.5em;
+  line-height: 1.3;
+}
 
-  .codex-editor h5 {
-    font-size: 1.25em;
-    font-weight: bold;
-    margin-top: 0;
-    padding-top: 1.67em;
-    margin-bottom: 0.5em;
-    line-height: 1.3;
-  }
+.codex-editor h5 {
+  font-size: 1.25em;
+  font-weight: bold;
+  margin-top: 0;
+  padding-top: 1.67em;
+  margin-bottom: 0.5em;
+  line-height: 1.3;
+}
 
-  .codex-editor h6 {
-    font-size: 1em;
-    font-weight: bold;
-    margin-top: 0;
-    padding-top: 2.33em;
-    margin-bottom: 0.5em;
-    line-height: 1.3;
-  }
+.codex-editor h6 {
+  font-size: 1em;
+  font-weight: bold;
+  margin-top: 0;
+  padding-top: 2.33em;
+  margin-bottom: 0.5em;
+  line-height: 1.3;
+}
 
-  /* Reduce top padding on first block headers */
-  .codex-editor .ce-block:first-child h1,
-  .codex-editor .ce-block:first-child h2,
-  .codex-editor .ce-block:first-child h3,
-  .codex-editor .ce-block:first-child h4,
-  .codex-editor .ce-block:first-child h5,
-  .codex-editor .ce-block:first-child h6 {
-    padding-top: 0.2em;
-  }
+/* Reduce top padding on first block headers */
+.codex-editor .ce-block:first-child h1,
+.codex-editor .ce-block:first-child h2,
+.codex-editor .ce-block:first-child h3,
+.codex-editor .ce-block:first-child h4,
+.codex-editor .ce-block:first-child h5,
+.codex-editor .ce-block:first-child h6 {
+  padding-top: 0.2em;
+}
 
 /* ── Custom list item blocks ── */
 
@@ -707,6 +785,7 @@
   line-height: 1.6;
   min-height: 1.5em;
 }
+
 .dash-bullet-item::before {
   content: "\2022";
   position: absolute;
@@ -722,6 +801,7 @@
   line-height: 1.6;
   min-height: 1.5em;
 }
+
 .dash-numbered-item::before {
   content: attr(data-number) ".";
   position: absolute;
@@ -747,6 +827,7 @@
   line-height: 1.6;
   min-height: 1.5em;
 }
+
 .dash-checklist-checkbox {
   width: 18px;
   height: 18px;
@@ -760,6 +841,7 @@
   justify-content: center;
   transition: all 0.15s ease;
 }
+
 .dash-checklist-checkbox svg {
   width: 14px;
   height: 14px;
@@ -767,18 +849,22 @@
   color: white;
   transition: opacity 0.15s ease;
 }
+
 .dash-checklist-checkbox.dash-checklist-checked {
   background-color: #3b82f6;
   border-color: #3b82f6;
 }
+
 .dash-checklist-checkbox.dash-checklist-checked svg {
   opacity: 1;
 }
+
 .dash-checklist-text {
   flex: 1;
   min-width: 0;
   outline: none;
 }
+
 .dash-checklist-text:empty::before {
   content: attr(data-placeholder);
   color: #9ca3af;
@@ -790,28 +876,35 @@
   background: white;
   color: #1d1d1f;
 }
+
 .multi-block-popover .ce-popover-item:hover {
   background: rgba(0, 0, 0, 0.04) !important;
 }
+
 .dark .multi-block-popover {
   background: #1e1e1e;
   color: #adadad;
 }
+
 .dark .multi-block-popover .ce-popover-item:hover {
   background: rgba(255, 255, 255, 0.08) !important;
 }
+
 .darkblue .multi-block-popover {
   background: #1a2236;
   color: #94a3b8;
 }
+
 .darkblue .multi-block-popover .ce-popover-item:hover {
   background: rgba(255, 255, 255, 0.06) !important;
 }
+
 .fallout .multi-block-popover {
   background: hsl(var(--card));
   color: hsl(var(--primary));
   border: 1px solid hsl(var(--border));
 }
+
 .fallout .multi-block-popover .ce-popover-item:hover {
   background: hsl(var(--accent)) !important;
 }
@@ -825,9 +918,9 @@
 
 
 /* Tighten spacing between consecutive same-type list items */
-.ce-block:has(.dash-bullet-item) + .ce-block:has(.dash-bullet-item),
-.ce-block:has(.dash-numbered-item) + .ce-block:has(.dash-numbered-item),
-.ce-block:has(.dash-checklist-item) + .ce-block:has(.dash-checklist-item) {
+.ce-block:has(.dash-bullet-item)+.ce-block:has(.dash-bullet-item),
+.ce-block:has(.dash-numbered-item)+.ce-block:has(.dash-numbered-item),
+.ce-block:has(.dash-checklist-item)+.ce-block:has(.dash-checklist-item) {
   margin-top: -1px;
 }
 
@@ -835,10 +928,12 @@
 .dark .dash-checklist-checkbox {
   border-color: #4b5563;
 }
+
 .dark .dash-checklist-checkbox.dash-checklist-checked {
   background-color: #3b82f6;
   border-color: #3b82f6;
 }
+
 .dark .dash-checklist-text:empty::before {
   color: #6b7280;
 }
@@ -847,10 +942,12 @@
 .darkblue .dash-checklist-checkbox {
   border-color: #3d4d6e;
 }
+
 .darkblue .dash-checklist-checkbox.dash-checklist-checked {
   background-color: #3b82f6;
   border-color: #3b82f6;
 }
+
 .darkblue .dash-checklist-text:empty::before {
   color: #5d6b88;
 }
@@ -859,16 +956,20 @@
 .fallout .dash-bullet-item::before {
   color: #22c55e;
 }
+
 .fallout .dash-numbered-item::before {
   color: #22c55e;
 }
+
 .fallout .dash-checklist-checkbox {
   border-color: #22c55e;
 }
+
 .fallout .dash-checklist-checkbox.dash-checklist-checked {
   background-color: #22c55e;
   border-color: #22c55e;
 }
+
 .fallout .dash-checklist-text:empty::before {
   color: rgba(34, 197, 94, 0.4);
 }
@@ -1015,44 +1116,274 @@
   background-color: rgba(0, 0, 0, 0.06);
   transition: background-color 0.15s;
 }
+
 .page-link:hover,
 .ce-block a.page-link:hover {
   background-color: rgba(0, 0, 0, 0.12);
 }
+
 .dark .page-link,
 .dark .ce-block a.page-link {
-  color: #e5e5e5;
-  background-color: rgba(255, 255, 255, 0.08);
+  color: #e7f0fe;
+  background-color: #27313e;
+  border: 1px solid #21324a;
 }
+
 .dark .page-link:hover,
 .dark .ce-block a.page-link:hover {
-  background-color: rgba(255, 255, 255, 0.15);
+  background-color: #424d66;
 }
+
 .darkblue .page-link,
 .darkblue .ce-block a.page-link {
-  color: #e0e6f0;
-  background-color: rgba(255, 255, 255, 0.07);
+  color: #e7f0fe;
+  background-color: #192042;
+  border: 1px solid #0c3595;
 }
+
 .darkblue .page-link:hover,
 .darkblue .ce-block a.page-link:hover {
-  background-color: rgba(255, 255, 255, 0.14);
+  background-color: #25326b;
 }
+
 .fallout .page-link,
 .fallout .ce-block a.page-link {
   color: #4ade80;
   font-family: var(--font-mono, monospace);
   background-color: rgba(34, 197, 94, 0.08);
 }
+
 .fallout .page-link:hover,
 .fallout .ce-block a.page-link:hover {
   background-color: rgba(34, 197, 94, 0.18);
 }
+
 .page-link-broken {
   color: #ef4444;
   text-decoration: line-through;
   text-decoration-style: solid;
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+/* Quote block styling */
+.cdx-quote {
+  border: none;
+  padding: 0;
+  margin: 4px 0;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 8px;
+}
+
+.cdx-quote .cdx-input {
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+}
+
+.cdx-quote__text {
+  min-height: unset !important;
+  padding: 12px 16px !important;
+  font-style: italic;
+  font-size: inherit;
+  line-height: 1.6;
+  margin-bottom: 0 !important;
+  color: inherit;
+}
+
+.cdx-quote__caption {
+  padding: 0 16px 0 16px !important;
+  font-size: 13px;
+  color: #9ca3af;
+  min-height: 0;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.2s ease, opacity 0.2s ease, padding 0.2s ease, min-height 0.2s ease;
+}
+
+.cdx-quote__caption::before {
+  color: #9ca3af !important;
+  opacity: 0.6 !important;
+}
+
+.cdx-quote:hover .cdx-quote__caption,
+.cdx-quote:focus-within .cdx-quote__caption {
+  min-height: 20px;
+  max-height: 40px;
+  opacity: 1;
+  padding: 2px 16px 10px 16px !important;
+}
+
+/* Dark theme */
+.dark .cdx-quote {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.dark .cdx-quote__caption {
+  color: #6b6b6b;
+}
+
+/* Dark Blue theme */
+.darkblue .cdx-quote {
+  background: rgba(96, 165, 250, 0.06);
+}
+
+.darkblue .cdx-quote__caption {
+  color: #5d6b88;
+}
+
+/* Fallout theme */
+.fallout .cdx-quote {
+  background: rgba(34, 197, 94, 0.06);
+}
+
+.fallout .cdx-quote__text {
+  font-family: monospace;
+}
+
+.fallout .cdx-quote__caption {
+  color: #22c55e80;
+  font-family: monospace;
+}
+
+/* Table block styling */
+.tc-wrap {
+  --color-background: #f9fafb;
+  --color-text-secondary: #6b7280;
+  --color-border: #d1d5db;
+}
+
+.tc-cell {
+  border-color: #d1d5db !important;
+}
+
+.tc-popover {
+  --color-background: #fff;
+  --color-border: #e5e7eb;
+}
+
+/* Dark theme */
+.dark .tc-wrap {
+  --color-background: #252525;
+  --color-text-secondary: #6b6b6b;
+  --color-border: #3a3a3a;
+}
+
+.dark .tc-cell {
+  color: #e5e7eb;
+  border-color: #3a3a3a !important;
+}
+
+.dark .tc-cell--selected {
+  background: rgba(96, 165, 250, 0.1);
+}
+
+.dark .tc-popover {
+  --color-background: #2f2f2f;
+  --color-border: #3a3a3a;
+  --color-background-hover: #3a3a3a;
+}
+
+.dark .tc-toolbox {
+  --toggler-dots-color: #6b6b6b;
+  --toggler-dots-color-hovered: #e5e7eb;
+}
+
+.dark .tc-add-column,
+.dark .tc-add-row {
+  color: #6b6b6b;
+  background: #1e1e1e;
+  border-color: #3a3a3a;
+}
+
+.dark .tc-add-column:hover,
+.dark .tc-add-row:hover {
+  color: #e5e7eb;
+  background: #2f2f2f;
+}
+
+/* Dark Blue theme */
+.darkblue .tc-wrap {
+  --color-background: #0f1520;
+  --color-text-secondary: #5d6b88;
+  --color-border: #2d3a5a;
+}
+
+.darkblue .tc-cell {
+  color: #e0e6f0;
+  border-color: #2d3a5a !important;
+}
+
+.darkblue .tc-cell--selected {
+  background: rgba(96, 165, 250, 0.1);
+}
+
+.darkblue .tc-popover {
+  --color-background: #1a2035;
+  --color-border: #2d3a5a;
+  --color-background-hover: #232b42;
+}
+
+.darkblue .tc-toolbox {
+  --toggler-dots-color: #5d6b88;
+  --toggler-dots-color-hovered: #e0e6f0;
+}
+
+.darkblue .tc-add-column,
+.darkblue .tc-add-row {
+  color: #5d6b88;
+  background: #0c1017;
+  border-color: #2d3a5a;
+}
+
+.darkblue .tc-add-column:hover,
+.darkblue .tc-add-row:hover {
+  color: #e0e6f0;
+  background: #1a2035;
+}
+
+/* Fallout theme */
+.fallout .tc-wrap {
+  --color-background: #0d0d0d;
+  --color-text-secondary: #22c55e80;
+  --color-border: #22c55e30;
+}
+
+.fallout .tc-cell {
+  color: #4ade80;
+  border-color: #22c55e30 !important;
+  font-family: monospace;
+}
+
+.fallout .tc-cell--selected {
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.fallout .tc-popover {
+  --color-background: #111;
+  --color-border: #22c55e40;
+  --color-background-hover: #1a1a1a;
+}
+
+.fallout .tc-toolbox {
+  --toggler-dots-color: #22c55e60;
+  --toggler-dots-color-hovered: #4ade80;
+}
+
+.fallout .tc-add-column,
+.fallout .tc-add-row {
+  color: #22c55e;
+  background: #0a0a0a;
+  border-color: #22c55e30;
+  font-family: monospace;
+}
+
+.fallout .tc-add-column:hover,
+.fallout .tc-add-row:hover {
+  color: #4ade80;
+  background: #111;
 }
 
 /* Seed Phrase block styling */
@@ -1063,21 +1394,25 @@
   margin: 8px 0;
   background: #f9fafb;
 }
+
 .dash-seed-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 12px;
 }
+
 .dash-seed-title {
   font-weight: 600;
   font-size: 14px;
   color: #374151;
 }
+
 .dash-seed-controls {
   display: flex;
   gap: 8px;
 }
+
 .dash-seed-toggle,
 .dash-seed-copy {
   padding: 4px 10px;
@@ -1089,26 +1424,32 @@
   cursor: pointer;
   transition: all 0.15s;
 }
+
 .dash-seed-toggle:hover,
 .dash-seed-copy:hover {
   background: #f3f4f6;
   color: #374151;
 }
+
 .dash-seed-copied {
   background: #dcfce7 !important;
   border-color: #86efac !important;
   color: #166534 !important;
 }
+
 .dash-seed-grid {
   display: grid;
   gap: 6px;
 }
+
 .dash-seed-grid-12 {
   grid-template-columns: repeat(3, 1fr);
 }
+
 .dash-seed-grid-24 {
   grid-template-columns: repeat(3, 1fr);
 }
+
 .dash-seed-cell {
   display: flex;
   align-items: center;
@@ -1118,24 +1459,29 @@
   border-radius: 6px;
   background: #fff;
 }
+
 .dash-seed-phrase .dash-seed-grid {
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   overflow: hidden;
   gap: 0;
 }
+
 .dash-seed-phrase .dash-seed-grid .dash-seed-cell {
   border-radius: 0;
   border: none;
   border-right: 1px solid #e5e7eb;
   border-bottom: 1px solid #e5e7eb;
 }
+
 .dash-seed-phrase .dash-seed-grid .dash-seed-cell:nth-child(3n) {
   border-right: none;
 }
+
 .dash-seed-phrase .dash-seed-grid .dash-seed-cell:nth-last-child(-n+3) {
   border-bottom: none;
 }
+
 .dash-seed-num {
   font-size: 11px;
   font-weight: 600;
@@ -1144,6 +1490,7 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+
 .dash-seed-input {
   flex: 1;
   border: none;
@@ -1155,19 +1502,52 @@
   min-width: 0;
   padding: 2px 0;
 }
+
 .dash-seed-input::placeholder {
   color: #d1d5db;
 }
+
 .dash-seed-valid {
   font-size: 12px;
   min-width: 14px;
   text-align: center;
 }
+
 .dash-seed-valid-ok {
   color: #22c55e;
 }
+
 .dash-seed-valid-bad {
   color: #ef4444;
+}
+
+.dash-seed-blurred {
+  filter: blur(8px);
+  user-select: none;
+  pointer-events: none;
+  transition: filter 0.2s ease;
+}
+
+.dash-seed-grid:not(.dash-seed-blurred) {
+  transition: filter 0.2s ease;
+}
+
+.dash-seed-reveal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dash-seed-reveal:hover {
+  background: #f3f4f6;
+  color: #374151;
 }
 
 /* Dark theme */
@@ -1175,70 +1555,110 @@
   background: #1e1e1e;
   border-color: #3a3a3a;
 }
-.dark .dash-seed-title { color: #e5e7eb; }
+
+.dark .dash-seed-title {
+  color: #e5e7eb;
+}
+
 .dark .dash-seed-toggle,
-.dark .dash-seed-copy {
+.dark .dash-seed-copy,
+.dark .dash-seed-reveal {
   background: #2a2a2a;
   border-color: #3a3a3a;
   color: #9ca3af;
 }
+
 .dark .dash-seed-toggle:hover,
-.dark .dash-seed-copy:hover {
+.dark .dash-seed-copy:hover,
+.dark .dash-seed-reveal:hover {
   background: #333;
   color: #e5e7eb;
 }
+
 .dark .dash-seed-copied {
   background: #14532d !important;
   border-color: #22c55e !important;
   color: #86efac !important;
 }
+
 .dark .dash-seed-cell {
   background: #252525;
 }
+
 .dark .dash-seed-phrase .dash-seed-grid {
   border-color: #3a3a3a;
 }
+
 .dark .dash-seed-phrase .dash-seed-grid .dash-seed-cell {
   border-color: #3a3a3a;
 }
-.dark .dash-seed-input { color: #e5e7eb; }
-.dark .dash-seed-input::placeholder { color: #555; }
-.dark .dash-seed-num { color: #6b6b6b; }
+
+.dark .dash-seed-input {
+  color: #e5e7eb;
+}
+
+.dark .dash-seed-input::placeholder {
+  color: #555;
+}
+
+.dark .dash-seed-num {
+  color: #6b6b6b;
+}
 
 /* Dark Blue theme */
 .darkblue .dash-seed-phrase {
   background: #111827;
   border-color: #1e2d4a;
 }
-.darkblue .dash-seed-title { color: #e0e6f0; }
+
+.darkblue .dash-seed-title {
+  color: #e0e6f0;
+}
+
 .darkblue .dash-seed-toggle,
-.darkblue .dash-seed-copy {
+.darkblue .dash-seed-copy,
+.darkblue .dash-seed-reveal {
   background: #1a2035;
   border-color: #1e2d4a;
   color: #5d6b88;
 }
+
 .darkblue .dash-seed-toggle:hover,
-.darkblue .dash-seed-copy:hover {
+.darkblue .dash-seed-copy:hover,
+.darkblue .dash-seed-reveal:hover {
   background: #232b42;
   color: #e0e6f0;
 }
+
 .darkblue .dash-seed-copied {
   background: #14532d !important;
   border-color: #22c55e !important;
   color: #86efac !important;
 }
+
 .darkblue .dash-seed-cell {
   background: #0f1520;
 }
+
 .darkblue .dash-seed-phrase .dash-seed-grid {
   border-color: #1e2d4a;
 }
+
 .darkblue .dash-seed-phrase .dash-seed-grid .dash-seed-cell {
   border-color: #1e2d4a;
 }
-.darkblue .dash-seed-input { color: #e0e6f0; }
-.darkblue .dash-seed-input::placeholder { color: #3a4560; }
-.darkblue .dash-seed-num { color: #445068; }
+
+.darkblue .dash-seed-input {
+  color: #e0e6f0;
+}
+
+.darkblue .dash-seed-input::placeholder {
+  color: #3a4560;
+}
+
+.darkblue .dash-seed-num {
+  color: #445068;
+}
 
 /* Fallout theme */
 .fallout .dash-seed-phrase {
@@ -1246,49 +1666,68 @@
   border-color: #22c55e40;
   box-shadow: 0 0 10px rgba(34, 197, 94, 0.05);
 }
+
 .fallout .dash-seed-title {
   color: #4ade80;
   font-family: monospace;
 }
+
 .fallout .dash-seed-toggle,
-.fallout .dash-seed-copy {
+.fallout .dash-seed-copy,
+.fallout .dash-seed-reveal {
   background: #111;
   border-color: #22c55e40;
   color: #22c55e;
   font-family: monospace;
 }
+
 .fallout .dash-seed-toggle:hover,
-.fallout .dash-seed-copy:hover {
+.fallout .dash-seed-copy:hover,
+.fallout .dash-seed-reveal:hover {
   background: #1a1a1a;
   color: #4ade80;
 }
+
 .fallout .dash-seed-copied {
   background: #052e16 !important;
   border-color: #22c55e !important;
   color: #4ade80 !important;
 }
+
 .fallout .dash-seed-cell {
   background: #0d0d0d;
 }
+
 .fallout .dash-seed-phrase .dash-seed-grid {
   border-color: #22c55e30;
 }
+
 .fallout .dash-seed-phrase .dash-seed-grid .dash-seed-cell {
   border-color: #22c55e30;
 }
+
 .fallout .dash-seed-input {
   color: #4ade80;
   font-family: monospace;
 }
-.fallout .dash-seed-input::placeholder { color: #22c55e30; }
+
+.fallout .dash-seed-input::placeholder {
+  color: #22c55e30;
+}
+
 .fallout .dash-seed-num {
   color: #22c55e80;
   font-family: monospace;
 }
 
 @media (max-width: 480px) {
-  .dash-seed-grid-12 { grid-template-columns: repeat(2, 1fr); }
-  .dash-seed-grid-24 { grid-template-columns: repeat(3, 1fr); }
+  .dash-seed-grid-12 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .dash-seed-grid-24 {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 /* Custom focus styles for input fields */
@@ -1399,48 +1838,128 @@ button:focus {
 
 /* Self-destruct timer milestone animations */
 @keyframes dash-sd-pulse-anim {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.15); }
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.15);
+  }
 }
 
 @keyframes dash-sd-pulse-double-anim {
-  0%, 100% { transform: scale(1); }
-  25% { transform: scale(1.12); }
-  50% { transform: scale(1); }
-  75% { transform: scale(1.12); }
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  25% {
+    transform: scale(1.12);
+  }
+
+  50% {
+    transform: scale(1);
+  }
+
+  75% {
+    transform: scale(1.12);
+  }
 }
 
 @keyframes dash-sd-shake-anim {
-  0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-2px); }
-  40% { transform: translateX(2px); }
-  60% { transform: translateX(-1px); }
-  80% { transform: translateX(1px); }
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20% {
+    transform: translateX(-2px);
+  }
+
+  40% {
+    transform: translateX(2px);
+  }
+
+  60% {
+    transform: translateX(-1px);
+  }
+
+  80% {
+    transform: translateX(1px);
+  }
 }
 
 @keyframes dash-sd-urgent-pulse-anim {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-  50% { transform: scale(1.05); box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.2); }
+
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.2);
+  }
 }
 
 @keyframes dash-sd-icon-pulse-anim {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
 }
 
-.dash-sd-pulse { animation: dash-sd-pulse-anim 600ms ease; }
-.dash-sd-pulse-double { animation: dash-sd-pulse-double-anim 800ms ease; }
-.dash-sd-shake { animation: dash-sd-shake-anim 500ms ease; }
-.dash-sd-urgent-pulse { animation: dash-sd-urgent-pulse-anim 800ms ease infinite; }
-.dash-sd-icon-pulse { animation: dash-sd-icon-pulse-anim 2s ease infinite; }
+.dash-sd-pulse {
+  animation: dash-sd-pulse-anim 600ms ease;
+}
+
+.dash-sd-pulse-double {
+  animation: dash-sd-pulse-double-anim 800ms ease;
+}
+
+.dash-sd-shake {
+  animation: dash-sd-shake-anim 500ms ease;
+}
+
+.dash-sd-urgent-pulse {
+  animation: dash-sd-urgent-pulse-anim 800ms ease infinite;
+}
+
+.dash-sd-icon-pulse {
+  animation: dash-sd-icon-pulse-anim 2s ease infinite;
+}
 
 /* Sidebar icon: brief pulse then idle, repeats every 8s (feels like once per minute-ish) */
 @keyframes dash-sd-icon-blink-anim {
-  0%, 8%, 100% { opacity: 1; }
-  3% { opacity: 0.3; }
-  6% { opacity: 1; }
+
+  0%,
+  8%,
+  100% {
+    opacity: 1;
+  }
+
+  3% {
+    opacity: 0.3;
+  }
+
+  6% {
+    opacity: 1;
+  }
 }
-.dash-sd-icon-blink { animation: dash-sd-icon-blink-anim 8s ease infinite; }
+
+.dash-sd-icon-blink {
+  animation: dash-sd-icon-blink-anim 8s ease infinite;
+}
 
 /* Fallout theme: green glow instead of red for urgent pulse */
 .fallout .dash-sd-urgent-pulse {
@@ -1448,15 +1967,43 @@ button:focus {
 }
 
 @keyframes dash-sd-urgent-pulse-fallout-anim {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
-  50% { transform: scale(1.05); box-shadow: 0 0 8px 2px rgba(34, 197, 94, 0.2); }
+
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+  }
+
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 8px 2px rgba(34, 197, 94, 0.2);
+  }
 }
 
 /* Self-destruct sidebar dissolve animation */
 @keyframes dash-sd-dissolve-anim {
-  0% { opacity: 1; transform: scaleY(1); max-height: 44px; }
-  60% { opacity: 0.3; transform: scaleY(0.8); filter: blur(1px); }
-  100% { opacity: 0; transform: scaleY(0); max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; overflow: hidden; }
+  0% {
+    opacity: 1;
+    transform: scaleY(1);
+    max-height: 44px;
+  }
+
+  60% {
+    opacity: 0.3;
+    transform: scaleY(0.8);
+    filter: blur(1px);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scaleY(0);
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    overflow: hidden;
+  }
 }
 
 .dash-sd-dissolve {
@@ -1466,10 +2013,33 @@ button:focus {
 
 /* Fallout variant: green flash before dissolve */
 @keyframes dash-sd-dissolve-fallout-anim {
-  0% { opacity: 1; transform: scaleY(1); max-height: 44px; box-shadow: inset 0 0 0 0 rgba(34, 197, 94, 0); }
-  20% { opacity: 1; box-shadow: inset 0 0 20px 2px rgba(34, 197, 94, 0.3); }
-  60% { opacity: 0.3; transform: scaleY(0.8); }
-  100% { opacity: 0; transform: scaleY(0); max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; overflow: hidden; }
+  0% {
+    opacity: 1;
+    transform: scaleY(1);
+    max-height: 44px;
+    box-shadow: inset 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+
+  20% {
+    opacity: 1;
+    box-shadow: inset 0 0 20px 2px rgba(34, 197, 94, 0.3);
+  }
+
+  60% {
+    opacity: 0.3;
+    transform: scaleY(0.8);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scaleY(0);
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    overflow: hidden;
+  }
 }
 
 .fallout .dash-sd-dissolve {
@@ -1478,18 +2048,39 @@ button:focus {
 
 /* Self-destruct overlay animations */
 @keyframes dash-sd-overlay-fade-anim {
-  0% { opacity: 0; backdrop-filter: blur(0px); }
-  100% { opacity: 1; backdrop-filter: blur(8px); }
+  0% {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+
+  100% {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
 }
 
 @keyframes dash-sd-overlay-icon-anim {
-  0% { transform: scale(1); opacity: 1; }
-  100% { transform: scale(0.7); opacity: 0; }
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
 }
 
 @keyframes dash-sd-overlay-text-anim {
-  0% { opacity: 0; transform: translateY(8px); }
-  100% { opacity: 1; transform: translateY(0); }
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Reduced motion support */
@@ -1502,419 +2093,488 @@ button:focus {
   }
 }
 
-  /* Targeted fixes for specific blue elements */
-  .fallout .bg-blue-600,
-  .fallout .bg-blue-700,
-  .fallout .bg-blue-800,
-  .fallout .bg-blue-900 {
-    background-color: hsl(var(--background)) !important;
-    color: hsl(var(--foreground)) !important;
-  }
+/* Targeted fixes for specific blue elements */
+.fallout .bg-blue-600,
+.fallout .bg-blue-700,
+.fallout .bg-blue-800,
+.fallout .bg-blue-900 {
+  background-color: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+}
 
-  /* Clean dropdown menu styling - remove excessive borders */
-  .fallout [role="menu"],
-  .fallout .dropdown-menu,
-  .fallout .fixed.w-48.rounded-md.shadow-lg {
-    background-color: hsl(var(--background)) !important;
-    border: 1px solid hsl(var(--border)) !important;
-    color: hsl(var(--foreground)) !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
-  }
+/* Clean dropdown menu styling - remove excessive borders */
+.fallout [role="menu"],
+.fallout .dropdown-menu,
+.fallout .fixed.w-48.rounded-md.shadow-lg {
+  background-color: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
 
-  .fallout [role="menuitem"],
-  .fallout .dropdown-menu button,
-  .fallout .fixed.w-48.rounded-md.shadow-lg button {
-    background-color: transparent !important;
-    color: hsl(var(--foreground)) !important;
-    border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-    padding: 8px 12px !important;
-    margin: 0 !important;
-  }
+.fallout [role="menuitem"],
+.fallout .dropdown-menu button,
+.fallout .fixed.w-48.rounded-md.shadow-lg button {
+  background-color: transparent !important;
+  color: hsl(var(--foreground)) !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  padding: 8px 12px !important;
+  margin: 0 !important;
+}
 
-  .fallout [role="menuitem"]:hover,
-  .fallout .dropdown-menu button:hover,
-  .fallout .fixed.w-48.rounded-md.shadow-lg button:hover {
-    background-color: hsl(var(--secondary)) !important;
-    color: hsl(var(--foreground)) !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
+.fallout [role="menuitem"]:hover,
+.fallout .dropdown-menu button:hover,
+.fallout .fixed.w-48.rounded-md.shadow-lg button:hover {
+  background-color: hsl(var(--secondary)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
 
-  /* Remove ring outlines from dropdowns */
-  .fallout .ring-1,
-  .fallout .ring-black,
-  .fallout .ring-opacity-5 {
-    box-shadow: none !important;
-  }
+/* Remove ring outlines from dropdowns */
+.fallout .ring-1,
+.fallout .ring-black,
+.fallout .ring-opacity-5 {
+  box-shadow: none !important;
+}
 
-  /* Override any remaining white backgrounds in dropdowns */
-  .fallout .bg-white[role="menu"],
-  .fallout .bg-white.dropdown-menu,
-  .fallout .bg-white.fixed {
-    background-color: hsl(var(--background)) !important;
-  }
+/* Override any remaining white backgrounds in dropdowns */
+.fallout .bg-white[role="menu"],
+.fallout .bg-white.dropdown-menu,
+.fallout .bg-white.fixed {
+  background-color: hsl(var(--background)) !important;
+}
 
-  /* Fix any inline tag styles */
-  .fallout span[style*="background-color"] {
-    background-color: hsl(var(--secondary)) !important;
-    color: hsl(var(--secondary-foreground)) !important;
-    border: 1px solid hsl(var(--border)) !important;
-  }
+/* Fix any inline tag styles */
+.fallout span[style*="background-color"] {
+  background-color: hsl(var(--secondary)) !important;
+  color: hsl(var(--secondary-foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+}
 
-  /* Comprehensive Tailwind class overrides for fallout theme */
-  .fallout .bg-gray-50 { background-color: hsl(var(--background)) !important; }
-  .fallout .bg-gray-100 { background-color: hsl(var(--secondary)) !important; }
-  .fallout .bg-gray-200 { background-color: hsl(var(--secondary)) !important; }
-  .fallout .bg-gray-300 { background-color: hsl(var(--secondary)) !important; }
-  .fallout .bg-gray-400 { background-color: hsl(var(--secondary)) !important; }
-  .fallout .bg-gray-500 { background-color: hsl(var(--secondary)) !important; }
-  .fallout .bg-gray-600 { background-color: hsl(var(--secondary)) !important; }
-  .fallout .bg-gray-700 { background-color: hsl(var(--secondary)) !important; }
-  .fallout .bg-gray-800 { background-color: hsl(var(--background)) !important; }
-  .fallout .bg-gray-900 { background-color: hsl(var(--background)) !important; }
+/* Comprehensive Tailwind class overrides for fallout theme */
+.fallout .bg-gray-50 {
+  background-color: hsl(var(--background)) !important;
+}
 
-  /* Override gray text colors */
-  .fallout .text-gray-50 { color: hsl(var(--foreground)) !important; }
-  .fallout .text-gray-100 { color: hsl(var(--foreground)) !important; }
-  .fallout .text-gray-200 { color: hsl(var(--secondary-foreground)) !important; }
-  .fallout .text-gray-300 { color: hsl(var(--secondary-foreground)) !important; }
-  .fallout .text-gray-400 { color: hsl(var(--muted-foreground)) !important; }
-  .fallout .text-gray-500 { color: hsl(var(--muted-foreground)) !important; }
-  .fallout .text-gray-600 { color: hsl(var(--foreground)) !important; }
-  .fallout .text-gray-700 { color: hsl(var(--foreground)) !important; }
-  .fallout .text-gray-800 { color: hsl(var(--foreground)) !important; }
-  .fallout .text-gray-900 { color: hsl(var(--foreground)) !important; }
+.fallout .bg-gray-100 {
+  background-color: hsl(var(--secondary)) !important;
+}
 
-  /* Override blue classes that might be interfering */
-  .fallout .bg-blue-50,
-  .fallout .bg-blue-100,
-  .fallout .bg-blue-200,
-  .fallout .bg-blue-300,
-  .fallout .bg-blue-400,
-  .fallout .bg-blue-500,
-  .fallout .bg-blue-600,
-  .fallout .bg-blue-700,
-  .fallout .bg-blue-800,
-  .fallout .bg-blue-900 {
-    background-color: hsl(var(--background)) !important;
-    color: hsl(var(--foreground)) !important;
-  }
+.fallout .bg-gray-200 {
+  background-color: hsl(var(--secondary)) !important;
+}
 
-  /* Fix border colors */
-  .fallout .border-gray-200 { border-color: hsl(var(--border)) !important; }
-  .fallout .border-gray-300 { border-color: hsl(var(--border)) !important; }
-  .fallout .border-gray-700 { border-color: hsl(var(--border)) !important; }
-  .fallout .border-blue-600 { border-color: hsl(var(--border)) !important; }
+.fallout .bg-gray-300 {
+  background-color: hsl(var(--secondary)) !important;
+}
 
-  /* Editor.js Checklist styling - CORRECT classes */
-  
-  /* Fallout theme checklist */
-  .fallout .cdx-checklist__item-checkbox-check {
-    background-color: hsl(var(--background)) !important;
-    border: 1px solid hsl(var(--border)) !important;
-    border-radius: 3px !important;
-  }
+.fallout .bg-gray-400 {
+  background-color: hsl(var(--secondary)) !important;
+}
 
-  .fallout .cdx-checklist__item--checked .cdx-checklist__item-checkbox-check {
-    background-color: hsl(var(--secondary)) !important;
-    border-color: hsl(var(--border)) !important;
-  }
+.fallout .bg-gray-500 {
+  background-color: hsl(var(--secondary)) !important;
+}
 
-  .fallout .cdx-checklist__item--checked .cdx-checklist__item-checkbox-check svg path {
-    stroke: hsl(var(--foreground)) !important;
-  }
+.fallout .bg-gray-600 {
+  background-color: hsl(var(--secondary)) !important;
+}
 
-  .fallout .cdx-checklist__item-text {
-    color: hsl(var(--foreground)) !important;
-  }
+.fallout .bg-gray-700 {
+  background-color: hsl(var(--secondary)) !important;
+}
 
-  /* Dark theme checklist */
-  .dark .cdx-checklist__item-checkbox-check {
-    background-color: #262626 !important;
-    border: 1px solid #404040 !important;
-    border-radius: 3px !important;
-  }
+.fallout .bg-gray-800 {
+  background-color: hsl(var(--background)) !important;
+}
 
-  .dark .cdx-checklist__item--checked .cdx-checklist__item-checkbox-check {
-    background-color: #a3a3a3 !important;
-    border-color: #a3a3a3 !important;
-  }
+.fallout .bg-gray-900 {
+  background-color: hsl(var(--background)) !important;
+}
 
-  .dark .cdx-checklist__item-text {
-    color: #ededed !important;
-  }
+/* Override gray text colors */
+.fallout .text-gray-50 {
+  color: hsl(var(--foreground)) !important;
+}
 
-  /* Light theme checklist - override Editor.js defaults */
-  .light .cdx-checklist__item-checkbox-check,
-  .cdx-checklist__item-checkbox-check {
-    background-color: #ffffff !important;
-    border: 1px solid #d1d5db !important;
-    border-radius: 3px !important;
-  }
+.fallout .text-gray-100 {
+  color: hsl(var(--foreground)) !important;
+}
 
-  .light .cdx-checklist__item--checked .cdx-checklist__item-checkbox-check,
-  .cdx-checklist__item--checked .cdx-checklist__item-checkbox-check {
-    background-color: #3b82f6 !important;
-    border-color: #3b82f6 !important;
-  }
+.fallout .text-gray-200 {
+  color: hsl(var(--secondary-foreground)) !important;
+}
 
-  .light .cdx-checklist__item-text,
-  .cdx-checklist__item-text {
-    color: #000000 !important;
-  }
+.fallout .text-gray-300 {
+  color: hsl(var(--secondary-foreground)) !important;
+}
 
-  /* Remove unwanted hover effects on blocks */
-  .fallout .codex-editor .ce-block:hover .ce-block__content,
-  .fallout .codex-editor .ce-block--selected .ce-block__content {
-    background: transparent !important;
-    box-shadow: none !important;
-    border: none !important;
-  }
+.fallout .text-gray-400 {
+  color: hsl(var(--muted-foreground)) !important;
+}
 
-  /* Clean Editor.js toolbar styling */
-  .fallout .codex-editor .ce-popover,
-  .fallout .codex-editor .ce-inline-toolbar,
-  .fallout .codex-editor .ce-conversion-toolbar,
-  .fallout .codex-editor .ce-settings {
-    background: hsl(var(--background)) !important;
-    border: 1px solid hsl(var(--border)) !important;
-    color: hsl(var(--foreground)) !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
-  }
+.fallout .text-gray-500 {
+  color: hsl(var(--muted-foreground)) !important;
+}
 
-  .fallout .codex-editor .ce-popover__item,
-  .fallout .codex-editor .ce-inline-tool,
-  .fallout .codex-editor .ce-conversion-tool,
-  .fallout .codex-editor .ce-settings__button {
-    background: transparent !important;
-    color: hsl(var(--foreground)) !important;
-    border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-  }
+.fallout .text-gray-600 {
+  color: hsl(var(--foreground)) !important;
+}
 
-  .fallout .codex-editor .ce-popover__item:hover,
-  .fallout .codex-editor .ce-inline-tool:hover,
-  .fallout .codex-editor .ce-conversion-tool:hover,
-  .fallout .codex-editor .ce-settings__button:hover {
-    background: hsl(var(--secondary)) !important;
-    color: hsl(var(--foreground)) !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
+.fallout .text-gray-700 {
+  color: hsl(var(--foreground)) !important;
+}
 
-  /* Fix the specific Editor.js popover that's showing white */
-  .fallout .codex-editor [class*="popover"],
-  .fallout .codex-editor [class*="toolbar"],
-  .fallout .codex-editor [class*="dropdown"],
-  .fallout .codex-editor [class*="menu"] {
-    background: hsl(var(--background)) !important;
-    border: 1px solid hsl(var(--border)) !important;
-    color: hsl(var(--foreground)) !important;
-  }
+.fallout .text-gray-800 {
+  color: hsl(var(--foreground)) !important;
+}
 
-  /* Fix popup/modal backgrounds */
-  .fallout [role="dialog"],
-  .fallout [aria-modal="true"],
-  .fallout .popup,
-  .fallout .modal {
-    background: hsl(var(--background)) !important;
-    border: 1px solid hsl(var(--border)) !important;
-    color: hsl(var(--foreground)) !important;
-  }
+.fallout .text-gray-900 {
+  color: hsl(var(--foreground)) !important;
+}
 
-  /* ULTRA-CLEAN dropdown menu styling - completely remove all borders and boxes */
-  .fallout .fixed.w-48.rounded-md.shadow-lg,
-  .fallout [role="menu"],
-  .fallout .dropdown-menu {
-    background-color: hsl(var(--background)) !important;
-    border: 1px solid hsl(var(--border)) !important;
-    color: hsl(var(--foreground)) !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
-    padding: 4px 0 !important;
-  }
+/* Override blue classes that might be interfering */
+.fallout .bg-blue-50,
+.fallout .bg-blue-100,
+.fallout .bg-blue-200,
+.fallout .bg-blue-300,
+.fallout .bg-blue-400,
+.fallout .bg-blue-500,
+.fallout .bg-blue-600,
+.fallout .bg-blue-700,
+.fallout .bg-blue-800,
+.fallout .bg-blue-900 {
+  background-color: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+}
 
-  .fallout .fixed.w-48.rounded-md.shadow-lg .py-1,
-  .fallout [role="menu"] .py-1,
-  .fallout .dropdown-menu .py-1 {
-    padding: 0 !important;
-  }
+/* Fix border colors */
+.fallout .border-gray-200 {
+  border-color: hsl(var(--border)) !important;
+}
 
-  .fallout .fixed.w-48.rounded-md.shadow-lg button,
-  .fallout [role="menuitem"],
-  .fallout .dropdown-menu button,
-  .fallout .block.px-4.py-2.text-sm.w-full.text-left {
-    background: transparent !important;
-    background-color: transparent !important;
-    color: hsl(var(--foreground)) !important;
-    border: none !important;
-    border-left: none !important;
-    border-right: none !important;
-    border-top: none !important;
-    border-bottom: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-    padding: 10px 16px !important;
-    margin: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    width: 100% !important;
-    text-align: left !important;
-  }
+.fallout .border-gray-300 {
+  border-color: hsl(var(--border)) !important;
+}
 
-  .fallout .fixed.w-48.rounded-md.shadow-lg button:hover,
-  .fallout [role="menuitem"]:hover,
-  .fallout .dropdown-menu button:hover,
-  .fallout .block.px-4.py-2.text-sm.w-full.text-left:hover {
-    background: hsl(var(--secondary)) !important;
-    background-color: hsl(var(--secondary)) !important;
-    color: hsl(var(--foreground)) !important;
-    border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-  }
+.fallout .border-gray-700 {
+  border-color: hsl(var(--border)) !important;
+}
 
-  /* Remove ALL ring effects */
-  .fallout .ring-1,
-  .fallout .ring-black,
-  .fallout .ring-opacity-5,
-  .fallout [class*="ring-"],
-  .fallout *[class*="ring-"] {
-    box-shadow: none !important;
-    border: none !important;
-  }
+.fallout .border-blue-600 {
+  border-color: hsl(var(--border)) !important;
+}
 
-  /* Remove any focus rings or outlines */
-  .fallout *:focus,
-  .fallout *:focus-visible,
-  .fallout *:focus-within {
-    outline: none !important;
-    box-shadow: none !important;
-    border: none !important;
-  }
+/* Editor.js Checklist styling - CORRECT classes */
 
-  /* ULTRA HIGH SPECIFICITY - Override Editor.js defaults completely */
-  html body .fallout .codex-editor .ce-block:hover .ce-block__content,
-  html body .fallout .codex-editor .ce-block.ce-block:hover .ce-block__content,
-  html body .fallout .codex-editor .ce-block--selected .ce-block__content,
-  html body .fallout .codex-editor .ce-block.ce-block--selected .ce-block__content,
-  html body .fallout .codex-editor .ce-block:focus .ce-block__content,
-  html body .fallout .codex-editor .ce-block.ce-block:focus .ce-block__content {
-    background: transparent !important;
-    background-color: transparent !important;
-    box-shadow: none !important;
-    border: none !important;
-    border-left: none !important;
-    border-right: none !important;
-    border-top: none !important;
-    border-bottom: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-  }
+/* Fallout theme checklist */
+.fallout .cdx-checklist__item-checkbox-check {
+  background-color: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 3px !important;
+}
 
-  /* Remove ALL block hover indicators */
-  html body .fallout .codex-editor .ce-block:hover::before,
-  html body .fallout .codex-editor .ce-block:hover::after,
-  html body .fallout .codex-editor .ce-block::before,
-  html body .fallout .codex-editor .ce-block::after,
-  html body .fallout .codex-editor .ce-block--selected::before,
-  html body .fallout .codex-editor .ce-block--selected::after {
-    display: none !important;
-    content: none !important;
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
+.fallout .cdx-checklist__item--checked .cdx-checklist__item-checkbox-check {
+  background-color: hsl(var(--secondary)) !important;
+  border-color: hsl(var(--border)) !important;
+}
 
-  /* ULTRA HIGH SPECIFICITY - Clean dropdown menus */
-  html body .fallout .fixed.w-48.rounded-md.shadow-lg,
-  html body .fallout div.fixed.w-48.rounded-md.shadow-lg,
-  html body .fallout [role="menu"],
-  html body .fallout div[role="menu"] {
-    background-color: hsl(var(--background)) !important;
-    border: 1px solid hsl(var(--border)) !important;
-    color: hsl(var(--foreground)) !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
-    padding: 4px 0 !important;
-  }
+.fallout .cdx-checklist__item--checked .cdx-checklist__item-checkbox-check svg path {
+  stroke: hsl(var(--foreground)) !important;
+}
 
-  html body .fallout .fixed.w-48.rounded-md.shadow-lg button,
-  html body .fallout div.fixed.w-48.rounded-md.shadow-lg button,
-  html body .fallout [role="menuitem"],
-  html body .fallout div[role="menuitem"],
-  html body .fallout .fixed.w-48.rounded-md.shadow-lg .block.px-4.py-2,
-  html body .fallout div.fixed.w-48.rounded-md.shadow-lg .block.px-4.py-2 {
-    background: transparent !important;
-    background-color: transparent !important;
-    color: hsl(var(--foreground)) !important;
-    border: none !important;
-    border-left: none !important;
-    border-right: none !important;
-    border-top: none !important;
-    border-bottom: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-    padding: 10px 16px !important;
-    margin: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    width: 100% !important;
-    text-align: left !important;
-  }
+.fallout .cdx-checklist__item-text {
+  color: hsl(var(--foreground)) !important;
+}
 
-  html body .fallout .fixed.w-48.rounded-md.shadow-lg button:hover,
-  html body .fallout div.fixed.w-48.rounded-md.shadow-lg button:hover,
-  html body .fallout [role="menuitem"]:hover,
-  html body .fallout div[role="menuitem"]:hover {
-    background: hsl(var(--secondary)) !important;
-    background-color: hsl(var(--secondary)) !important;
-    color: hsl(var(--foreground)) !important;
-    border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-  }
+/* Dark theme checklist */
+.dark .cdx-checklist__item-checkbox-check {
+  background-color: #262626 !important;
+  border: 1px solid #404040 !important;
+  border-radius: 3px !important;
+}
 
-  /* Remove Tailwind ring classes completely */
-  html body .fallout .ring-1,
-  html body .fallout .ring-black,
-  html body .fallout .ring-opacity-5,
-  html body .fallout [class*="ring-"] {
-    box-shadow: none !important;
-    border: none !important;
-    outline: none !important;
-  }
+.dark .cdx-checklist__item--checked .cdx-checklist__item-checkbox-check {
+  background-color: #a3a3a3 !important;
+  border-color: #a3a3a3 !important;
+}
 
-  /* Force Editor.js toolbar styling */
-  html body .fallout .codex-editor .ce-popover,
-  html body .fallout .codex-editor .ce-popover.ce-popover--opened,
-  html body .fallout .codex-editor .ce-inline-toolbar,
-  html body .fallout .codex-editor .ce-conversion-toolbar {
-    background: hsl(var(--background)) !important;
-    border: 1px solid hsl(var(--border)) !important;
-    color: hsl(var(--foreground)) !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
-  }
+.dark .cdx-checklist__item-text {
+  color: #ededed !important;
+}
 
-  html body .fallout .codex-editor .ce-popover__item,
-  html body .fallout .codex-editor .ce-popover__item.ce-popover__item,
-  html body .fallout .codex-editor .ce-conversion-tool {
-    background: transparent !important;
-    color: hsl(var(--foreground)) !important;
-    border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-  }
+/* Light theme checklist - override Editor.js defaults */
+.light .cdx-checklist__item-checkbox-check,
+.cdx-checklist__item-checkbox-check {
+  background-color: #ffffff !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 3px !important;
+}
 
-  html body .fallout .codex-editor .ce-popover__item:hover,
-  html body .fallout .codex-editor .ce-popover__item.ce-popover__item:hover,
-  html body .fallout .codex-editor .ce-conversion-tool:hover {
-    background: hsl(var(--secondary)) !important;
-    color: hsl(var(--foreground)) !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
+.light .cdx-checklist__item--checked .cdx-checklist__item-checkbox-check,
+.cdx-checklist__item--checked .cdx-checklist__item-checkbox-check {
+  background-color: #3b82f6 !important;
+  border-color: #3b82f6 !important;
+}
+
+.light .cdx-checklist__item-text,
+.cdx-checklist__item-text {
+  color: #000000 !important;
+}
+
+/* Remove unwanted hover effects on blocks */
+.fallout .codex-editor .ce-block:hover .ce-block__content,
+.fallout .codex-editor .ce-block--selected .ce-block__content {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* Clean Editor.js toolbar styling */
+.fallout .codex-editor .ce-popover,
+.fallout .codex-editor .ce-inline-toolbar,
+.fallout .codex-editor .ce-conversion-toolbar,
+.fallout .codex-editor .ce-settings {
+  background: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.fallout .codex-editor .ce-popover__item,
+.fallout .codex-editor .ce-inline-tool,
+.fallout .codex-editor .ce-conversion-tool,
+.fallout .codex-editor .ce-settings__button {
+  background: transparent !important;
+  color: hsl(var(--foreground)) !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.fallout .codex-editor .ce-popover__item:hover,
+.fallout .codex-editor .ce-inline-tool:hover,
+.fallout .codex-editor .ce-conversion-tool:hover,
+.fallout .codex-editor .ce-settings__button:hover {
+  background: hsl(var(--secondary)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Fix the specific Editor.js popover that's showing white */
+.fallout .codex-editor [class*="popover"],
+.fallout .codex-editor [class*="toolbar"],
+.fallout .codex-editor [class*="dropdown"],
+.fallout .codex-editor [class*="menu"] {
+  background: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Fix popup/modal backgrounds */
+.fallout [role="dialog"],
+.fallout [aria-modal="true"],
+.fallout .popup,
+.fallout .modal {
+  background: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* ULTRA-CLEAN dropdown menu styling - completely remove all borders and boxes */
+.fallout .fixed.w-48.rounded-md.shadow-lg,
+.fallout [role="menu"],
+.fallout .dropdown-menu {
+  background-color: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  padding: 4px 0 !important;
+}
+
+.fallout .fixed.w-48.rounded-md.shadow-lg .py-1,
+.fallout [role="menu"] .py-1,
+.fallout .dropdown-menu .py-1 {
+  padding: 0 !important;
+}
+
+.fallout .fixed.w-48.rounded-md.shadow-lg button,
+.fallout [role="menuitem"],
+.fallout .dropdown-menu button,
+.fallout .block.px-4.py-2.text-sm.w-full.text-left {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: hsl(var(--foreground)) !important;
+  border: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-top: none !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  padding: 10px 16px !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  text-align: left !important;
+}
+
+.fallout .fixed.w-48.rounded-md.shadow-lg button:hover,
+.fallout [role="menuitem"]:hover,
+.fallout .dropdown-menu button:hover,
+.fallout .block.px-4.py-2.text-sm.w-full.text-left:hover {
+  background: hsl(var(--secondary)) !important;
+  background-color: hsl(var(--secondary)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Remove ALL ring effects */
+.fallout .ring-1,
+.fallout .ring-black,
+.fallout .ring-opacity-5,
+.fallout [class*="ring-"],
+.fallout *[class*="ring-"] {
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* Remove any focus rings or outlines */
+.fallout *:focus,
+.fallout *:focus-visible,
+.fallout *:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* ULTRA HIGH SPECIFICITY - Override Editor.js defaults completely */
+html body .fallout .codex-editor .ce-block:hover .ce-block__content,
+html body .fallout .codex-editor .ce-block.ce-block:hover .ce-block__content,
+html body .fallout .codex-editor .ce-block--selected .ce-block__content,
+html body .fallout .codex-editor .ce-block.ce-block--selected .ce-block__content,
+html body .fallout .codex-editor .ce-block:focus .ce-block__content,
+html body .fallout .codex-editor .ce-block.ce-block:focus .ce-block__content {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-top: none !important;
+  border-bottom: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove ALL block hover indicators */
+html body .fallout .codex-editor .ce-block:hover::before,
+html body .fallout .codex-editor .ce-block:hover::after,
+html body .fallout .codex-editor .ce-block::before,
+html body .fallout .codex-editor .ce-block::after,
+html body .fallout .codex-editor .ce-block--selected::before,
+html body .fallout .codex-editor .ce-block--selected::after {
+  display: none !important;
+  content: none !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* ULTRA HIGH SPECIFICITY - Clean dropdown menus */
+html body .fallout .fixed.w-48.rounded-md.shadow-lg,
+html body .fallout div.fixed.w-48.rounded-md.shadow-lg,
+html body .fallout [role="menu"],
+html body .fallout div[role="menu"] {
+  background-color: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  padding: 4px 0 !important;
+}
+
+html body .fallout .fixed.w-48.rounded-md.shadow-lg button,
+html body .fallout div.fixed.w-48.rounded-md.shadow-lg button,
+html body .fallout [role="menuitem"],
+html body .fallout div[role="menuitem"],
+html body .fallout .fixed.w-48.rounded-md.shadow-lg .block.px-4.py-2,
+html body .fallout div.fixed.w-48.rounded-md.shadow-lg .block.px-4.py-2 {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: hsl(var(--foreground)) !important;
+  border: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-top: none !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  padding: 10px 16px !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  text-align: left !important;
+}
+
+html body .fallout .fixed.w-48.rounded-md.shadow-lg button:hover,
+html body .fallout div.fixed.w-48.rounded-md.shadow-lg button:hover,
+html body .fallout [role="menuitem"]:hover,
+html body .fallout div[role="menuitem"]:hover {
+  background: hsl(var(--secondary)) !important;
+  background-color: hsl(var(--secondary)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Remove Tailwind ring classes completely */
+html body .fallout .ring-1,
+html body .fallout .ring-black,
+html body .fallout .ring-opacity-5,
+html body .fallout [class*="ring-"] {
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+}
+
+/* Force Editor.js toolbar styling */
+html body .fallout .codex-editor .ce-popover,
+html body .fallout .codex-editor .ce-popover.ce-popover--opened,
+html body .fallout .codex-editor .ce-inline-toolbar,
+html body .fallout .codex-editor .ce-conversion-toolbar {
+  background: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+html body .fallout .codex-editor .ce-popover__item,
+html body .fallout .codex-editor .ce-popover__item.ce-popover__item,
+html body .fallout .codex-editor .ce-conversion-tool {
+  background: transparent !important;
+  color: hsl(var(--foreground)) !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+html body .fallout .codex-editor .ce-popover__item:hover,
+html body .fallout .codex-editor .ce-popover__item.ce-popover__item:hover,
+html body .fallout .codex-editor .ce-conversion-tool:hover {
+  background: hsl(var(--secondary)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
 
 /* ULTIMATE FALLOUT THEME OVERRIDES - MAXIMUM SPECIFICITY */
 html body .fallout .codex-editor .ce-block:hover .ce-block__content,
@@ -1932,8 +2592,13 @@ html body .fallout .codex-editor .ce-block:focus {
 }
 
 /* Mobile safe-area helpers outside @layer to ensure availability */
-.safe-area-top { padding-top: calc(env(safe-area-inset-top) + 1rem); }
-.safe-area-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + 0.75rem); }
+.safe-area-top {
+  padding-top: calc(env(safe-area-inset-top) + 1rem);
+}
+
+.safe-area-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 0.75rem);
+}
 
 /* Remove ALL pseudo-elements that might create hover lines */
 html body .fallout .codex-editor .ce-block:hover::before,
@@ -2020,6 +2685,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   box-shadow: none !important;
   outline: none !important;
 }
+
 .fallout .codex-editor .ce-block.ce-block--selected,
 .fallout .codex-editor .ce-block.ce-block--selected .ce-block__content,
 .fallout .codex-editor .ce-block.ce-block--selected::before,
@@ -2043,6 +2709,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   outline: none !important;
   background: transparent !important;
 }
+
 .fallout .codex-editor .ce-popover__item::before,
 .fallout .codex-editor .ce-popover__item::after,
 .fallout .codex-editor .ce-conversion-toolbar .ce-conversion-tool::before,
@@ -2052,6 +2719,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   content: none !important;
   display: none !important;
 }
+
 .fallout .codex-editor .ce-popover__item:hover,
 .fallout .codex-editor .ce-conversion-toolbar .ce-conversion-tool:hover,
 .fallout .codex-editor .ce-settings__button:hover {
@@ -2059,288 +2727,350 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   color: hsl(var(--foreground)) !important;
 }
 
-  /* Editor.js: remove any toolbar borders/lines that can render as a horizontal rule */
-  .fallout .codex-editor .ce-toolbar,
-  .fallout .codex-editor .ce-toolbar__content {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-  }
-  .fallout .codex-editor .ce-toolbar::before,
-  .fallout .codex-editor .ce-toolbar::after,
-  .fallout .codex-editor .ce-toolbar__content::before,
-  .fallout .codex-editor .ce-toolbar__content::after {
-    content: none !important;
-    display: none !important;
-  }
+/* Editor.js: remove any toolbar borders/lines that can render as a horizontal rule */
+.fallout .codex-editor .ce-toolbar,
+.fallout .codex-editor .ce-toolbar__content {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
 
-  /* Editor.js dropdowns: strip borders on all inner elements (buttons, icons, separators) */
-  .fallout .codex-editor .ce-popover,
-  .fallout .codex-editor .ce-conversion-toolbar {
-    border: 1px solid hsl(var(--border)) !important; /* keep only outer border */
-  }
-  .fallout .codex-editor .ce-popover button,
-  .fallout .codex-editor .ce-popover [role="button"],
-  .fallout .codex-editor .ce-conversion-toolbar button,
-  .fallout .codex-editor .ce-conversion-toolbar [role="button"],
-  .fallout .codex-editor .ce-conversion-tool,
-  .fallout .codex-editor .ce-popover__item {
-    border: none !important;
-    box-shadow: none !important;
-    background: transparent !important;
-    outline: none !important;
-  }
-  .fallout .codex-editor .ce-conversion-tool__icon,
-  .fallout .codex-editor .ce-popover__item .ce-popover__item-icon {
-    border: none !important;
-    box-shadow: none !important;
-    background: transparent !important;
-  }
-  .fallout .codex-editor .ce-popover__item + .ce-popover__item,
-  .fallout .codex-editor .ce-conversion-tool + .ce-conversion-tool {
-    border-top: none !important; /* remove separators between items */
-  }
-  .fallout .codex-editor .ce-popover *,
-  .fallout .codex-editor .ce-conversion-toolbar * {
-    box-shadow: none !important; /* nuke any nested shadows */
-  }
+.fallout .codex-editor .ce-toolbar::before,
+.fallout .codex-editor .ce-toolbar::after,
+.fallout .codex-editor .ce-toolbar__content::before,
+.fallout .codex-editor .ce-toolbar__content::after {
+  content: none !important;
+  display: none !important;
+}
 
-  /* ===== Editor.js Popover Theming (v2.30+ CSS Variable Overrides) ===== */
+/* Editor.js dropdowns: strip borders on all inner elements (buttons, icons, separators) */
+.fallout .codex-editor .ce-popover,
+.fallout .codex-editor .ce-conversion-toolbar {
+  border: 1px solid hsl(var(--border)) !important;
+  /* keep only outer border */
+}
 
-  /* DARK THEME: Override Editor.js CSS custom properties */
-  .dark .ce-popover {
-    --color-background: #2f2f2f;
-    --color-text-primary: #ececec;
-    --color-text-secondary: #8e8e8e;
-    --color-border: #3a3a3a;
-    --color-shadow: rgba(0,0,0,0.45);
-    --color-border-icon: #3a3a3a;
-    --color-border-icon-disabled: #3a3a3a;
-    --color-background-item-hover: #3a3a3a;
-    --color-background-item-focus: rgba(107,159,255,0.15);
-    --color-shadow-item-focus: rgba(107,159,255,0.15);
-    --color-text-icon-active: #6b9fff;
-    --color-background-icon-active: rgba(107,159,255,0.15);
-    --color-background-item-confirm: #dc2626;
-    --color-background-item-confirm-hover: #b91c1c;
-  }
-  .dark .ce-popover__container {
-    background: #2f2f2f !important;
-  }
-  .dark .ce-popover-item__title {
-    color: #ececec !important;
-  }
-  .dark .ce-popover-item__icon svg {
-    color: #ececec !important;
-  }
-  .dark .ce-popover-item__secondary-title {
-    color: #8e8e8e !important;
-  }
-  .dark .ce-popover-item-separator__line {
-    background: #3a3a3a !important;
-  }
-  .dark .ce-popover__search .cdx-search-field {
-    background: #1a1a1a !important;
-    border-color: #3a3a3a !important;
-  }
-  .dark .ce-popover__search .cdx-search-field__input {
-    color: #ececec !important;
-  }
-  .dark .ce-popover__search .cdx-search-field__input::placeholder {
-    color: #6b6b6b !important;
-  }
-  .dark .ce-popover__search .cdx-search-field__icon svg {
-    color: #8e8e8e !important;
-  }
-  .dark .ce-popover__nothing-found-message {
-    color: #8e8e8e !important;
-  }
-  .dark .ce-popover-header__text {
-    color: #ececec !important;
-  }
-  .dark .ce-popover-header__back-button {
-    color: #ececec !important;
-  }
-  .dark .ce-inline-toolbar {
-    --color-background-icon-active: rgba(107,159,255,0.15);
-    --color-text-icon-active: #6b9fff;
-    --color-text-primary: #ececec;
-  }
-  .dark .ce-inline-tool-input {
-    background: #1a1a1a !important;
-    color: #ececec !important;
-    border-color: #3a3a3a !important;
-  }
-  .dark .ce-inline-tool-input::placeholder {
-    color: #6b6b6b !important;
-  }
-  .dark .cdx-search-field {
-    background: #1a1a1a !important;
-    border-color: #3a3a3a !important;
-  }
-  .dark .cdx-search-field__input {
-    color: #ececec !important;
-  }
-  .dark .cdx-search-field__input::placeholder {
-    color: #6b6b6b !important;
-  }
+.fallout .codex-editor .ce-popover button,
+.fallout .codex-editor .ce-popover [role="button"],
+.fallout .codex-editor .ce-conversion-toolbar button,
+.fallout .codex-editor .ce-conversion-toolbar [role="button"],
+.fallout .codex-editor .ce-conversion-tool,
+.fallout .codex-editor .ce-popover__item {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  outline: none !important;
+}
 
-  /* DARK BLUE THEME: Override Editor.js CSS custom properties */
-  .darkblue .ce-popover {
-    --color-background: #1a2035;
-    --color-text-primary: #e0e6f0;
-    --color-text-secondary: #5d6b88;
-    --color-border: #1c2438;
-    --color-shadow: rgba(0,0,0,0.45);
-    --color-border-icon: #1c2438;
-    --color-border-icon-disabled: #1c2438;
-    --color-background-item-hover: #232b42;
-    --color-background-item-focus: rgba(59,130,246,0.15);
-    --color-shadow-item-focus: rgba(59,130,246,0.15);
-    --color-text-icon-active: #3b82f6;
-    --color-background-icon-active: rgba(59,130,246,0.15);
-    --color-background-item-confirm: #dc2626;
-    --color-background-item-confirm-hover: #b91c1c;
-  }
-  .darkblue .ce-popover__container {
-    background: #1a2035 !important;
-  }
-  .darkblue .ce-popover-item__title {
-    color: #e0e6f0 !important;
-  }
-  .darkblue .ce-popover-item__icon svg {
-    color: #e0e6f0 !important;
-  }
-  .darkblue .ce-popover-item__secondary-title {
-    color: #5d6b88 !important;
-  }
-  .darkblue .ce-popover-item-separator__line {
-    background: #1c2438 !important;
-  }
-  .darkblue .ce-popover__search .cdx-search-field {
-    background: #141825 !important;
-    border-color: #1c2438 !important;
-  }
-  .darkblue .ce-popover__search .cdx-search-field__input {
-    color: #e0e6f0 !important;
-  }
-  .darkblue .ce-popover__search .cdx-search-field__input::placeholder {
-    color: #5d6b88 !important;
-  }
-  .darkblue .ce-popover__search .cdx-search-field__icon svg {
-    color: #5d6b88 !important;
-  }
-  .darkblue .ce-popover__nothing-found-message {
-    color: #5d6b88 !important;
-  }
-  .darkblue .ce-popover-header__text {
-    color: #e0e6f0 !important;
-  }
-  .darkblue .ce-popover-header__back-button {
-    color: #e0e6f0 !important;
-  }
-  .darkblue .ce-inline-toolbar {
-    --color-background-icon-active: rgba(59,130,246,0.15);
-    --color-text-icon-active: #3b82f6;
-    --color-text-primary: #e0e6f0;
-  }
-  .darkblue .ce-inline-tool-input {
-    background: #141825 !important;
-    color: #e0e6f0 !important;
-    border-color: #1c2438 !important;
-  }
-  .darkblue .ce-inline-tool-input::placeholder {
-    color: #5d6b88 !important;
-  }
-  .darkblue .cdx-search-field {
-    background: #141825 !important;
-    border-color: #1c2438 !important;
-  }
-  .darkblue .cdx-search-field__input {
-    color: #e0e6f0 !important;
-  }
-  .darkblue .cdx-search-field__input::placeholder {
-    color: #5d6b88 !important;
-  }
+.fallout .codex-editor .ce-conversion-tool__icon,
+.fallout .codex-editor .ce-popover__item .ce-popover__item-icon {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
 
-  /* FALLOUT THEME: Override Editor.js CSS custom properties */
-  .fallout .ce-popover {
-    --color-background: #1a1a1a;
-    --color-text-primary: #22c55e;
-    --color-text-secondary: #16a34a;
-    --color-border: #22c55e;
-    --color-shadow: rgba(0,0,0,0.3);
-    --color-border-icon: rgba(34,197,94,0.3);
-    --color-border-icon-disabled: rgba(34,197,94,0.15);
-    --color-background-item-hover: #2a2a2a;
-    --color-background-item-focus: rgba(34,197,94,0.15);
-    --color-shadow-item-focus: rgba(34,197,94,0.15);
-    --color-text-icon-active: #4ade80;
-    --color-background-icon-active: rgba(34,197,94,0.2);
-    --color-background-item-confirm: #dc2626;
-    --color-background-item-confirm-hover: #b91c1c;
-  }
-  .fallout .ce-popover__container {
-    background: #1a1a1a !important;
-  }
-  .fallout .ce-popover-item__title {
-    color: #22c55e !important;
-  }
-  .fallout .ce-popover-item__icon svg {
-    color: #22c55e !important;
-  }
-  .fallout .ce-popover-item__secondary-title {
-    color: #16a34a !important;
-  }
-  .fallout .ce-popover-item-separator__line {
-    background: rgba(34,197,94,0.3) !important;
-  }
-  .fallout .ce-popover__search .cdx-search-field {
-    background: #0a0a0a !important;
-    border-color: rgba(34,197,94,0.3) !important;
-  }
-  .fallout .ce-popover__search .cdx-search-field__input {
-    color: #22c55e !important;
-  }
-  .fallout .ce-popover__search .cdx-search-field__input::placeholder {
-    color: #16a34a !important;
-  }
-  .fallout .ce-popover__search .cdx-search-field__icon svg {
-    color: #16a34a !important;
-  }
-  .fallout .ce-popover__nothing-found-message {
-    color: #16a34a !important;
-  }
-  .fallout .ce-popover-header__text {
-    color: #22c55e !important;
-  }
-  .fallout .ce-popover-header__back-button {
-    color: #22c55e !important;
-  }
-  .fallout .ce-inline-toolbar {
-    --color-background-icon-active: rgba(34,197,94,0.2);
-    --color-text-icon-active: #4ade80;
-    --color-text-primary: #22c55e;
-  }
-  .fallout .ce-inline-tool-input {
-    background: #0a0a0a !important;
-    color: #22c55e !important;
-    border-color: rgba(34,197,94,0.3) !important;
-  }
-  .fallout .ce-inline-tool-input::placeholder {
-    color: #16a34a !important;
-  }
-  .fallout .cdx-search-field {
-    background: #0a0a0a !important;
-    border-color: rgba(34,197,94,0.3) !important;
-  }
-  .fallout .cdx-search-field__input {
-    color: #22c55e !important;
-  }
-  .fallout .cdx-search-field__input::placeholder {
-    color: #16a34a !important;
-  }
+.fallout .codex-editor .ce-popover__item+.ce-popover__item,
+.fallout .codex-editor .ce-conversion-tool+.ce-conversion-tool {
+  border-top: none !important;
+  /* remove separators between items */
+}
+
+.fallout .codex-editor .ce-popover *,
+.fallout .codex-editor .ce-conversion-toolbar * {
+  box-shadow: none !important;
+  /* nuke any nested shadows */
+}
+
+/* ===== Editor.js Popover Theming (v2.30+ CSS Variable Overrides) ===== */
+
+/* DARK THEME: Override Editor.js CSS custom properties */
+.dark .ce-popover {
+  --color-background: #2f2f2f;
+  --color-text-primary: #ececec;
+  --color-text-secondary: #8e8e8e;
+  --color-border: #3a3a3a;
+  --color-shadow: rgba(0, 0, 0, 0.45);
+  --color-border-icon: #3a3a3a;
+  --color-border-icon-disabled: #3a3a3a;
+  --color-background-item-hover: #3a3a3a;
+  --color-background-item-focus: rgba(107, 159, 255, 0.15);
+  --color-shadow-item-focus: rgba(107, 159, 255, 0.15);
+  --color-text-icon-active: #6b9fff;
+  --color-background-icon-active: rgba(107, 159, 255, 0.15);
+  --color-background-item-confirm: #dc2626;
+  --color-background-item-confirm-hover: #b91c1c;
+}
+
+.dark .ce-popover__container {
+  background: #2f2f2f !important;
+}
+
+.dark .ce-popover-item__title {
+  color: #ececec !important;
+}
+
+.dark .ce-popover-item__icon svg {
+  color: #ececec !important;
+}
+
+.dark .ce-popover-item__secondary-title {
+  color: #8e8e8e !important;
+}
+
+.dark .ce-popover-item-separator__line {
+  background: #3a3a3a !important;
+}
+
+.dark .ce-popover__search .cdx-search-field {
+  background: #1a1a1a !important;
+  border-color: #3a3a3a !important;
+}
+
+.dark .ce-popover__search .cdx-search-field__input {
+  color: #ececec !important;
+}
+
+.dark .ce-popover__search .cdx-search-field__input::placeholder {
+  color: #6b6b6b !important;
+}
+
+.dark .ce-popover__search .cdx-search-field__icon svg {
+  color: #8e8e8e !important;
+}
+
+.dark .ce-popover__nothing-found-message {
+  color: #8e8e8e !important;
+}
+
+.dark .ce-popover-header__text {
+  color: #ececec !important;
+}
+
+.dark .ce-popover-header__back-button {
+  color: #ececec !important;
+}
+
+.dark .ce-inline-toolbar {
+  --color-background-icon-active: rgba(107, 159, 255, 0.15);
+  --color-text-icon-active: #6b9fff;
+  --color-text-primary: #ececec;
+}
+
+.dark .ce-inline-tool-input {
+  background: #1a1a1a !important;
+  color: #ececec !important;
+  border-color: #3a3a3a !important;
+}
+
+.dark .ce-inline-tool-input::placeholder {
+  color: #6b6b6b !important;
+}
+
+.dark .cdx-search-field {
+  background: #1a1a1a !important;
+  border-color: #3a3a3a !important;
+}
+
+.dark .cdx-search-field__input {
+  color: #ececec !important;
+}
+
+.dark .cdx-search-field__input::placeholder {
+  color: #6b6b6b !important;
+}
+
+/* DARK BLUE THEME: Override Editor.js CSS custom properties */
+.darkblue .ce-popover {
+  --color-background: #1a2035;
+  --color-text-primary: #e0e6f0;
+  --color-text-secondary: #5d6b88;
+  --color-border: #1c2438;
+  --color-shadow: rgba(0, 0, 0, 0.45);
+  --color-border-icon: #1c2438;
+  --color-border-icon-disabled: #1c2438;
+  --color-background-item-hover: #232b42;
+  --color-background-item-focus: rgba(59, 130, 246, 0.15);
+  --color-shadow-item-focus: rgba(59, 130, 246, 0.15);
+  --color-text-icon-active: #3b82f6;
+  --color-background-icon-active: rgba(59, 130, 246, 0.15);
+  --color-background-item-confirm: #dc2626;
+  --color-background-item-confirm-hover: #b91c1c;
+}
+
+.darkblue .ce-popover__container {
+  background: #1a2035 !important;
+}
+
+.darkblue .ce-popover-item__title {
+  color: #e0e6f0 !important;
+}
+
+.darkblue .ce-popover-item__icon svg {
+  color: #e0e6f0 !important;
+}
+
+.darkblue .ce-popover-item__secondary-title {
+  color: #5d6b88 !important;
+}
+
+.darkblue .ce-popover-item-separator__line {
+  background: #1c2438 !important;
+}
+
+.darkblue .ce-popover__search .cdx-search-field {
+  background: #141825 !important;
+  border-color: #1c2438 !important;
+}
+
+.darkblue .ce-popover__search .cdx-search-field__input {
+  color: #e0e6f0 !important;
+}
+
+.darkblue .ce-popover__search .cdx-search-field__input::placeholder {
+  color: #5d6b88 !important;
+}
+
+.darkblue .ce-popover__search .cdx-search-field__icon svg {
+  color: #5d6b88 !important;
+}
+
+.darkblue .ce-popover__nothing-found-message {
+  color: #5d6b88 !important;
+}
+
+.darkblue .ce-popover-header__text {
+  color: #e0e6f0 !important;
+}
+
+.darkblue .ce-popover-header__back-button {
+  color: #e0e6f0 !important;
+}
+
+.darkblue .ce-inline-toolbar {
+  --color-background-icon-active: rgba(59, 130, 246, 0.15);
+  --color-text-icon-active: #3b82f6;
+  --color-text-primary: #e0e6f0;
+}
+
+.darkblue .ce-inline-tool-input {
+  background: #141825 !important;
+  color: #e0e6f0 !important;
+  border-color: #1c2438 !important;
+}
+
+.darkblue .ce-inline-tool-input::placeholder {
+  color: #5d6b88 !important;
+}
+
+.darkblue .cdx-search-field {
+  background: #141825 !important;
+  border-color: #1c2438 !important;
+}
+
+.darkblue .cdx-search-field__input {
+  color: #e0e6f0 !important;
+}
+
+.darkblue .cdx-search-field__input::placeholder {
+  color: #5d6b88 !important;
+}
+
+/* FALLOUT THEME: Override Editor.js CSS custom properties */
+.fallout .ce-popover {
+  --color-background: #1a1a1a;
+  --color-text-primary: #22c55e;
+  --color-text-secondary: #16a34a;
+  --color-border: #22c55e;
+  --color-shadow: rgba(0, 0, 0, 0.3);
+  --color-border-icon: rgba(34, 197, 94, 0.3);
+  --color-border-icon-disabled: rgba(34, 197, 94, 0.15);
+  --color-background-item-hover: #2a2a2a;
+  --color-background-item-focus: rgba(34, 197, 94, 0.15);
+  --color-shadow-item-focus: rgba(34, 197, 94, 0.15);
+  --color-text-icon-active: #4ade80;
+  --color-background-icon-active: rgba(34, 197, 94, 0.2);
+  --color-background-item-confirm: #dc2626;
+  --color-background-item-confirm-hover: #b91c1c;
+}
+
+.fallout .ce-popover__container {
+  background: #1a1a1a !important;
+}
+
+.fallout .ce-popover-item__title {
+  color: #22c55e !important;
+}
+
+.fallout .ce-popover-item__icon svg {
+  color: #22c55e !important;
+}
+
+.fallout .ce-popover-item__secondary-title {
+  color: #16a34a !important;
+}
+
+.fallout .ce-popover-item-separator__line {
+  background: rgba(34, 197, 94, 0.3) !important;
+}
+
+.fallout .ce-popover__search .cdx-search-field {
+  background: #0a0a0a !important;
+  border-color: rgba(34, 197, 94, 0.3) !important;
+}
+
+.fallout .ce-popover__search .cdx-search-field__input {
+  color: #22c55e !important;
+}
+
+.fallout .ce-popover__search .cdx-search-field__input::placeholder {
+  color: #16a34a !important;
+}
+
+.fallout .ce-popover__search .cdx-search-field__icon svg {
+  color: #16a34a !important;
+}
+
+.fallout .ce-popover__nothing-found-message {
+  color: #16a34a !important;
+}
+
+.fallout .ce-popover-header__text {
+  color: #22c55e !important;
+}
+
+.fallout .ce-popover-header__back-button {
+  color: #22c55e !important;
+}
+
+.fallout .ce-inline-toolbar {
+  --color-background-icon-active: rgba(34, 197, 94, 0.2);
+  --color-text-icon-active: #4ade80;
+  --color-text-primary: #22c55e;
+}
+
+.fallout .ce-inline-tool-input {
+  background: #0a0a0a !important;
+  color: #22c55e !important;
+  border-color: rgba(34, 197, 94, 0.3) !important;
+}
+
+.fallout .ce-inline-tool-input::placeholder {
+  color: #16a34a !important;
+}
+
+.fallout .cdx-search-field {
+  background: #0a0a0a !important;
+  border-color: rgba(34, 197, 94, 0.3) !important;
+}
+
+.fallout .cdx-search-field__input {
+  color: #22c55e !important;
+}
+
+.fallout .cdx-search-field__input::placeholder {
+  color: #16a34a !important;
+}
 
 /* ========================================
    Code Block — Syntax Highlighting Styles
@@ -2432,192 +3162,410 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   background: #f6f8fa;
   border: 1px solid #e1e4e8;
 }
+
 .light .code-block__header {
   border-bottom-color: #e1e4e8;
 }
+
 .light .code-block__select {
   background: #fff;
   border-color: #d0d7de;
   color: #57606a;
 }
+
 .light .code-block__textarea {
   caret-color: #24292f;
 }
+
 .light .code-block__textarea::placeholder {
   color: #8b949e;
 }
 
 /* Light theme syntax colors (GitHub-light inspired) */
-.light .code-block .hljs { color: #24292f; }
+.light .code-block .hljs {
+  color: #24292f;
+}
+
 .light .code-block .hljs-keyword,
 .light .code-block .hljs-selector-tag,
-.light .code-block .hljs-built_in { color: #cf222e; }
+.light .code-block .hljs-built_in {
+  color: #cf222e;
+}
+
 .light .code-block .hljs-string,
-.light .code-block .hljs-attr { color: #0a3069; }
+.light .code-block .hljs-attr {
+  color: #0a3069;
+}
+
 .light .code-block .hljs-number,
-.light .code-block .hljs-literal { color: #0550ae; }
+.light .code-block .hljs-literal {
+  color: #0550ae;
+}
+
 .light .code-block .hljs-comment,
-.light .code-block .hljs-quote { color: #6e7781; font-style: italic; }
+.light .code-block .hljs-quote {
+  color: #6e7781;
+  font-style: italic;
+}
+
 .light .code-block .hljs-function,
-.light .code-block .hljs-title { color: #8250df; }
+.light .code-block .hljs-title {
+  color: #8250df;
+}
+
 .light .code-block .hljs-type,
-.light .code-block .hljs-class .hljs-title { color: #953800; }
+.light .code-block .hljs-class .hljs-title {
+  color: #953800;
+}
+
 .light .code-block .hljs-variable,
-.light .code-block .hljs-template-variable { color: #953800; }
-.light .code-block .hljs-tag { color: #116329; }
-.light .code-block .hljs-name { color: #116329; }
-.light .code-block .hljs-attribute { color: #0550ae; }
-.light .code-block .hljs-regexp { color: #0a3069; }
+.light .code-block .hljs-template-variable {
+  color: #953800;
+}
+
+.light .code-block .hljs-tag {
+  color: #116329;
+}
+
+.light .code-block .hljs-name {
+  color: #116329;
+}
+
+.light .code-block .hljs-attribute {
+  color: #0550ae;
+}
+
+.light .code-block .hljs-regexp {
+  color: #0a3069;
+}
+
 .light .code-block .hljs-symbol,
-.light .code-block .hljs-bullet { color: #0550ae; }
-.light .code-block .hljs-meta { color: #6e7781; }
-.light .code-block .hljs-deletion { color: #82071e; background: #ffebe9; }
-.light .code-block .hljs-addition { color: #116329; background: #dafbe1; }
+.light .code-block .hljs-bullet {
+  color: #0550ae;
+}
+
+.light .code-block .hljs-meta {
+  color: #6e7781;
+}
+
+.light .code-block .hljs-deletion {
+  color: #82071e;
+  background: #ffebe9;
+}
+
+.light .code-block .hljs-addition {
+  color: #116329;
+  background: #dafbe1;
+}
 
 /* ---- Dark theme ---- */
 .dark .code-block {
   background: #161616;
   border: 1px solid #2e2e2e;
 }
+
 .dark .code-block__header {
   border-bottom-color: #2e2e2e;
 }
+
 .dark .code-block__select {
   background: #1e1e1e;
   border-color: #3a3a3a;
   color: #999;
 }
+
 .dark .code-block__textarea {
   caret-color: #ececec;
 }
+
 .dark .code-block__textarea::placeholder {
   color: #555;
 }
 
 /* Dark theme syntax colors (GitHub-dark inspired) */
-.dark .code-block .hljs { color: #e6edf3; }
+.dark .code-block .hljs {
+  color: #e6edf3;
+}
+
 .dark .code-block .hljs-keyword,
 .dark .code-block .hljs-selector-tag,
-.dark .code-block .hljs-built_in { color: #ff7b72; }
+.dark .code-block .hljs-built_in {
+  color: #ff7b72;
+}
+
 .dark .code-block .hljs-string,
-.dark .code-block .hljs-attr { color: #a5d6ff; }
+.dark .code-block .hljs-attr {
+  color: #a5d6ff;
+}
+
 .dark .code-block .hljs-number,
-.dark .code-block .hljs-literal { color: #79c0ff; }
+.dark .code-block .hljs-literal {
+  color: #79c0ff;
+}
+
 .dark .code-block .hljs-comment,
-.dark .code-block .hljs-quote { color: #8b949e; font-style: italic; }
+.dark .code-block .hljs-quote {
+  color: #8b949e;
+  font-style: italic;
+}
+
 .dark .code-block .hljs-function,
-.dark .code-block .hljs-title { color: #d2a8ff; }
+.dark .code-block .hljs-title {
+  color: #d2a8ff;
+}
+
 .dark .code-block .hljs-type,
-.dark .code-block .hljs-class .hljs-title { color: #ffa657; }
+.dark .code-block .hljs-class .hljs-title {
+  color: #ffa657;
+}
+
 .dark .code-block .hljs-variable,
-.dark .code-block .hljs-template-variable { color: #ffa657; }
-.dark .code-block .hljs-tag { color: #7ee787; }
-.dark .code-block .hljs-name { color: #7ee787; }
-.dark .code-block .hljs-attribute { color: #79c0ff; }
-.dark .code-block .hljs-regexp { color: #a5d6ff; }
+.dark .code-block .hljs-template-variable {
+  color: #ffa657;
+}
+
+.dark .code-block .hljs-tag {
+  color: #7ee787;
+}
+
+.dark .code-block .hljs-name {
+  color: #7ee787;
+}
+
+.dark .code-block .hljs-attribute {
+  color: #79c0ff;
+}
+
+.dark .code-block .hljs-regexp {
+  color: #a5d6ff;
+}
+
 .dark .code-block .hljs-symbol,
-.dark .code-block .hljs-bullet { color: #79c0ff; }
-.dark .code-block .hljs-meta { color: #8b949e; }
-.dark .code-block .hljs-deletion { color: #ffa198; background: #490202; }
-.dark .code-block .hljs-addition { color: #7ee787; background: #04260f; }
+.dark .code-block .hljs-bullet {
+  color: #79c0ff;
+}
+
+.dark .code-block .hljs-meta {
+  color: #8b949e;
+}
+
+.dark .code-block .hljs-deletion {
+  color: #ffa198;
+  background: #490202;
+}
+
+.dark .code-block .hljs-addition {
+  color: #7ee787;
+  background: #04260f;
+}
 
 /* ---- Dark Blue theme ---- */
 .darkblue .code-block {
   background: #111827;
   border: 1px solid #1c2438;
 }
+
 .darkblue .code-block__header {
   border-bottom-color: #1c2438;
 }
+
 .darkblue .code-block__select {
   background: #0f1524;
   border-color: #283350;
   color: #8b99b5;
 }
+
 .darkblue .code-block__textarea {
   caret-color: #e0e6f0;
 }
+
 .darkblue .code-block__textarea::placeholder {
   color: #445068;
 }
 
 /* Dark Blue theme syntax colors */
-.darkblue .code-block .hljs { color: #d4ddf0; }
+.darkblue .code-block .hljs {
+  color: #d4ddf0;
+}
+
 .darkblue .code-block .hljs-keyword,
 .darkblue .code-block .hljs-selector-tag,
-.darkblue .code-block .hljs-built_in { color: #f472b6; }
+.darkblue .code-block .hljs-built_in {
+  color: #f472b6;
+}
+
 .darkblue .code-block .hljs-string,
-.darkblue .code-block .hljs-attr { color: #93c5fd; }
+.darkblue .code-block .hljs-attr {
+  color: #93c5fd;
+}
+
 .darkblue .code-block .hljs-number,
-.darkblue .code-block .hljs-literal { color: #67e8f9; }
+.darkblue .code-block .hljs-literal {
+  color: #67e8f9;
+}
+
 .darkblue .code-block .hljs-comment,
-.darkblue .code-block .hljs-quote { color: #5d6b88; font-style: italic; }
+.darkblue .code-block .hljs-quote {
+  color: #5d6b88;
+  font-style: italic;
+}
+
 .darkblue .code-block .hljs-function,
-.darkblue .code-block .hljs-title { color: #c4b5fd; }
+.darkblue .code-block .hljs-title {
+  color: #c4b5fd;
+}
+
 .darkblue .code-block .hljs-type,
-.darkblue .code-block .hljs-class .hljs-title { color: #fdba74; }
+.darkblue .code-block .hljs-class .hljs-title {
+  color: #fdba74;
+}
+
 .darkblue .code-block .hljs-variable,
-.darkblue .code-block .hljs-template-variable { color: #fdba74; }
-.darkblue .code-block .hljs-tag { color: #86efac; }
-.darkblue .code-block .hljs-name { color: #86efac; }
-.darkblue .code-block .hljs-attribute { color: #67e8f9; }
-.darkblue .code-block .hljs-regexp { color: #93c5fd; }
+.darkblue .code-block .hljs-template-variable {
+  color: #fdba74;
+}
+
+.darkblue .code-block .hljs-tag {
+  color: #86efac;
+}
+
+.darkblue .code-block .hljs-name {
+  color: #86efac;
+}
+
+.darkblue .code-block .hljs-attribute {
+  color: #67e8f9;
+}
+
+.darkblue .code-block .hljs-regexp {
+  color: #93c5fd;
+}
+
 .darkblue .code-block .hljs-symbol,
-.darkblue .code-block .hljs-bullet { color: #67e8f9; }
-.darkblue .code-block .hljs-meta { color: #5d6b88; }
-.darkblue .code-block .hljs-deletion { color: #fca5a5; background: #3b0a0a; }
-.darkblue .code-block .hljs-addition { color: #86efac; background: #052e16; }
+.darkblue .code-block .hljs-bullet {
+  color: #67e8f9;
+}
+
+.darkblue .code-block .hljs-meta {
+  color: #5d6b88;
+}
+
+.darkblue .code-block .hljs-deletion {
+  color: #fca5a5;
+  background: #3b0a0a;
+}
+
+.darkblue .code-block .hljs-addition {
+  color: #86efac;
+  background: #052e16;
+}
 
 /* ---- Fallout theme ---- */
 .fallout .code-block {
   background: #0a0a0a;
   border: 1px solid rgba(34, 197, 94, 0.3);
 }
+
 .fallout .code-block__header {
   border-bottom-color: rgba(34, 197, 94, 0.2);
 }
+
 .fallout .code-block__select {
   background: #0d0d0d;
   border-color: rgba(34, 197, 94, 0.3);
   color: #22c55e;
 }
+
 .fallout .code-block__select option {
   background: #0d0d0d;
   color: #22c55e;
 }
+
 .fallout .code-block__textarea {
   caret-color: #22c55e;
 }
+
 .fallout .code-block__textarea::placeholder {
   color: #16a34a;
 }
 
 /* Fallout theme syntax colors (terminal green) */
-.fallout .code-block .hljs { color: #22c55e; }
+.fallout .code-block .hljs {
+  color: #22c55e;
+}
+
 .fallout .code-block .hljs-keyword,
 .fallout .code-block .hljs-selector-tag,
-.fallout .code-block .hljs-built_in { color: #4ade80; font-weight: bold; }
+.fallout .code-block .hljs-built_in {
+  color: #4ade80;
+  font-weight: bold;
+}
+
 .fallout .code-block .hljs-string,
-.fallout .code-block .hljs-attr { color: #86efac; }
+.fallout .code-block .hljs-attr {
+  color: #86efac;
+}
+
 .fallout .code-block .hljs-number,
-.fallout .code-block .hljs-literal { color: #a7f3d0; }
+.fallout .code-block .hljs-literal {
+  color: #a7f3d0;
+}
+
 .fallout .code-block .hljs-comment,
-.fallout .code-block .hljs-quote { color: #166534; font-style: italic; }
+.fallout .code-block .hljs-quote {
+  color: #166534;
+  font-style: italic;
+}
+
 .fallout .code-block .hljs-function,
-.fallout .code-block .hljs-title { color: #bbf7d0; }
+.fallout .code-block .hljs-title {
+  color: #bbf7d0;
+}
+
 .fallout .code-block .hljs-type,
-.fallout .code-block .hljs-class .hljs-title { color: #6ee7b7; }
+.fallout .code-block .hljs-class .hljs-title {
+  color: #6ee7b7;
+}
+
 .fallout .code-block .hljs-variable,
-.fallout .code-block .hljs-template-variable { color: #6ee7b7; }
-.fallout .code-block .hljs-tag { color: #34d399; }
-.fallout .code-block .hljs-name { color: #34d399; }
-.fallout .code-block .hljs-attribute { color: #a7f3d0; }
-.fallout .code-block .hljs-regexp { color: #86efac; }
+.fallout .code-block .hljs-template-variable {
+  color: #6ee7b7;
+}
+
+.fallout .code-block .hljs-tag {
+  color: #34d399;
+}
+
+.fallout .code-block .hljs-name {
+  color: #34d399;
+}
+
+.fallout .code-block .hljs-attribute {
+  color: #a7f3d0;
+}
+
+.fallout .code-block .hljs-regexp {
+  color: #86efac;
+}
+
 .fallout .code-block .hljs-symbol,
-.fallout .code-block .hljs-bullet { color: #a7f3d0; }
-.fallout .code-block .hljs-meta { color: #166534; }
-.fallout .code-block .hljs-deletion { color: #fca5a5; background: rgba(153, 27, 27, 0.3); }
-.fallout .code-block .hljs-addition { color: #4ade80; background: rgba(22, 101, 52, 0.3); }
+.fallout .code-block .hljs-bullet {
+  color: #a7f3d0;
+}
+
+.fallout .code-block .hljs-meta {
+  color: #166534;
+}
+
+.fallout .code-block .hljs-deletion {
+  color: #fca5a5;
+  background: rgba(153, 27, 27, 0.3);
+}
+
+.fallout .code-block .hljs-addition {
+  color: #4ade80;
+  background: rgba(22, 101, 52, 0.3);
+}
 
 /* ── Features Panel ── */
 
@@ -2625,9 +3573,17 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
 .dash-feat-card-enter {
   animation: dash-feat-slide-in 0.35s ease-out both;
 }
+
 @keyframes dash-feat-slide-in {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Illustration container */
@@ -2644,9 +3600,17 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
 
 /* ── Features tooltip bounce ── */
 @keyframes bounce-subtle {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50% { transform: translateX(-50%) translateY(-3px); }
+
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  50% {
+    transform: translateX(-50%) translateY(-3px);
+  }
 }
+
 .animate-bounce-subtle {
   animation: bounce-subtle 2s ease-in-out infinite;
 }
@@ -2656,6 +3620,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
 .dash-feat-illus-lock {
   padding: 4px;
 }
+
 .dash-feat-lock-doc {
   width: 38px;
   height: 44px;
@@ -2668,6 +3633,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   padding: 6px 5px;
   gap: 4px;
 }
+
 .dash-feat-lock-doc-lines {
   position: absolute;
   inset: 0;
@@ -2677,17 +3643,58 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   padding: 5px 4px;
   animation: dash-feat-lock-lines 5s linear infinite;
 }
-.dash-feat-lock-line-1 { width: 85%; height: 2px; border-radius: 1px; }
-.dash-feat-lock-line-2 { width: 60%; height: 2px; border-radius: 1px; }
-.dash-feat-lock-line-3 { width: 72%; height: 2px; border-radius: 1px; }
-.dash-feat-lock-line-4 { width: 50%; height: 2px; border-radius: 1px; }
-.dash-feat-lock-line-5 { width: 78%; height: 2px; border-radius: 1px; }
-@keyframes dash-feat-lock-lines {
-  0%, 22% { opacity: 1; }
-  27% { opacity: 0; }
-  78% { opacity: 0; }
-  83%, 100% { opacity: 1; }
+
+.dash-feat-lock-line-1 {
+  width: 85%;
+  height: 2px;
+  border-radius: 1px;
 }
+
+.dash-feat-lock-line-2 {
+  width: 60%;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.dash-feat-lock-line-3 {
+  width: 72%;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.dash-feat-lock-line-4 {
+  width: 50%;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.dash-feat-lock-line-5 {
+  width: 78%;
+  height: 2px;
+  border-radius: 1px;
+}
+
+@keyframes dash-feat-lock-lines {
+
+  0%,
+  22% {
+    opacity: 1;
+  }
+
+  27% {
+    opacity: 0;
+  }
+
+  78% {
+    opacity: 0;
+  }
+
+  83%,
+  100% {
+    opacity: 1;
+  }
+}
+
 /* Matrix-style cascading number columns */
 .dash-feat-lock-matrix {
   position: absolute;
@@ -2699,6 +3706,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   opacity: 0;
   animation: dash-feat-lock-matrix-show 5s linear infinite;
 }
+
 .dash-feat-lock-col {
   display: flex;
   flex-direction: column;
@@ -2709,35 +3717,100 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   line-height: 1.2;
   animation: dash-feat-lock-cascade 5s linear infinite;
 }
+
 .dash-feat-lock-col span {
   opacity: 0;
   animation: dash-feat-lock-digit 1.2s ease-out infinite;
 }
-.dash-feat-lock-col span:nth-child(1) { animation-delay: 0s; }
-.dash-feat-lock-col span:nth-child(2) { animation-delay: 0.15s; }
-.dash-feat-lock-col span:nth-child(3) { animation-delay: 0.3s; }
-.dash-feat-lock-col span:nth-child(4) { animation-delay: 0.45s; }
-.dash-feat-lock-col span:nth-child(5) { animation-delay: 0.6s; }
-.dash-feat-lock-col span:nth-child(6) { animation-delay: 0.75s; }
-.dash-feat-lock-col-1 { animation-delay: 0s; }
-.dash-feat-lock-col-2 { animation-delay: 0.2s; }
-.dash-feat-lock-col-3 { animation-delay: 0.1s; }
-.dash-feat-lock-col-4 { animation-delay: 0.3s; }
-.dash-feat-lock-col-5 { animation-delay: 0.15s; }
+
+.dash-feat-lock-col span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.dash-feat-lock-col span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.dash-feat-lock-col span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.dash-feat-lock-col span:nth-child(4) {
+  animation-delay: 0.45s;
+}
+
+.dash-feat-lock-col span:nth-child(5) {
+  animation-delay: 0.6s;
+}
+
+.dash-feat-lock-col span:nth-child(6) {
+  animation-delay: 0.75s;
+}
+
+.dash-feat-lock-col-1 {
+  animation-delay: 0s;
+}
+
+.dash-feat-lock-col-2 {
+  animation-delay: 0.2s;
+}
+
+.dash-feat-lock-col-3 {
+  animation-delay: 0.1s;
+}
+
+.dash-feat-lock-col-4 {
+  animation-delay: 0.3s;
+}
+
+.dash-feat-lock-col-5 {
+  animation-delay: 0.15s;
+}
+
 @keyframes dash-feat-lock-matrix-show {
-  0%, 28% { opacity: 0; }
-  32%, 75% { opacity: 1; }
-  80%, 100% { opacity: 0; }
+
+  0%,
+  28% {
+    opacity: 0;
+  }
+
+  32%,
+  75% {
+    opacity: 1;
+  }
+
+  80%,
+  100% {
+    opacity: 0;
+  }
 }
+
 @keyframes dash-feat-lock-cascade {
-  0% { transform: translateY(-3px); }
-  100% { transform: translateY(3px); }
+  0% {
+    transform: translateY(-3px);
+  }
+
+  100% {
+    transform: translateY(3px);
+  }
 }
+
 @keyframes dash-feat-lock-digit {
-  0% { opacity: 0.2; }
-  30% { opacity: 1; }
-  70% { opacity: 0.6; }
-  100% { opacity: 0.15; }
+  0% {
+    opacity: 0.2;
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  70% {
+    opacity: 0.6;
+  }
+
+  100% {
+    opacity: 0.15;
+  }
 }
 
 /* ── Auto-Lock & Touch ID illustration ── */
@@ -2745,6 +3818,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
 .dash-feat-illus-shield {
   padding: 4px;
 }
+
 .dash-feat-shield-app {
   width: 38px;
   height: 44px;
@@ -2753,12 +3827,14 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   position: relative;
   overflow: hidden;
 }
+
 .dash-feat-shield-content {
   display: flex;
   flex-direction: column;
   gap: 3px;
   padding: 6px 5px;
 }
+
 .dash-feat-shield-overlay {
   position: absolute;
   inset: 0;
@@ -2768,22 +3844,68 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   border-top: 1.5px solid;
   animation: dash-feat-shield-slide 5s ease-in-out infinite;
 }
+
 @keyframes dash-feat-shield-slide {
-  0%, 10% { transform: translateY(100%); }
-  25%, 75% { transform: translateY(0); }
-  90%, 100% { transform: translateY(100%); }
+
+  0%,
+  10% {
+    transform: translateY(100%);
+  }
+
+  25%,
+  75% {
+    transform: translateY(0);
+  }
+
+  90%,
+  100% {
+    transform: translateY(100%);
+  }
 }
+
 .dash-feat-shield-fp {
   animation: dash-feat-fp-pulse 5s ease-in-out infinite;
 }
+
 @keyframes dash-feat-fp-pulse {
-  0%, 20% { opacity: 0; transform: scale(0.5); }
-  35% { opacity: 1; transform: scale(1); }
-  55% { opacity: 1; transform: scale(1); }
-  65% { opacity: 0.4; transform: scale(1); }
-  70% { opacity: 1; transform: scale(1.1); }
-  75%, 80% { opacity: 1; transform: scale(1); }
-  85%, 100% { opacity: 0; transform: scale(0.5); }
+
+  0%,
+  20% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+
+  35% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  55% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  65% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+
+  70% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+
+  75%,
+  80% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  85%,
+  100% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
 }
 
 /* ── Duress Password illustration ── */
@@ -2791,6 +3913,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
 .dash-feat-illus-duress {
   padding: 4px;
 }
+
 .dash-feat-duress-screen {
   width: 38px;
   height: 44px;
@@ -2801,23 +3924,39 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   display: flex;
   flex-direction: column;
 }
+
 .dash-feat-duress-pass {
   display: flex;
   gap: 3px;
   justify-content: center;
   padding: 5px 4px 4px;
 }
+
 .dash-feat-duress-dot {
   width: 4px;
   height: 4px;
   border-radius: 50%;
   animation: dash-feat-duress-type 4.5s ease-in-out infinite;
 }
+
 @keyframes dash-feat-duress-type {
-  0% { opacity: 0; transform: scale(0); }
-  15% { opacity: 1; transform: scale(1); }
-  40%, 100% { opacity: 1; transform: scale(1); }
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+
+  15% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  40%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
+
 .dash-feat-duress-content {
   display: flex;
   flex-direction: column;
@@ -2825,12 +3964,30 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   padding: 2px 5px;
   animation: dash-feat-duress-vanish 4.5s ease-in-out infinite;
 }
+
 @keyframes dash-feat-duress-vanish {
-  0%, 40% { opacity: 1; transform: translateY(0); }
-  55% { opacity: 0; transform: translateY(6px); }
-  90% { opacity: 0; }
-  100% { opacity: 1; transform: translateY(0); }
+
+  0%,
+  40% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  55% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  90% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
+
 .dash-feat-duress-line {
   height: 2px;
   border-radius: 1px;
@@ -2841,6 +3998,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
 .dash-feat-illus-timer {
   padding: 4px;
 }
+
 .dash-feat-timer-doc {
   width: 38px;
   height: 44px;
@@ -2851,6 +4009,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   display: flex;
   flex-direction: column;
 }
+
 .dash-feat-timer-doc-lines {
   display: flex;
   flex-direction: column;
@@ -2858,12 +4017,28 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   padding: 6px 5px;
   animation: dash-feat-timer-lines-fade 4s ease-in-out infinite;
 }
+
 @keyframes dash-feat-timer-lines-fade {
-  0%, 30% { opacity: 1; }
-  60% { opacity: 0.3; }
-  75%, 85% { opacity: 0; }
-  100% { opacity: 1; }
+
+  0%,
+  30% {
+    opacity: 1;
+  }
+
+  60% {
+    opacity: 0.3;
+  }
+
+  75%,
+  85% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
 }
+
 /* Flame container */
 .dash-feat-timer-flames {
   position: absolute;
@@ -2873,6 +4048,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   height: 100%;
   pointer-events: none;
 }
+
 /* Individual flame elements — teardrop shapes with flicker */
 .dash-feat-flame {
   position: absolute;
@@ -2881,6 +4057,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   opacity: 0;
   filter: blur(0.5px);
 }
+
 .dash-feat-flame-1 {
   left: 2px;
   width: 7px;
@@ -2888,6 +4065,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   background: linear-gradient(to top, #ef4444, #f97316, #fbbf24cc);
   animation: dash-feat-flame-a 4s 0.8s ease-in-out infinite;
 }
+
 .dash-feat-flame-2 {
   left: 8px;
   width: 10px;
@@ -2895,6 +4073,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   background: linear-gradient(to top, #dc2626, #ef4444, #f97316);
   animation: dash-feat-flame-b 4s 0.9s ease-in-out infinite;
 }
+
 .dash-feat-flame-3 {
   left: 14px;
   width: 12px;
@@ -2902,6 +4081,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   background: linear-gradient(to top, #b91c1c, #ef4444, #fbbf24);
   animation: dash-feat-flame-a 4s 0.85s ease-in-out infinite;
 }
+
 .dash-feat-flame-4 {
   left: 22px;
   width: 9px;
@@ -2909,6 +4089,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   background: linear-gradient(to top, #ef4444, #fb923c, #fbbf24cc);
   animation: dash-feat-flame-b 4s 1.0s ease-in-out infinite;
 }
+
 .dash-feat-flame-5 {
   right: 2px;
   width: 7px;
@@ -2916,27 +4097,98 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   background: linear-gradient(to top, #dc2626, #f97316, #fde68a);
   animation: dash-feat-flame-a 4s 1.1s ease-in-out infinite;
 }
+
 /* Two flame keyframes for varied flicker */
 @keyframes dash-feat-flame-a {
-  0%, 18% { opacity: 0; transform: scaleY(0) scaleX(0.8) translateY(4px); }
-  30% { opacity: 1; transform: scaleY(0.9) scaleX(1) translateY(0); }
-  40% { opacity: 1; transform: scaleY(1.1) scaleX(0.85) translateY(-3px); }
-  48% { opacity: 0.85; transform: scaleY(0.85) scaleX(1.1) translateY(-1px); }
-  56% { opacity: 1; transform: scaleY(1.15) scaleX(0.9) translateY(-4px); }
-  64% { opacity: 0.9; transform: scaleY(0.95) scaleX(1.05) translateY(-2px); }
-  72% { opacity: 1; transform: scaleY(1.05) scaleX(0.9) translateY(-3px); }
-  82%, 100% { opacity: 0; transform: scaleY(0.2) scaleX(0.6) translateY(2px); }
+
+  0%,
+  18% {
+    opacity: 0;
+    transform: scaleY(0) scaleX(0.8) translateY(4px);
+  }
+
+  30% {
+    opacity: 1;
+    transform: scaleY(0.9) scaleX(1) translateY(0);
+  }
+
+  40% {
+    opacity: 1;
+    transform: scaleY(1.1) scaleX(0.85) translateY(-3px);
+  }
+
+  48% {
+    opacity: 0.85;
+    transform: scaleY(0.85) scaleX(1.1) translateY(-1px);
+  }
+
+  56% {
+    opacity: 1;
+    transform: scaleY(1.15) scaleX(0.9) translateY(-4px);
+  }
+
+  64% {
+    opacity: 0.9;
+    transform: scaleY(0.95) scaleX(1.05) translateY(-2px);
+  }
+
+  72% {
+    opacity: 1;
+    transform: scaleY(1.05) scaleX(0.9) translateY(-3px);
+  }
+
+  82%,
+  100% {
+    opacity: 0;
+    transform: scaleY(0.2) scaleX(0.6) translateY(2px);
+  }
 }
+
 @keyframes dash-feat-flame-b {
-  0%, 20% { opacity: 0; transform: scaleY(0) scaleX(0.7) translateY(4px); }
-  32% { opacity: 1; transform: scaleY(1) scaleX(0.9) translateY(0); }
-  42% { opacity: 0.9; transform: scaleY(0.9) scaleX(1.1) translateY(-2px); }
-  50% { opacity: 1; transform: scaleY(1.2) scaleX(0.8) translateY(-5px); }
-  58% { opacity: 0.85; transform: scaleY(0.85) scaleX(1.05) translateY(-2px); }
-  66% { opacity: 1; transform: scaleY(1.1) scaleX(0.95) translateY(-4px); }
-  74% { opacity: 0.9; transform: scaleY(1) scaleX(0.9) translateY(-3px); }
-  84%, 100% { opacity: 0; transform: scaleY(0.15) scaleX(0.5) translateY(3px); }
+
+  0%,
+  20% {
+    opacity: 0;
+    transform: scaleY(0) scaleX(0.7) translateY(4px);
+  }
+
+  32% {
+    opacity: 1;
+    transform: scaleY(1) scaleX(0.9) translateY(0);
+  }
+
+  42% {
+    opacity: 0.9;
+    transform: scaleY(0.9) scaleX(1.1) translateY(-2px);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scaleY(1.2) scaleX(0.8) translateY(-5px);
+  }
+
+  58% {
+    opacity: 0.85;
+    transform: scaleY(0.85) scaleX(1.05) translateY(-2px);
+  }
+
+  66% {
+    opacity: 1;
+    transform: scaleY(1.1) scaleX(0.95) translateY(-4px);
+  }
+
+  74% {
+    opacity: 0.9;
+    transform: scaleY(1) scaleX(0.9) translateY(-3px);
+  }
+
+  84%,
+  100% {
+    opacity: 0;
+    transform: scaleY(0.15) scaleX(0.5) translateY(3px);
+  }
 }
+
 /* Ember glow at the bottom */
 .dash-feat-timer-burn {
   position: absolute;
@@ -2947,23 +4199,40 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   background: linear-gradient(to top, rgba(234, 88, 12, 0.6), rgba(239, 68, 68, 0.25), transparent);
   animation: dash-feat-timer-burn-up 4s ease-in-out infinite;
 }
+
 @keyframes dash-feat-timer-burn-up {
-  0%, 20% { height: 0%; }
-  50% { height: 60%; }
-  70% { height: 100%; }
-  85%, 100% { height: 0%; }
+
+  0%,
+  20% {
+    height: 0%;
+  }
+
+  50% {
+    height: 60%;
+  }
+
+  70% {
+    height: 100%;
+  }
+
+  85%,
+  100% {
+    height: 0%;
+  }
 }
 
 /* ── Seed phrase / key grid ── */
 .dash-feat-illus-key {
   padding: 4px;
 }
+
 .dash-feat-key-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2px;
   width: 100%;
 }
+
 .dash-feat-key-word {
   display: flex;
   align-items: center;
@@ -2972,15 +4241,25 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   border-radius: 2px;
   animation: dash-feat-key-appear 3s ease-in-out infinite;
 }
+
 @keyframes dash-feat-key-appear {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
 }
+
 .dash-feat-key-num {
   font-size: 6px;
   font-weight: 600;
   flex-shrink: 0;
 }
+
 .dash-feat-key-bar {
   height: 2px;
   flex: 1;
@@ -2994,6 +4273,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   align-items: center;
   padding: 4px;
 }
+
 .dash-feat-link-page {
   width: 18px;
   height: 24px;
@@ -3005,6 +4285,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   padding: 4px 3px;
   flex-shrink: 0;
 }
+
 .dash-feat-link-line {
   width: 12px;
   height: 1.5px;
@@ -3012,31 +4293,53 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   border-radius: 1px;
   animation: dash-feat-link-connect 2.5s ease-in-out infinite;
 }
+
 @keyframes dash-feat-link-connect {
-  0%, 100% { opacity: 0.3; width: 4px; }
-  50% { opacity: 1; width: 12px; }
+
+  0%,
+  100% {
+    opacity: 0.3;
+    width: 4px;
+  }
+
+  50% {
+    opacity: 1;
+    width: 12px;
+  }
 }
 
 /* ── Code illustration ── */
 .dash-feat-illus-code {
   padding: 6px;
 }
+
 .dash-feat-code-lines {
   display: flex;
   flex-direction: column;
   gap: 4px;
   width: 100%;
 }
+
 .dash-feat-code-line {
   display: flex;
   gap: 3px;
   align-items: center;
   animation: dash-feat-code-type 3s ease-out infinite;
 }
+
 @keyframes dash-feat-code-type {
-  0% { opacity: 0; transform: translateX(-4px); }
-  20%, 100% { opacity: 1; transform: translateX(0); }
+  0% {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+
+  20%,
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
+
 .dash-feat-code-line span {
   display: block;
   height: 3px;
@@ -3050,6 +4353,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   gap: 3px;
   padding: 4px 6px;
 }
+
 .dash-feat-drag-item {
   display: flex;
   align-items: center;
@@ -3058,16 +4362,32 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   border-radius: 3px;
   width: 100%;
 }
+
 .dash-feat-drag-item-2 {
   border: 1px solid;
   animation: dash-feat-drag-move 3s ease-in-out infinite;
 }
+
 @keyframes dash-feat-drag-move {
-  0%, 100% { transform: translateY(0); }
-  30% { transform: translateY(-14px); }
-  60% { transform: translateY(-14px); }
-  90% { transform: translateY(0); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  30% {
+    transform: translateY(-14px);
+  }
+
+  60% {
+    transform: translateY(-14px);
+  }
+
+  90% {
+    transform: translateY(0);
+  }
 }
+
 .dash-feat-drag-grip {
   font-size: 6px;
   letter-spacing: -2px;
@@ -3081,44 +4401,89 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   gap: 6px;
   padding: 6px;
 }
+
 .dash-feat-undo-text {
   display: flex;
   align-items: center;
   gap: 1px;
   width: 100%;
 }
+
 .dash-feat-undo-line {
   height: 3px;
   border-radius: 1px;
   animation: dash-feat-undo-type 3s ease-in-out infinite;
 }
+
 @keyframes dash-feat-undo-type {
-  0% { width: 0; }
-  40% { width: 80%; }
-  60% { width: 80%; }
-  80% { width: 30%; }
-  100% { width: 0; }
+  0% {
+    width: 0;
+  }
+
+  40% {
+    width: 80%;
+  }
+
+  60% {
+    width: 80%;
+  }
+
+  80% {
+    width: 30%;
+  }
+
+  100% {
+    width: 0;
+  }
 }
+
 .dash-feat-undo-cursor {
   width: 1.5px;
   height: 8px;
   flex-shrink: 0;
   animation: dash-feat-cursor-blink 0.8s step-end infinite;
 }
+
 @keyframes dash-feat-cursor-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
 }
+
 .dash-feat-undo-arrow {
   font-size: 16px;
   font-weight: bold;
   animation: dash-feat-undo-spin 3s ease-in-out infinite;
 }
+
 @keyframes dash-feat-undo-spin {
-  0%, 50% { opacity: 0; transform: rotate(0deg); }
-  60% { opacity: 1; transform: rotate(0deg); }
-  80% { opacity: 1; transform: rotate(-360deg); }
-  90%, 100% { opacity: 0; }
+
+  0%,
+  50% {
+    opacity: 0;
+    transform: rotate(0deg);
+  }
+
+  60% {
+    opacity: 1;
+    transform: rotate(0deg);
+  }
+
+  80% {
+    opacity: 1;
+    transform: rotate(-360deg);
+  }
+
+  90%,
+  100% {
+    opacity: 0;
+  }
 }
 
 /* ── Search illustration ── */
@@ -3127,6 +4492,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   gap: 3px;
   padding: 6px;
 }
+
 .dash-feat-search-bar {
   display: flex;
   align-items: center;
@@ -3136,35 +4502,63 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   padding: 2px 4px;
   width: 100%;
 }
+
 .dash-feat-search-icon {
   font-size: 8px;
   flex-shrink: 0;
 }
+
 .dash-feat-search-text {
   height: 2px;
   border-radius: 1px;
   animation: dash-feat-search-type 2.5s ease-in-out infinite;
 }
+
 @keyframes dash-feat-search-type {
-  0% { width: 0; }
-  40%, 80% { width: 70%; }
-  100% { width: 0; }
+  0% {
+    width: 0;
+  }
+
+  40%,
+  80% {
+    width: 70%;
+  }
+
+  100% {
+    width: 0;
+  }
 }
+
 .dash-feat-search-results {
   display: flex;
   flex-direction: column;
   gap: 2px;
   width: 100%;
 }
+
 .dash-feat-search-result {
   padding: 3px 4px;
   border-radius: 2px;
   animation: dash-feat-search-reveal 2.5s ease-out infinite;
 }
+
 @keyframes dash-feat-search-reveal {
-  0%, 30% { opacity: 0; transform: translateY(2px); }
-  50%, 80% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; }
+
+  0%,
+  30% {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+
+  50%,
+  80% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  100% {
+    opacity: 0;
+  }
 }
 
 /* ── Focus mode illustration ── */
@@ -3173,34 +4567,55 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   gap: 3px;
   padding: 8px;
 }
+
 .dash-feat-focus-line {
   height: 2px;
   border-radius: 1px;
   transition: opacity 0.3s;
 }
+
 .dash-feat-focus-dim {
   animation: dash-feat-focus-fade 3s ease-in-out infinite;
 }
+
 @keyframes dash-feat-focus-fade {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.15; }
+
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+
+  50% {
+    opacity: 0.15;
+  }
 }
+
 .dash-feat-focus-active {
   animation: dash-feat-focus-glow 3s ease-in-out infinite;
 }
+
 @keyframes dash-feat-focus-glow {
-  0%, 100% { opacity: 0.8; }
-  50% { opacity: 1; }
+
+  0%,
+  100% {
+    opacity: 0.8;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
 /* ── Keyboard shortcuts illustration ── */
 .dash-feat-illus-keyboard {
   padding: 6px;
 }
+
 .dash-feat-kb-row {
   display: flex;
   gap: 3px;
 }
+
 .dash-feat-kb-key {
   width: 22px;
   height: 22px;
@@ -3212,18 +4627,30 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   font-size: 9px;
   font-weight: 600;
 }
+
 .dash-feat-kb-key-press {
   animation: dash-feat-kb-press 2s ease-in-out infinite;
 }
+
 @keyframes dash-feat-kb-press {
-  0%, 100% { transform: translateY(0); box-shadow: none; }
-  50% { transform: translateY(1px); box-shadow: 0 0 6px currentColor; }
+
+  0%,
+  100% {
+    transform: translateY(0);
+    box-shadow: none;
+  }
+
+  50% {
+    transform: translateY(1px);
+    box-shadow: 0 0 6px currentColor;
+  }
 }
 
 /* ── Palette illustration ── */
 .dash-feat-illus-palette {
   padding: 6px;
 }
+
 .dash-feat-palette-circles {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -3231,19 +4658,38 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   width: 100%;
   justify-items: center;
 }
+
 .dash-feat-palette-circle {
   width: 18px;
   height: 18px;
   border-radius: 50%;
   animation: dash-feat-palette-pop 4s ease-in-out infinite;
 }
-.dash-feat-palette-circle:nth-child(2) { animation-delay: 0.5s; }
-.dash-feat-palette-circle:nth-child(3) { animation-delay: 1s; }
-.dash-feat-palette-circle:nth-child(4) { animation-delay: 1.5s; }
-@keyframes dash-feat-palette-pop {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.12); }
+
+.dash-feat-palette-circle:nth-child(2) {
+  animation-delay: 0.5s;
 }
+
+.dash-feat-palette-circle:nth-child(3) {
+  animation-delay: 1s;
+}
+
+.dash-feat-palette-circle:nth-child(4) {
+  animation-delay: 1.5s;
+}
+
+@keyframes dash-feat-palette-pop {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.12);
+  }
+}
+
 .dash-feat-palette-circle-glow {
   box-shadow: 0 0 6px rgba(74, 222, 128, 0.4);
 }
@@ -3252,12 +4698,14 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
 .dash-feat-illus-folders {
   padding: 3px;
 }
+
 .dash-feat-sidebar-list {
   display: flex;
   flex-direction: column;
   gap: 2px;
   width: 100%;
 }
+
 /* Folder row */
 .dash-feat-sidebar-item {
   display: flex;
@@ -3266,17 +4714,32 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   padding: 3px 4px;
   border-radius: 3px;
 }
+
 .dash-feat-sidebar-chevron {
   font-size: 5px;
   line-height: 1;
   transition: transform 0.3s;
   animation: dash-feat-chevron-rotate 5s ease-in-out infinite;
 }
+
 @keyframes dash-feat-chevron-rotate {
-  0%, 15% { transform: rotate(0deg); }
-  20%, 75% { transform: rotate(90deg); }
-  80%, 100% { transform: rotate(0deg); }
+
+  0%,
+  15% {
+    transform: rotate(0deg);
+  }
+
+  20%,
+  75% {
+    transform: rotate(90deg);
+  }
+
+  80%,
+  100% {
+    transform: rotate(0deg);
+  }
 }
+
 /* Nested pages that slide out */
 .dash-feat-sidebar-nested {
   display: flex;
@@ -3286,11 +4749,28 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   overflow: hidden;
   animation: dash-feat-nested-expand 5s ease-in-out infinite;
 }
+
 @keyframes dash-feat-nested-expand {
-  0%, 15% { max-height: 0; opacity: 0; }
-  25%, 70% { max-height: 40px; opacity: 1; }
-  80%, 100% { max-height: 0; opacity: 0; }
+
+  0%,
+  15% {
+    max-height: 0;
+    opacity: 0;
+  }
+
+  25%,
+  70% {
+    max-height: 40px;
+    opacity: 1;
+  }
+
+  80%,
+  100% {
+    max-height: 0;
+    opacity: 0;
+  }
 }
+
 .dash-feat-sidebar-page {
   display: flex;
   align-items: center;
@@ -3300,20 +4780,40 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   opacity: 0;
   transform: translateY(-4px);
 }
+
 .dash-feat-sidebar-page-1 {
   animation: dash-feat-page-slide-in 5s 0.3s ease-out infinite;
 }
+
 .dash-feat-sidebar-page-2 {
   animation: dash-feat-page-slide-in 5s 0.45s ease-out infinite;
 }
+
 .dash-feat-sidebar-page-3 {
   animation: dash-feat-page-slide-in 5s 0.6s ease-out infinite;
 }
+
 @keyframes dash-feat-page-slide-in {
-  0%, 18% { opacity: 0; transform: translateY(-4px); }
-  28%, 68% { opacity: 1; transform: translateY(0); }
-  78%, 100% { opacity: 0; transform: translateY(-4px); }
+
+  0%,
+  18% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  28%,
+  68% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  78%,
+  100% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
 }
+
 /* Tag chip on each page */
 .dash-feat-sidebar-tag {
   width: 8px;
@@ -3329,6 +4829,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   flex-direction: column;
   gap: 3px;
 }
+
 .dash-feat-export-doc {
   width: 28px;
   height: 22px;
@@ -3339,17 +4840,28 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   gap: 2px;
   padding: 4px 3px;
 }
+
 .dash-feat-export-arrow {
   animation: dash-feat-export-bounce 3s ease-in-out infinite;
 }
+
 @keyframes dash-feat-export-bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(3px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(3px);
+  }
 }
+
 .dash-feat-export-formats {
   display: flex;
   gap: 2px;
 }
+
 .dash-feat-export-fmt {
   font-size: 5px;
   font-weight: 700;
@@ -3360,13 +4872,37 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   opacity: 0;
   animation: dash-feat-export-fmt-show 3s ease-in-out infinite;
 }
-.dash-feat-export-fmt-1 { animation-delay: 0.3s; }
-.dash-feat-export-fmt-2 { animation-delay: 0.6s; }
-.dash-feat-export-fmt-3 { animation-delay: 0.9s; }
+
+.dash-feat-export-fmt-1 {
+  animation-delay: 0.3s;
+}
+
+.dash-feat-export-fmt-2 {
+  animation-delay: 0.6s;
+}
+
+.dash-feat-export-fmt-3 {
+  animation-delay: 0.9s;
+}
+
 @keyframes dash-feat-export-fmt-show {
-  0%, 15% { opacity: 0; transform: translateY(-3px); }
-  30%, 80% { opacity: 1; transform: translateY(0); }
-  95%, 100% { opacity: 0; }
+
+  0%,
+  15% {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+
+  30%,
+  80% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  95%,
+  100% {
+    opacity: 0;
+  }
 }
 
 /* ── Block Menu illustration ── */
@@ -3376,6 +4912,7 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   gap: 3px;
   align-items: center;
 }
+
 .dash-feat-bm-plus {
   width: 16px;
   height: 16px;
@@ -3386,17 +4923,30 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   justify-content: center;
   animation: dash-feat-bm-pulse 3.5s ease-in-out infinite;
 }
+
 @keyframes dash-feat-bm-pulse {
-  0%, 100% { transform: scale(1); }
-  15% { transform: scale(1.15); }
-  30% { transform: scale(1); }
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  15% {
+    transform: scale(1.15);
+  }
+
+  30% {
+    transform: scale(1);
+  }
 }
+
 .dash-feat-bm-items {
   display: flex;
   flex-direction: column;
   gap: 2px;
   width: 100%;
 }
+
 .dash-feat-bm-item {
   display: flex;
   align-items: center;
@@ -3406,12 +4956,36 @@ html body .fallout .codex-editor .ce-toolbar__actions:hover {
   opacity: 0;
   animation: dash-feat-bm-item-show 3.5s ease-out infinite;
 }
-.dash-feat-bm-item-1 { animation-delay: 0.3s; }
-.dash-feat-bm-item-2 { animation-delay: 0.5s; }
-.dash-feat-bm-item-3 { animation-delay: 0.7s; }
-@keyframes dash-feat-bm-item-show {
-  0%, 10% { opacity: 0; transform: translateY(-3px); }
-  25%, 75% { opacity: 1; transform: translateY(0); }
-  90%, 100% { opacity: 0; transform: translateY(0); }
+
+.dash-feat-bm-item-1 {
+  animation-delay: 0.3s;
 }
 
+.dash-feat-bm-item-2 {
+  animation-delay: 0.5s;
+}
+
+.dash-feat-bm-item-3 {
+  animation-delay: 0.7s;
+}
+
+@keyframes dash-feat-bm-item-show {
+
+  0%,
+  10% {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+
+  25%,
+  75% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  90%,
+  100% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+}

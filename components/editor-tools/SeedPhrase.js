@@ -41,6 +41,8 @@ export default class SeedPhrase {
     }
     this._element = null
     this._bip39 = null
+    // Start blurred if there are any words entered
+    this._revealed = !this._data.words.some(w => w.length > 0)
     this._loadBip39()
   }
 
@@ -69,10 +71,27 @@ export default class SeedPhrase {
     titleEl.textContent = 'Seed Phrase'
     header.appendChild(titleEl)
 
-    if (!this.readOnly) {
-      const controls = document.createElement('div')
-      controls.classList.add('dash-seed-controls')
+    const controls = document.createElement('div')
+    controls.classList.add('dash-seed-controls')
 
+    // Reveal/hide toggle — always available (even in readOnly)
+    const revealBtn = document.createElement('button')
+    revealBtn.classList.add('dash-seed-reveal')
+    revealBtn.type = 'button'
+    revealBtn.innerHTML = this._revealed ? this._eyeOffIcon() : this._eyeIcon()
+    revealBtn.title = this._revealed ? 'Hide phrase' : 'Reveal phrase'
+    revealBtn.addEventListener('click', () => {
+      this._revealed = !this._revealed
+      revealBtn.innerHTML = this._revealed ? this._eyeOffIcon() : this._eyeIcon()
+      revealBtn.title = this._revealed ? 'Hide phrase' : 'Reveal phrase'
+      const grid = this._element.querySelector('.dash-seed-grid')
+      if (grid) {
+        grid.classList.toggle('dash-seed-blurred', !this._revealed)
+      }
+    })
+    controls.appendChild(revealBtn)
+
+    if (!this.readOnly) {
       // 12/24 toggle
       const toggle = document.createElement('button')
       toggle.classList.add('dash-seed-toggle')
@@ -95,9 +114,9 @@ export default class SeedPhrase {
       copyBtn.type = 'button'
       copyBtn.addEventListener('click', () => this._handleCopy(copyBtn))
       controls.appendChild(copyBtn)
-
-      header.appendChild(controls)
     }
+
+    header.appendChild(controls)
 
     this._element.appendChild(header)
 
@@ -105,6 +124,9 @@ export default class SeedPhrase {
     const grid = document.createElement('div')
     grid.classList.add('dash-seed-grid')
     grid.classList.add(this._data.count === 24 ? 'dash-seed-grid-24' : 'dash-seed-grid-12')
+    if (!this._revealed) {
+      grid.classList.add('dash-seed-blurred')
+    }
 
     for (let i = 0; i < this._data.count; i++) {
       const cell = document.createElement('div')
@@ -216,6 +238,14 @@ export default class SeedPhrase {
         btn.classList.remove('dash-seed-copied')
       }, 2000)
     } catch {}
+  }
+
+  _eyeIcon() {
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>'
+  }
+
+  _eyeOffIcon() {
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg>'
   }
 
   save() {
