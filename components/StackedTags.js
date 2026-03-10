@@ -77,7 +77,7 @@ export default function StackedTags({
     const explicit = tagColorMap && typeof tagColorMap[tag] === 'string' ? ensureHex(tagColorMap[tag]) : null
     if (explicit) {
       return {
-        classes: `${currentTheme === 'dark' ? 'text-[#ececec]' : 'text-gray-800'}`,
+        classes: '',
         style: getTagChipStyle(explicit, currentTheme)
       }
     }

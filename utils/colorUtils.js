@@ -34,16 +34,6 @@ export function lightenHex (hex, percent = 78) {
   return `#${toHex(lr)}${toHex(lg)}${toHex(lb)}`
 }
 
-function luminance (hex) {
-  const rgb = hexToRgb(hex)
-  if (!rgb) return 1
-  const srgb = [rgb.r, rgb.g, rgb.b].map(v => {
-    const c = v / 255
-    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
-  })
-  return 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2]
-}
-
 function darkenHex (hex, percent = 20) {
   const rgb = hexToRgb(hex)
   if (!rgb) return hex
@@ -58,11 +48,11 @@ export function getTagChipStyle (hex, theme) {
   const base = normalizeHex(hex) || '#a3a3a3'
   
   if (theme === 'fallout') {
-    // Fallout theme - keep existing green-tinted styling for consistency
-    const bg = lightenHex(base, 78)
-    const lum = luminance(bg)
-    const textColor = lum > 0.6 ? '#111827' : '#F9FAFB'
-    return { backgroundColor: bg, borderColor: base, color: textColor }
+    // Fallout theme - dark background with green-tinted text (matches terminal aesthetic)
+    const darkBg = darkenHex(base, 65)
+    const brightText = lightenHex(base, 40)
+    const subtleBorder = darkenHex(base, 40)
+    return { backgroundColor: darkBg, borderColor: subtleBorder, color: brightText }
   } else if (theme === 'darkblue') {
     // Dark Blue theme - navy-tinted dark background with bright text
     const darkBg = darkenHex(base, 65) // Slightly darker background for navy feel
