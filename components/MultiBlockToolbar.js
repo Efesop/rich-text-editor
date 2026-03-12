@@ -148,13 +148,21 @@ export default class MultiBlockTuneEnhancer {
     if (event.key === 'Escape') {
       this.hidePopover()
       this.hideSettingsButton()
+      this.previouslySelectedBlocks.clear()
+      this.showEditorToolbar()
     }
   }
 
   handleClickOutside(event) {
-    if (this._popover && !this._popover.contains(event.target) &&
-        !this._settingsBtn.contains(event.target)) {
+    const onBtn = this._settingsBtn && this._settingsBtn.contains(event.target)
+    const onPopover = this._popover && this._popover.contains(event.target)
+
+    if (!onBtn && !onPopover) {
+      // Clicked outside — clear everything
+      this.previouslySelectedBlocks.clear()
       this.hidePopover()
+      this.hideSettingsButton()
+      this.showEditorToolbar()
     }
   }
 
@@ -197,10 +205,13 @@ export default class MultiBlockTuneEnhancer {
   }
 
   updateSelection() {
-    // Don't clear selection while popover is open — restore it instead
-    if (this._popover && this.previouslySelectedBlocks.size > 1) {
+    // Don't clear selection while popover is open or settings button is active — restore it instead
+    const settingsVisible = this._settingsBtn && this._settingsBtn.style.display === 'flex'
+    if ((this._popover || settingsVisible) && this.previouslySelectedBlocks.size > 1) {
       this.restoreVisualSelection()
-      return
+      // Re-count after restoring
+      const restoredCount = document.querySelectorAll('.ce-block--selected').length
+      if (restoredCount > 1) return
     }
 
     const selectedElements = document.querySelectorAll('.ce-block--selected')
@@ -226,9 +237,11 @@ export default class MultiBlockTuneEnhancer {
       })
       this.lastMultiSelectionTime = Date.now()
       this.positionSettingsButton()
+      this.hideEditorToolbar()
     } else {
       this.hideSettingsButton()
       this.hidePopover()
+      this.showEditorToolbar()
     }
   }
 
@@ -484,6 +497,7 @@ export default class MultiBlockTuneEnhancer {
     this.previouslySelectedBlocks.clear()
     this.hideSettingsButton()
     this.hidePopover()
+    this.showEditorToolbar()
   }
 
   showNotification(message, type = 'success') {
@@ -518,6 +532,16 @@ export default class MultiBlockTuneEnhancer {
     }, 3000)
   }
 
+  hideEditorToolbar() {
+    const toolbar = document.querySelector('.ce-toolbar')
+    if (toolbar) toolbar.style.display = 'none'
+  }
+
+  showEditorToolbar() {
+    const toolbar = document.querySelector('.ce-toolbar')
+    if (toolbar) toolbar.style.display = ''
+  }
+
   destroy() {
     document.removeEventListener('mouseup', this.handleSelection)
     document.removeEventListener('keydown', this.handleKeyDown)
@@ -529,6 +553,8 @@ export default class MultiBlockTuneEnhancer {
     if (editorHolder && this.handleMouseLeave) {
       editorHolder.removeEventListener('mouseleave', this.handleMouseLeave)
     }
+
+    this.showEditorToolbar()
 
     if (this._selectionInterval) {
       clearInterval(this._selectionInterval)

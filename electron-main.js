@@ -662,6 +662,13 @@ function setupAutoUpdater() {
     updateManager.isCheckingForUpdates = false
     updateManager.isDownloading = false
 
+    // Silently swallow 404 / missing release artifact errors — not actionable by user
+    const msg = error.message || ''
+    if (msg.includes('404') || msg.includes('Cannot find latest') || msg.includes('HttpError')) {
+      log.info('Suppressed non-actionable update error (missing release artifact)')
+      return
+    }
+
     if (mainWindow) {
       mainWindow.webContents.send('update-error', {
         message: error.message,

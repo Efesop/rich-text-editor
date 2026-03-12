@@ -743,6 +743,11 @@
   color: rgba(34, 197, 94, 0.4);
 }
 
+/* Push + and drag-handle icons further from block content */
+.codex-editor .ce-toolbar__actions {
+  padding-right: 12px;
+}
+
 /* Editor.js dark mode styles */
 .dark .codex-editor .ce-toolbar__content,
 .dark .codex-editor .ce-block__content,
@@ -768,6 +773,19 @@
 .dark .codex-editor .ce-conversion-tool:hover,
 .dark .codex-editor .ce-settings__button:hover {
   background-color: #3a3a3a;
+}
+
+/* Block selection highlight for dark themes */
+.dark .codex-editor .ce-block--selected .ce-block__content {
+  background: rgba(59, 130, 246, 0.15) !important;
+}
+
+.darkblue .codex-editor .ce-block--selected .ce-block__content {
+  background: rgba(59, 130, 246, 0.15) !important;
+}
+
+.fallout .codex-editor .ce-block--selected .ce-block__content {
+  background: rgba(34, 197, 94, 0.25) !important;
 }
 
 /* Ensure inline toolbar items are visible in dark mode */
@@ -2173,8 +2191,7 @@ button:focus {
 }
 
 /* Remove unwanted hover effects on blocks */
-.fallout .codex-editor .ce-block:hover .ce-block__content,
-.fallout .codex-editor .ce-block--selected .ce-block__content {
+.fallout .codex-editor .ce-block:hover .ce-block__content {
   background: transparent !important;
   box-shadow: none !important;
   border: none !important;

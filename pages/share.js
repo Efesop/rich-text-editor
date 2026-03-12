@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Head from 'next/head'
+import DOMPurify from 'dompurify'
 import { decryptSharePayload } from '@/utils/shareDecrypt'
 
 /**
@@ -56,27 +57,13 @@ function renderBlocks(blocks) {
 }
 
 function sanitize(html) {
-  const allowed = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'LI', 'BLOCKQUOTE', 'PRE', 'CODE',
-    'STRONG', 'EM', 'B', 'I', 'U', 'A', 'BR', 'HR', 'TABLE', 'TR', 'TD', 'TH', 'FIGURE', 'FIGCAPTION',
-    'IMG', 'CITE', 'MARK', 'S', 'SUB', 'SUP', 'SPAN', 'DIV']
-  const el = document.createElement('div')
-  el.innerHTML = html
-  el.querySelectorAll('script,iframe,object,embed,form,input,textarea,button,link,style').forEach(function (n) { n.remove() })
-  el.querySelectorAll('*').forEach(function (n) {
-    if (allowed.indexOf(n.tagName) === -1 && n.tagName !== 'TBODY' && n.tagName !== 'THEAD') {
-      n.outerHTML = n.innerHTML
-    }
-    Array.from(n.attributes).forEach(function (a) {
-      if (a.name.startsWith('on')) n.removeAttribute(a.name)
-      if (a.name === 'href' || a.name === 'src') {
-        const v = a.value.trim().toLowerCase()
-        if (v.startsWith('javascript:') || v.startsWith('vbscript:') || v.startsWith('data:text')) {
-          n.removeAttribute(a.name)
-        }
-      }
-    })
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code',
+      'strong', 'em', 'b', 'i', 'u', 'a', 'br', 'hr', 'table', 'tbody', 'thead', 'tr', 'td', 'th',
+      'figure', 'figcaption', 'img', 'cite', 'mark', 's', 'sub', 'sup', 'span', 'div'],
+    ALLOWED_ATTR: ['href', 'src', 'alt', 'style'],
+    ALLOW_DATA_ATTR: false
   })
-  return el.innerHTML
 }
 
 export default function SharePage() {
