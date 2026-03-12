@@ -1,4 +1,5 @@
 import DOMPurify from 'isomorphic-dompurify'
+import { queuePasteItems } from '../../utils/pasteQueue'
 
 const BULLET_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><line x1="9" x2="19" y1="7" y2="7" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><line x1="9" x2="19" y1="12" y2="12" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><line x1="9" x2="19" y1="17" y2="17" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M5.00001 17H4.99002"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M5.00001 12H4.99002"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M5.00001 7H4.99002"/></svg>'
 
@@ -23,6 +24,12 @@ export default class BulletListItem {
 
   static get isReadOnlySupported() {
     return true
+  }
+
+  static get pasteConfig() {
+    return {
+      tags: ['UL', 'LI']
+    }
   }
 
   static get sanitize() {
@@ -53,6 +60,51 @@ export default class BulletListItem {
     this.readOnly = readOnly
     this._data = { text: data.text || '' }
     this._element = null
+  }
+
+  onPaste(event) {
+    const element = event.detail.data
+    const items = this._extractListItems(element)
+    if (items.length === 0) return
+
+    this._data.text = items[0]
+    if (this._element) {
+      this._element.innerHTML = DOMPurify.sanitize(items[0])
+    }
+
+    // Defer remaining items — inserting during onPaste conflicts with Editor.js paste flow
+    if (items.length > 1) {
+      queuePasteItems(this.api.blocks, this._element, items.slice(1), 'bulletListItem')
+    }
+  }
+
+  _extractListItems(element) {
+    const items = []
+    if (element.tagName === 'LI') {
+      items.push(this._getItemContent(element))
+    } else {
+      const lis = element.querySelectorAll(':scope > li')
+      lis.forEach(li => items.push(this._getItemContent(li)))
+    }
+    return items.filter(text => text.trim() !== '')
+  }
+
+  _getItemContent(li) {
+    const clone = li.cloneNode(true)
+    // Remove nested lists (they'd be separate blocks)
+    clone.querySelectorAll('ul, ol').forEach(el => el.remove())
+    let html = clone.innerHTML.trim()
+    // Auto-link bare URLs that aren't already inside <a> tags
+    html = BulletListItem._autoLinkUrls(html)
+    return DOMPurify.sanitize(html)
+  }
+
+  static _autoLinkUrls(html) {
+    const parts = html.split(/(<a[^>]*>.*?<\/a>)/gi)
+    return parts.map(part => {
+      if (part.match(/^<a\s/i)) return part
+      return part.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
+    }).join('')
   }
 
   render() {

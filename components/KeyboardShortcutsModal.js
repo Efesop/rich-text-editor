@@ -41,6 +41,15 @@ export function KeyboardShortcutsModal({ isOpen, onClose, theme }) {
         { label: 'Undo', keys: [mod, 'Z'] },
         { label: 'Redo', keys: [mod, 'Shift', 'Z'] }
       ]
+    },
+    {
+      title: 'Selection',
+      shortcuts: [
+        { label: 'Select multiple blocks', keys: ['Drag', 'across blocks'] },
+        { label: 'Add block to selection', keys: [mod, 'Click'] },
+        { label: 'Deselect block', keys: [mod, 'Click'] },
+        { label: 'Clear selection', keys: ['Esc'] }
+      ]
     }
   ], [mod])
 

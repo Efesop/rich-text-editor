@@ -1,4 +1,5 @@
 import DOMPurify from 'isomorphic-dompurify'
+import { queuePasteItems } from '../../utils/pasteQueue'
 
 const ORDERED_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><line x1="12" x2="19" y1="7" y2="7" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><line x1="12" x2="19" y1="12" y2="12" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><line x1="12" x2="19" y1="17" y2="17" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M7.79999 14L7.79999 7.2135C7.79999 7.12872 7.7011 7.0824 7.63597 7.13668L4.79999 9.5"/></svg>'
 
@@ -23,6 +24,12 @@ export default class NumberedListItem {
 
   static get isReadOnlySupported() {
     return true
+  }
+
+  static get pasteConfig() {
+    return {
+      tags: ['OL']
+    }
   }
 
   static get sanitize() {
@@ -67,6 +74,49 @@ export default class NumberedListItem {
     this.readOnly = readOnly
     this._data = { text: data.text || '' }
     this._element = null
+  }
+
+  onPaste(event) {
+    const element = event.detail.data
+    const items = this._extractListItems(element)
+    if (items.length === 0) return
+
+    this._data.text = items[0]
+    if (this._element) {
+      this._element.innerHTML = DOMPurify.sanitize(items[0])
+    }
+
+    // Defer remaining items — inserting during onPaste conflicts with Editor.js paste flow
+    if (items.length > 1) {
+      queuePasteItems(this.api.blocks, this._element, items.slice(1), 'numberedListItem')
+    }
+  }
+
+  _extractListItems(element) {
+    const items = []
+    if (element.tagName === 'LI') {
+      items.push(this._getItemContent(element))
+    } else {
+      const lis = element.querySelectorAll(':scope > li')
+      lis.forEach(li => items.push(this._getItemContent(li)))
+    }
+    return items.filter(text => text.trim() !== '')
+  }
+
+  _getItemContent(li) {
+    const clone = li.cloneNode(true)
+    clone.querySelectorAll('ul, ol').forEach(el => el.remove())
+    let html = clone.innerHTML.trim()
+    html = NumberedListItem._autoLinkUrls(html)
+    return DOMPurify.sanitize(html)
+  }
+
+  static _autoLinkUrls(html) {
+    const parts = html.split(/(<a[^>]*>.*?<\/a>)/gi)
+    return parts.map(part => {
+      if (part.match(/^<a\s/i)) return part
+      return part.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
+    }).join('')
   }
 
   render() {

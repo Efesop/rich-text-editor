@@ -966,6 +966,36 @@
   color: #4ade80;
 }
 
+/* Regular links in editor blocks */
+.ce-block a:not(.page-link):not(.page-link-broken) {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.ce-block a:not(.page-link):not(.page-link-broken):hover {
+  color: #1d4ed8;
+}
+.dark .ce-block a:not(.page-link):not(.page-link-broken) {
+  color: #60a5fa;
+}
+.dark .ce-block a:not(.page-link):not(.page-link-broken):hover {
+  color: #93bbfd;
+}
+.darkblue .ce-block a:not(.page-link):not(.page-link-broken) {
+  color: #60a5fa;
+}
+.darkblue .ce-block a:not(.page-link):not(.page-link-broken):hover {
+  color: #93bbfd;
+}
+.fallout .ce-block a:not(.page-link):not(.page-link-broken) {
+  color: #4ade80;
+  font-family: var(--font-mono, monospace);
+}
+.fallout .ce-block a:not(.page-link):not(.page-link-broken):hover {
+  color: #86efac;
+}
+
 /* Page link (wiki link) styling */
 .page-link,
 .ce-block a.page-link {

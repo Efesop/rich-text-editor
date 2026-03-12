@@ -35,6 +35,7 @@ export default class MultiBlockTuneEnhancer {
     this.previouslySelectedBlocks = new Set()
     this.lastMultiSelectionTime = 0
     this.preservedSelection = null
+    this._cmdClickActive = false
     this._settingsBtn = null
     this._popover = null
 
@@ -58,6 +59,7 @@ export default class MultiBlockTuneEnhancer {
     this._settingsBtn = document.createElement('div')
     this._settingsBtn.className = 'multi-block-settings-btn'
     this._settingsBtn.innerHTML = SETTINGS_ICON
+    this._settingsBtn.title = '⌘+Click blocks to select more'
     this._settingsBtn.style.cssText = `
       position: absolute;
       display: none;
@@ -105,7 +107,7 @@ export default class MultiBlockTuneEnhancer {
   setupEventListeners() {
     document.addEventListener('mouseup', this.handleSelection, { passive: true })
     document.addEventListener('keydown', this.handleKeyDown, { passive: true })
-    document.addEventListener('mousedown', this.handleClickOutside, { passive: true })
+    document.addEventListener('mousedown', this.handleClickOutside)
 
     this.handleWindowBlur = () => {
       if (this.selectedBlocks.size > 0) {
@@ -149,6 +151,7 @@ export default class MultiBlockTuneEnhancer {
       this.hidePopover()
       this.hideSettingsButton()
       this.previouslySelectedBlocks.clear()
+      this._cmdClickActive = false
       this.showEditorToolbar()
     }
   }
@@ -157,9 +160,88 @@ export default class MultiBlockTuneEnhancer {
     const onBtn = this._settingsBtn && this._settingsBtn.contains(event.target)
     const onPopover = this._popover && this._popover.contains(event.target)
 
+    // Cmd+click to toggle individual blocks in/out of selection
+    if (event.metaKey || event.ctrlKey) {
+      const clickedBlock = event.target.closest('.ce-block')
+      if (clickedBlock) {
+        event.preventDefault()
+        event.stopPropagation()
+        this._cmdClickActive = true
+        const blockIndex = this.getBlockIndex(clickedBlock)
+        if (blockIndex === -1) return
+
+        // First Cmd+click: absorb any existing selection (drag-selected or focused block)
+        if (this.previouslySelectedBlocks.size === 0) {
+          // Pick up blocks already highlighted via drag-select
+          const alreadySelected = document.querySelectorAll('.ce-block--selected')
+          alreadySelected.forEach(el => {
+            const idx = this.getBlockIndex(el)
+            if (idx !== -1 && idx !== blockIndex) {
+              try {
+                const b = this.editor.blocks.getBlockByIndex(idx)
+                if (b && b.id) {
+                  this.previouslySelectedBlocks.add(b.id)
+                  this.selectedBlocks.add(idx)
+                }
+              } catch {}
+            }
+          })
+
+          // If still empty, add the currently focused/cursor block
+          if (this.previouslySelectedBlocks.size === 0) {
+            try {
+              const currentIdx = this.editor.blocks.getCurrentBlockIndex()
+              if (currentIdx !== -1 && currentIdx !== blockIndex) {
+                const currentBlock = this.editor.blocks.getBlockByIndex(currentIdx)
+                if (currentBlock && currentBlock.id) {
+                  this.previouslySelectedBlocks.add(currentBlock.id)
+                  this.selectedBlocks.add(currentIdx)
+                  if (currentBlock.holder) {
+                    currentBlock.holder.classList.add('ce-block--selected')
+                  }
+                }
+              }
+            } catch {}
+          }
+        }
+
+        // Get block ID for tracking
+        let blockId = null
+        try {
+          const block = this.editor.blocks.getBlockByIndex(blockIndex)
+          if (block && block.id) blockId = block.id
+        } catch {}
+
+        if (clickedBlock.classList.contains('ce-block--selected') && blockId && this.previouslySelectedBlocks.has(blockId)) {
+          // Deselect this block
+          clickedBlock.classList.remove('ce-block--selected')
+          this.selectedBlocks.delete(blockIndex)
+          if (blockId) this.previouslySelectedBlocks.delete(blockId)
+        } else {
+          // Add this block to selection
+          clickedBlock.classList.add('ce-block--selected')
+          this.selectedBlocks.add(blockIndex)
+          if (blockId) this.previouslySelectedBlocks.add(blockId)
+        }
+
+        // Update UI based on new selection size
+        if (this.previouslySelectedBlocks.size >= 1) {
+          this.lastMultiSelectionTime = Date.now()
+          this.positionSettingsButton()
+          this.hideEditorToolbar()
+        } else {
+          this.hideSettingsButton()
+          this.hidePopover()
+          this.showEditorToolbar()
+        }
+        return
+      }
+    }
+
     if (!onBtn && !onPopover) {
       // Clicked outside — clear everything
       this.previouslySelectedBlocks.clear()
+      this._cmdClickActive = false
       this.hidePopover()
       this.hideSettingsButton()
       this.showEditorToolbar()
@@ -168,6 +250,11 @@ export default class MultiBlockTuneEnhancer {
 
   handleSelection(event) {
     if (event.target.closest('.multi-block-settings-btn, .multi-block-popover')) {
+      return
+    }
+
+    // Cmd+click is handled in handleClickOutside — don't override it here
+    if (event.metaKey || event.ctrlKey) {
       return
     }
 
@@ -207,11 +294,11 @@ export default class MultiBlockTuneEnhancer {
   updateSelection() {
     // Don't clear selection while popover is open or settings button is active — restore it instead
     const settingsVisible = this._settingsBtn && this._settingsBtn.style.display === 'flex'
-    if ((this._popover || settingsVisible) && this.previouslySelectedBlocks.size > 1) {
+    if ((this._popover || settingsVisible) && this.previouslySelectedBlocks.size >= 1) {
       this.restoreVisualSelection()
       // Re-count after restoring
       const restoredCount = document.querySelectorAll('.ce-block--selected').length
-      if (restoredCount > 1) return
+      if (restoredCount >= 1) return
     }
 
     const selectedElements = document.querySelectorAll('.ce-block--selected')
@@ -225,7 +312,11 @@ export default class MultiBlockTuneEnhancer {
       }
     })
 
-    if (this.selectedBlocks.size > 1) {
+    // Show settings button for 2+ blocks always, or 1 block if Cmd+clicked
+    const showSettings = this.selectedBlocks.size > 1 ||
+      (this.selectedBlocks.size === 1 && this._cmdClickActive)
+
+    if (showSettings) {
       this.previouslySelectedBlocks = new Set()
       this.selectedBlocks.forEach(index => {
         try {
@@ -239,6 +330,7 @@ export default class MultiBlockTuneEnhancer {
       this.positionSettingsButton()
       this.hideEditorToolbar()
     } else {
+      this._cmdClickActive = false
       this.hideSettingsButton()
       this.hidePopover()
       this.showEditorToolbar()
@@ -290,7 +382,7 @@ export default class MultiBlockTuneEnhancer {
   showPopover() {
     this.hidePopover()
 
-    if (this.previouslySelectedBlocks.size < 2) return
+    if (this.previouslySelectedBlocks.size < 1) return
 
     // Immediately restore visual selection in case Editor.js cleared it
     this.restoreVisualSelection()
@@ -307,8 +399,9 @@ export default class MultiBlockTuneEnhancer {
     `
 
     // Title
+    const count = this.previouslySelectedBlocks.size
     const title = document.createElement('div')
-    title.textContent = `Convert ${this.previouslySelectedBlocks.size} blocks`
+    title.textContent = count === 1 ? 'Convert to' : `Convert ${count} blocks`
     title.style.cssText = `
       padding: 8px 12px 4px;
       font-size: 11px;
@@ -495,6 +588,7 @@ export default class MultiBlockTuneEnhancer {
     selectedElements.forEach(el => el.classList.remove('ce-block--selected'))
     this.selectedBlocks.clear()
     this.previouslySelectedBlocks.clear()
+    this._cmdClickActive = false
     this.hideSettingsButton()
     this.hidePopover()
     this.showEditorToolbar()

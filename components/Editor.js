@@ -128,6 +128,16 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
         import('./editor-tools/SeedPhrase').then(m => m.default),
       ])
 
+      // Auto-link bare URLs in HTML (skip URLs already inside <a> tags)
+      const autoLinkUrls = (html) => {
+        if (!html || !html.includes('://')) return html
+        const parts = html.split(/(<a[^>]*>.*?<\/a>)/gi)
+        return parts.map(part => {
+          if (part.match(/^<a\s/i)) return part
+          return part.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
+        }).join('')
+      }
+
       // Enhanced Paragraph tool that preserves empty paragraphs and improves formatting
       const Paragraph = class extends OriginalParagraph {
         static get sanitize() {
@@ -152,9 +162,15 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
             }
           }
         }
-        
+
         validate(savedData) {
           return true
+        }
+
+        onPaste(event) {
+          const html = event.detail.data?.innerHTML || ''
+          const linked = autoLinkUrls(html)
+          this.data = { text: linked }
         }
 
         render() {
@@ -197,6 +213,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
           class: class extends NestedList {
             static get toolbox() { return false }
             static get conversionConfig() { return undefined }
+            static get pasteConfig() { return {} }
           },
           inlineToolbar: true,
           config: {
