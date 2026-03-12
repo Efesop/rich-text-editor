@@ -294,7 +294,12 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
           }
         },
         delimiter: {
-          class: Delimiter,
+          class: class extends Delimiter {
+            static get toolbox() {
+              const parent = Delimiter.toolbox
+              return { ...parent, title: 'Divider' }
+            }
+          },
         },
         underline: {
           class: Underline,

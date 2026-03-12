@@ -17,25 +17,28 @@ let _timer = null
  * Queue extra list items to be inserted after paste completes.
  *
  * @param {object} api - Editor.js blocks API
- * @param {HTMLElement} element - the rendered block element (used to find position)
+ * @param {object} toolInstance - the tool instance (we read ._element at flush time)
  * @param {string[]} items - HTML strings for each additional list item
  * @param {string} tool - tool name ('bulletListItem' or 'numberedListItem')
  */
-export function queuePasteItems(api, element, items, tool) {
-  _queue.push({ api, element, items, tool })
+export function queuePasteItems(api, toolInstance, items, tool) {
+  _queue.push({ api, toolInstance, items, tool })
   clearTimeout(_timer)
-  _timer = setTimeout(flushQueue, 150)
+  _timer = setTimeout(flushQueue, 200)
 }
 
 function flushQueue() {
-  // Process in document order (top to bottom) and offset for previously inserted blocks
   let inserted = 0
 
   for (const entry of _queue) {
+    // Read _element NOW (after render() has been called)
+    const element = entry.toolInstance._element
+    if (!element) continue
+
     const allBlocks = document.querySelectorAll('.ce-block')
     let idx = -1
     for (let i = 0; i < allBlocks.length; i++) {
-      if (allBlocks[i].contains(entry.element)) {
+      if (allBlocks[i].contains(element)) {
         idx = i
         break
       }
@@ -43,14 +46,13 @@ function flushQueue() {
     if (idx === -1) continue
 
     for (let i = 0; i < entry.items.length; i++) {
-      entry.api.blocks.insert(entry.tool, { text: entry.items[i] }, {}, idx + 1 + i, true)
+      entry.api.insert(entry.tool, { text: entry.items[i] }, {}, idx + 1 + i, true)
       inserted++
     }
   }
 
   _queue = []
 
-  // Renumber ordered lists if any were inserted
   if (inserted > 0 && typeof window !== 'undefined' && window._renumberListItems) {
     window._renumberListItems()
   }

@@ -74,7 +74,7 @@ export default class BulletListItem {
 
     // Defer remaining items — inserting during onPaste conflicts with Editor.js paste flow
     if (items.length > 1) {
-      queuePasteItems(this.api.blocks, this._element, items.slice(1), 'bulletListItem')
+      queuePasteItems(this.api.blocks, this, items.slice(1), 'bulletListItem')
     }
   }
 

@@ -88,7 +88,7 @@ export default class NumberedListItem {
 
     // Defer remaining items — inserting during onPaste conflicts with Editor.js paste flow
     if (items.length > 1) {
-      queuePasteItems(this.api.blocks, this._element, items.slice(1), 'numberedListItem')
+      queuePasteItems(this.api.blocks, this, items.slice(1), 'numberedListItem')
     }
   }
 
