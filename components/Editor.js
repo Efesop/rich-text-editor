@@ -170,7 +170,12 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
         onPaste(event) {
           const html = event.detail.data?.innerHTML || ''
           const linked = autoLinkUrls(html)
-          this.data = { text: linked }
+          this._data = { text: linked }
+          window.requestAnimationFrame(() => {
+            if (this._element) {
+              this._element.innerHTML = this._data.text || ''
+            }
+          })
         }
 
         render() {

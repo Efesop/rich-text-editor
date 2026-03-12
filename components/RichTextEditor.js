@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, Share2 } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, Share2, List } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
@@ -40,6 +40,7 @@ import { AddPageToFolderModal } from './AddPageToFolderModal'
 import { MoveToFolderModal } from './MoveToFolderModal'
 import { FolderIcon } from 'lucide-react'
 import UpdateNotification from './UpdateNotification'
+import MiniOutline from './MiniOutline'
 import EncryptionStatusIndicator from './EncryptionStatusIndicator'
 import { useUpdateManager } from '@/hooks/useUpdateManager'
 import { EditorErrorBoundary, SidebarErrorBoundary } from './ErrorBoundary'
@@ -73,6 +74,22 @@ import { decryptJsonWithPassphrase } from '@/utils/cryptoUtils'
 import { usePageLinkInterceptor, PageLinkDropdown, PageLinkInlineTool } from './editor-tools/PageLink'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
+
+function extractHeadings(blocks) {
+  if (!blocks) return []
+  return blocks
+    .map((block, index) => {
+      if (block.type === 'header') {
+        return {
+          blockIndex: index,
+          text: (block.data.text || '').replace(/<[^>]*>/g, ''),
+          level: block.data.level
+        }
+      }
+      return null
+    })
+    .filter(Boolean)
+}
 
 export default function RichTextEditor() {
   const {
@@ -169,6 +186,11 @@ export default function RichTextEditor() {
   const [isClient, setIsClient] = useState(false)
   const [isMacElectron, setIsMacElectron] = useState(false)
   const [wordCount, setWordCount] = useState(0)
+  const [outlineHeadings, setOutlineHeadings] = useState([])
+  const [showMiniOutline, setShowMiniOutline] = useState(() => {
+    try { return localStorage.getItem('dash-mini-outline') !== 'false' } catch { return true }
+  })
+  const editorScrollRef = useRef(null)
   const [pageToRename, setPageToRename] = useState(null)
   const [isNewPageRename, setIsNewPageRename] = useState(false)
   const [newPageTitle, setNewPageTitle] = useState('')
@@ -361,6 +383,9 @@ export default function RichTextEditor() {
   useEffect(() => {
     if (currentPage && currentPage.content) {
       setWordCount(calculateWordCount(currentPage.content))
+      setOutlineHeadings(extractHeadings(currentPage.content.blocks))
+    } else {
+      setOutlineHeadings([])
     }
   }, [currentPage])
 
@@ -409,6 +434,14 @@ export default function RichTextEditor() {
     setParagraphDimming(prev => {
       const next = !prev
       try { localStorage.setItem('dash-paragraph-dimming', String(next)) } catch {}
+      return next
+    })
+  }, [])
+
+  const toggleMiniOutline = useCallback(() => {
+    setShowMiniOutline(prev => {
+      const next = !prev
+      try { localStorage.setItem('dash-mini-outline', String(next)) } catch {}
       return next
     })
   }, [])
@@ -776,6 +809,7 @@ export default function RichTextEditor() {
   const handleEditorChange = useCallback(async (content) => {
     await savePage(content)
     setWordCount(calculateWordCount(content))
+    setOutlineHeadings(extractHeadings(content.blocks))
   }, [savePage])
 
   const handlePageSelect = (page) => {
@@ -2235,7 +2269,8 @@ export default function RichTextEditor() {
     </div>
 
         {/* Editor */ }
-  <div className={`flex-1 overflow-auto p-6 ${getMainContentClasses()} ${focusMode ? 'focus-mode-scroll pt-16' : ''} ${currentPage && selfDestructingPages.has(currentPage.id) ? 'pointer-events-none' : ''}`}>
+  <div className="flex-1 relative overflow-hidden">
+  <div ref={editorScrollRef} className={`h-full overflow-auto p-6 ${getMainContentClasses()} ${focusMode ? 'focus-mode-scroll pt-16' : ''} ${currentPage && selfDestructingPages.has(currentPage.id) ? 'pointer-events-none' : ''}`}>
     <div className={`${focusMode ? 'max-w-2xl mx-auto w-full' : ''} ${focusMode && paragraphDimming ? 'paragraph-dimming' : ''} ${focusMode && typewriterMode ? 'pb-[50vh]' : ''}`}>
       {currentPage && (
         <EditorErrorBoundary>
@@ -2249,6 +2284,15 @@ export default function RichTextEditor() {
         </EditorErrorBoundary>
       )}
     </div>
+  </div>
+  {currentPage && (
+    <MiniOutline
+      headings={outlineHeadings}
+      isVisible={showMiniOutline && !focusMode && outlineHeadings.length > 0}
+      theme={theme}
+      scrollContainerRef={editorScrollRef}
+    />
+  )}
   </div>
 
   {/* Footer */}
@@ -2285,6 +2329,18 @@ export default function RichTextEditor() {
         </button>
       )}
       <span>{wordCount} words</span>
+      <button
+        onClick={toggleMiniOutline}
+        className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-colors ${
+          theme === 'fallout' ? 'text-green-600 hover:text-green-400 hover:bg-green-900/30' :
+          theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0] hover:bg-[#2a2a2a]' :
+          theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5] hover:bg-[#1c2438]' :
+          'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100'
+        }`}
+        title={showMiniOutline ? 'Hide outline' : 'Show outline'}
+      >
+        <List size={12} className="pointer-events-none" />
+      </button>
       <div className="relative">
         <button
           onClick={() => {

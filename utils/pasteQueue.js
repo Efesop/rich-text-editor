@@ -18,13 +18,30 @@ let _timer = null
  *
  * @param {object} api - Editor.js blocks API
  * @param {object} toolInstance - the tool instance (we read ._element at flush time)
- * @param {string[]} items - HTML strings for each additional list item
- * @param {string} tool - tool name ('bulletListItem' or 'numberedListItem')
+ * @param {Array} items - Items to insert. Each can be:
+ *   - a string (text for the block)
+ *   - {text, checked} for checklist items
+ *   - {tool, data} for mixed-tool mode (each item specifies its own tool)
+ * @param {string|null} tool - tool name, or null if items use mixed-tool format
+ * @param {boolean} replaceFirst - if true, replace the source block with the first item
  */
-export function queuePasteItems(api, toolInstance, items, tool) {
-  _queue.push({ api, toolInstance, items, tool })
+export function queuePasteItems(api, toolInstance, items, tool, replaceFirst = false) {
+  _queue.push({ api, toolInstance, items, tool, replaceFirst })
   clearTimeout(_timer)
   _timer = setTimeout(flushQueue, 200)
+}
+
+function resolveItem(item, defaultTool) {
+  // Mixed-tool format: {tool, data}
+  if (item && typeof item === 'object' && item.tool && item.data) {
+    return { tool: item.tool, data: item.data }
+  }
+  // Object data (e.g. {text, checked})
+  if (item && typeof item === 'object') {
+    return { tool: defaultTool, data: item }
+  }
+  // Plain string
+  return { tool: defaultTool, data: { text: item } }
 }
 
 function flushQueue() {
@@ -32,7 +49,8 @@ function flushQueue() {
 
   for (const entry of _queue) {
     // Read _element NOW (after render() has been called)
-    const element = entry.toolInstance._element
+    // ChecklistItem uses _wrapper, BulletListItem/NumberedListItem use _element
+    const element = entry.toolInstance._wrapper || entry.toolInstance._element
     if (!element) continue
 
     const allBlocks = document.querySelectorAll('.ce-block')
@@ -45,8 +63,22 @@ function flushQueue() {
     }
     if (idx === -1) continue
 
+    if (entry.replaceFirst && entry.items.length > 0) {
+      const first = resolveItem(entry.items[0], entry.tool)
+      entry.api.insert(first.tool, first.data, {}, idx + 1, true)
+      entry.api.delete(idx)
+      for (let i = 1; i < entry.items.length; i++) {
+        const resolved = resolveItem(entry.items[i], entry.tool)
+        entry.api.insert(resolved.tool, resolved.data, {}, idx + i, true)
+        inserted++
+      }
+      inserted++
+      continue
+    }
+
     for (let i = 0; i < entry.items.length; i++) {
-      entry.api.insert(entry.tool, { text: entry.items[i] }, {}, idx + 1 + i, true)
+      const resolved = resolveItem(entry.items[i], entry.tool)
+      entry.api.insert(resolved.tool, resolved.data, {}, idx + 1 + i, true)
       inserted++
     }
   }

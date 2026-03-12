@@ -64,39 +64,76 @@ export default class BulletListItem {
 
   onPaste(event) {
     const element = event.detail.data
-    const items = this._extractListItems(element)
-    if (items.length === 0) return
+    const parsed = this._extractListItems(element)
+    if (parsed.length === 0) return
 
-    this._data.text = items[0]
+    const first = parsed[0]
+
+    // If the first item is a checklist item, replace this bullet block with a checklist block
+    if (first.isChecklist) {
+      this._data.text = first.text
+      if (this._element) {
+        this._element.innerHTML = DOMPurify.sanitize(first.text)
+      }
+      // Build all items to insert in order, replacing this block with the first one
+      const allItems = parsed.map(p => ({
+        tool: p.isChecklist ? 'checklistItem' : 'bulletListItem',
+        data: p.isChecklist ? { text: p.text, checked: p.checked } : { text: p.text }
+      }))
+      queuePasteItems(this.api.blocks, this, allItems, null, true)
+      return
+    }
+
+    this._data.text = first.text
     if (this._element) {
-      this._element.innerHTML = DOMPurify.sanitize(items[0])
+      this._element.innerHTML = DOMPurify.sanitize(first.text)
     }
 
     // Defer remaining items — inserting during onPaste conflicts with Editor.js paste flow
-    if (items.length > 1) {
-      queuePasteItems(this.api.blocks, this, items.slice(1), 'bulletListItem')
+    if (parsed.length > 1) {
+      const remaining = parsed.slice(1).map(p => ({
+        tool: p.isChecklist ? 'checklistItem' : 'bulletListItem',
+        data: p.isChecklist ? { text: p.text, checked: p.checked } : { text: p.text }
+      }))
+      queuePasteItems(this.api.blocks, this, remaining, null)
     }
   }
 
   _extractListItems(element) {
     const items = []
     if (element.tagName === 'LI') {
-      items.push(this._getItemContent(element))
+      items.push(this._parseListItem(element))
     } else {
       const lis = element.querySelectorAll(':scope > li')
-      lis.forEach(li => items.push(this._getItemContent(li)))
+      lis.forEach(li => items.push(this._parseListItem(li)))
     }
-    return items.filter(text => text.trim() !== '')
+    return items.filter(item => item.text.trim() !== '')
   }
 
-  _getItemContent(li) {
+  _parseListItem(li) {
+    const checkbox = li.querySelector('input[type="checkbox"]')
+    let isChecklist = !!checkbox
+    let checked = checkbox ? checkbox.checked : false
+
     const clone = li.cloneNode(true)
+    // Remove checkboxes from the content
+    clone.querySelectorAll('input[type="checkbox"]').forEach(el => el.remove())
     // Remove nested lists (they'd be separate blocks)
     clone.querySelectorAll('ul, ol').forEach(el => el.remove())
     let html = clone.innerHTML.trim()
-    // Auto-link bare URLs that aren't already inside <a> tags
+
+    // Detect text-based checkbox patterns: [x], [X], [ ] at start of text
+    if (!isChecklist) {
+      const textCheckbox = html.match(/^(\[([xX ])\])\s*/)
+      if (textCheckbox) {
+        isChecklist = true
+        checked = textCheckbox[2].toLowerCase() === 'x'
+        html = html.slice(textCheckbox[0].length)
+      }
+    }
+
     html = BulletListItem._autoLinkUrls(html)
-    return DOMPurify.sanitize(html)
+    return { text: DOMPurify.sanitize(html), isChecklist, checked }
   }
 
   static _autoLinkUrls(html) {
