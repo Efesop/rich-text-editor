@@ -1,8 +1,8 @@
 import React, { useRef, useEffect } from 'react'
 import { useTheme } from 'next-themes'
-import { Pencil, X, FileText } from 'lucide-react'
+import { Pencil, X } from 'lucide-react'
 
-export function RenameModal({ isOpen, onClose, onConfirm, title, onTitleChange }) {
+export function RenameModal({ isOpen, onClose, onConfirm, title, onTitleChange, isNew }) {
   const inputRef = useRef(null)
   const modalRef = useRef(null)
   const { theme } = useTheme()
@@ -87,13 +87,13 @@ export function RenameModal({ isOpen, onClose, onConfirm, title, onTitleChange }
                   text-lg font-semibold
                   ${isFallout ? 'text-green-400 font-mono' : isDarkBlue ? 'text-[#e0e6f0]' : isDark ? 'text-white' : 'text-gray-900'}
                 `}>
-                  Rename Page
+                  {isNew ? 'Name Your Page' : 'Rename Page'}
                 </h2>
                 <p className={`
                   text-sm mt-0.5
                   ${isFallout ? 'text-green-500/70 font-mono' : isDarkBlue ? 'text-[#8b99b5]' : isDark ? 'text-[#8e8e8e]' : 'text-gray-500'}
                 `}>
-                  Give your page a new name
+                  {isNew ? 'Give your new page a name' : 'Give your page a new name'}
                 </p>
               </div>
             </div>
@@ -118,30 +118,6 @@ export function RenameModal({ isOpen, onClose, onConfirm, title, onTitleChange }
 
         {/* Content */}
         <div className="p-6">
-          {/* Preview */}
-          <div className={`
-            mb-5 p-4 rounded-xl flex items-center gap-3
-            ${isFallout
-              ? 'bg-gray-800/50 border border-green-500/20'
-              : isDarkBlue
-                ? 'bg-[#0c1017]/50 border border-[#1c2438]'
-                : isDark
-                  ? 'bg-[#2f2f2f]/50 border border-[#3a3a3a]/50'
-                  : 'bg-gray-50 border border-gray-100'
-            }
-          `}>
-            <FileText className={`
-              w-6 h-6
-              ${isFallout ? 'text-green-400' : isDarkBlue ? 'text-blue-400' : isDark ? 'text-blue-400' : 'text-blue-500'}
-            `} />
-            <span className={`
-              text-base font-medium truncate
-              ${isFallout ? 'text-green-300 font-mono' : isDarkBlue ? 'text-[#e0e6f0]' : isDark ? 'text-[#ececec]' : 'text-gray-700'}
-            `}>
-              {title || 'Page title...'}
-            </span>
-          </div>
-
           {/* Input */}
           <div className="mb-6">
             <label className={`
@@ -213,7 +189,7 @@ export function RenameModal({ isOpen, onClose, onConfirm, title, onTitleChange }
                 }
               `}
             >
-              Rename
+              {isNew ? 'Create' : 'Rename'}
             </button>
           </div>
         </div>

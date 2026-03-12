@@ -2,6 +2,7 @@
 import MultiBlockTuneEnhancer from './MultiBlockToolbar'
 import { migrateEditorData } from '@/utils/migrateBlocks'
 import { PageLinkInlineTool } from './editor-tools/PageLink'
+import { stripImageMetadata } from '@/utils/imageUtils'
 
 export default function Editor({ data, onChange, holder, onPageLinkClick }) {
   const editorRef = useRef(null)
@@ -250,31 +251,13 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
 
           config: {
             uploader: {
-              uploadByFile(file) {
-                return new Promise((resolve, reject) => {
-                  try {
-                    const MAX_SIZE = 5 * 1024 * 1024 // 5MB
-                    if (file.size > MAX_SIZE) {
-                      reject(new Error('Image too large. Maximum size is 5MB.'))
-                      return
-                    }
-                    const reader = new FileReader()
-                    reader.onload = function (e) {
-                      resolve({
-                        success: 1,
-                        file: {
-                          url: e.target.result
-                        }
-                      })
-                    }
-                    reader.onerror = () => {
-                      reject(new Error('Failed to read file'))
-                    }
-                    reader.readAsDataURL(file)
-                  } catch (error) {
-                    reject(error)
-                  }
-                })
+              async uploadByFile (file) {
+                const MAX_SIZE = 5 * 1024 * 1024 // 5MB
+                if (file.size > MAX_SIZE) {
+                  throw new Error('Image too large. Maximum size is 5MB.')
+                }
+                const url = await stripImageMetadata(file)
+                return { success: 1, file: { url } }
               }
             },
             captionPlaceholder: 'Caption (optional)',

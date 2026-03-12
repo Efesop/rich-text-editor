@@ -29,13 +29,14 @@ Lock the entire app behind a password. All pages are encrypted with AES-256 when
 - Brute-force protection with escalating cooldowns
 - Password stored in system secure storage for biometric unlock
 
-### Duress Password
+### Decoy App
 
-A secondary password that triggers a panic action when entered at the lock screen. If someone forces you to unlock the app, entering the duress password silently wipes or hides your data instead of unlocking normally.
+A secondary password that shows fake decoy notes when entered at the lock screen. If someone forces you to unlock the app, entering the decoy password shows a convincing set of fake notes instead of your real data. Your actual notes stay encrypted and hidden on disk.
 
 - Configure in App Lock settings after enabling app lock
-- Choose between wipe (deletes all data) or hide (shows empty state)
-- Indistinguishable from a normal unlock attempt to an observer
+- Set up decoy notes that appear when the decoy password is used
+- Real data stays encrypted and untouched on disk
+- Indistinguishable from a normal unlock to an observer
 - Provides plausible deniability under coercion
 
 ### Self-Destructing Notes
@@ -46,6 +47,25 @@ Set any page to automatically delete itself after a time period. A live countdow
 - Custom timer with days, hours, and minutes precision
 - Live countdown badge visible in the sidebar
 - Deletion happens automatically even if the app is reopened later
+
+### Encrypted Sharing
+
+Share any note via an encrypted link. The note content is encrypted client-side using AES-256-GCM with a PBKDF2-derived key, then encoded into the URL fragment. The fragment never leaves the browser — no data is stored on any server. Recipients decrypt the note entirely in their browser.
+
+- Zero-knowledge: encrypted data lives in the URL fragment, never sent to a server
+- Optional password protection: separate the link from the decryption password for extra security
+- Password QR code: generate a QR code for the password to share via a different channel
+- Deep link support: recipients with Dash installed can import notes directly via `dashnotes://` protocol
+- Share page hosted at dash-share.vercel.app with full client-side decryption
+
+### Image Privacy (EXIF Stripping)
+
+Photos pasted into Dash are automatically stripped of EXIF metadata before being stored. GPS coordinates, camera model, lens information, timestamps, and other embedded metadata are removed. This prevents accidentally leaking location data or device information when sharing notes.
+
+- Strips GPS location, camera info, timestamps, and all other EXIF tags
+- Runs automatically on paste — no user action required
+- Works with JPEG and other image formats that contain EXIF data
+- Metadata removal happens locally, before the image is saved
 
 ### Seed Phrase Storage
 

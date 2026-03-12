@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, Share2 } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
@@ -66,6 +66,10 @@ import AppLockSetupModal from './AppLockSetupModal'
 import AppLockSettingsModal from './AppLockSettingsModal'
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal'
 import FeaturesPanel from './FeaturesPanel'
+import ShareModal from './ShareModal'
+import DecoyVaultSetupModal from './DecoyVaultSetupModal'
+import { readDecoyPages } from '@/lib/storage'
+import { decryptJsonWithPassphrase } from '@/utils/cryptoUtils'
 import { usePageLinkInterceptor, PageLinkDropdown, PageLinkInlineTool } from './editor-tools/PageLink'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
@@ -166,6 +170,7 @@ export default function RichTextEditor() {
   const [isMacElectron, setIsMacElectron] = useState(false)
   const [wordCount, setWordCount] = useState(0)
   const [pageToRename, setPageToRename] = useState(null)
+  const [isNewPageRename, setIsNewPageRename] = useState(false)
   const [newPageTitle, setNewPageTitle] = useState('')
   const [tagToEdit, setTagToEdit] = useState(null)
   const [searchFilter, setSearchFilter] = useState('all')
@@ -193,6 +198,8 @@ export default function RichTextEditor() {
   })
   const [isPassphraseOpen, setIsPassphraseOpen] = useState(false)
   const [pendingAction, setPendingAction] = useState(null) // 'export' | 'import'
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [isDecoySetupOpen, setIsDecoySetupOpen] = useState(false)
 
   // Drag and drop state
   const [activeDragItem, setActiveDragItem] = useState(null)
@@ -492,6 +499,53 @@ export default function RichTextEditor() {
     }
   }, [])
 
+  // Deep link handler — dash:// protocol opens shared notes
+  const pendingDeepLinkRef = useRef(null)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.electron?.on) return
+
+    const handler = async (hash) => {
+      // If app is locked, buffer for after unlock
+      if (useAppLockStore.getState().isLocked) {
+        pendingDeepLinkRef.current = hash
+        return
+      }
+      try {
+        const { decryptSharePayload } = await import('@/utils/shareDecrypt')
+        const dotIdx = hash.indexOf('.')
+        let json
+        if (dotIdx === -1) {
+          // Password-protected — no password in URL, prompt user
+          const pw = window.prompt('Enter the password for this shared note:')
+          if (!pw) return
+          json = await decryptSharePayload(pw.trim(), hash)
+        } else {
+          const pw = decodeURIComponent(hash.slice(0, dotIdx))
+          const data = hash.slice(dotIdx + 1)
+          json = await decryptSharePayload(pw, data)
+        }
+
+        const newPage = {
+          id: crypto.randomUUID(),
+          title: json.title || 'Imported Note',
+          content: json.content,
+          tags: [],
+          tagNames: [],
+          createdAt: new Date().toISOString(),
+          password: null
+        }
+
+        importPages([newPage])
+        setTimeout(() => navigateToPage(newPage), 100)
+      } catch (err) {
+        console.error('Deep link import failed:', err)
+      }
+    }
+
+    window.electron.on('deep-link-share', handler)
+    return () => window.electron.removeListener('deep-link-share', handler)
+  }, [importPages, navigateToPage])
+
   // Close lock dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -554,8 +608,42 @@ export default function RichTextEditor() {
       await window.electron.invoke('safe-storage-store', 'app-lock-password', password).catch(() => {})
     }
 
+    // Process any buffered deep link from while app was locked
+    if (pendingDeepLinkRef.current) {
+      const hash = pendingDeepLinkRef.current
+      pendingDeepLinkRef.current = null
+      setTimeout(async () => {
+        try {
+          const { decryptSharePayload } = await import('@/utils/shareDecrypt')
+          const dotIdx = hash.indexOf('.')
+          let json
+          if (dotIdx === -1) {
+            const pw = window.prompt('Enter the password for this shared note:')
+            if (!pw) return
+            json = await decryptSharePayload(pw.trim(), hash)
+          } else {
+            const pw = decodeURIComponent(hash.slice(0, dotIdx))
+            json = await decryptSharePayload(pw, hash.slice(dotIdx + 1))
+          }
+          const newPage = {
+            id: crypto.randomUUID(),
+            title: json.title || 'Imported Note',
+            content: json.content,
+            tags: [],
+            tagNames: [],
+            createdAt: new Date().toISOString(),
+            password: null
+          }
+          importPages([newPage])
+          setTimeout(() => navigateToPage(newPage), 100)
+        } catch (err) {
+          console.error('Deep link import failed:', err)
+        }
+      }, 500)
+    }
+
     return true
-  }, [appLock, decryptAllAppLockPages, recoverFromDuressMode])
+  }, [appLock, decryptAllAppLockPages, recoverFromDuressMode, importPages, navigateToPage])
 
   const handleBiometricUnlock = useCallback(async () => {
     if (typeof window !== 'undefined' && window.electron?.invoke) {
@@ -616,20 +704,32 @@ export default function RichTextEditor() {
   }, [appLock, removeAppLockEncryption])
 
   // Handle duress password unlock — triggers panic action
-  const handleDuressUnlock = useCallback((password) => {
+  const handleDuressUnlock = useCallback(async (password) => {
     if (!appLock.checkDuress(password)) return false
     if (window.__DASH_DEBUG) console.log('[duress] duress password entered — hiding data')
 
-    // Hide mode only: clear UI but keep encrypted data safe on disk
-    // Blocks ALL saves so disk data is never overwritten
-    // Data recoverable by locking again and entering real password
-    enterDuressHideMode()
+    // Try to load decoy pages for plausible deniability
+    let decoyPages = null
+    try {
+      const encrypted = await readDecoyPages()
+      if (encrypted) {
+        decoyPages = await decryptJsonWithPassphrase(encrypted, password)
+        if (!Array.isArray(decoyPages)) decoyPages = null
+      }
+    } catch {
+      // No decoy pages or decryption failed — will show empty app
+      decoyPages = null
+    }
+
+    // Hide mode: clear UI but keep encrypted data safe on disk
+    // Blocks ALL real saves so disk data is never overwritten
+    enterDuressHideMode(decoyPages, password)
     appLock.clearEncryptionKey()
 
     // Clear tags from UI so attacker can't see tag names
     useTagStore.setState({ tags: [] })
 
-    // Unlock the screen silently — attacker sees empty app
+    // Unlock the screen — attacker sees decoy notes (or empty app)
     useAppLockStore.setState({ isLocked: false })
 
     return true
@@ -808,6 +908,10 @@ export default function RichTextEditor() {
           setIsPassphraseOpen(true)
           break
         }
+        case 'encrypted-share': {
+          setIsShareModalOpen(true)
+          break
+        }
         default:
           console.error('Unsupported export type:', exportType)
       }
@@ -924,8 +1028,20 @@ export default function RichTextEditor() {
   const handleRenamePage = useCallback((page) => {
     setPageToRename(page)
     setNewPageTitle(page.title.slice(0, 50))
+    setIsNewPageRename(false)
     setIsRenameModalOpen(true)
   }, [])
+
+  const handleNewPageWithRename = useCallback(async () => {
+    const newPage = await handleNewPage()
+    if (newPage) {
+      setPageToRename(newPage)
+      setNewPageTitle('')
+      setIsNewPageRename(true)
+      setIsRenameModalOpen(true)
+    }
+    return newPage
+  }, [handleNewPage])
 
   const confirmRename = useCallback(async () => {
     if (pageToRename && newPageTitle && newPageTitle !== pageToRename.title) {
@@ -934,6 +1050,7 @@ export default function RichTextEditor() {
     setIsRenameModalOpen(false)
     setPageToRename(null)
     setNewPageTitle('')
+    setIsNewPageRename(false)
   }, [pageToRename, newPageTitle, renamePage])
 
   const handleToggleLock = useCallback((page) => {
@@ -1292,7 +1409,7 @@ export default function RichTextEditor() {
 
   // Initialize keyboard navigation after all functions are defined
   useKeyboardNavigation({
-    onNewPage: handleNewPage,
+    onNewPage: handleNewPageWithRename,
     onSavePage: () => savePage(currentPage?.content),
     onSearch: () => {
       setIsSearchModalOpen(true)
@@ -1758,7 +1875,7 @@ export default function RichTextEditor() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleNewPage}
+                onClick={handleNewPageWithRename}
                 className={`h-8 w-8 p-0 ${getButtonHoverClasses()}`}
                 title="New page"
               >
@@ -1940,8 +2057,9 @@ export default function RichTextEditor() {
                 </Button>
               )}
               <h1
-                className={`text-lg font-semibold cursor-pointer truncate ${theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-[#ececec]' : theme === 'darkblue' ? 'text-[#e0e6f0]' : 'text-neutral-900'}`}
+                className={`text-lg font-semibold cursor-pointer truncate py-1 px-1.5 -my-1 rounded-lg transition-colors ${theme === 'fallout' ? 'text-green-400 hover:bg-gray-800/50' : theme === 'dark' ? 'text-[#ececec] hover:bg-[#2f2f2f]/50' : theme === 'darkblue' ? 'text-[#e0e6f0] hover:bg-[#232b42]/50' : 'text-neutral-900 hover:bg-neutral-100'}`}
                 onClick={() => handleRenamePage(currentPage)}
+                title="Rename page"
               >
                 {currentPage?.title}
               </h1>
@@ -2002,6 +2120,13 @@ export default function RichTextEditor() {
               ) : (
                 <>
                   <ExportDropdown onExport={handleExport} className={`cursor-pointer ${getButtonHoverClasses()}`} />
+                  <button
+                    onClick={() => setIsShareModalOpen(true)}
+                    className={`p-2 rounded-lg cursor-pointer ${getButtonHoverClasses()}`}
+                    title="Share encrypted note"
+                  >
+                    <Share2 className="h-4 w-4 pointer-events-none" />
+                  </button>
                   {shouldShowMobileInstall() && (
                     <button
                       onClick={() => setIsInstallModalOpen(true)}
@@ -2221,10 +2346,11 @@ export default function RichTextEditor() {
 
       <RenameModal
         isOpen={isRenameModalOpen}
-        onClose={() => setIsRenameModalOpen(false)}
+        onClose={() => { setIsRenameModalOpen(false); setIsNewPageRename(false) }}
         onConfirm={confirmRename}
         title={newPageTitle}
         onTitleChange={setNewPageTitle}
+        isNew={isNewPageRename}
       />
 
       <TagModal
@@ -2357,6 +2483,20 @@ export default function RichTextEditor() {
         onClose={() => setIsUpdateDebuggerOpen(false)}
       /> */}
 
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        noteContent={currentPage?.content}
+        noteTitle={currentPage?.title}
+        theme={theme}
+      />
+
+      <DecoyVaultSetupModal
+        isOpen={isDecoySetupOpen}
+        onClose={() => setIsDecoySetupOpen(false)}
+        theme={theme}
+      />
+
       <PassphraseModal
         isOpen={isPassphraseOpen}
         onClose={() => setIsPassphraseOpen(false)}
@@ -2469,6 +2609,7 @@ export default function RichTextEditor() {
         onSetDuress={appLock.setDuress}
         onClearDuress={appLock.clearDuress}
         checkIsRealPassword={appLock.checkPassword}
+        onManageDecoy={() => setIsDecoySetupOpen(true)}
         theme={theme}
       />
 

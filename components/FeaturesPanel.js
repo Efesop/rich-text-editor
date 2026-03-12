@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react'
 import {
   X, Sparkles, Lock, ShieldCheck, ShieldAlert, Timer, KeyRound,
   Link, Code, GripVertical, Undo2, Search, Focus, Keyboard, Palette, Fingerprint,
-  FolderOpen, Download, Plus
+  FolderOpen, Download, Plus, Share2, ImageOff
 } from 'lucide-react'
 import { featuresList } from '@/lib/releaseNotes'
 
 const iconMap = {
   Lock, ShieldCheck, ShieldAlert, Timer, KeyRound,
   Link, Code, GripVertical, Undo2, Search, Focus, Keyboard, Palette, Sparkles,
-  FolderOpen, Download, Plus
+  FolderOpen, Download, Plus, Share2, ImageOff
 }
 
 const CATEGORIES = [
@@ -329,6 +329,55 @@ function FeatureIllustration({ animation, theme }) {
             <div className="dash-feat-bm-item dash-feat-bm-item-3" style={{ background: muted }}>
               <div style={{ background: accent, width: 4, height: 4, borderRadius: 1 }} />
               <div style={{ background: textMuted, width: 20, height: 2, borderRadius: 1 }} />
+            </div>
+          </div>
+        </div>
+      )
+
+    case 'share':
+      // Document with link chain flying out, encrypted
+      return (
+        <div className="dash-feat-illus dash-feat-illus-share">
+          <div className="dash-feat-share-doc" style={{ borderColor: muted, background: `${accent}08` }}>
+            <div style={{ background: textMuted, width: '70%', height: 2, borderRadius: 1 }} />
+            <div style={{ background: textMuted, width: '50%', height: 2, borderRadius: 1 }} />
+            <div style={{ background: textMuted, width: '60%', height: 2, borderRadius: 1 }} />
+          </div>
+          <div className="dash-feat-share-arrow" style={{ color: accent }}>
+            <Share2 size={10} />
+          </div>
+          <div className="dash-feat-share-link" style={{ borderColor: accent, background: `${accent}15` }}>
+            <div className="dash-feat-share-lock-icon" style={{ color: accent }}>
+              <Lock size={8} />
+            </div>
+            <div className="dash-feat-share-chain">
+              <div className="dash-feat-share-dot" style={{ background: accent }} />
+              <div className="dash-feat-share-line" style={{ background: `${accent}50` }} />
+              <div className="dash-feat-share-dot" style={{ background: accent }} />
+            </div>
+          </div>
+        </div>
+      )
+
+    case 'exif':
+      // Image thumbnail with metadata tags being stripped away
+      return (
+        <div className="dash-feat-illus dash-feat-illus-exif">
+          <div className="dash-feat-exif-img" style={{ borderColor: muted, background: `${accent}08` }}>
+            <div className="dash-feat-exif-landscape" style={{ background: `${accent}20` }}>
+              <div className="dash-feat-exif-mountain" style={{ borderBottomColor: accent }} />
+              <div className="dash-feat-exif-sun" style={{ background: accent }} />
+            </div>
+          </div>
+          <div className="dash-feat-exif-tags">
+            <div className="dash-feat-exif-tag dash-feat-exif-tag-1" style={{ background: `${textMuted}30`, color: textMuted }}>
+              <span style={{ fontSize: 5 }}>GPS</span>
+            </div>
+            <div className="dash-feat-exif-tag dash-feat-exif-tag-2" style={{ background: `${textMuted}30`, color: textMuted }}>
+              <span style={{ fontSize: 5 }}>CAM</span>
+            </div>
+            <div className="dash-feat-exif-tag dash-feat-exif-tag-3" style={{ background: `${textMuted}30`, color: textMuted }}>
+              <span style={{ fontSize: 5 }}>DATE</span>
             </div>
           </div>
         </div>

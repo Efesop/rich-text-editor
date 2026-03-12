@@ -69,15 +69,15 @@ export default function AppLockSetupModal({ isOpen, onClose, onConfirm, biometri
     }
     if (showDuress && duressPassword.trim()) {
       if (duressPassword.length < 4) {
-        setError('Duress password must be at least 4 characters')
+        setError('Decoy password must be at least 4 characters')
         return
       }
       if (duressPassword !== duressConfirm) {
-        setError('Duress passwords do not match')
+        setError('Decoy passwords do not match')
         return
       }
       if (duressPassword === password) {
-        setError('Duress password must be different from your main password')
+        setError('Decoy password must be different from your main password')
         return
       }
     }
@@ -411,7 +411,7 @@ export default function AppLockSetupModal({ isOpen, onClose, onConfirm, biometri
             </div>
           </div>
 
-          {/* Section 3: Duress Password (optional, collapsible) */}
+          {/* Section 3: Decoy Password (optional, collapsible) */}
           <div className={`rounded-xl overflow-hidden ${cardBg}`}>
             <button
               type="button"
@@ -429,7 +429,7 @@ export default function AppLockSetupModal({ isOpen, onClose, onConfirm, biometri
               `}
             >
               <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-              <span className="flex-1 text-left font-medium">Duress Password</span>
+              <span className="flex-1 text-left font-medium">Decoy Password</span>
               <span className={`text-xs ${subtextClasses}`}>Optional</span>
               <ChevronDown className={`w-4 h-4 transition-transform ${showDuress ? 'rotate-180' : ''}`} />
             </button>
@@ -437,7 +437,7 @@ export default function AppLockSetupModal({ isOpen, onClose, onConfirm, biometri
             {showDuress && (
               <div className="px-4 pb-4 space-y-3">
                 <p className={`text-xs leading-relaxed ${subtextClasses}`}>
-                  A secondary password that silently triggers a panic action when entered at the lock screen.
+                  A secondary password that shows decoy notes instead of your real data when entered at the lock screen.
                 </p>
 
                 <div className="space-y-2">
@@ -445,26 +445,25 @@ export default function AppLockSetupModal({ isOpen, onClose, onConfirm, biometri
                     type="password"
                     value={duressPassword}
                     onChange={(e) => { setDuressPassword(e.target.value); setError('') }}
-                    placeholder="Duress password..."
+                    placeholder="Decoy password..."
                     className={`w-full px-3.5 py-2.5 text-sm rounded-lg transition-all focus:outline-none focus:ring-2 ${inputClasses}`}
                   />
                   <input
                     type="password"
                     value={duressConfirm}
                     onChange={(e) => { setDuressConfirm(e.target.value); setError('') }}
-                    placeholder="Confirm duress password..."
+                    placeholder="Confirm decoy password..."
                     className={`w-full px-3.5 py-2.5 text-sm rounded-lg transition-all focus:outline-none focus:ring-2 ${inputClasses}`}
                   />
                 </div>
 
                 <div>
                   <label className={`text-xs font-medium mb-1.5 block ${labelClasses}`}>
-                    When duress password is entered:
+                    When decoy password is entered:
                   </label>
                   <div className="space-y-1.5">
                     {[
-                      { value: 'hide', icon: EyeOff, label: 'Hide Data', desc: 'Show empty app — data preserved on disk' },
-                      { value: 'wipe', icon: Trash2, label: 'Wipe All Data', desc: 'Permanently delete everything — irreversible' }
+                      { value: 'hide', icon: EyeOff, label: 'Show Decoy Notes', desc: 'Fake notes are shown — real data stays encrypted on disk' }
                     ].map(opt => (
                       <button
                         key={opt.value}

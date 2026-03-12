@@ -51,14 +51,14 @@ export default function AppLockScreen({ onUnlock, onBiometricUnlock, biometricAv
     }
   }, [biometricAvailable, biometricEnabled])
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e?.preventDefault()
     if (!password.trim()) return
     if (cooldownRemaining > 0) return
 
     // Check duress password first (silently triggers duress action)
     if (duressEnabled && onDuressUnlock) {
-      const isDuress = onDuressUnlock(password)
+      const isDuress = await onDuressUnlock(password)
       if (isDuress) {
         setPassword('')
         setError('')

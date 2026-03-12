@@ -23,6 +23,7 @@ export default function AppLockSettingsModal({
   duressAction,
   onSetDuress,
   onClearDuress,
+  onManageDecoy,
   checkIsRealPassword,
   theme
 }) {
@@ -215,7 +216,7 @@ export default function AppLockSettingsModal({
               Password
             </button>
             <button onClick={() => setActiveTab('duress')} className={tabClasses(activeTab === 'duress')}>
-              Duress
+              Decoy
             </button>
           </div>
         </div>
@@ -543,7 +544,7 @@ export default function AppLockSettingsModal({
           {activeTab === 'duress' && (
             <>
               <p className={`text-sm mb-3 ${isFallout ? 'text-green-600 font-mono' : isDarkBlue ? 'text-[#5d6b88]' : isDark ? 'text-[#6b6b6b]' : 'text-gray-500'}`}>
-                A duress password silently triggers a panic action when entered at the lock screen instead of your real password.
+                A decoy password shows fake notes when entered at the lock screen instead of your real password. Your real data stays encrypted.
               </p>
 
               {duressEnabled ? (
@@ -555,8 +556,24 @@ export default function AppLockSettingsModal({
                           : 'bg-blue-50 border border-blue-200 text-blue-700'
                   }`}>
                     <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-                    Duress password is active (hide data)
+                    Decoy password is active
                   </div>
+                  <button
+                    onClick={() => { if (onManageDecoy) { onClose(); onManageDecoy() } }}
+                    className={`
+                      w-full px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all
+                      ${isFallout
+                        ? 'bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20'
+                        : isDarkBlue
+                          ? 'bg-[#1a2035] border border-[#1c2438] text-[#e0e6f0] hover:bg-[#232b42]'
+                          : isDark
+                            ? 'bg-[#262626] border border-[#3a3a3a] text-[#ececec] hover:bg-[#333]'
+                            : 'bg-gray-100 border border-gray-200 text-gray-700 hover:bg-gray-200'
+                      }
+                    `}
+                  >
+                    Manage Decoy Notes
+                  </button>
                   <button
                     onClick={() => { onClearDuress(); }}
                     className={`
@@ -571,32 +588,32 @@ export default function AppLockSettingsModal({
                       }
                     `}
                   >
-                    Remove Duress Password
+                    Remove Decoy Password
                   </button>
                 </>
               ) : (
                 <>
                   <div>
                     <label className={`block text-sm font-medium mb-1.5 ${isFallout ? 'text-green-400 font-mono' : isDarkBlue ? 'text-[#e0e6f0]' : isDark ? 'text-[#c0c0c0]' : 'text-gray-700'}`}>
-                      Duress Password
+                      Decoy Password
                     </label>
                     <input
                       type="password"
                       value={duressPassword}
                       onChange={(e) => { setDuressPassword(e.target.value); setError(''); setSuccess('') }}
-                      placeholder="Enter duress password..."
+                      placeholder="Enter decoy password..."
                       className={inputClasses}
                     />
                   </div>
                   <div>
                     <label className={`block text-sm font-medium mb-1.5 ${isFallout ? 'text-green-400 font-mono' : isDarkBlue ? 'text-[#e0e6f0]' : isDark ? 'text-[#c0c0c0]' : 'text-gray-700'}`}>
-                      Confirm Duress Password
+                      Confirm Decoy Password
                     </label>
                     <input
                       type="password"
                       value={duressConfirm}
                       onChange={(e) => { setDuressConfirm(e.target.value); setError(''); setSuccess('') }}
-                      placeholder="Confirm duress password..."
+                      placeholder="Confirm decoy password..."
                       className={inputClasses}
                     />
                   </div>
@@ -606,7 +623,7 @@ export default function AppLockSettingsModal({
                       Action
                     </label>
                     <div className={`px-3.5 py-2.5 rounded-xl text-sm ${isFallout ? 'bg-green-500/10 border border-green-500/30 text-green-400' : isDarkBlue ? 'bg-blue-500/10 border border-blue-500/30 text-[#8b99b5]' : isDark ? 'bg-blue-500/10 border border-blue-500/30 text-[#c0c0c0]' : 'bg-blue-50 border border-blue-200 text-gray-600'}`}>
-                      Shows an empty app when the duress password is entered. Your data stays safely encrypted on disk and is recoverable by restarting and entering your real password.
+                      Shows decoy notes when the decoy password is entered. Your real data stays safely encrypted on disk. You can manage decoy notes after setting up.
                     </div>
                   </div>
 
@@ -627,7 +644,7 @@ export default function AppLockSettingsModal({
                   <button
                     onClick={() => {
                       if (!duressPassword.trim()) {
-                        setError('Duress password is required')
+                        setError('Decoy password is required')
                         return
                       }
                       if (duressPassword.length < 4) {
@@ -639,13 +656,13 @@ export default function AppLockSettingsModal({
                         return
                       }
                       if (checkIsRealPassword && checkIsRealPassword(duressPassword)) {
-                        setError('Duress password must be different from your app lock password')
+                        setError('Decoy password must be different from your app lock password')
                         return
                       }
                       onSetDuress(duressPassword, 'hide')
                       setDuressPassword('')
                       setDuressConfirm('')
-                      setSuccess('Duress password set')
+                      setSuccess('Decoy password set')
                       setError('')
                       setTimeout(() => setSuccess(''), 3000)
                     }}
@@ -663,7 +680,7 @@ export default function AppLockSettingsModal({
                       }
                     `}
                   >
-                    Set Duress Password
+                    Set Decoy Password
                   </button>
                 </>
               )}

@@ -4396,3 +4396,154 @@ button:focus {
     transform: translateY(0);
   }
 }
+
+/* Encrypted Sharing animation */
+.dash-feat-illus-share {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px;
+}
+
+.dash-feat-share-doc {
+  width: 18px;
+  height: 22px;
+  border: 1px solid;
+  border-radius: 2px;
+  padding: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dash-feat-share-arrow {
+  animation: dash-feat-share-fly 3s ease-in-out infinite;
+  opacity: 0;
+}
+
+.dash-feat-share-link {
+  width: 20px;
+  height: 16px;
+  border: 1px solid;
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  opacity: 0;
+  animation: dash-feat-share-appear 3s ease-in-out infinite;
+}
+
+.dash-feat-share-lock-icon {
+  animation: dash-feat-share-lock-pulse 3s ease-in-out infinite;
+}
+
+.dash-feat-share-chain {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.dash-feat-share-dot {
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+}
+
+.dash-feat-share-line {
+  width: 6px;
+  height: 1px;
+}
+
+@keyframes dash-feat-share-fly {
+  0%, 15% { opacity: 0; transform: translateX(-4px); }
+  25%, 45% { opacity: 1; transform: translateX(0); }
+  55%, 100% { opacity: 0; transform: translateX(4px); }
+}
+
+@keyframes dash-feat-share-appear {
+  0%, 35% { opacity: 0; transform: scale(0.8); }
+  50%, 80% { opacity: 1; transform: scale(1); }
+  90%, 100% { opacity: 0; transform: scale(0.8); }
+}
+
+@keyframes dash-feat-share-lock-pulse {
+  0%, 35% { opacity: 0; }
+  50%, 70% { opacity: 1; }
+  75% { opacity: 1; transform: scale(1.2); }
+  80%, 100% { opacity: 0; transform: scale(1); }
+}
+
+/* EXIF / Image Privacy animation */
+.dash-feat-illus-exif {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  width: 48px;
+  height: 48px;
+}
+
+.dash-feat-exif-img {
+  width: 28px;
+  height: 22px;
+  border: 1px solid;
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.dash-feat-exif-landscape {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.dash-feat-exif-mountain {
+  position: absolute;
+  bottom: 0;
+  left: 3px;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 10px solid;
+}
+
+.dash-feat-exif-sun {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+.dash-feat-exif-tags {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dash-feat-exif-tag {
+  padding: 1px 3px;
+  border-radius: 1px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  animation: dash-feat-exif-strip 3.5s ease-in-out infinite;
+}
+
+.dash-feat-exif-tag-1 { animation-delay: 0s; }
+.dash-feat-exif-tag-2 { animation-delay: 0.25s; }
+.dash-feat-exif-tag-3 { animation-delay: 0.5s; }
+
+@keyframes dash-feat-exif-strip {
+  0%, 30% { opacity: 1; transform: translateX(0); }
+  45%, 55% { opacity: 0; transform: translateX(8px); }
+  70%, 100% { opacity: 1; transform: translateX(0); }
+}

@@ -3,7 +3,8 @@ import { hashPassword, verifyPassword } from '@/utils/passwordUtils'
 import { sanitizeEditorContent, validatePageStructure } from '@/utils/securityUtils'
 import { deriveKeyFromPassphrase, encryptJsonWithKey, decryptJsonWithKey } from '@/utils/cryptoUtils'
 import useTagStore from '../store/tagStore'
-import { readPages, savePages as savePagesToFallback } from '@/lib/storage'
+import { readPages, savePages as savePagesToFallback, saveDecoyPages } from '@/lib/storage'
+import { encryptJsonWithPassphrase } from '@/utils/cryptoUtils'
 
 // Debug logger: enable in browser console with window.__DASH_DEBUG = true
 const dbg = (category, ...args) => {
@@ -41,6 +42,9 @@ export function usePagesManager() {
 
   // Duress hide mode: blocks ALL saves to prevent overwriting encrypted data on disk
   const savesBlockedRef = useRef(false)
+  // Decoy vault mode: when true, saves go to decoy storage instead of real storage
+  const isDuressModeRef = useRef(false)
+  const duressKeyRef = useRef(null) // passphrase string for re-encrypting decoy saves
 
   // Update refs when state changes
   useEffect(() => {
@@ -106,6 +110,21 @@ export function usePagesManager() {
 
   // Execute the actual save operation with race condition protection
   const executeSave = useCallback(async (pagesToSave, version) => {
+    // In decoy mode: save to decoy storage, encrypted with duress password
+    if (isDuressModeRef.current && duressKeyRef.current) {
+      dbg('save', 'decoy mode — saving to decoy storage')
+      try {
+        const encrypted = await encryptJsonWithPassphrase(pagesToSave, duressKeyRef.current)
+        await saveDecoyPages(encrypted)
+        if (version === saveVersionRef.current) {
+          setPages(pagesRef.current)
+          setSaveStatus('saved')
+        }
+      } catch (err) {
+        dbg('save', 'decoy save error', err.message)
+      }
+      return
+    }
     if (savesBlockedRef.current) {
       dbg('save', 'BLOCKED by duress mode, skipping disk write')
       return
@@ -929,9 +948,10 @@ export function usePagesManager() {
 
   // Duress hide mode: clear UI state but preserve encrypted data on disk
   // CRITICAL: blocks ALL future saves so disk data is never overwritten
-  const enterDuressHideMode = useCallback(() => {
-    dbg('duress', 'ENTERING duress hide mode — blocking all saves')
-    // Block all saves FIRST, before anything else
+  // If decoyPages provided, shows them instead of empty app (plausible deniability)
+  const enterDuressHideMode = useCallback((decoyPages = null, duressPassword = null) => {
+    dbg('duress', 'ENTERING duress hide mode — blocking real saves')
+    // Block all real saves FIRST, before anything else
     savesBlockedRef.current = true
     // Cancel any pending saves
     if (saveTimeoutRef.current) {
@@ -939,21 +959,36 @@ export function usePagesManager() {
       saveTimeoutRef.current = null
     }
     pendingSaveRef.current = null
-    // Clear encryption keys so nothing can re-encrypt
+    // Clear encryption keys so nothing can re-encrypt real data
     appLockKeyRef.current = null
     encryptionKeysRef.current.clear()
-    // Clear in-memory state (disk untouched)
-    setPages([])
-    pagesRef.current = []
-    _setCurrentPage(null)
+
+    if (decoyPages && decoyPages.length > 0 && duressPassword) {
+      // Decoy vault mode: show fake notes, allow edits to decoy storage
+      dbg('duress', 'loading', decoyPages.length, 'decoy pages')
+      isDuressModeRef.current = true
+      duressKeyRef.current = duressPassword
+      setPages(decoyPages)
+      pagesRef.current = decoyPages
+      if (decoyPages.length > 0) {
+        _setCurrentPage(decoyPages[0])
+      }
+    } else {
+      // Classic hide mode: empty app
+      setPages([])
+      pagesRef.current = []
+      _setCurrentPage(null)
+    }
   }, [])
 
   // Recover from duress hide mode: unblock saves and reload pages from disk
   // Only reloads if duress mode is active (savesBlockedRef), otherwise no-op
   const recoverFromDuressMode = useCallback(async () => {
-    if (!savesBlockedRef.current) return false
+    if (!savesBlockedRef.current && !isDuressModeRef.current) return false
     dbg('duress', 'RECOVERING from duress — unblocking saves, reloading from disk')
     savesBlockedRef.current = false
+    isDuressModeRef.current = false
+    duressKeyRef.current = null
     const data = await readPages()
     const validPages = Array.isArray(data) ? data : []
     dbg('duress', 'recovered', validPages.length, 'pages from disk')

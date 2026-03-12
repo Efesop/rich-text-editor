@@ -28,7 +28,9 @@ contextBridge.exposeInMainWorld('electron', {
       'prompt-touch-id',
       'safe-storage-store',
       'safe-storage-retrieve',
-      'safe-storage-delete'
+      'safe-storage-delete',
+      'read-decoy-pages',
+      'save-decoy-pages'
     ];
 
     if (validChannels.includes(channel)) {
@@ -39,11 +41,12 @@ contextBridge.exposeInMainWorld('electron', {
   on: (channel, func) => {
     const validChannels = [
       'checking-for-update',
-      'update-available', 
-      'update-not-available', 
+      'update-available',
+      'update-not-available',
       'update-error',
-      'download-progress', 
-      'update-downloaded'
+      'download-progress',
+      'update-downloaded',
+      'deep-link-share'
     ];
     
     if (validChannels.includes(channel)) {
@@ -54,11 +57,12 @@ contextBridge.exposeInMainWorld('electron', {
   removeListener: (channel, func) => {
     const validChannels = [
       'checking-for-update',
-      'update-available', 
-      'update-not-available', 
+      'update-available',
+      'update-not-available',
       'update-error',
-      'download-progress', 
-      'update-downloaded'
+      'download-progress',
+      'update-downloaded',
+      'deep-link-share'
     ];
     
     if (validChannels.includes(channel)) {

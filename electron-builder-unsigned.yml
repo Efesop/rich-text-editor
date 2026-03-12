@@ -1,5 +1,9 @@
 appId: com.filmshape.dash
 productName: Dash
+protocols:
+  - name: Dash Note
+    schemes:
+      - dashnotes
 directories:
   output: dist
   buildResources: build

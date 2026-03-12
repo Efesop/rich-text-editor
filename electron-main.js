@@ -217,6 +217,31 @@ ipcMain.handle('save-tags', async (event, tags) => {
   }
 });
 
+// Decoy vault persistence (encrypted blob — indistinguishable from any encrypted data)
+const decoyPath = path.join(app.getPath('userData'), 'decoy-pages.json');
+
+ipcMain.handle('read-decoy-pages', async () => {
+  try {
+    const data = await fs.readFile(decoyPath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  }
+});
+
+ipcMain.handle('save-decoy-pages', async (event, payload) => {
+  try {
+    const tmpPath = decoyPath + '.tmp';
+    const backupPath = decoyPath + '.bak';
+    await fs.writeFile(tmpPath, JSON.stringify(payload));
+    try { await fs.copyFile(decoyPath, backupPath); } catch { /* no existing file */ }
+    await fs.rename(tmpPath, decoyPath);
+  } catch (error) {
+    throw error;
+  }
+});
+
 // What's New modal persistence
 const whatsNewPath = path.join(app.getPath('userData'), 'whats-new.json');
 
@@ -696,6 +721,51 @@ ipcMain.handle('get-app-version', () => {
   return app.getVersion()
 })
 
+// --- Deep link (dashnotes:// protocol) handling ---
+let pendingDeepLink = null
+
+function handleDeepLink (urlString) {
+  try {
+    if (!urlString || !urlString.startsWith('dashnotes://')) return
+    // Extract everything after dashnotes://share# (or dashnotes://share/# etc.)
+    const hashIdx = urlString.indexOf('#')
+    if (hashIdx === -1) return
+    const hash = urlString.slice(hashIdx + 1)
+    if (!hash) return
+    if (mainWindow?.webContents) {
+      mainWindow.webContents.send('deep-link-share', hash)
+    }
+  } catch (err) {
+    log.error('Failed to handle deep link:', err.message)
+  }
+}
+
+// macOS: open-url fires when a dashnotes:// link is clicked (may fire before app is ready)
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  if (mainWindow) {
+    handleDeepLink(url)
+  } else {
+    pendingDeepLink = url
+  }
+})
+
+// Single instance lock — ensures only one instance runs
+const gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock) {
+  app.quit()
+} else {
+  // Windows/Linux: second-instance fires when a dashnotes:// link opens a second instance
+  app.on('second-instance', (_event, commandLine) => {
+    const deepLinkUrl = commandLine.find(arg => arg.startsWith('dashnotes://'))
+    if (deepLinkUrl) handleDeepLink(deepLinkUrl)
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
+}
+
 app.whenReady().then(() => {
   log.info('App is ready, checking Applications folder...');
 
@@ -710,6 +780,25 @@ app.whenReady().then(() => {
   createWindow();
   log.info('Setting up auto-updater...');
   setupAutoUpdater();
+
+  // Register dashnotes:// protocol handler
+  if (!app.isDefaultProtocolClient('dashnotes')) {
+    app.setAsDefaultProtocolClient('dashnotes')
+  }
+
+  // macOS cold start: process buffered deep link
+  if (pendingDeepLink) {
+    mainWindow.once('ready-to-show', () => handleDeepLink(pendingDeepLink))
+    pendingDeepLink = null
+  }
+
+  // Windows/Linux cold start: check process.argv for deep link
+  if (process.platform !== 'darwin') {
+    const deepLinkArg = process.argv.find(arg => arg.startsWith('dashnotes://'))
+    if (deepLinkArg) {
+      mainWindow.once('ready-to-show', () => handleDeepLink(deepLinkArg))
+    }
+  }
 });
 
 app.on('window-all-closed', function () {

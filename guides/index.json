@@ -73,23 +73,23 @@
     },
     {
       "slug": "duress-password",
-      "title": "Duress Password",
-      "subtitle": "Silent Panic Protection Under Coercion",
-      "description": "Set a secondary password that silently wipes or hides your data when entered at the lock screen. Learn how Dash's duress password feature provides plausible deniability.",
+      "title": "Decoy App",
+      "subtitle": "Decoy Notes Under Coercion",
+      "description": "Set a secondary password that shows fake decoy notes when entered at the lock screen. Learn how Dash's decoy app feature provides plausible deniability while keeping real data encrypted.",
       "file": "duress-password.md",
-      "tags": ["security", "privacy", "duress", "coercion", "plausible-deniability"],
-      "relatedFeatures": ["duress-password", "app-lock", "encryption"],
-      "lastUpdated": "2026-03-07"
+      "tags": ["security", "privacy", "decoy", "coercion", "plausible-deniability"],
+      "relatedFeatures": ["decoy-app", "app-lock", "encryption"],
+      "lastUpdated": "2026-03-12"
     },
     {
       "slug": "features",
       "title": "All Features",
       "subtitle": "Complete Feature Guide for Dash",
-      "description": "A comprehensive overview of every feature in Dash — encryption, self-destructing notes, focus mode, themes, keyboard shortcuts, and more.",
+      "description": "A comprehensive overview of every feature in Dash — encryption, encrypted sharing, EXIF stripping, decoy app, self-destructing notes, focus mode, themes, keyboard shortcuts, and more.",
       "file": "features.md",
-      "tags": ["features", "overview", "guide", "security", "editor"],
-      "relatedFeatures": ["encryption", "app-lock", "focus-mode", "themes", "shortcuts"],
-      "lastUpdated": "2026-03-08"
+      "tags": ["features", "overview", "guide", "security", "editor", "sharing", "privacy"],
+      "relatedFeatures": ["encryption", "app-lock", "focus-mode", "themes", "shortcuts", "encrypted-sharing", "exif-stripping", "decoy-app"],
+      "lastUpdated": "2026-03-12"
     }
   ]
 }
