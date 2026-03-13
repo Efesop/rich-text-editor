@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Folder, FolderOpen, Trash2, MoreVertical, Edit3, Plus, ChevronRight, ChevronDown } from 'lucide-react'
+import { Folder, FolderOpen, Trash2, MoreVertical, Edit3, Plus } from 'lucide-react'
 import SortablePageItem from './SortablePageItem'
+import Tooltip from './Tooltip'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { isMobileDevice, isSmallScreen } from '@/utils/deviceUtils'
 import { ActionSheet, ActionSheetItem, ActionSheetSeparator } from './ActionSheet'
@@ -196,37 +197,19 @@ export function FolderItem({
     }
   }
 
-  const getChevronClasses = () => {
-    switch (theme) {
-      case 'fallout':
-        return 'text-green-600'
-      case 'dark':
-        return 'text-[#6b6b6b]'
-      case 'darkblue':
-        return 'text-[#5d6b88]'
-      default:
-        return 'text-neutral-400'
-    }
-  }
 
   return (
     <div className={`my-1 transition-all duration-150 ${isDropTarget ? `rounded-lg ${theme === 'fallout' ? 'ring-2 ring-green-500/50' : 'ring-2 ring-blue-500/50'}` : ''}`} ref={folderRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} data-theme={theme}>
       <div
-        className={`flex items-center justify-between px-3 py-2 cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-150 overflow-hidden ${getFolderHoverClasses()}`}
+        className={`flex items-center ${sidebarOpen ? 'justify-between px-3 py-2' : 'justify-center px-0 py-1'} cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-150 overflow-hidden ${getFolderHoverClasses()}`}
         onClick={toggleExpand}
       >
-        <div className="flex items-center flex-grow min-w-0">
-          <span className={`mr-1 ${getChevronClasses()}`}>
-            {isExpanded ? (
-              <ChevronDown className="h-3 w-3" strokeWidth={2} />
-            ) : (
-              <ChevronRight className="h-3 w-3" strokeWidth={2} />
-            )}
-          </span>
+        {sidebarOpen ? (
+        <div className="flex items-center flex-grow min-w-0" style={{ marginRight: isHovered ? 0 : -24, transition: 'margin-right 150ms' }}>
           {isExpanded ? (
-            <FolderOpen className={`h-4 w-4 mr-2 flex-shrink-0 ${getFolderIconClasses()}`} strokeWidth={1.5} />
+            <FolderOpen className={`h-4 w-4 mr-1.5 flex-shrink-0 ${getFolderIconClasses()}`} strokeWidth={1.5} />
           ) : (
-            <Folder className={`h-4 w-4 mr-2 flex-shrink-0 ${getFolderIconClasses()}`} strokeWidth={1.5} />
+            <Folder className={`h-4 w-4 mr-1.5 flex-shrink-0 ${getFolderIconClasses()}`} strokeWidth={1.5} />
           )}
           {isRenaming ? (
             <input
@@ -244,24 +227,29 @@ export function FolderItem({
               maxLength={20}
             />
           ) : (
-            sidebarOpen ? (
-              <div className="flex items-center min-w-0 flex-1">
-                <span className="truncate text-sm font-medium mr-1" title={folder.title}>
+              <>
+                <span className="truncate text-sm font-medium flex-1 min-w-0" title={folder.title}>
                   {folder.title}
                 </span>
                 {pagesCount > 0 && (
-                  <span className={`text-xs px-1.5 ml-1 rounded-full ${getFolderCountClasses()}`}>
+                  <span className={`text-xs px-1.5 ml-1 rounded-full flex-shrink-0 ${getFolderCountClasses()}`}>
                     {pagesCount}
                   </span>
                 )}
-              </div>
-            ) : (
-              <span className="truncate text-sm font-medium" title={folder.title}>
-                {folder.title.slice(0, 2)}...
-              </span>
-            )
+              </>
           )}
         </div>
+        ) : (
+        <Tooltip text={`${folder.title}${pagesCount > 0 ? ` (${pagesCount})` : ''}`} side="right" delay={150}>
+        <div className="relative flex items-center justify-center">
+          {isExpanded ? (
+            <FolderOpen className={`h-3.5 w-3.5 ${getFolderIconClasses()}`} strokeWidth={1.5} />
+          ) : (
+            <Folder className={`h-3.5 w-3.5 ${getFolderIconClasses()}`} strokeWidth={1.5} />
+          )}
+        </div>
+        </Tooltip>
+        )}
         {sidebarOpen && (
           <button
             ref={buttonRef}

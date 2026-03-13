@@ -1,6 +1,7 @@
 import React from 'react'
 import { useTheme } from 'next-themes'
 import { Sun, Moon, Terminal, CloudMoon } from 'lucide-react'
+import Tooltip from './Tooltip'
 
 const ThemeToggle = ({ className = '' }) => {
   const { theme, setTheme } = useTheme()
@@ -32,14 +33,17 @@ const ThemeToggle = ({ className = '' }) => {
     }
   }
 
+  const themeLabel = theme === 'light' ? 'Light' : theme === 'dark' ? 'Dark' : theme === 'darkblue' ? 'Night' : theme === 'fallout' ? 'Terminal' : 'Light'
+
   return (
+    <Tooltip text={`Theme: ${themeLabel}`}>
     <button
       onClick={cycleTheme}
-      title={`Current theme: ${theme || 'light'}`}
       className={`p-2 rounded-lg transition-colors ${className}`}
     >
       {getIcon()}
     </button>
+    </Tooltip>
   )
 }
 

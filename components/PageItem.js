@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Lock, LockKeyhole, Unlock, Trash2, MoreVertical, FolderMinus, FolderPlus, Copy, Edit3, Timer, TimerOff } from 'lucide-react'
 import StackedTags from './StackedTags'
+import Tooltip from './Tooltip'
 import { isMobileDevice, isSmallScreen } from '@/utils/deviceUtils'
 import { ActionSheet, ActionSheetItem, ActionSheetSeparator } from './ActionSheet'
 
@@ -95,9 +96,9 @@ const PageItem = ({
 
   const getPageItemClasses = () => {
     const folderStyle = isInsideFolder
-      ? 'ml-5 mr-1 rounded-l-none border-l-2 ' + (theme === 'fallout' ? 'border-green-500/20' : theme === 'dark' ? 'border-[#3a3a3a]' : theme === 'darkblue' ? 'border-[#2a3454]' : 'border-neutral-200')
+      ? (sidebarOpen ? 'ml-5 mr-1 rounded-l-none border-l-2 ' : 'mx-1 ') + (theme === 'fallout' ? 'border-green-500/20' : theme === 'dark' ? 'border-[#3a3a3a]' : theme === 'darkblue' ? 'border-[#2a3454]' : 'border-neutral-200')
       : 'mx-1'
-    const baseClasses = `flex items-center justify-between px-3 py-2 cursor-pointer text-sm rounded-lg transition-colors duration-150 overflow-hidden ${folderStyle}`
+    const baseClasses = `flex items-center ${sidebarOpen ? 'justify-between px-3 py-2' : 'justify-center px-0 py-1'} cursor-pointer text-sm rounded-lg transition-colors duration-150 overflow-hidden ${folderStyle}`
 
     if (isActive) {
       if (theme === 'fallout') {
@@ -193,15 +194,11 @@ const PageItem = ({
       }}
       style={{ minHeight: isSelfDestructing ? undefined : '2.25rem' }}
     >
-      <div className="flex items-center flex-1 min-w-0">
-        {page.password && page.password.hash && !tempUnlockedPages.has(page.id) && (
-          <LockKeyhole className={`h-3 w-3 flex-shrink-0 mr-1.5 ${getIconClasses()}`} />
-        )}
+      {sidebarOpen ? (
+      <div className="flex items-center flex-1 min-w-0" style={{ marginRight: isHovered ? 0 : -24, transition: 'margin-right 150ms' }}>
         {page.selfDestructAt && (
-          <Timer className={`h-3 w-3 flex-shrink-0 mr-1.5 ${getSelfDestructIconClasses()}`} />
+          <Timer className={`h-3 w-3 flex-shrink-0 mr-1.5 ${getSelfDestructIconClasses()}`} strokeWidth={2} />
         )}
-        {sidebarOpen ? (
-          <>
             <span className="flex-1 truncate min-w-0" title={page.title}>
               {page.title}
             </span>
@@ -215,13 +212,41 @@ const PageItem = ({
                 hovered={isHovered}
               />
             )}
-          </>
-        ) : (
-          <span className="truncate" title={page.title}>
-            {page.title.slice(0, 3)}...
-          </span>
+            {page.password && page.password.hash && !tempUnlockedPages.has(page.id) && (
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" className={`flex-shrink-0 ml-1 ${theme === 'fallout' ? 'text-green-500' : 'text-blue-500'}`} style={{ opacity: isHovered ? 1 : 0, transition: 'opacity 150ms' }}>
+                <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                <path d="M5 8l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              </svg>
+            )}
+      </div>
+      ) : (
+      <Tooltip text={page.title} side="right" delay={150}>
+      <div className="flex items-center justify-center flex-1 relative">
+        <div
+          className={`w-8 h-7 rounded-lg flex items-center justify-center text-[11px] font-semibold leading-none transition-all ${
+            isActive
+              ? theme === 'fallout' ? 'bg-green-500/25 text-green-400'
+                : theme === 'darkblue' ? 'bg-[#2a3452] text-[#c0ccdf]'
+                : theme === 'dark' ? 'bg-[#3a3a3a] text-[#e0e0e0]'
+                : 'bg-neutral-200 text-neutral-700'
+              : theme === 'fallout' ? 'bg-green-500/5 text-green-700 hover:bg-green-500/20 hover:text-green-400'
+                : theme === 'darkblue' ? 'bg-[#161c2e] text-[#4a5670] hover:bg-[#1e2740] hover:text-[#8b99b5]'
+                : theme === 'dark' ? 'bg-[#222] text-[#555] hover:bg-[#2f2f2f] hover:text-[#aaa]'
+                : 'bg-neutral-50 text-neutral-300 hover:bg-neutral-200 hover:text-neutral-600'
+          }`}
+        >
+          {page.title.slice(0, 3)}
+        </div>
+        {page.password && page.password.hash && !tempUnlockedPages.has(page.id) && (
+          <LockKeyhole className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 ${getIconClasses()}`} />
+        )}
+        {page.selfDestructAt && (
+          <Timer className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 ${getSelfDestructIconClasses()}`} />
         )}
       </div>
+      </Tooltip>
+      )}
+
       <div className="flex items-center flex-shrink-0">
         {sidebarOpen && (
           <button

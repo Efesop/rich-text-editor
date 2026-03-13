@@ -41,6 +41,7 @@ import { MoveToFolderModal } from './MoveToFolderModal'
 import { FolderIcon } from 'lucide-react'
 import UpdateNotification from './UpdateNotification'
 import MiniOutline from './MiniOutline'
+import Tooltip from './Tooltip'
 import EncryptionStatusIndicator from './EncryptionStatusIndicator'
 import { useUpdateManager } from '@/hooks/useUpdateManager'
 import { EditorErrorBoundary, SidebarErrorBoundary } from './ErrorBoundary'
@@ -1779,20 +1780,22 @@ export default function RichTextEditor() {
             ? 'w-0 overflow-hidden opacity-0 pointer-events-none absolute transition-all duration-300'
             : isSmallScreen
             ? `fixed z-50 inset-y-0 left-0 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-200 w-3/4 max-w-xs safe-area-top safe-area-bottom`
-            : `${sidebarOpen ? 'w-64' : 'w-16'} relative transition-all duration-300`
+            : sidebarOpen
+              ? 'w-64 relative transition-all duration-300'
+              : 'w-16 relative transition-all duration-200'
             } flex flex-col overflow-hidden`}
           role="navigation"
           aria-label="Page navigation"
           aria-expanded={sidebarOpen}
         >
-          <header className={`px-3 ${isMacElectron ? 'pt-10' : 'pt-4'} pb-2 flex ${sidebarOpen ? 'justify-between' : 'justify-center'} items-center`}>
+          <header className={`${sidebarOpen ? 'px-3' : 'px-1'} ${isMacElectron ? 'pt-10' : 'pt-4'} pb-2 flex ${sidebarOpen ? 'justify-between' : 'flex-col items-center gap-1'} items-center`}>
             {sidebarOpen ? (
               <div className="flex items-center space-x-2">
                 <img src="./icons/dash-logo.png" alt="Dash" className="h-7 w-7 rounded-md" />
                 <span className={`text-base font-semibold ${theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-[#ececec]' : theme === 'darkblue' ? 'text-[#e0e6f0]' : 'text-neutral-900'}`}>Dash</span>
               </div>
             ) : (
-              <img src="./icons/dash-logo.png" alt="Dash" className="h-7 w-7 rounded-md" />
+              <img src="./icons/dash-logo.png" alt="Dash" className="h-6 w-6 rounded-md" />
             )}
             <div className="flex items-center space-x-1">
               {sidebarOpen && (
@@ -1910,10 +1913,10 @@ export default function RichTextEditor() {
                 variant="ghost"
                 size="sm"
                 onClick={handleNewPageWithRename}
-                className={`h-8 w-8 p-0 ${getButtonHoverClasses()}`}
+                className={`${sidebarOpen ? 'h-8 w-8' : 'h-6 w-6'} p-0 ${getButtonHoverClasses()}`}
                 title="New page"
               >
-                <Plus className="h-5 w-5" />
+                <Plus className={sidebarOpen ? 'h-5 w-5' : 'h-4 w-4'} />
               </Button>
             </div>
           </header>
@@ -2041,14 +2044,14 @@ export default function RichTextEditor() {
               </DragOverlay>
             </DndContext>
           </ScrollArea>
-          <div className={`mt-auto px-3 py-2 flex items-center justify-between ${theme === 'fallout' ? 'border-t border-green-600/20' : theme === 'dark' ? 'border-t border-[#2e2e2e]' : theme === 'darkblue' ? 'border-t border-[#1c2438]' : 'border-t border-neutral-100'}`}>
+          <div className={`mt-auto ${sidebarOpen ? 'px-3' : 'px-1'} py-2 flex items-center ${sidebarOpen ? 'justify-between' : 'justify-center'} ${theme === 'fallout' ? 'border-t border-green-600/20' : theme === 'dark' ? 'border-t border-[#2e2e2e]' : theme === 'darkblue' ? 'border-t border-[#1c2438]' : 'border-t border-neutral-100'}`}>
             <Button
               variant="ghost"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className={`self-start h-7 w-7 p-0 ${getButtonHoverClasses()}`}
+              className={`self-start ${sidebarOpen ? 'h-7 w-7' : 'h-6 w-6'} p-0 ${getButtonHoverClasses()}`}
               size="sm"
             >
-              {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-3.5 w-3.5" />}
             </Button>
             {sidebarOpen && (
               <div className="flex items-center space-x-2">
@@ -2090,13 +2093,14 @@ export default function RichTextEditor() {
                   <Menu className="h-5 w-5" />
                 </Button>
               )}
+              <Tooltip text="Rename page">
               <h1
                 className={`text-lg font-semibold cursor-pointer truncate py-1 px-1.5 -my-1 rounded-lg transition-colors ${theme === 'fallout' ? 'text-green-400 hover:bg-gray-800/50' : theme === 'dark' ? 'text-[#ececec] hover:bg-[#2f2f2f]/50' : theme === 'darkblue' ? 'text-[#e0e6f0] hover:bg-[#232b42]/50' : 'text-neutral-900 hover:bg-neutral-100'}`}
                 onClick={() => handleRenamePage(currentPage)}
-                title="Rename page"
               >
                 {currentPage?.title}
               </h1>
+              </Tooltip>
               {currentPage?.folderId && (
                 <span className={`ml-2 px-1.5 py-0.5 text-xs font-medium rounded-md flex-shrink-0 ${getFolderBadgeClasses()}`}>
                   <FolderIcon className="w-3 h-3 inline-block mr-1" />
@@ -2105,16 +2109,18 @@ export default function RichTextEditor() {
               )}
               {currentPage && (
                 <div className="flex items-center ml-2 space-x-1 flex-shrink-0">
+                  <Tooltip text={currentPage.password?.hash && !tempUnlockedPages.has(currentPage.id) ? 'Unlock page' : 'Lock page'}>
                   <button
                     onClick={() => handleEncryptBadgeClick(currentPage)}
                     className={`p-2 rounded-lg transition-colors cursor-pointer ${getButtonHoverClasses()}`}
-                    title={currentPage.password?.hash && !tempUnlockedPages.has(currentPage.id) ? 'Unlock page' : 'Lock page'}
                   >
                     {currentPage.password?.hash && !tempUnlockedPages.has(currentPage.id)
                       ? <LockKeyhole className="h-3.5 w-3.5 pointer-events-none" />
                       : <Unlock className="h-3.5 w-3.5 pointer-events-none" />
                     }
                   </button>
+                  </Tooltip>
+                  <Tooltip text={currentPage.selfDestructAt ? 'Cancel self-destruct' : 'Self-destruct'}>
                   <button
                     onClick={() => {
                       if (currentPage.selfDestructAt) {
@@ -2133,13 +2139,13 @@ export default function RichTextEditor() {
                       }
                     }}
                     className={`p-2 rounded-lg transition-colors cursor-pointer ${getButtonHoverClasses()}`}
-                    title={currentPage.selfDestructAt ? 'Cancel self-destruct' : 'Self-destruct'}
                   >
                     {currentPage.selfDestructAt
                       ? <TimerOff className="h-3.5 w-3.5 pointer-events-none" />
                       : <Timer className="h-3.5 w-3.5 pointer-events-none" />
                     }
                   </button>
+                  </Tooltip>
                 </div>
               )}
             </div>
@@ -2154,50 +2160,55 @@ export default function RichTextEditor() {
               ) : (
                 <>
                   <ExportDropdown onExport={handleExport} className={`cursor-pointer ${getButtonHoverClasses()}`} />
+                  <Tooltip text="Share encrypted note">
                   <button
                     onClick={() => setIsShareModalOpen(true)}
                     className={`p-2 rounded-lg cursor-pointer ${getButtonHoverClasses()}`}
-                    title="Share encrypted note"
                   >
                     <Share2 className="h-4 w-4 pointer-events-none" />
                   </button>
+                  </Tooltip>
                   {shouldShowMobileInstall() && (
+                    <Tooltip text="Use on your phone">
                     <button
                       onClick={() => setIsInstallModalOpen(true)}
                       className={`p-2 rounded-lg cursor-pointer ${getButtonHoverClasses()}`}
-                      title="Use on your phone"
                     >
                       <Smartphone className="h-4 w-4 pointer-events-none" />
                     </button>
+                    </Tooltip>
                   )}
+                  <Tooltip text={isImporting ? 'Importing…' : 'Import encrypted bundle'}>
                   <button
                     onClick={handleImportBundleClick}
                     className={`p-2 rounded-lg cursor-pointer ${getButtonHoverClasses()}`}
-                    title={isImporting ? 'Importing…' : 'Import encrypted bundle'}
                     disabled={isImporting}
                   >
                     <Import className={`h-4 w-4 pointer-events-none ${isImporting ? 'animate-pulse' : ''}`} />
                   </button>
+                  </Tooltip>
+                  <Tooltip text="Report a bug">
                   <button
                     onClick={() => {
                       window.open('https://github.com/Efesop/rich-text-editor/issues/new', '_blank', 'noopener,noreferrer');
                     }}
                     className={`p-2 rounded-lg cursor-pointer ${getButtonHoverClasses()}`}
-                    title="Report a bug or request a feature"
                   >
                     <Bug className="h-4 w-4 pointer-events-none" />
                   </button>
+                  </Tooltip>
+                  <Tooltip text="Check for updates">
                   <button
                     onClick={handleBellClick}
                     disabled={!canCheckForUpdates}
                     className={`relative p-2 rounded-lg cursor-pointer ${getIconClasses()} ${getButtonHoverClasses()} ${!canCheckForUpdates ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    title="Check for updates"
                   >
                     <Bell className={`h-4 w-4 pointer-events-none ${isCheckingForUpdates ? 'animate-pulse' : ''}`} />
                     {updateInfo?.available && (
                       <span className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 ${theme === 'dark' ? 'border border-[#0d0d0d]' : theme === 'darkblue' ? 'border border-[#0c1017]' : theme === 'fallout' ? 'border border-gray-900' : 'border border-white'} shadow-sm`}></span>
                     )}
                   </button>
+                  </Tooltip>
                   <ThemeToggle className={`cursor-pointer ${getButtonHoverClasses()}`} />
                 </>
               )}
@@ -2309,6 +2320,7 @@ export default function RichTextEditor() {
     </div>
     <div className="flex items-center space-x-3">
       {currentPage.selfDestructAt && (
+        <Tooltip text="Remove self-destruct timer">
         <button
           onClick={() => {
             setConfirmModal({
@@ -2323,12 +2335,13 @@ export default function RichTextEditor() {
             })
           }}
           className="cursor-pointer hover:opacity-80 transition-opacity flex items-center"
-          title="Click to remove self-destruct timer"
         >
           <SelfDestructBadge selfDestructAt={currentPage.selfDestructAt} theme={theme} />
         </button>
+        </Tooltip>
       )}
       <span>{wordCount} words</span>
+      <Tooltip text={showMiniOutline ? 'Hide contents' : 'Table of contents'}>
       <button
         onClick={toggleMiniOutline}
         className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-colors ${
@@ -2337,11 +2350,12 @@ export default function RichTextEditor() {
           theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5] hover:bg-[#1c2438]' :
           'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100'
         }`}
-        title={showMiniOutline ? 'Hide outline' : 'Show outline'}
       >
         <List size={12} className="pointer-events-none" />
       </button>
+      </Tooltip>
       <div className="relative">
+        <Tooltip text="Features">
         <button
           onClick={() => {
             setIsFeaturesOpen(true)
@@ -2353,10 +2367,10 @@ export default function RichTextEditor() {
             theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5] hover:bg-[#1c2438]' :
             'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100'
           }`}
-          title="Features"
         >
           <Sparkles size={12} className="pointer-events-none" />
         </button>
+        </Tooltip>
         {showFeaturesTooltip && (
           <div
             className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shadow-lg animate-bounce-subtle ${
@@ -2377,6 +2391,7 @@ export default function RichTextEditor() {
           </div>
         )}
       </div>
+      <Tooltip text="Keyboard shortcuts">
       <button
         onClick={() => setIsShortcutsModalOpen(true)}
         className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-colors ${
@@ -2385,10 +2400,10 @@ export default function RichTextEditor() {
           theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5] hover:bg-[#1c2438]' :
           'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100'
         }`}
-        title="Keyboard shortcuts (?)"
       >
         <Keyboard size={12} className="pointer-events-none" />
       </button>
+      </Tooltip>
       <span aria-live="polite" aria-atomic="true">
         {saveStatus === 'saving' && <span className={theme === 'fallout' ? 'text-yellow-400' : 'text-yellow-500'}>Saving...</span>}
         {saveStatus === 'saved' && <span className={theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-[#6b6b6b]' : theme === 'darkblue' ? 'text-[#445068]' : 'text-neutral-400'}>Saved</span>}
