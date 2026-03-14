@@ -134,6 +134,7 @@ export default function RichTextEditor() {
     navigateToPage,
     selfDestructingPages,
     completeSelfDestruct,
+    editorReloadKey,
     decryptAllAppLockPages,
     encryptAndClearAppLockPages,
     reEncryptAppLockPages,
@@ -1704,6 +1705,7 @@ export default function RichTextEditor() {
             theme === 'darkblue' ? 'text-[#8b99b5] bg-[#141825] border border-[#1c2438]' :
             'text-neutral-500 bg-white border border-neutral-200 shadow-sm'
           }`}
+          style={{ animation: 'dash-focus-enter 300ms ease-out' }}
           onMouseEnter={() => setFocusPillVisible(true)}
         >
           <button
@@ -2286,7 +2288,7 @@ export default function RichTextEditor() {
       {currentPage && (
         <EditorErrorBoundary>
           <DynamicEditor
-            key={currentPage.id}
+            key={currentPage.id + '-' + editorReloadKey}
             data={currentPage.content}
             onChange={handleEditorChange}
             holder="editorjs"

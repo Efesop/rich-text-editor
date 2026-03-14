@@ -105,10 +105,11 @@ export function ConfirmModal({
       aria-describedby="confirm-modal-description"
     >
       {/* Backdrop with blur */}
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" aria-hidden="true" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" aria-hidden="true" onClick={onClose} style={{ animation: 'dash-backdrop-in 150ms ease-out forwards' }} />
 
       {/* Modal */}
       <div
+        style={{ animation: 'dash-modal-in 150ms ease-out forwards' }}
         className={`
           relative w-full max-w-sm transform transition-all duration-200
           ${isFallout

@@ -18,6 +18,7 @@ export function usePagesManager() {
   const [currentPage, _setCurrentPage] = useState(null)
   const { tags, addTag, removeTag, updateTag } = useTagStore()
   const [saveStatus, setSaveStatus] = useState('saved')
+  const [editorReloadKey, setEditorReloadKey] = useState(0)
   const [tempUnlockedPages, setTempUnlockedPages] = useState(new Set())
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
   const [pageToAccess, setPageToAccess] = useState(null)
@@ -1156,10 +1157,14 @@ export function usePagesManager() {
     dbg('applock', 'decrypted', decrypted.filter(p => p.content).length, 'pages successfully')
     setPages(decrypted)
     pagesRef.current = decrypted
-    // Update currentPage if it was decrypted, or select first page after duress recovery
+    // Update currentPage with decrypted content and bump editorReloadKey
+    // to force editor remount (same page ID won't remount via key alone)
     if (currentPageRef.current) {
       const updated = decrypted.find(p => p.id === currentPageRef.current.id)
-      if (updated) _setCurrentPage(updated)
+      if (updated) {
+        _setCurrentPage(updated)
+        setEditorReloadKey(k => k + 1)
+      }
     } else if (decrypted.length > 0) {
       const firstPage = decrypted.find(p => p.type !== 'folder') || decrypted[0]
       dbg('applock', 'selecting first page after recovery:', firstPage.title || firstPage.id)
@@ -1242,9 +1247,16 @@ export function usePagesManager() {
       next.delete(pageId)
       return next
     })
+    // Navigate away first if we're viewing this page, so the editor doesn't show stale content
+    if (currentPageRef.current?.id === pageId) {
+      const remaining = pagesRef.current.filter(p => p.type !== 'folder' && p.id !== pageId)
+      if (remaining.length > 0) {
+        setCurrentPage(remaining[0])
+      }
+    }
     const page = pagesRef.current.find(p => p.id === pageId)
     if (page) deletePage(page)
-  }, [deletePage])
+  }, [deletePage, setCurrentPage])
 
   // Self-destruct: check for expired pages every 5 seconds
   useEffect(() => {
@@ -1254,24 +1266,35 @@ export function usePagesManager() {
         p => p.selfDestructAt && p.selfDestructAt <= now && p.type !== 'folder'
       )
       expired.forEach(page => {
-        // If currently viewing this page, show overlay animation first
-        if (currentPageRef.current?.id === page.id) {
-          if (!selfDestructingPagesRef.current.has(page.id)) {
-            selfDestructingPagesRef.current.add(page.id)
-            setSelfDestructingPages(prev => {
-              const next = new Set(prev)
-              next.add(page.id)
-              return next
-            })
+        if (!selfDestructingPagesRef.current.has(page.id)) {
+          // Wait 2s after expiry so "Expired" badge is visible, then start dissolve
+          const elapsed = now - page.selfDestructAt
+          if (elapsed < 2000) return
+
+          selfDestructingPagesRef.current.add(page.id)
+          setSelfDestructingPages(prev => {
+            const next = new Set(prev)
+            next.add(page.id)
+            return next
+          })
+
+          // For pages not being viewed, delete after sidebar dissolve animation (800ms)
+          if (currentPageRef.current?.id !== page.id) {
+            setTimeout(() => {
+              selfDestructingPagesRef.current.delete(page.id)
+              setSelfDestructingPages(prev => {
+                const next = new Set(prev)
+                next.delete(page.id)
+                return next
+              })
+              deletePage(page)
+            }, 900)
           }
-        } else {
-          // Not viewing it — delete directly (sidebar dissolve handled via CSS)
-          deletePage(page)
         }
       })
     }
 
-    const interval = setInterval(checkExpired, 5000)
+    const interval = setInterval(checkExpired, 1000)
     return () => clearInterval(interval)
   }, [deletePage])
 
@@ -1336,6 +1359,7 @@ export function usePagesManager() {
     navigateToPage,
     selfDestructingPages,
     completeSelfDestruct,
+    editorReloadKey,
     decryptAllAppLockPages,
     encryptAndClearAppLockPages,
     reEncryptAppLockPages,

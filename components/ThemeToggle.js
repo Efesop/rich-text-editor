@@ -1,10 +1,21 @@
-import React from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useTheme } from 'next-themes'
 import { Sun, Moon, Terminal, CloudMoon } from 'lucide-react'
 import Tooltip from './Tooltip'
 
 const ThemeToggle = ({ className = '' }) => {
   const { theme, setTheme } = useTheme()
+  const [isSpinning, setIsSpinning] = useState(false)
+  const prevThemeRef = useRef(theme)
+
+  useEffect(() => {
+    if (prevThemeRef.current !== theme) {
+      prevThemeRef.current = theme
+      setIsSpinning(true)
+      const timer = setTimeout(() => setIsSpinning(false), 250)
+      return () => clearTimeout(timer)
+    }
+  }, [theme])
 
   const cycleTheme = () => {
     if (theme === 'light') {
@@ -41,7 +52,9 @@ const ThemeToggle = ({ className = '' }) => {
       onClick={cycleTheme}
       className={`p-2 rounded-lg transition-colors ${className}`}
     >
-      {getIcon()}
+      <span style={{ display: 'inline-flex', transform: isSpinning ? 'rotate(60deg)' : 'rotate(0deg)', transition: 'transform 250ms ease' }}>
+        {getIcon()}
+      </span>
     </button>
     </Tooltip>
   )

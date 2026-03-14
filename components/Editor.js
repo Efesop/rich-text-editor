@@ -10,8 +10,14 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
   const dataRef = useRef(data)
   const onChangeRef = useRef(onChange)
   const multiBlockEnhancerRef = useRef(null)
-  const undoRef = useRef(null)
   const lastSavedRef = useRef(null) // Dedup: prevent MutationObserver feedback loops
+
+  // Custom undo/redo state
+  const undoStackRef = useRef([])
+  const redoStackRef = useRef([])
+  const isUndoRedoRef = useRef(false) // Suppresses snapshot capture after undo/redo renders
+  const snapshotTimerRef = useRef(null)
+  const MAX_UNDO_HISTORY = 50
 
   // Update refs when props change
   useEffect(() => {
@@ -51,6 +57,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
         if (typeof window !== 'undefined' && window._renumberListItems) {
           window._renumberListItems()
         }
+
         // Debounce the onChange to prevent excessive saves
         if (editorRef.current?.onChange) {
           clearTimeout(editorRef.current.onChange)
@@ -69,6 +76,21 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
             lastSavedRef.current = blocksStr
             if (window.__DASH_DEBUG) console.log('[editor] onChange →', content.blocks?.length, 'blocks')
             onChangeRef.current?.(content)
+
+            // Capture undo snapshot (debounced to group rapid typing into one step)
+            // Skip if this onChange was triggered by an undo/redo render
+            if (!isUndoRedoRef.current) {
+              if (snapshotTimerRef.current) clearTimeout(snapshotTimerRef.current)
+              snapshotTimerRef.current = setTimeout(() => {
+                const snapshot = JSON.parse(blocksStr)
+                undoStackRef.current.push(snapshot)
+                if (undoStackRef.current.length > MAX_UNDO_HISTORY) {
+                  undoStackRef.current.shift()
+                }
+                redoStackRef.current = [] // Clear redo on new user edit
+                if (window.__DASH_DEBUG) console.log('[undo] snapshot captured, stack size:', undoStackRef.current.length)
+              }, 500)
+            }
           } catch (error) {
             console.error('Error saving editor content:', error)
           }
@@ -98,7 +120,6 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
         NestedList,
         Underline,
         AlignmentTune,
-        Undo,
         DragDrop,
         BulletListItem,
         NumberedListItem,
@@ -120,7 +141,6 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
         import('@editorjs/nested-list').then(m => m.default),
         import('@editorjs/underline').then(m => m.default),
         import('editorjs-text-alignment-blocktune').then(m => m.default),
-        import('editorjs-undo').then(m => m.default),
         import('editorjs-drag-drop').then(m => m.default),
         import('./editor-tools/BulletListItem').then(m => m.default),
         import('./editor-tools/NumberedListItem').then(m => m.default),
@@ -323,7 +343,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
         }
       }
 
-      return { EditorJS, tools, Undo, DragDrop }
+      return { EditorJS, tools, DragDrop }
     } catch (error) {
       console.error('Error loading Editor.js tools:', error)
       throw error
@@ -344,7 +364,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
 
         if (isCancelled) return
 
-        const { EditorJS, tools, Undo, DragDrop } = await initializeTools()
+        const { EditorJS, tools, DragDrop } = await initializeTools()
 
         if (isCancelled) return
 
@@ -365,21 +385,9 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
         await editorRef.current.isReady
         isInitializedRef.current = true
 
-        // Enable undo/redo (Cmd+Z / Cmd+Shift+Z)
-        const undoInstance = new Undo({
-          editor: editorRef.current,
-          maxLength: 50,
-          config: {
-            debounceTimer: 250,
-            shortcuts: {
-              undo: 'CMD+Z',
-              redo: 'CMD+SHIFT+Z'
-            }
-          }
-        })
-        // Initialize with current data so undo doesn't revert to empty
-        undoInstance.initialize(migratedData)
-        undoRef.current = undoInstance
+        // Initialize undo stack with initial data
+        undoStackRef.current = [JSON.parse(JSON.stringify(migratedData.blocks))]
+        redoStackRef.current = []
 
         // Enable drag-and-drop block reordering
         new DragDrop(editorRef.current)
@@ -421,9 +429,8 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
           await editorRef.current.render(migratedData)
           dataRef.current = data
           // Reset undo history for the new page so undo doesn't cross pages
-          if (undoRef.current) {
-            undoRef.current.initialize(migratedData)
-          }
+          undoStackRef.current = [JSON.parse(JSON.stringify(migratedData.blocks))]
+          redoStackRef.current = []
         } catch (error) {
           console.error('Error updating editor data:', error)
         }
@@ -477,6 +484,86 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
       }
     }
   }, [holder])
+
+  // Custom undo/redo keyboard handler
+  useEffect(() => {
+    const handleKeyDown = async (e) => {
+      const isMod = e.metaKey || e.ctrlKey
+      if (!isMod || e.key !== 'z') return
+      if (!editorRef.current || !isInitializedRef.current) return
+
+      const isRedo = e.shiftKey
+
+      if (isRedo) {
+        if (redoStackRef.current.length === 0) return
+        e.preventDefault()
+        e.stopPropagation()
+
+        // Capture current state before overwriting
+        try {
+          const current = await editorRef.current.saver.save()
+          const currentStr = JSON.stringify(current.blocks)
+          const lastUndo = undoStackRef.current[undoStackRef.current.length - 1]
+          if (currentStr !== JSON.stringify(lastUndo)) {
+            undoStackRef.current.push(current.blocks)
+          }
+        } catch (err) { /* ignore */ }
+
+        const snapshot = redoStackRef.current.pop()
+        if (window.__DASH_DEBUG) console.log('[undo] redo, redo stack:', redoStackRef.current.length)
+
+        isUndoRedoRef.current = true
+        try {
+          await editorRef.current.render({ blocks: snapshot })
+          lastSavedRef.current = JSON.stringify(snapshot)
+          onChangeRef.current?.({ blocks: snapshot })
+        } finally {
+          // Keep flag true long enough to suppress the onChange pipeline
+          // (300ms debounce + 500ms snapshot debounce = 800ms)
+          setTimeout(() => { isUndoRedoRef.current = false }, 1000)
+        }
+      } else {
+        // Before first undo, capture current state so we undo to the right place
+        // (user may have typed since last snapshot was captured)
+        if (!isUndoRedoRef.current) {
+          try {
+            const current = await editorRef.current.saver.save()
+            const currentStr = JSON.stringify(current.blocks)
+            const lastSnapshot = undoStackRef.current[undoStackRef.current.length - 1]
+            if (currentStr !== JSON.stringify(lastSnapshot)) {
+              undoStackRef.current.push(current.blocks)
+              if (undoStackRef.current.length > MAX_UNDO_HISTORY) {
+                undoStackRef.current.shift()
+              }
+            }
+          } catch (err) { /* ignore */ }
+        }
+
+        if (undoStackRef.current.length <= 1) return
+        e.preventDefault()
+        e.stopPropagation()
+
+        // Pop current state and move to redo stack
+        const currentSnapshot = undoStackRef.current.pop()
+        redoStackRef.current.push(currentSnapshot)
+
+        const previousSnapshot = undoStackRef.current[undoStackRef.current.length - 1]
+        if (window.__DASH_DEBUG) console.log('[undo] undo, undo stack:', undoStackRef.current.length, 'redo stack:', redoStackRef.current.length)
+
+        isUndoRedoRef.current = true
+        try {
+          await editorRef.current.render({ blocks: JSON.parse(JSON.stringify(previousSnapshot)) })
+          lastSavedRef.current = JSON.stringify(previousSnapshot)
+          onChangeRef.current?.({ blocks: previousSnapshot })
+        } finally {
+          setTimeout(() => { isUndoRedoRef.current = false }, 1000)
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown, true) // Capture phase
+    return () => document.removeEventListener('keydown', handleKeyDown, true)
+  }, [])
 
   // Inject custom CSS after Editor.js loads to override default styles
   useEffect(() => {
@@ -692,11 +779,13 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      if (snapshotTimerRef.current) clearTimeout(snapshotTimerRef.current)
+
       if (multiBlockEnhancerRef.current) {
         multiBlockEnhancerRef.current.destroy()
         multiBlockEnhancerRef.current = null
       }
-      
+
       if (editorRef.current) {
         if (editorRef.current.onChange) {
           clearTimeout(editorRef.current.onChange)

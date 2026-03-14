@@ -30,9 +30,10 @@ export default function EncryptionChoiceModal ({ isOpen, onClose, onLockPage, on
       role="dialog"
       aria-modal="true"
     >
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" aria-hidden="true" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" aria-hidden="true" onClick={onClose} style={{ animation: 'dash-backdrop-in 150ms ease-out forwards' }} />
 
       <div
+        style={{ animation: 'dash-modal-in 150ms ease-out forwards' }}
         className={`
           relative w-full max-w-md transform transition-all duration-200
           ${isFallout

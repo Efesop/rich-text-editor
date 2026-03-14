@@ -38,9 +38,10 @@ export function BugReportModal({ isOpen, onClose, onSubmit }) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div 
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ animation: 'dash-backdrop-in 150ms ease-out forwards' }}>
+      <div
         ref={modalRef}
+        style={{ animation: 'dash-modal-in 150ms ease-out forwards' }}
         className={`${theme === 'fallout' ? 'bg-gray-900 text-green-400 border-2 border-green-500/60' : theme === 'darkblue' ? 'bg-[#141825] text-[#e0e6f0] border border-[#1c2438]' : theme === 'dark' ? 'bg-[#2f2f2f] text-white' : 'bg-white text-gray-900'} p-6 rounded-lg shadow-xl max-w-md w-full`}
       >
         <h2 className="text-xl font-bold mb-4">Report a Bug / Request a Feature</h2>

@@ -213,10 +213,7 @@ const PageItem = ({
               />
             )}
             {page.password && page.password.hash && !tempUnlockedPages.has(page.id) && (
-              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" className={`flex-shrink-0 ml-1 ${theme === 'fallout' ? 'text-green-500' : 'text-blue-500'}`} style={{ opacity: isHovered ? 1 : 0, transition: 'opacity 150ms' }}>
-                <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                <path d="M5 8l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              </svg>
+              <LockKeyhole className={`h-3 w-3 flex-shrink-0 ml-3 ${theme === 'fallout' ? 'text-green-500' : 'text-blue-500'}`} strokeWidth={2.5} style={{ opacity: isHovered ? 1 : 0, transform: isHovered ? 'rotate(0deg)' : 'rotate(-15deg)', transition: 'opacity 150ms, transform 150ms' }} />
             )}
       </div>
       ) : (
@@ -280,7 +277,8 @@ const PageItem = ({
           style={{
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`,
-            zIndex: 9999
+            zIndex: 9999,
+            animation: 'dash-dropdown-in 120ms ease-out forwards'
           }}
         >
           <div className="py-1">

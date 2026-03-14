@@ -159,9 +159,9 @@ export default function ShareModal ({ isOpen, onClose, noteContent, noteTitle, t
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} style={{ animation: 'dash-backdrop-in 150ms ease-out forwards' }} />
 
-      <div className={`relative w-full max-w-md rounded-2xl p-6 max-h-[85vh] overflow-y-auto ${containerClass}`}>
+      <div style={{ animation: 'dash-modal-in 150ms ease-out forwards' }} className={`relative w-full max-w-md rounded-2xl p-6 max-h-[85vh] overflow-y-auto ${containerClass}`}>
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
@@ -203,7 +203,7 @@ export default function ShareModal ({ isOpen, onClose, noteContent, noteTitle, t
                   copied === 'link' ? primaryBtnClass : btnClass
                 }`}
               >
-                {copied === 'link' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied === 'link' ? <Check className="h-3.5 w-3.5" style={{ animation: 'dash-copy-pop 200ms ease-out' }} /> : <Copy className="h-3.5 w-3.5" />}
               </button>
             </div>
 
@@ -225,7 +225,7 @@ export default function ShareModal ({ isOpen, onClose, noteContent, noteTitle, t
                   copied === 'link' ? primaryBtnClass : btnClass
                 }`}
               >
-                {copied === 'link' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied === 'link' ? <Check className="h-4 w-4" style={{ animation: 'dash-copy-pop 200ms ease-out' }} /> : <Copy className="h-4 w-4" />}
                 <span className={`text-sm font-medium ${copied === 'link' ? '' : textClass}`}>
                   {copied === 'link' ? 'Copied!' : 'Copy Link'}
                 </span>
@@ -284,7 +284,7 @@ export default function ShareModal ({ isOpen, onClose, noteContent, noteTitle, t
                           copied === 'password' ? primaryBtnClass : btnClass
                         }`}
                       >
-                        {copied === 'password' ? <Check className="h-3 w-3 inline mr-1" /> : <Copy className="h-3 w-3 inline mr-1" />}
+                        {copied === 'password' ? <Check className="h-3 w-3 inline mr-1" style={{ animation: 'dash-copy-pop 200ms ease-out' }} /> : <Copy className="h-3 w-3 inline mr-1" />}
                         {copied === 'password' ? 'Copied' : 'Copy'}
                       </button>
                     </div>

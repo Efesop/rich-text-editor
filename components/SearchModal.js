@@ -238,10 +238,11 @@ export default function SearchModal ({
       onClick={handleOverlayClick}
     >
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} style={{ animation: 'dash-backdrop-in 150ms ease-out forwards' }} />
 
       {/* Modal */}
       <div
+        style={{ animation: 'dash-modal-in 150ms ease-out forwards' }}
         className={`relative w-full max-w-xl rounded-2xl overflow-hidden ${containerClasses}`}
         onClick={(e) => e.stopPropagation()}
       >

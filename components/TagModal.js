@@ -171,9 +171,9 @@ export default function TagModal({ isOpen, onClose, onConfirm, onDelete, tag, ex
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-4" onClick={handleOverlayClick}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-4" onClick={handleOverlayClick} style={{ animation: 'dash-backdrop-in 150ms ease-out forwards' }}>
       <div className="relative w-full max-w-lg mx-auto">
-        <div className={`relative transform rounded-lg shadow-xl transition-all ${getModalClasses()}`}>
+        <div style={{ animation: 'dash-modal-in 150ms ease-out forwards' }} className={`relative transform rounded-lg shadow-xl transition-all ${getModalClasses()}`}>
           <div className="absolute right-0 top-0 pr-6 pt-6">
             <button
               type="button"

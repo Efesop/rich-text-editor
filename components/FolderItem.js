@@ -279,12 +279,12 @@ export function FolderItem({
           disabled={!isDndEnabled}
         >
           <div className="mt-0.5" style={{ minHeight: '4px' }}>
-            {folderPageIds.map(pageId => {
+            {folderPageIds.map((pageId, index) => {
               const page = (pages || []).find(p => p.id === pageId)
               if (!page) return null
               return (
+                <div key={page.id} style={{ animation: `dash-folder-item-in 150ms ease-out ${index * 30}ms both` }}>
                 <SortablePageItem
-                  key={page.id}
                   id={page.id}
                   disabled={!isDndEnabled}
                   page={page}
@@ -306,6 +306,7 @@ export function FolderItem({
                   isSelfDestructing={selfDestructingPages && selfDestructingPages.has(page.id)}
                   onSelfDestructComplete={completeSelfDestruct}
                 />
+                </div>
               )
             })}
           </div>
@@ -321,7 +322,8 @@ export function FolderItem({
           style={{
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`,
-            zIndex: 9999
+            zIndex: 9999,
+            animation: 'dash-dropdown-in 120ms ease-out forwards'
           }}
         >
           <div className="py-1">

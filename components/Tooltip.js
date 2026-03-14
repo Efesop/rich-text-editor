@@ -111,7 +111,7 @@ export default function Tooltip({ children, text, delay = 400, side = 'top' }) {
           className="fixed z-[9999] pointer-events-none"
           style={getStyle()}
         >
-          <div className={`px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap shadow-lg ${isRight ? 'ml-1.5' : isBottom ? 'mt-1.5' : 'mb-1.5'} ${bg}`}>
+          <div className={`px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap shadow-lg ${isRight ? 'ml-1.5' : isBottom ? 'mt-1.5' : 'mb-1.5'} ${bg}`} style={{ animation: 'dash-tooltip-in 120ms ease-out forwards' }}>
             {text}
             {isRight ? (
               <div className={`absolute right-full top-1/2 -translate-y-1/2 w-0 h-0 border-t-[5px] border-b-[5px] border-r-[5px] border-t-transparent border-b-transparent ${arrowLeft}`} />

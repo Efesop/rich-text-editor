@@ -12,7 +12,7 @@ function formatCountdown (targetTimestamp) {
   const now = Date.now()
   const remaining = targetTimestamp - now
 
-  if (remaining <= 0) return { text: 'Expired', urgent: true, remaining: 0 }
+  if (remaining <= 0) return { text: 'Expired', urgent: true, remaining: 0, expired: true }
 
   const totalSeconds = Math.floor(remaining / 1000)
   const totalMinutes = Math.floor(remaining / (1000 * 60))
@@ -118,9 +118,10 @@ export default function SelfDestructBadge ({ selfDestructAt, theme }) {
       ${isFallout ? 'font-mono' : ''}
       ${colorClass}
       ${animationClass}
+      ${countdown.expired ? 'dash-sd-expired-flash' : ''}
     `}>
       <Timer className={`h-3 w-3 ${countdown.remaining <= 5 * 60 * 1000 && countdown.remaining > 0 ? 'dash-sd-icon-pulse' : ''}`} />
-      {countdown.text}
+      <span key={countdown.text} style={{ animation: 'dash-sd-tick 200ms ease-out' }}>{countdown.text}</span>
     </span>
   )
 }

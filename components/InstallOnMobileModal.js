@@ -89,8 +89,8 @@ export function InstallOnMobileModal ({ isOpen, onClose, pwaUrl }) {
   }
 
   return (
-    <div className={styles.overlay} onClick={handleOverlayClick}>
-      <div className={styles.modal}>
+    <div className={styles.overlay} onClick={handleOverlayClick} style={{ animation: 'dash-backdrop-in 150ms ease-out forwards' }}>
+      <div className={styles.modal} style={{ animation: 'dash-modal-in 150ms ease-out forwards' }}>
         <h2 className={`text-xl font-bold mb-4 ${styles.text}`}>📱 Install Dash on Your Phone</h2>
         
         <div className="space-y-4">

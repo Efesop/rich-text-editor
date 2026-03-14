@@ -47,10 +47,11 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
       aria-labelledby="password-modal-title"
     >
       {/* Backdrop with blur */}
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} style={{ animation: 'dash-backdrop-in 150ms ease-out forwards' }} />
+
       {/* Modal */}
-      <div 
+      <div
+        style={{ animation: 'dash-modal-in 150ms ease-out forwards' }}
         className={`
           relative w-full max-w-md transform transition-all duration-200
           ${isFallout

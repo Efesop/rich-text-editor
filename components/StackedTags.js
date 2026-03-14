@@ -114,7 +114,7 @@ export default function StackedTags({
               ? 'bg-[#1a2035] border-[#1c2438]'
               : 'bg-white border-gray-200'
       }`}
-      style={{ top: popupPos.top, left: popupPos.left, zIndex: 9999 }}
+      style={{ top: popupPos.top, left: popupPos.left, zIndex: 9999, animation: 'dash-tooltip-in 120ms ease-out forwards' }}
       role="tooltip"
       onMouseEnter={handlePopupEnter}
       onMouseLeave={handlePopupLeave}

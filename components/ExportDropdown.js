@@ -78,15 +78,16 @@ const ExportDropdown = ({ onExport, className: wrapperClassName = '' }) => {
         className={`p-2 rounded-lg transition-colors flex items-center text-sm ${wrapperClassName}`}
       >
         Export
-        <ChevronDown className="ml-1 h-4 w-4" />
+        <ChevronDown className="ml-1 h-4 w-4" style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 200ms ease' }} />
       </button>
       {isOpen && (
-        <div className={`absolute right-0 mt-2 w-48 rounded-lg shadow-lg ${getDropdownClasses()} border z-[60]`}>
+        <div className={`absolute right-0 mt-2 w-48 rounded-lg shadow-lg ${getDropdownClasses()} border z-[60]`} style={{ animation: 'dash-dropdown-in 120ms ease-out forwards' }}>
           <div className="py-1" role="menu" aria-orientation="vertical">
-            {exportOptions.map((option) => (
+            {exportOptions.map((option, index) => (
               <button
                 key={option.value}
                 className={`block w-full text-left px-4 py-2 text-sm ${getDropdownItemClasses(option.special)}`}
+                style={{ animation: `dash-folder-item-in 100ms ease-out ${index * 25}ms both` }}
                 onClick={() => {
                   onExport(option.value);
                   setIsOpen(false);

@@ -114,6 +114,7 @@ const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
         <div 
           ref={dropdownRef}
           className={`absolute right-0 w-32 rounded-lg shadow-lg ${getDropdownClasses()} border ${dropdownPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'}`}
+          style={{ animation: `${dropdownPosition === 'top' ? 'dash-dropdown-up-in' : 'dash-dropdown-in'} 120ms ease-out forwards` }}
         >
           {sortOptions.map((option) => (
             <button
