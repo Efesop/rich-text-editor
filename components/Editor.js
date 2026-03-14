@@ -776,7 +776,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
     }
   }, [])
 
-  // Cleanup on unmount
+  // Cleanup on unmount — flush pending save so no content is lost on page switch
   useEffect(() => {
     return () => {
       if (snapshotTimerRef.current) clearTimeout(snapshotTimerRef.current)
@@ -786,12 +786,34 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
         multiBlockEnhancerRef.current = null
       }
 
-      if (editorRef.current) {
-        if (editorRef.current.onChange) {
-          clearTimeout(editorRef.current.onChange)
+      const editor = editorRef.current
+      if (editor) {
+        const hadPendingSave = !!editor.onChange
+        if (editor.onChange) {
+          clearTimeout(editor.onChange)
+          editor.onChange = null
         }
-        if (typeof editorRef.current.destroy === 'function') {
-          editorRef.current.destroy()
+
+        // If there was a pending debounced save, flush it before destroying
+        // This prevents data loss when switching pages within the 300ms debounce window
+        if (hadPendingSave && typeof editor.saver?.save === 'function') {
+          editor.saver.save().then(content => {
+            if (content && content.blocks) {
+              const blocksStr = JSON.stringify(content.blocks)
+              if (blocksStr !== lastSavedRef.current) {
+                lastSavedRef.current = blocksStr
+                onChangeRef.current?.(content)
+              }
+            }
+          }).catch(() => {}).finally(() => {
+            if (typeof editor.destroy === 'function') {
+              editor.destroy()
+            }
+          })
+        } else {
+          if (typeof editor.destroy === 'function') {
+            editor.destroy()
+          }
         }
       }
     }

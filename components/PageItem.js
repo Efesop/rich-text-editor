@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Lock, LockKeyhole, Unlock, Trash2, MoreVertical, FolderMinus, FolderPlus, Copy, Edit3, Timer, TimerOff } from 'lucide-react'
 import StackedTags from './StackedTags'
 import Tooltip from './Tooltip'
@@ -267,7 +268,7 @@ const PageItem = ({
           </button>
         )}
       </div>
-      {isDropdownOpen && (
+      {isDropdownOpen && createPortal(
         <div
           ref={dropdownRef}
           id={`page-menu-${page.id}`}
@@ -395,7 +396,8 @@ const PageItem = ({
               </button>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Mobile Action Sheet */}

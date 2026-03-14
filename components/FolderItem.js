@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Folder, FolderOpen, Trash2, MoreVertical, Edit3, Plus } from 'lucide-react'
 import SortablePageItem from './SortablePageItem'
 import Tooltip from './Tooltip'
@@ -85,21 +86,21 @@ export function FolderItem({
   }
 
   const positionDropdown = () => {
-    if (folderRef.current && dropdownRef.current) {
-      const folderRect = folderRef.current.getBoundingClientRect()
+    if (buttonRef.current && dropdownRef.current) {
+      const btnRect = buttonRef.current.getBoundingClientRect()
       const dropdownRect = dropdownRef.current.getBoundingClientRect()
       const viewportHeight = window.innerHeight
       const viewportWidth = window.innerWidth
 
-      let top = folderRect.bottom
-      let left = folderRect.right - dropdownRect.width
+      let top = btnRect.bottom + 4
+      let left = btnRect.right - dropdownRect.width
 
       if (top + dropdownRect.height > viewportHeight) {
-        top = folderRect.top - dropdownRect.height
+        top = btnRect.top - dropdownRect.height
       }
 
       if (left < 0) {
-        left = folderRect.left
+        left = btnRect.left
       } else if (left + dropdownRect.width > viewportWidth) {
         left = viewportWidth - dropdownRect.width
       }
@@ -312,7 +313,7 @@ export function FolderItem({
           </div>
         </SortableContext>
       )}
-      {isDropdownOpen && (
+      {isDropdownOpen && createPortal(
         <div
           ref={dropdownRef}
           id={`folder-menu-${folder.id}`}
@@ -365,7 +366,8 @@ export function FolderItem({
               Delete Folder
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Mobile Action Sheet */}
