@@ -4,6 +4,46 @@ import { migrateEditorData } from '@/utils/migrateBlocks'
 import { PageLinkInlineTool } from './editor-tools/PageLink'
 import { stripImageMetadata } from '@/utils/imageUtils'
 
+// Auto-linkify plain-text URLs in a string, skipping URLs already inside <a> tags
+function autoLinkify(html) {
+  if (!html || typeof html !== 'string') return html
+  // If it already contains an <a tag, parse more carefully
+  if (html.includes('<a ')) {
+    // Split by existing anchor tags, only linkify the text parts
+    const parts = html.split(/(<a\s[^>]*>.*?<\/a>)/gi)
+    return parts.map(part => {
+      if (part.startsWith('<a ')) return part
+      return part.replace(
+        /(?:https?:\/\/)[^\s<>"'`,)}\]]+/gi,
+        url => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`
+      )
+    }).join('')
+  }
+  return html.replace(
+    /(?:https?:\/\/)[^\s<>"'`,)}\]]+/gi,
+    url => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`
+  )
+}
+
+// Process table blocks to auto-linkify URLs in cells
+function linkifyTableBlocks(blocks) {
+  if (!Array.isArray(blocks)) return blocks
+  let changed = false
+  const result = blocks.map(block => {
+    if (block.type !== 'table' || !Array.isArray(block.data?.content)) return block
+    const newContent = block.data.content.map(row =>
+      Array.isArray(row) ? row.map(cell => {
+        const linked = autoLinkify(cell)
+        if (linked !== cell) changed = true
+        return linked
+      }) : row
+    )
+    if (!changed) return block
+    return { ...block, data: { ...block.data, content: newContent } }
+  })
+  return changed ? result : blocks
+}
+
 export default function Editor({ data, onChange, holder, onPageLinkClick }) {
   const editorRef = useRef(null)
   const isInitializedRef = useRef(false)
@@ -65,6 +105,8 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
         editorRef.current.onChange = setTimeout(async () => {
           try {
             const content = await api.saver.save()
+            // Auto-linkify plain-text URLs in table cells
+            content.blocks = linkifyTableBlocks(content.blocks)
             // Dedup: EditorJS MutationObserver fires onChange on ANY DOM mutation,
             // including React re-renders from our own save flow. Compare blocks
             // structurally to only propagate actual user edits.
@@ -375,6 +417,8 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
 
         // Migrate old nestedlist/checklist blocks to individual item blocks
         const migratedData = migrateEditorData(validData)
+        // Auto-linkify plain-text URLs in table cells
+        migratedData.blocks = linkifyTableBlocks(migratedData.blocks)
 
         editorRef.current = new EditorJS({
           ...editorConfig,
@@ -395,6 +439,27 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
         // Initialize multi-block tune enhancer
         if (!multiBlockEnhancerRef.current) {
           multiBlockEnhancerRef.current = new MultiBlockTuneEnhancer(editorRef.current)
+        }
+
+        // Auto-linkify URLs pasted into table cells
+        const editorEl = document.getElementById(holder)
+        if (editorEl) {
+          editorEl.addEventListener('paste', () => {
+            setTimeout(() => {
+              const cells = editorEl.querySelectorAll('.tc-cell')
+              cells.forEach(cell => {
+                const html = cell.innerHTML
+                if (!html) return
+                // Only process cells with plain-text URLs (not already linked)
+                if (/https?:\/\//.test(html)) {
+                  const linked = autoLinkify(html)
+                  if (linked !== html) {
+                    cell.innerHTML = linked
+                  }
+                }
+              })
+            }, 100)
+          })
         }
 
       } catch (error) {

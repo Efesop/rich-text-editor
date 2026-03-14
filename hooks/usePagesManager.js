@@ -858,13 +858,21 @@ export function usePagesManager() {
     }
   }, [savePagesToStorage])
 
-  const renameFolder = useCallback(async (folderId, newName) => {
+  const renameFolder = useCallback(async (folderId, newName, emoji) => {
     if (!folderId || !newName) return
 
     setPages(prevPages => {
       const newPages = prevPages.map(item => {
         if (item.id === folderId && item.type === 'folder') {
-          return { ...item, title: newName.slice(0, 30) }
+          const updated = { ...item, title: newName.slice(0, 30) }
+          if (emoji !== undefined) {
+            if (emoji) {
+              updated.emoji = emoji
+            } else {
+              delete updated.emoji
+            }
+          }
+          return updated
         }
         return item
       })

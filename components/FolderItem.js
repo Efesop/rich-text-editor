@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Folder, FolderOpen, Trash2, MoreVertical, Edit3, Plus } from 'lucide-react'
 import SortablePageItem from './SortablePageItem'
 import Tooltip from './Tooltip'
+import { RenameFolderModal } from './RenameFolderModal'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { isMobileDevice, isSmallScreen } from '@/utils/deviceUtils'
 import { ActionSheet, ActionSheetItem, ActionSheetSeparator } from './ActionSheet'
@@ -36,8 +37,9 @@ export function FolderItem({
   isDraggingFolder = false,
 }) {
   const [isExpanded, setIsExpanded] = useState(false)
-  const [isRenaming, setIsRenaming] = useState(false)
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false)
   const [newFolderName, setNewFolderName] = useState(folder.title)
+  const [newFolderEmoji, setNewFolderEmoji] = useState(folder.emoji || null)
   const dropdownRef = useRef(null)
   const buttonRef = useRef(null)
   const folderRef = useRef(null)
@@ -82,8 +84,14 @@ export function FolderItem({
   }
 
   const handleRename = () => {
-    onRenameFolder(folder.id, newFolderName)
-    setIsRenaming(false)
+    onRenameFolder(folder.id, newFolderName, newFolderEmoji)
+    setIsRenameModalOpen(false)
+  }
+
+  const openRenameModal = () => {
+    setNewFolderName(folder.title)
+    setNewFolderEmoji(folder.emoji || null)
+    setIsRenameModalOpen(true)
   }
 
   const positionDropdown = () => {
@@ -208,43 +216,28 @@ export function FolderItem({
       >
         {sidebarOpen ? (
         <div className="flex items-center flex-grow min-w-0" style={{ marginRight: isHovered ? 0 : -24, transition: 'margin-right 150ms' }}>
-          {isExpanded ? (
+          {folder.emoji ? (
+            <span className="h-4 w-4 mr-1.5 flex-shrink-0 text-sm leading-4 text-center">{folder.emoji}</span>
+          ) : isExpanded ? (
             <FolderOpen className={`h-4 w-4 mr-1.5 flex-shrink-0 ${getFolderIconClasses()}`} strokeWidth={1.5} />
           ) : (
             <Folder className={`h-4 w-4 mr-1.5 flex-shrink-0 ${getFolderIconClasses()}`} strokeWidth={1.5} />
           )}
-          {isRenaming ? (
-            <input
-              type="text"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value.slice(0, 20))}
-              onBlur={handleRename}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleRename()
-                }
-              }}
-              className="bg-transparent outline-none flex-1 min-w-0"
-              autoFocus
-              maxLength={20}
-            />
-          ) : (
-              <>
-                <span className="truncate text-sm font-medium flex-1 min-w-0" title={folder.title}>
-                  {folder.title}
-                </span>
-                {pagesCount > 0 && (
-                  <span className={`text-xs px-1.5 ml-1 rounded-full flex-shrink-0 ${getFolderCountClasses()}`}>
-                    {pagesCount}
-                  </span>
-                )}
-              </>
+          <span className="truncate text-sm font-medium flex-1 min-w-0" title={folder.title}>
+            {folder.title}
+          </span>
+          {pagesCount > 0 && (
+            <span className={`text-xs px-1.5 ml-1 rounded-full flex-shrink-0 ${getFolderCountClasses()}`}>
+              {pagesCount}
+            </span>
           )}
         </div>
         ) : (
         <Tooltip text={`${folder.title}${pagesCount > 0 ? ` (${pagesCount})` : ''}`} side="right" delay={150}>
         <div className="relative flex items-center justify-center">
-          {isExpanded ? (
+          {folder.emoji ? (
+            <span className="h-3.5 w-3.5 text-sm leading-[14px] text-center">{folder.emoji}</span>
+          ) : isExpanded ? (
             <FolderOpen className={`h-3.5 w-3.5 ${getFolderIconClasses()}`} strokeWidth={1.5} />
           ) : (
             <Folder className={`h-3.5 w-3.5 ${getFolderIconClasses()}`} strokeWidth={1.5} />
@@ -334,8 +327,7 @@ export function FolderItem({
               className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
               onClick={(e) => {
                 e.stopPropagation()
-                setIsRenaming(true)
-                setNewFolderName(folder.title)
+                openRenameModal()
                 setIsDropdownOpen(false)
               }}
             >
@@ -382,8 +374,7 @@ export function FolderItem({
           icon={Edit3}
           label="Rename"
           onClick={() => {
-            setIsRenaming(true)
-            setNewFolderName(folder.title)
+            openRenameModal()
             setIsActionSheetOpen(false)
           }}
         />
@@ -406,6 +397,16 @@ export function FolderItem({
           }}
         />
       </ActionSheet>
+
+      <RenameFolderModal
+        isOpen={isRenameModalOpen}
+        onClose={() => setIsRenameModalOpen(false)}
+        onConfirm={handleRename}
+        title={newFolderName}
+        onTitleChange={setNewFolderName}
+        emoji={newFolderEmoji}
+        onEmojiChange={setNewFolderEmoji}
+      />
     </div>
   )
 }

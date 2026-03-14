@@ -4714,3 +4714,8 @@ button:focus {
   45%, 55% { opacity: 0; transform: translateX(8px); }
   70%, 100% { opacity: 1; transform: translateX(0); }
 }
+
+/* Emoji picker overrides — hide category labels to save space */
+.dash-emoji-picker .epr-emoji-category-label {
+  display: none !important;
+}

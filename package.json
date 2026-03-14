@@ -84,6 +84,7 @@
     "editorjs-undo": "^2.0.28",
     "electron-log": "^4.4.8",
     "electron-updater": "^6.3.4",
+    "emoji-picker-react": "^4.18.0",
     "fuse.js": "^7.1.0",
     "highlight.js": "^11.11.1",
     "isomorphic-dompurify": "^2.26.0",

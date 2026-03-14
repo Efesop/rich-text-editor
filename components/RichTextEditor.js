@@ -2170,7 +2170,11 @@ export default function RichTextEditor() {
                   : (pages || []).find(item => item.type === 'folder' && Array.isArray(item.pages) && item.pages.includes(currentPage?.id))
                 return folder ? (
                   <span className={`ml-2 px-1.5 py-0.5 text-xs font-medium rounded-md flex-shrink-0 ${getFolderBadgeClasses()}`}>
-                    <FolderIcon className="w-3 h-3 inline-block mr-1" />
+                    {folder.emoji ? (
+                      <span className="inline-block mr-1 text-xs">{folder.emoji}</span>
+                    ) : (
+                      <FolderIcon className="w-3 h-3 inline-block mr-1" />
+                    )}
                     {truncateFolderName(folder.title || '')}
                   </span>
                 ) : null
