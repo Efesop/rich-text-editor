@@ -3,7 +3,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import PageItem from './PageItem'
 
-export default function SortablePageItem({ id, disabled, theme, ...pageItemProps }) {
+export default function SortablePageItem({ id, disabled, theme, dropPosition = 'above', ...pageItemProps }) {
   const {
     attributes,
     listeners,
@@ -35,9 +35,10 @@ export default function SortablePageItem({ id, disabled, theme, ...pageItemProps
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="w-full min-w-0">
       {isOver && !isDragging && (
         <div
-          className={`absolute top-0 left-2 right-2 h-0.5 -translate-y-0.5 rounded-full ${
+          className={`absolute left-2 right-2 h-0.5 rounded-full ${
             theme === 'fallout' ? 'bg-green-500' : 'bg-blue-500'
           }`}
+          style={dropPosition === 'below' ? { bottom: 0, transform: 'translateY(50%)' } : { top: 0, transform: 'translateY(-50%)' }}
         />
       )}
       <PageItem {...pageItemProps} theme={theme} />

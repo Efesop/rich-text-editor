@@ -216,8 +216,28 @@ export function usePagesManager() {
   const fetchPages = useCallback(async () => {
     try {
       const data = await readPages()
-      const validPages = Array.isArray(data) ? data : []
+      let validPages = Array.isArray(data) ? data : []
       dbg('pages', 'fetched', validPages.length, 'pages', validPages.filter(p => p.type === 'folder').length, 'folders')
+
+      // Repair: sync folderId for pages in a folder's pages array but missing the property
+      const folderMap = new Map()
+      validPages.forEach(item => {
+        if (item.type === 'folder' && Array.isArray(item.pages)) {
+          item.pages.forEach(pageId => folderMap.set(pageId, item.id))
+        }
+      })
+      let repaired = false
+      validPages = validPages.map(item => {
+        if (item.type !== 'folder' && !item.folderId && folderMap.has(item.id)) {
+          repaired = true
+          return { ...item, folderId: folderMap.get(item.id) }
+        }
+        return item
+      })
+      if (repaired) {
+        dbg('pages', 'repaired missing folderId on some pages')
+        savePagesToStorage(validPages)
+      }
 
       setPages(validPages)
       pagesRef.current = validPages
@@ -897,21 +917,25 @@ export function usePagesManager() {
     setCurrentPage(newPage)
   }, [savePagesToStorage, setCurrentPage])
 
-  const reorderItems = useCallback((activeId, overId) => {
+  const reorderItems = useCallback((activeId, overId, dropPos) => {
     setPages(prevPages => {
       const newPages = [...prevPages]
       const oldIndex = newPages.findIndex(p => p.id === activeId)
       const newIndex = newPages.findIndex(p => p.id === overId)
       if (oldIndex === -1 || newIndex === -1) return prevPages
       const [moved] = newPages.splice(oldIndex, 1)
-      newPages.splice(newIndex, 0, moved)
+      // After removing, find where overId ended up and insert based on dropPos
+      let insertIdx = newPages.findIndex(p => p.id === overId)
+      if (insertIdx === -1) insertIdx = newIndex > oldIndex ? newIndex - 1 : newIndex
+      if (dropPos === 'below') insertIdx += 1
+      newPages.splice(insertIdx, 0, moved)
       pagesRef.current = newPages
       savePagesToStorage(newPages)
       return newPages
     })
   }, [savePagesToStorage])
 
-  const reorderWithinFolder = useCallback((folderId, activeId, overId) => {
+  const reorderWithinFolder = useCallback((folderId, activeId, overId, dropPos) => {
     setPages(prevPages => {
       const newPages = prevPages.map(item => {
         if (item.id === folderId && item.type === 'folder') {
@@ -920,7 +944,11 @@ export function usePagesManager() {
           const newIdx = folderPages.indexOf(overId)
           if (oldIdx !== -1 && newIdx !== -1) {
             const [moved] = folderPages.splice(oldIdx, 1)
-            folderPages.splice(newIdx, 0, moved)
+            // After removing, adjust target index based on drop position
+            let insertIdx = folderPages.indexOf(overId)
+            if (insertIdx === -1) insertIdx = newIdx > oldIdx ? newIdx - 1 : newIdx
+            if (dropPos === 'below') insertIdx += 1
+            folderPages.splice(insertIdx, 0, moved)
             return { ...item, pages: folderPages }
           }
         }
@@ -999,7 +1027,8 @@ export function usePagesManager() {
   }, [])
 
   // Move a page between containers (folder↔root, folder↔folder)
-  const movePageToContainer = useCallback((pageId, fromContainer, toContainer, nearItemId) => {
+  // nearItemId: page to insert near; dropPosition: 'above' or 'below' relative to nearItemId
+  const movePageToContainer = useCallback((pageId, fromContainer, toContainer, nearItemId, dropPos) => {
     setPages(prevPages => {
       let newPages = [...prevPages]
 
@@ -1018,6 +1047,14 @@ export function usePagesManager() {
         newPages = newPages.map(item => {
           if (item.id === toContainer && item.type === 'folder') {
             const fp = (Array.isArray(item.pages) ? item.pages : []).filter(id => id !== pageId)
+            if (nearItemId) {
+              const nearIdx = fp.indexOf(nearItemId)
+              if (nearIdx !== -1) {
+                const insertIdx = dropPos === 'below' ? nearIdx + 1 : nearIdx
+                fp.splice(insertIdx, 0, pageId)
+                return { ...item, pages: fp }
+              }
+            }
             return { ...item, pages: [...fp, pageId] }
           }
           return item

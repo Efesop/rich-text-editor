@@ -33,6 +33,7 @@ export function FolderItem({
   isDropTarget = false,
   isDndEnabled = false,
   folderPageIds = [],
+  isDraggingFolder = false,
 }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
@@ -47,13 +48,13 @@ export function FolderItem({
 
   const isMobile = isMobileDevice() || isSmallScreen()
 
-  // Auto-expand folder when dragging a page over it
+  // Auto-expand folder when dragging a page over it (not when dragging a folder)
   useEffect(() => {
-    if (isDropTarget && !isExpanded) {
+    if (isDropTarget && !isExpanded && !isDraggingFolder) {
       const timer = setTimeout(() => setIsExpanded(true), 500)
       return () => clearTimeout(timer)
     }
-  }, [isDropTarget, isExpanded])
+  }, [isDropTarget, isExpanded, isDraggingFolder])
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -200,7 +201,7 @@ export function FolderItem({
 
 
   return (
-    <div className={`my-1 transition-all duration-150 ${isDropTarget ? `rounded-lg ${theme === 'fallout' ? 'ring-2 ring-green-500/50' : 'ring-2 ring-blue-500/50'}` : ''}`} ref={folderRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} data-theme={theme}>
+    <div className={`my-1 transition-all duration-150 ${isDropTarget && !isDraggingFolder ? `rounded-lg mx-1 ${theme === 'fallout' ? 'bg-green-500/10 border border-dashed border-green-500/40' : theme === 'dark' ? 'bg-blue-500/10 border border-dashed border-blue-400/30' : theme === 'darkblue' ? 'bg-blue-500/10 border border-dashed border-blue-400/30' : 'bg-blue-50 border border-dashed border-blue-300/60'}` : ''}`} ref={folderRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} data-theme={theme}>
       <div
         className={`flex items-center ${sidebarOpen ? 'justify-between px-3 py-2' : 'justify-center px-0 py-1'} cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-150 overflow-hidden ${getFolderHoverClasses()}`}
         onClick={toggleExpand}

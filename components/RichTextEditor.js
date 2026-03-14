@@ -227,6 +227,9 @@ export default function RichTextEditor() {
 
   // Drag and drop state
   const [activeDragItem, setActiveDragItem] = useState(null)
+  const [dropPosition, setDropPosition] = useState('above') // 'above' or 'below'
+  const [dragTargetFolderId, setDragTargetFolderId] = useState(null) // folder being targeted during drag
+  const folderHoverRef = useRef({ folderId: null, timer: null, ready: false })
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
@@ -239,7 +242,7 @@ export default function RichTextEditor() {
     if (!pointerCoordinates) return closestCorners(args)
 
     const draggedItem = (pages || []).find(p => p.id === active.id)
-    if (!draggedItem || draggedItem.type === 'folder') return closestCorners(args)
+    if (!draggedItem) return closestCorners(args)
 
     const activeContainer = draggedItem.folderId || 'root'
 
@@ -247,27 +250,74 @@ export default function RichTextEditor() {
       pointerCoordinates.x >= rect.left && pointerCoordinates.x <= rect.right &&
       pointerCoordinates.y >= rect.top && pointerCoordinates.y <= rect.bottom
 
-    // Find closest droppable by Y-distance to center
+    // Find closest droppable by Y-distance to center, also track above/below
     const findClosest = (filter) => {
-      let closest = null, closestDist = Infinity
+      let closest = null, closestDist = Infinity, closestRect = null
       for (const container of droppableContainers) {
         if (container.id === active.id || container.disabled) continue
         if (!filter(container)) continue
         const rect = droppableRects.get(container.id)
         if (!rect) continue
         const dist = Math.abs(pointerCoordinates.y - (rect.top + rect.height / 2))
-        if (dist < closestDist) { closestDist = dist; closest = container.id }
+        if (dist < closestDist) { closestDist = dist; closest = container.id; closestRect = rect }
+      }
+      if (closest && closestRect) {
+        const mid = closestRect.top + closestRect.height / 2
+        setDropPosition(pointerCoordinates.y > mid ? 'below' : 'above')
       }
       return closest ? [{ id: closest }] : []
     }
 
-    // Check if pointer is inside a DIFFERENT folder → drag into that folder
+    // Folders reorder with other root-level items
+    if (draggedItem.type === 'folder') {
+      return findClosest(c => {
+        const item = (pages || []).find(p => p.id === c.id)
+        return item && (item.type === 'folder' || !item.folderId)
+      })
+    }
+
+    // Check if pointer is inside a DIFFERENT folder → drag into that folder (with delay)
+    let hoveredFolder = null
     for (const container of droppableContainers) {
       if (container.id === activeContainer || container.disabled) continue
       const item = (pages || []).find(p => p.id === container.id)
       if (item?.type === 'folder') {
-        if (isInRect(droppableRects.get(container.id))) return [{ id: container.id }]
+        if (isInRect(droppableRects.get(container.id))) {
+          hoveredFolder = container.id
+          break
+        }
       }
+    }
+
+    // Manage folder hover delay — require 600ms hover before accepting as drop target
+    if (hoveredFolder) {
+      if (folderHoverRef.current.folderId !== hoveredFolder) {
+        // Started hovering a new folder — begin timer
+        if (folderHoverRef.current.timer) clearTimeout(folderHoverRef.current.timer)
+        folderHoverRef.current = { folderId: hoveredFolder, ready: false, timer: null }
+        folderHoverRef.current.timer = setTimeout(() => {
+          folderHoverRef.current.ready = true
+          setDragTargetFolderId(hoveredFolder)
+        }, 600)
+      }
+      if (folderHoverRef.current.ready) {
+        setDragTargetFolderId(hoveredFolder)
+        // Folder is ready — target individual pages inside it for precise positioning
+        const folderObj = (pages || []).find(p => p.id === hoveredFolder && p.type === 'folder')
+        const folderPageIds = new Set(folderObj?.pages || [])
+        if (folderPageIds.size > 0) {
+          const result = findClosest(c => folderPageIds.has(c.id))
+          if (result.length > 0) return result
+        }
+        // Empty folder or pages not rendered yet — target the folder itself
+        return [{ id: hoveredFolder }]
+      }
+      // Not ready yet — fall through to normal closest-item logic
+    } else {
+      // Not hovering any folder — clear timer
+      if (folderHoverRef.current.timer) clearTimeout(folderHoverRef.current.timer)
+      folderHoverRef.current = { folderId: null, timer: null, ready: false }
+      setDragTargetFolderId(null)
     }
 
     if (activeContainer !== 'root') {
@@ -292,8 +342,11 @@ export default function RichTextEditor() {
       }
     }
 
-    // Page is at root → use closestCorners normally
-    return closestCorners(args)
+    // Page is at root → find closest root-level item
+    return findClosest(c => {
+      const item = (pages || []).find(p => p.id === c.id)
+      return item && (item.type === 'folder' || !item.folderId)
+    })
   }, [pages])
 
   const handleDragStart = useCallback((event) => {
@@ -308,6 +361,9 @@ export default function RichTextEditor() {
   const handleDragEnd = useCallback((event) => {
     const { active, over } = event
     setActiveDragItem(null)
+    setDragTargetFolderId(null)
+    if (folderHoverRef.current.timer) clearTimeout(folderHoverRef.current.timer)
+    folderHoverRef.current = { folderId: null, timer: null, ready: false }
 
     if (!over || active.id === over.id) return
 
@@ -317,7 +373,7 @@ export default function RichTextEditor() {
 
     // Folders can only reorder with other root items
     if (activeItem.type === 'folder') {
-      reorderItems(active.id, over.id)
+      reorderItems(active.id, over.id, dropPosition)
       return
     }
 
@@ -333,15 +389,16 @@ export default function RichTextEditor() {
       // Same container
       if (overItem.type === 'folder' && activeItem.folderId === overItem.id) {
         // Page dropped on its own folder (pointer was outside folder) → move to root
-        movePageToContainer(active.id, activeContainer, 'root', null)
+        movePageToContainer(active.id, activeContainer, 'root', null, dropPosition)
       } else if (activeContainer === 'root') {
-        reorderItems(active.id, over.id)
+        reorderItems(active.id, over.id, dropPosition)
       } else {
-        reorderWithinFolder(activeContainer, active.id, over.id)
+        reorderWithinFolder(activeContainer, active.id, over.id, dropPosition)
       }
     } else {
-      // Cross-container move
-      movePageToContainer(active.id, activeContainer, overContainer, overContainer === 'root' ? over.id : null)
+      // Cross-container move — pass nearItemId for positioning within target folder
+      const nearId = overItem.type === 'folder' ? null : over.id
+      movePageToContainer(active.id, activeContainer, overContainer, nearId, dropPosition)
     }
   }, [pages, reorderItems, reorderWithinFolder, movePageToContainer])
 
@@ -1970,6 +2027,9 @@ export default function RichTextEditor() {
                         isDndEnabled={isDndEnabled}
                         folderPageIds={folderPageIds}
                         folder={item}
+                        dropPosition={dropPosition}
+                        dragTargetFolderId={dragTargetFolderId}
+                        isDraggingFolder={activeDragItem?.type === 'folder'}
                         onAddPage={() => {
                           setSelectedFolderId(item.id);
                           setIsAddToFolderModalOpen(true);
@@ -2003,6 +2063,7 @@ export default function RichTextEditor() {
                         key={item.id}
                         id={item.id}
                         disabled={!isDndEnabled}
+                        dropPosition={dropPosition}
                         page={item}
                         isActive={currentPage?.id === item.id}
                         onSelect={handlePageSelect}
@@ -2103,12 +2164,17 @@ export default function RichTextEditor() {
                 {currentPage?.title}
               </h1>
               </Tooltip>
-              {currentPage?.folderId && (
-                <span className={`ml-2 px-1.5 py-0.5 text-xs font-medium rounded-md flex-shrink-0 ${getFolderBadgeClasses()}`}>
-                  <FolderIcon className="w-3 h-3 inline-block mr-1" />
-                  {truncateFolderName((pages || []).find(item => item.id === currentPage.folderId)?.title || '')}
-                </span>
-              )}
+              {(() => {
+                const folder = currentPage?.folderId
+                  ? (pages || []).find(item => item.id === currentPage.folderId && item.type === 'folder')
+                  : (pages || []).find(item => item.type === 'folder' && Array.isArray(item.pages) && item.pages.includes(currentPage?.id))
+                return folder ? (
+                  <span className={`ml-2 px-1.5 py-0.5 text-xs font-medium rounded-md flex-shrink-0 ${getFolderBadgeClasses()}`}>
+                    <FolderIcon className="w-3 h-3 inline-block mr-1" />
+                    {truncateFolderName(folder.title || '')}
+                  </span>
+                ) : null
+              })()}
               {currentPage && (
                 <div className="flex items-center ml-2 space-x-1 flex-shrink-0">
                   <Tooltip text={currentPage.password?.hash && !tempUnlockedPages.has(currentPage.id) ? 'Unlock page' : 'Lock page'}>

@@ -1244,6 +1244,35 @@
   --color-border: #e5e7eb;
 }
 
+.tc-cell a {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.tc-cell a:hover {
+  color: #1d4ed8;
+}
+.dark .tc-cell a {
+  color: #60a5fa;
+}
+.dark .tc-cell a:hover {
+  color: #93bbfd;
+}
+.darkblue .tc-cell a {
+  color: #60a5fa;
+}
+.darkblue .tc-cell a:hover {
+  color: #93bbfd;
+}
+.fallout .tc-cell a {
+  color: #4ade80;
+  font-family: var(--font-mono, monospace);
+}
+.fallout .tc-cell a:hover {
+  color: #86efac;
+}
+
 /* Dark theme */
 .dark .tc-wrap {
   --color-background: #252525;
