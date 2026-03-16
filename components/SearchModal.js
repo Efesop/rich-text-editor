@@ -103,6 +103,13 @@ export default function SearchModal ({
     return items.slice(0, 8)
   }, [searchTerm, selectedTags, pages, folders])
 
+  // Clamp selectedIndex when results shrink
+  useEffect(() => {
+    if (selectedIndex >= results.length) {
+      setSelectedIndex(results.length > 0 ? results.length - 1 : -1)
+    }
+  }, [results.length, selectedIndex])
+
   // Keyboard navigation
   useEffect(() => {
     if (!isOpen) return

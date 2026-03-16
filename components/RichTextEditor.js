@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, Share2, List } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, Share2, List, Users, Shield, Copy, Check } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
@@ -69,12 +69,324 @@ import AppLockSettingsModal from './AppLockSettingsModal'
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal'
 import FeaturesPanel from './FeaturesPanel'
 import ShareModal from './ShareModal'
+import LiveSessionModal from './LiveSessionModal'
+// LiveSessionChip is defined inline above RichTextEditor
+import LiveNotificationsPanel from './LiveNotificationsPanel'
+import useLiveNotesStore from '../store/liveNotesStore'
 import DecoyVaultSetupModal from './DecoyVaultSetupModal'
 import { readDecoyPages } from '@/lib/storage'
 import { decryptJsonWithPassphrase } from '@/utils/cryptoUtils'
 import { usePageLinkInterceptor, PageLinkDropdown, PageLinkInlineTool } from './editor-tools/PageLink'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
+
+const AVATAR_COLORS = ['#1e40af', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#1d4ed8', '#0284c7', '#0ea5e9']
+const ADJECTIVES = ['Red', 'Blue', 'Green', 'Gold', 'Silver', 'Purple', 'Amber', 'Coral']
+const ANIMALS = ['Fox', 'Owl', 'Bear', 'Wolf', 'Hawk', 'Lynx', 'Deer', 'Crane']
+function peerAlias (peerId) {
+  const hash = peerId.split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0)
+  return ADJECTIVES[Math.abs(hash) % ADJECTIVES.length] + ' ' + ANIMALS[Math.abs(hash >> 4) % ANIMALS.length]
+}
+
+/** Persist a guest live page to localStorage (survives reload) */
+function saveGuestPage (roomId, data) {
+  try { localStorage.setItem('dash-live-page-' + roomId, JSON.stringify(data)) } catch { /* quota */ }
+}
+function loadGuestPages () {
+  const pages = []
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key?.startsWith('dash-live-page-')) {
+        const data = JSON.parse(localStorage.getItem(key))
+        if (data?.id) pages.push(data)
+      }
+    }
+  } catch { /* ignore */ }
+  return pages
+}
+
+function LiveSessionChip ({ participants, status, onEnd, theme, isHost, link, typingPeers, duration, startedAt, peerColors, remoteCursors: remoteCursorsProp }) {
+  const stableStart = React.useMemo(() => startedAt || Date.now(), [startedAt])
+  const [elapsed, setElapsed] = React.useState(Math.floor((Date.now() - stableStart) / 1000))
+  const [linkCopied, setLinkCopied] = React.useState(false)
+  const [showDropdown, setShowDropdown] = React.useState(false)
+  const hoverTimerRef = React.useRef(null)
+  const chipRef = React.useRef(null)
+
+  React.useEffect(() => {
+    const timer = setInterval(() => setElapsed(Math.floor((Date.now() - stableStart) / 1000)), 1000)
+    return () => clearInterval(timer)
+  }, [stableStart])
+
+  React.useEffect(() => {
+    return () => { if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current) }
+  }, [])
+
+  const handleCopyLink = async () => {
+    if (!link) return
+    try {
+      await navigator.clipboard.writeText(link)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    } catch { /* ignore */ }
+  }
+
+  const handleMouseEnter = () => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
+    hoverTimerRef.current = setTimeout(() => setShowDropdown(true), 150)
+  }
+  const handleMouseLeave = () => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
+    hoverTimerRef.current = setTimeout(() => setShowDropdown(false), 200)
+  }
+
+  const formatTime = (s) => {
+    if (s < 0) s = 0
+    if (s >= 3600) return `${Math.floor(s / 3600)}:${Math.floor((s % 3600) / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`
+    return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`
+  }
+  const remaining = duration ? Math.max(0, Math.floor(duration / 1000) - elapsed) : null
+  const displayTime = remaining !== null ? remaining : elapsed
+  const isFallout = theme === 'fallout'
+  const isDark = theme === 'dark'
+  const isDarkBlue = theme === 'darkblue'
+  const isConnected = status === 'connected'
+  const count = Math.max(participants || 1, 1)
+  const avatars = peerColors && peerColors.length > 0
+    ? peerColors.slice(0, 5)
+    : Array.from({ length: Math.min(count, 5) }, (_, i) => AVATAR_COLORS[i % AVATAR_COLORS.length])
+  const typingNames = typingPeers ? Object.values(typingPeers).map(p => p.alias).join(', ') : null
+
+  // Build participant list for dropdown — use remoteCursors when available, fill from participants count
+  const peerList = React.useMemo(() => {
+    const list = [{ alias: 'You', color: avatars[0] || AVATAR_COLORS[0], isTyping: false }]
+    const knownPeers = new Set()
+    if (remoteCursorsProp) {
+      Object.entries(remoteCursorsProp).forEach(([peerId, cursor]) => {
+        knownPeers.add(peerId)
+        list.push({ alias: cursor.alias || 'Peer', color: cursor.color, isTyping: typingPeers ? Object.values(typingPeers).some(t => t.alias === cursor.alias) : false })
+      })
+    }
+    // Fill remaining participants who haven't sent cursor data yet
+    for (let i = list.length; i < count; i++) {
+      list.push({ alias: `Guest ${i}`, color: AVATAR_COLORS[i % AVATAR_COLORS.length], isTyping: false })
+    }
+    return list
+  }, [remoteCursorsProp, typingPeers, avatars, count])
+
+  const subtextCls = isFallout ? 'text-green-600 font-mono' : isDarkBlue ? 'text-[#5d6b88]' : isDark ? 'text-[#6b6b6b]' : 'text-gray-400'
+  const textCls = isFallout ? 'text-green-400 font-mono' : isDarkBlue ? 'text-[#e0e6f0]' : isDark ? 'text-[#c0c0c0]' : 'text-gray-700'
+
+  return (
+    <div className="relative" ref={chipRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs cursor-default ${
+      isFallout ? 'bg-green-500/10 border border-green-500/20'
+        : isDarkBlue ? 'bg-blue-500/10 border border-blue-500/15'
+        : isDark ? 'bg-blue-500/10 border border-blue-500/15'
+        : 'bg-blue-50 border border-blue-100'
+    }`}>
+      {/* Live dot */}
+      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+        isConnected
+          ? isFallout ? 'bg-green-400 animate-pulse' : 'bg-blue-500 animate-pulse'
+          : 'bg-yellow-400 animate-pulse'
+      }`} />
+
+      {/* LIVE text */}
+      <span className={`font-semibold flex-shrink-0 ${
+        isFallout ? 'text-green-400 font-mono' : isDarkBlue ? 'text-blue-400' : isDark ? 'text-blue-400' : 'text-blue-600'
+      }`}>
+        LIVE
+      </span>
+
+      {/* Avatars */}
+      <div className="flex items-center -space-x-1">
+        {avatars.map((color, i) => (
+          <div
+            key={i}
+            className="w-4 h-4 rounded-full flex items-center justify-center text-white"
+            style={{ backgroundColor: color, zIndex: avatars.length - i }}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="white" stroke="none">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M20 21a8 8 0 1 0-16 0" />
+            </svg>
+          </div>
+        ))}
+      </div>
+
+      {/* Timer */}
+      <span className={`tabular-nums flex-shrink-0 ${
+        isFallout ? 'text-green-500/70 font-mono' : isDarkBlue ? 'text-blue-300/50' : isDark ? 'text-blue-300/50' : 'text-blue-400/70'
+      }`}>
+        {formatTime(displayTime)}
+      </span>
+
+      {/* Typing indicator */}
+      {typingNames && (
+        <span className={`flex-shrink-0 italic ${
+          isFallout ? 'text-green-500/60 font-mono' : isDarkBlue ? 'text-blue-300/40' : isDark ? 'text-blue-300/40' : 'text-blue-400/60'
+        }`}>
+          typing...
+        </span>
+      )}
+
+      {/* E2E */}
+      <div className={`flex items-center gap-0.5 flex-shrink-0 ${
+        isFallout ? 'text-green-500/60' : isDarkBlue ? 'text-blue-400/50' : isDark ? 'text-blue-400/50' : 'text-blue-400/60'
+      }`}>
+        <Shield className="w-2.5 h-2.5" />
+      </div>
+
+      {/* Copy link button */}
+      {link && (
+        <button
+          onClick={handleCopyLink}
+          className={`p-0.5 rounded transition-colors flex-shrink-0 ${
+            isFallout ? 'text-green-500/60 hover:text-green-400 hover:bg-green-500/20'
+              : isDarkBlue ? 'text-blue-400/50 hover:text-blue-400 hover:bg-blue-500/10'
+              : isDark ? 'text-blue-400/50 hover:text-blue-400 hover:bg-blue-500/10'
+              : 'text-blue-400/60 hover:text-blue-600 hover:bg-blue-100'
+          }`}
+          title={linkCopied ? 'Copied!' : 'Copy session link'}
+        >
+          {linkCopied
+            ? <Check className="w-3 h-3 pointer-events-none" />
+            : <Copy className="w-3 h-3 pointer-events-none" />
+          }
+        </button>
+      )}
+
+      {/* End button */}
+      <button
+        onClick={onEnd}
+        className={`ml-0.5 p-0.5 rounded transition-colors flex-shrink-0 ${
+          isFallout ? 'text-green-600 hover:text-green-400 hover:bg-green-500/20'
+            : isDarkBlue ? 'text-[#5d6b88] hover:text-red-400 hover:bg-red-500/10'
+            : isDark ? 'text-[#555] hover:text-red-400 hover:bg-red-500/10'
+            : 'text-gray-400 hover:text-red-500 hover:bg-red-100'
+        }`}
+        title="End session"
+      >
+        <X className="w-3 h-3 pointer-events-none" />
+      </button>
+    </div>
+
+    {/* Hover dropdown */}
+    {showDropdown && (
+      <div
+        className={`absolute top-full right-0 mt-1.5 w-56 rounded-xl shadow-xl border z-[9999] overflow-hidden ${
+          isFallout ? 'bg-gray-900 border-green-500/30'
+            : isDarkBlue ? 'bg-[#141825] border-[#1c2438]'
+            : isDark ? 'bg-[#1a1a1a] border-[#3a3a3a]/50'
+            : 'bg-white border-gray-200'
+        }`}
+        onMouseEnter={() => { if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current) }}
+        onMouseLeave={handleMouseLeave}
+      >
+        {/* Header */}
+        <div className={`px-3 py-2 border-b ${
+          isFallout ? 'border-green-500/20' : isDarkBlue ? 'border-[#1c2438]' : isDark ? 'border-[#3a3a3a]' : 'border-gray-100'
+        }`}>
+          <div className="flex items-center justify-between">
+            <span className={`text-xs font-medium ${textCls}`}>
+              {isConnected ? 'Connected' : 'Reconnecting...'}
+            </span>
+            <div className="flex items-center gap-1">
+              <Shield className={`w-3 h-3 ${subtextCls}`} />
+              <span className={`text-[10px] ${subtextCls}`}>E2E Encrypted</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Participants */}
+        <div className={`px-3 py-2 ${
+          isFallout ? 'border-b border-green-500/20' : isDarkBlue ? 'border-b border-[#1c2438]' : isDark ? 'border-b border-[#3a3a3a]' : 'border-b border-gray-100'
+        }`}>
+          <span className={`text-[10px] uppercase tracking-wider font-medium ${subtextCls}`}>
+            Participants ({count})
+          </span>
+          <div className="mt-1.5 space-y-1">
+            {peerList.map((peer, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: peer.color }} />
+                <span className={`text-xs ${textCls}`}>{peer.alias}</span>
+                {peer.isTyping && (
+                  <span className={`text-[10px] italic ${subtextCls}`}>typing...</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Timer info */}
+        <div className={`px-3 py-2 ${subtextCls}`}>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px]">{remaining !== null ? 'Time remaining' : 'Elapsed'}</span>
+            <span className={`text-xs tabular-nums font-medium ${textCls}`}>{formatTime(displayTime)}</span>
+          </div>
+          {isHost && (
+            <span className="text-[10px] block mt-0.5">You are the host</span>
+          )}
+        </div>
+      </div>
+    )}
+    </div>
+  )
+}
+
+function RemoteCursorIndicator ({ blockIndex, color, alias }) {
+  const [pos, setPos] = React.useState(null)
+
+  React.useEffect(() => {
+    const update = () => {
+      const editor = document.getElementById('editorjs')
+      if (!editor) { setPos(null); return }
+      const blocks = editor.querySelectorAll('.ce-block')
+      const block = blocks[blockIndex]
+      if (!block) { setPos(null); return }
+      const contentEl = block.querySelector('.ce-block__content') || block
+      const editorRect = editor.getBoundingClientRect()
+      const contentRect = contentEl.getBoundingClientRect()
+      setPos({
+        top: contentRect.top - editorRect.top,
+        left: contentRect.left - editorRect.left,
+        height: contentRect.height,
+      })
+    }
+    update()
+    // Re-calculate on resize
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [blockIndex])
+
+  if (!pos) return null
+
+  return (
+    <div
+      className="absolute pointer-events-none transition-all duration-300 ease-out"
+      style={{ top: pos.top - 4, left: (pos.left || 0) - 3, height: pos.height + 8, zIndex: 5 }}
+    >
+      {/* Colored line */}
+      <div
+        className="w-[2px] rounded-full h-full"
+        style={{ backgroundColor: color, opacity: 0.8 }}
+      />
+      {/* Label flag at top with alias */}
+      <div
+        className="absolute -top-5 -left-[1px] flex items-center gap-1 px-1.5 py-0.5 rounded-t-md rounded-br-md shadow-md whitespace-nowrap"
+        style={{ backgroundColor: color }}
+      >
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="white" stroke="none">
+          <circle cx="12" cy="8" r="4" />
+          <path d="M20 21a8 8 0 1 0-16 0" />
+        </svg>
+        {alias && <span className="text-[9px] text-white font-medium leading-none">{alias}</span>}
+      </div>
+    </div>
+  )
+}
 
 function extractHeadings(blocks) {
   if (!blocks) return []
@@ -139,6 +451,7 @@ export default function RichTextEditor() {
     encryptAndClearAppLockPages,
     reEncryptAppLockPages,
     removeAppLockEncryption,
+    setPages,
   } = usePagesManager()
 
   const {
@@ -223,7 +536,42 @@ export default function RichTextEditor() {
   const [isPassphraseOpen, setIsPassphraseOpen] = useState(false)
   const [pendingAction, setPendingAction] = useState(null) // 'export' | 'import'
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [isLiveSessionModalOpen, setIsLiveSessionModalOpen] = useState(false)
   const [isDecoySetupOpen, setIsDecoySetupOpen] = useState(false)
+
+  // Live session state
+  const {
+    activeSession,
+    sessionStatus,
+    participants,
+    setActiveSession,
+    setSessionStatus,
+    setParticipants,
+    clearSession,
+    editRequests,
+  } = useLiveNotesStore()
+  const liveSessionRef = useRef(null)
+  const liveGuestSyncedRef = useRef(false)
+  const lastRemoteBlocksRef = useRef(null)
+  const currentPageRef = useRef(currentPage)
+  const [liveToast, setLiveToast] = useState(null)
+  const [liveUpdateKey, setLiveUpdateKey] = useState(0)
+  const prevParticipantsRef = useRef(0)
+  const liveToastTimerRef = useRef(null)
+  const [remoteCursors, setRemoteCursors] = useState({}) // { peerId: { blockIndex, color, alias } }
+  const localPeerIdRef = useRef(crypto.randomUUID().slice(0, 8))
+  const activeSessionRef = useRef(activeSession)
+  activeSessionRef.current = activeSession
+  const sessionExpiryRef = useRef(null)
+  const sessionEndedByHostRef = useRef(false)
+  const liveBlocksRef = useRef(null) // Synchronous blocks ref for block-update handlers (fix 4)
+  const typingTimerRef = useRef(null) // Debounce typing indicator sends
+  const [remoteTyping, setRemoteTyping] = useState({}) // { peerId: { alias, color, timeout } }
+  const locallyModifiedBlocksRef = useRef(new Set()) // Track locally-edited block indices (fix 11)
+  const rejoinTimeoutRef = useRef(null) // Timeout for rejoin sync check (fix 8)
+  const [isLiveNotificationsOpen, setIsLiveNotificationsOpen] = useState(false)
+  const [passwordPrompt, setPasswordPrompt] = useState(null) // { resolve, roomId } — shown when guest needs to enter password
+  const passwordPromptRef = useRef(null)
 
   // Drag and drop state
   const [activeDragItem, setActiveDragItem] = useState(null)
@@ -638,6 +986,22 @@ export default function RichTextEditor() {
     return () => window.electron.removeListener('deep-link-share', handler)
   }, [importPages, navigateToPage])
 
+  // Handle deep link live session join (dashnotes://live#roomId.key)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.electron) return
+    const handler = (hash) => {
+      if (!hash) return
+      const dotIdx = hash.indexOf('.')
+      if (dotIdx === -1) return
+      const roomId = hash.slice(0, dotIdx)
+      const key = hash.slice(dotIdx + 1)
+      if (!roomId || !key) return
+      joinLiveSessionAsGuest(roomId, key)
+    }
+    window.electron.on('deep-link-live', handler)
+    return () => window.electron.removeListener('deep-link-live', handler)
+  }, [])
+
   // Close lock dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -849,6 +1213,39 @@ export default function RichTextEditor() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [appLock.isEnabled, appLock.isLocked, encryptAndClearAppLockPages])
 
+  // Keep currentPageRef in sync for live session callbacks
+  useEffect(() => {
+    currentPageRef.current = currentPage
+  }, [currentPage])
+
+  // Show toast when participants join/leave during live session
+  useEffect(() => {
+    if (!activeSession) {
+      prevParticipantsRef.current = 0
+      return
+    }
+    const prev = prevParticipantsRef.current
+    prevParticipantsRef.current = participants
+    if (prev === 0) return // Initial count, skip
+
+    if (participants > prev) {
+      setLiveToast('Someone joined the session')
+      if (liveToastTimerRef.current) clearTimeout(liveToastTimerRef.current)
+      liveToastTimerRef.current = setTimeout(() => setLiveToast(null), 3000)
+    } else if (participants < prev) {
+      setLiveToast('Someone left the session')
+      if (liveToastTimerRef.current) clearTimeout(liveToastTimerRef.current)
+      liveToastTimerRef.current = setTimeout(() => setLiveToast(null), 3000)
+    }
+  }, [participants, activeSession])
+
+  // Clean up toast timer on unmount
+  useEffect(() => {
+    return () => {
+      if (liveToastTimerRef.current) clearTimeout(liveToastTimerRef.current)
+    }
+  }, [])
+
   useEffect(() => {
     setIsClient(true)
   }, [])
@@ -865,11 +1262,563 @@ export default function RichTextEditor() {
     }
   }, [checkForUpdates])
 
+  const lastLocalBlocksRef = useRef(null) // Track local blocks for delta diffing
+
   const handleEditorChange = useCallback(async (content) => {
-    await savePage(content)
+    // Broadcast to live session peers
+    // Skip if: not connected, guest hasn't synced yet, or content matches last remote update (echo prevention)
+    const isOnSessionPage = activeSessionRef.current && currentPageRef.current?.id === activeSessionRef.current.pageId
+    if (liveSessionRef.current?.isConnected() && liveGuestSyncedRef.current && isOnSessionPage) {
+      const blocksJson = JSON.stringify(content.blocks)
+      if (blocksJson !== lastRemoteBlocksRef.current) {
+        const prevBlocks = lastLocalBlocksRef.current ? JSON.parse(lastLocalBlocksRef.current) : null
+
+        if (!prevBlocks || prevBlocks.length !== content.blocks.length) {
+          // Block count changed — send full sync
+          if (window.__DASH_DEBUG) console.log('[live] full-sync (block count changed)')
+          liveSessionRef.current.send({
+            type: 'full-sync',
+            title: currentPageRef.current?.title,
+            blocks: content.blocks,
+            duration: activeSessionRef.current?.duration || null,
+            startedAt: activeSessionRef.current?.startedAt || null,
+          })
+          locallyModifiedBlocksRef.current.clear()
+        } else {
+          // Same count — send only changed blocks as deltas
+          let deltasSent = 0
+          for (let i = 0; i < content.blocks.length; i++) {
+            if (JSON.stringify(content.blocks[i]) !== JSON.stringify(prevBlocks[i])) {
+              liveSessionRef.current.send({
+                type: 'block-update',
+                index: i,
+                block: content.blocks[i],
+              })
+              locallyModifiedBlocksRef.current.add(i) // Track for conflict detection (fix 11)
+              deltasSent++
+            }
+          }
+          if (window.__DASH_DEBUG && deltasSent) console.log('[live] sent', deltasSent, 'block-update(s)')
+        }
+        lastLocalBlocksRef.current = blocksJson
+        liveBlocksRef.current = content.blocks // Keep sync ref up to date (fix 4)
+      } else {
+        if (window.__DASH_DEBUG) console.log('[live] skipped echo broadcast')
+      }
+
+      // Send typing indicator (fix 10)
+      liveSessionRef.current.send({ type: 'typing', peerId: localPeerIdRef.current, isTyping: true })
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+      typingTimerRef.current = setTimeout(() => {
+        if (liveSessionRef.current?.isConnected()) {
+          liveSessionRef.current.send({ type: 'typing', peerId: localPeerIdRef.current, isTyping: false })
+        }
+      }, 2000)
+    }
+
+    // Skip saving for guest virtual pages (they aren't real pages in storage)
+    if (!currentPageRef.current?.id?.startsWith('live-')) {
+      await savePage(content)
+    }
     setWordCount(calculateWordCount(content))
     setOutlineHeadings(extractHeadings(content.blocks))
   }, [savePage])
+
+  // ── Live Session Handlers ─────────────────────────────────────
+  const handleStartLiveSession = useCallback(async ({ roomId, keyStr, link, duration, sessionPassword }) => {
+    if (!currentPage) return
+    // Destroy any existing session before starting a new one
+    if (liveSessionRef.current) {
+      liveSessionRef.current.destroy()
+      liveSessionRef.current = null
+    }
+    const docId = crypto.randomUUID()
+
+    // Hash the session password if provided (for comparison without storing plaintext)
+    let passwordHash = null
+    if (sessionPassword) {
+      const encoder = new TextEncoder()
+      const data = encoder.encode(sessionPassword)
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+      passwordHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('')
+    }
+
+    const { createLiveSession } = await import('@/lib/liveSession')
+
+    const session = createLiveSession({
+      roomId,
+      keyStr,
+      isHost: true,
+      onMessage: (msg) => {
+        const page = currentPageRef.current
+        if (window.__DASH_DEBUG) console.log('[live:host] received msg:', msg.type, 'page:', page?.id, 'hasContent:', !!page?.content, 'blocksCount:', page?.content?.blocks?.length)
+        if (msg.type === 'request-sync' && page?.content) {
+          if (passwordHash) {
+            if (window.__DASH_DEBUG) console.log('[live:host] password protected — sending auth-challenge')
+            session.send({ type: 'auth-challenge', peerId: msg.peerId })
+          } else {
+            if (window.__DASH_DEBUG) console.log('[live:host] sending full-sync:', page.content.blocks.length, 'blocks, title:', page.title)
+            session.send({
+              type: 'full-sync',
+              title: page.title,
+              blocks: page.content.blocks,
+              duration: activeSessionRef.current?.duration || null,
+              startedAt: activeSessionRef.current?.startedAt || null,
+            })
+          }
+        }
+        // Guest responded to auth challenge
+        if (msg.type === 'auth-response' && msg.passwordHash) {
+          const accepted = msg.passwordHash === passwordHash
+          if (window.__DASH_DEBUG) console.log('[live:host] auth-response from', msg.peerId, 'accepted:', accepted)
+          session.send({ type: 'auth-result', accepted, peerId: msg.peerId })
+          if (accepted && page?.content) {
+            if (window.__DASH_DEBUG) console.log('[live:host] auth accepted — sending full-sync:', page.content.blocks.length, 'blocks')
+            session.send({
+              type: 'full-sync',
+              title: page.title,
+              blocks: page.content.blocks,
+              duration: activeSessionRef.current?.duration || null,
+              startedAt: activeSessionRef.current?.startedAt || null,
+            })
+          }
+        }
+        // Handle incoming edits from guest
+        if (msg.type === 'full-sync' && msg.blocks && page) {
+          if (window.__DASH_DEBUG) console.log('[live] host received', msg.blocks.length, 'blocks from guest')
+          liveBlocksRef.current = msg.blocks
+          lastRemoteBlocksRef.current = JSON.stringify(msg.blocks)
+          lastLocalBlocksRef.current = lastRemoteBlocksRef.current
+          locallyModifiedBlocksRef.current.clear()
+          navigateToPage({
+            ...page,
+            content: { time: Date.now(), blocks: msg.blocks },
+          })
+          setLiveUpdateKey(k => k + 1)
+          setRemoteCursors({}) // Clear cursors — indices may have shifted (fix 5)
+        }
+        // Handle block-level delta updates
+        if (msg.type === 'block-update' && typeof msg.index === 'number' && msg.block) {
+          // Conflict detection (fix 11)
+          if (locallyModifiedBlocksRef.current.has(msg.index)) {
+            locallyModifiedBlocksRef.current.delete(msg.index)
+            if (window.__DASH_DEBUG) console.log('[live] conflict at index', msg.index, '— keeping local version')
+            setLiveToast('Conflict detected — your version was kept')
+            if (liveToastTimerRef.current) clearTimeout(liveToastTimerRef.current)
+            liveToastTimerRef.current = setTimeout(() => setLiveToast(null), 3000)
+            return
+          }
+          const blocks = liveBlocksRef.current ? [...liveBlocksRef.current] : (page?.content?.blocks ? [...page.content.blocks] : null)
+          if (blocks && msg.index < blocks.length) {
+            blocks[msg.index] = msg.block
+            if (window.__DASH_DEBUG) console.log('[live] host received block-update at index', msg.index)
+            liveBlocksRef.current = blocks
+            lastRemoteBlocksRef.current = JSON.stringify(blocks)
+            lastLocalBlocksRef.current = lastRemoteBlocksRef.current
+            navigateToPage({
+              ...page,
+              content: { time: Date.now(), blocks },
+            })
+            setLiveUpdateKey(k => k + 1)
+          }
+        }
+        // Handle remote cursor position (fix 9: with alias)
+        if (msg.type === 'cursor' && typeof msg.blockIndex === 'number' && msg.peerId) {
+          const colorIdx = Math.abs(msg.peerId.charCodeAt(0)) % AVATAR_COLORS.length
+          setRemoteCursors(prev => ({ ...prev, [msg.peerId]: { blockIndex: msg.blockIndex, color: AVATAR_COLORS[colorIdx], alias: peerAlias(msg.peerId) } }))
+        }
+        // Handle typing indicators (fix 10)
+        if (msg.type === 'typing' && msg.peerId) {
+          const colorIdx = Math.abs(msg.peerId.charCodeAt(0)) % AVATAR_COLORS.length
+          setRemoteTyping(prev => {
+            const updated = { ...prev }
+            if (msg.isTyping) {
+              if (updated[msg.peerId]?.timeout) clearTimeout(updated[msg.peerId].timeout)
+              const timeout = setTimeout(() => {
+                setRemoteTyping(p => { const u = { ...p }; delete u[msg.peerId]; return u })
+              }, 3000)
+              updated[msg.peerId] = { alias: peerAlias(msg.peerId), color: AVATAR_COLORS[colorIdx], timeout }
+            } else {
+              if (updated[msg.peerId]?.timeout) clearTimeout(updated[msg.peerId].timeout)
+              delete updated[msg.peerId]
+            }
+            return updated
+          })
+        }
+      },
+      onParticipantsChange: (count) => {
+        setParticipants(count)
+        if (count <= 1) { setRemoteCursors({}); setRemoteTyping({}) }
+      },
+      onStatusChange: (status) => {
+        setSessionStatus(status)
+        if (status === 'disconnected' || status === 'connecting') { setRemoteCursors({}); setRemoteTyping({}) }
+      },
+    })
+
+    liveSessionRef.current = session
+    liveGuestSyncedRef.current = true // Host is always synced
+    lastLocalBlocksRef.current = currentPage.content ? JSON.stringify(currentPage.content.blocks) : null
+    liveBlocksRef.current = currentPage.content?.blocks || []
+    locallyModifiedBlocksRef.current.clear()
+    setActiveSession({ roomId, keyStr, docId, pageId: currentPage.id, isHost: true, link, duration: duration || null, startedAt: Date.now(), passwordHash })
+
+    // Auto-expiry timer — host only
+    if (sessionExpiryRef.current) clearTimeout(sessionExpiryRef.current)
+    if (duration) {
+      sessionExpiryRef.current = setTimeout(async () => {
+        // Inline end logic to avoid circular dep with handleEndLiveSession
+        if (liveSessionRef.current) {
+          try { await liveSessionRef.current.send({ type: 'session-end' }) } catch { /* ignore */ }
+          liveSessionRef.current.destroy()
+          liveSessionRef.current = null
+        }
+        liveGuestSyncedRef.current = false
+        lastRemoteBlocksRef.current = null
+        lastLocalBlocksRef.current = null
+        liveBlocksRef.current = null
+        locallyModifiedBlocksRef.current.clear()
+        setRemoteCursors({})
+        setRemoteTyping({})
+        clearSession()
+        setLiveToast({ message: 'Live session expired', duration: 4000 })
+      }, duration)
+    }
+  }, [currentPage, setActiveSession, setParticipants, setSessionStatus, clearSession])
+
+  const handleEndLiveSession = useCallback(async () => {
+    if (sessionExpiryRef.current) { clearTimeout(sessionExpiryRef.current); sessionExpiryRef.current = null }
+    if (liveSessionRef.current) {
+      // Notify peers before closing (fix 2) — must await since send() encrypts async
+      try { await liveSessionRef.current.send({ type: 'session-end' }) } catch { /* ignore */ }
+      liveSessionRef.current.destroy()
+      liveSessionRef.current = null
+    }
+    liveGuestSyncedRef.current = false
+    lastRemoteBlocksRef.current = null
+    lastLocalBlocksRef.current = null
+    liveBlocksRef.current = null
+    locallyModifiedBlocksRef.current.clear()
+    setRemoteCursors({})
+    setRemoteTyping({})
+    clearSession()
+  }, [clearSession])
+
+  // Send cursor position to remote peer during live sessions
+  useEffect(() => {
+    if (!activeSession) return
+    let lastSentIndex = -1
+    const handleSelection = () => {
+      if (!liveSessionRef.current?.isConnected()) return
+      if (currentPageRef.current?.id !== activeSession.pageId) return
+      const sel = window.getSelection()
+      if (!sel || sel.rangeCount === 0) return
+      const node = sel.anchorNode
+      if (!node) return
+      // Walk up to find the .ce-block ancestor
+      let el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node
+      while (el && !el.classList?.contains('ce-block')) {
+        el = el.parentElement
+      }
+      if (!el) return
+      // Find block index
+      const blocks = el.parentElement?.querySelectorAll('.ce-block')
+      if (!blocks) return
+      const blockIndex = Array.from(blocks).indexOf(el)
+      if (blockIndex === -1 || blockIndex === lastSentIndex) return
+      lastSentIndex = blockIndex
+      liveSessionRef.current.send({ type: 'cursor', blockIndex, peerId: localPeerIdRef.current })
+    }
+    document.addEventListener('selectionchange', handleSelection)
+    return () => document.removeEventListener('selectionchange', handleSelection)
+  }, [activeSession])
+
+  // Clean up session on unmount or page change
+  useEffect(() => {
+    return () => {
+      if (liveSessionRef.current) {
+        liveSessionRef.current.destroy()
+        liveSessionRef.current = null
+      }
+    }
+  }, [])
+
+  // Join a live session as guest (used by both /live page redirect and deep links)
+  const joinLiveSessionAsGuest = useCallback(async (roomId, key) => {
+    try {
+      // Destroy any existing session before joining a new one
+      if (liveSessionRef.current) {
+        liveSessionRef.current.destroy()
+        liveSessionRef.current = null
+      }
+      const guestPageId = 'live-' + roomId
+      // Check if we already have this page (rejoining) — preserve existing content
+      let existingPage = null
+      try {
+        const stored = localStorage.getItem('dash-live-page-' + roomId)
+        if (stored) {
+          const data = JSON.parse(stored)
+          if (data.content?.blocks?.length > 0) {
+            existingPage = { id: guestPageId, title: data.title || 'Live Session', content: data.content, tags: [], lastEdited: Date.now() }
+          }
+        }
+      } catch { /* ignore */ }
+      const guestPage = existingPage || {
+        id: guestPageId,
+        title: 'Live Session',
+        content: { blocks: [] },
+        tags: [],
+        lastEdited: Date.now(),
+      }
+      navigateToPage(guestPage)
+      // Add guest page to pages array so it appears in the sidebar
+      setPages(prev => {
+        if (prev.some(p => p.id === guestPageId)) return prev
+        return [guestPage, ...prev]
+      })
+      // Persist to localStorage so it survives reload (fix 1) — clear sessionEnded flag on rejoin
+      saveGuestPage(roomId, { ...guestPage, roomId, keyStr: key, sessionEnded: false })
+      sessionEndedByHostRef.current = false
+      liveBlocksRef.current = []
+      locallyModifiedBlocksRef.current.clear()
+
+      const { createLiveSession } = await import('@/lib/liveSession')
+      const session = createLiveSession({
+        roomId,
+        keyStr: key,
+        isHost: false,
+        onMessage: (msg) => {
+          if (window.__DASH_DEBUG) console.log('[live:guest] received msg:', msg.type)
+          // Host ended the session gracefully (fix 2+3)
+          if (msg.type === 'session-end') {
+            sessionEndedByHostRef.current = true
+            if (liveSessionRef.current) {
+              liveSessionRef.current.destroy()
+              liveSessionRef.current = null
+            }
+            liveGuestSyncedRef.current = false
+            lastRemoteBlocksRef.current = null
+            lastLocalBlocksRef.current = null
+            liveBlocksRef.current = null
+            setRemoteCursors({})
+            setRemoteTyping({})
+            clearSession()
+
+            // Convert live page to a normal editable page the guest owns
+            // Must always convert — live- pages are filtered from storage saves
+            const newId = crypto.randomUUID()
+            setPages(prev => {
+              const livePage = prev.find(p => p.id === guestPageId)
+              if (!livePage) return prev
+              const adoptedPage = { ...livePage, id: newId, tags: [], lastEdited: Date.now() }
+              return [adoptedPage, ...prev.filter(p => p.id !== guestPageId)]
+            })
+            // If guest is currently viewing the live page, navigate to the converted one
+            if (currentPageRef.current?.id === guestPageId) {
+              const livePage = currentPageRef.current
+              navigateToPage({ ...livePage, id: newId, tags: [], lastEdited: Date.now() })
+            }
+            // Clean up localStorage live page entry
+            try { localStorage.removeItem('dash-live-page-' + roomId) } catch { /* ignore */ }
+
+            setLiveToast('Session ended — this page is now yours to edit')
+            if (liveToastTimerRef.current) clearTimeout(liveToastTimerRef.current)
+            liveToastTimerRef.current = setTimeout(() => setLiveToast(null), 5000)
+            return
+          }
+          // Password-protected session — host asks guest to authenticate (fix 6)
+          if (msg.type === 'auth-challenge') {
+            setPasswordPrompt({
+              resolve: async (password) => {
+                if (!password) {
+                  // User cancelled — destroy session
+                  if (liveSessionRef.current) { liveSessionRef.current.destroy(); liveSessionRef.current = null }
+                  clearSession()
+                  setPages(prev => prev.filter(p => p.id !== guestPageId))
+                  navigateToPage(null)
+                  return
+                }
+                const encoder = new TextEncoder()
+                const data = encoder.encode(password)
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+                const hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('')
+                if (liveSessionRef.current) {
+                  liveSessionRef.current.send({ type: 'auth-response', passwordHash: hash, peerId: localPeerIdRef.current })
+                }
+              },
+            })
+            return
+          }
+          if (msg.type === 'auth-result') {
+            if (!msg.accepted) {
+              setPasswordPrompt(prev => {
+                if (!prev) return null
+                const attempts = (prev.attempts || 0) + 1
+                if (attempts >= 3) {
+                  // Max attempts reached — destroy session
+                  setLiveToast('Too many incorrect attempts — access denied.')
+                  if (liveToastTimerRef.current) clearTimeout(liveToastTimerRef.current)
+                  liveToastTimerRef.current = setTimeout(() => setLiveToast(null), 5000)
+                  if (liveSessionRef.current) { liveSessionRef.current.destroy(); liveSessionRef.current = null }
+                  clearSession()
+                  setPages(pp => pp.filter(p => p.id !== guestPageId))
+                  navigateToPage(null)
+                  return null
+                }
+                return { ...prev, attempts, error: `Incorrect password (${3 - attempts} ${3 - attempts === 1 ? 'try' : 'tries'} remaining)` }
+              })
+              return
+            }
+            // Accepted — dismiss prompt, full-sync will follow
+            setPasswordPrompt(null)
+            return
+          }
+          if (msg.type === 'full-sync' && msg.blocks) {
+            if (window.__DASH_DEBUG) console.log('[live] guest received', msg.blocks.length, 'blocks from host')
+            liveGuestSyncedRef.current = true
+            lastRemoteBlocksRef.current = JSON.stringify(msg.blocks)
+            lastLocalBlocksRef.current = lastRemoteBlocksRef.current
+            liveBlocksRef.current = msg.blocks
+            locallyModifiedBlocksRef.current.clear() // full-sync resets conflict tracking
+            const current = currentPageRef.current || guestPage
+            const title = msg.title || current.title
+            const updatedPage = {
+              ...current,
+              id: guestPageId,
+              title,
+              content: { time: Date.now(), blocks: msg.blocks },
+            }
+            navigateToPage(updatedPage)
+            setPages(prev => prev.map(p => p.id === guestPageId ? { ...p, title, content: { time: Date.now(), blocks: msg.blocks }, lastEdited: Date.now() } : p))
+            setLiveUpdateKey(k => k + 1)
+            setRemoteCursors({}) // Clear cursors — indices may have shifted (fix 5)
+            // Clear rejoin timeout — sync arrived
+            if (rejoinTimeoutRef.current) { clearTimeout(rejoinTimeoutRef.current); rejoinTimeoutRef.current = null }
+            // Sync timing info from host so guest timer counts down too (fix 7)
+            if (msg.duration !== undefined || msg.startedAt !== undefined) {
+              const cs = activeSessionRef.current
+              if (cs) {
+                setActiveSession({ ...cs, duration: msg.duration || cs.duration || null, startedAt: msg.startedAt || cs.startedAt })
+              }
+            }
+            // Persist updated content (fix 1)
+            saveGuestPage(roomId, { ...updatedPage, roomId, keyStr: key })
+          }
+          // Handle block-level delta updates
+          if (msg.type === 'block-update' && typeof msg.index === 'number' && msg.block) {
+            // Conflict detection (fix 11)
+            if (locallyModifiedBlocksRef.current.has(msg.index)) {
+              locallyModifiedBlocksRef.current.delete(msg.index)
+              if (window.__DASH_DEBUG) console.log('[live] conflict at index', msg.index, '— keeping local version')
+              setLiveToast('Conflict detected — your version was kept')
+              if (liveToastTimerRef.current) clearTimeout(liveToastTimerRef.current)
+              liveToastTimerRef.current = setTimeout(() => setLiveToast(null), 3000)
+              return
+            }
+            const blocks = liveBlocksRef.current ? [...liveBlocksRef.current] : null
+            if (blocks && msg.index < blocks.length) {
+              blocks[msg.index] = msg.block
+              if (window.__DASH_DEBUG) console.log('[live] guest received block-update at index', msg.index)
+              liveBlocksRef.current = blocks
+              lastRemoteBlocksRef.current = JSON.stringify(blocks)
+              lastLocalBlocksRef.current = lastRemoteBlocksRef.current
+              const current = currentPageRef.current || guestPage
+              const updatedContent = { time: Date.now(), blocks }
+              navigateToPage({
+                ...current,
+                id: guestPageId,
+                content: updatedContent,
+              })
+              setPages(prev => prev.map(p => p.id === guestPageId ? { ...p, content: updatedContent, lastEdited: Date.now() } : p))
+              setLiveUpdateKey(k => k + 1)
+              // Persist updated content (fix 1)
+              saveGuestPage(roomId, { ...current, id: guestPageId, content: { time: Date.now(), blocks }, roomId, keyStr: key })
+            }
+          }
+          // Handle remote cursor position (fix 9: with alias)
+          if (msg.type === 'cursor' && typeof msg.blockIndex === 'number' && msg.peerId) {
+            const colorIdx = Math.abs(msg.peerId.charCodeAt(0)) % AVATAR_COLORS.length
+            setRemoteCursors(prev => ({ ...prev, [msg.peerId]: { blockIndex: msg.blockIndex, color: AVATAR_COLORS[colorIdx], alias: peerAlias(msg.peerId) } }))
+          }
+          // Handle typing indicators (fix 10)
+          if (msg.type === 'typing' && msg.peerId) {
+            const colorIdx = Math.abs(msg.peerId.charCodeAt(0)) % AVATAR_COLORS.length
+            setRemoteTyping(prev => {
+              const updated = { ...prev }
+              if (msg.isTyping) {
+                if (updated[msg.peerId]?.timeout) clearTimeout(updated[msg.peerId].timeout)
+                const timeout = setTimeout(() => {
+                  setRemoteTyping(p => { const u = { ...p }; delete u[msg.peerId]; return u })
+                }, 3000)
+                updated[msg.peerId] = { alias: peerAlias(msg.peerId), color: AVATAR_COLORS[colorIdx], timeout }
+              } else {
+                if (updated[msg.peerId]?.timeout) clearTimeout(updated[msg.peerId].timeout)
+                delete updated[msg.peerId]
+              }
+              return updated
+            })
+          }
+        },
+        onParticipantsChange: (count) => {
+          setParticipants(count)
+          if (count <= 1) { setRemoteCursors({}); setRemoteTyping({}) }
+        },
+        onStatusChange: (status) => {
+          setSessionStatus(status)
+          if (status === 'disconnected' || status === 'connecting') {
+            setRemoteCursors({})
+            setRemoteTyping({})
+          }
+          // Show disconnect toast for unexpected disconnects (fix 3)
+          if (status === 'disconnected' && !sessionEndedByHostRef.current && liveGuestSyncedRef.current) {
+            setLiveToast('Connection lost. Your copy is now read-only.')
+            if (liveToastTimerRef.current) clearTimeout(liveToastTimerRef.current)
+            liveToastTimerRef.current = setTimeout(() => setLiveToast(null), 5000)
+          }
+        },
+      })
+      liveSessionRef.current = session
+      setActiveSession({ roomId, keyStr: key, pageId: guestPageId, isHost: false, startedAt: Date.now() })
+    } catch (e) {
+      console.error('Failed to join live session:', e)
+    }
+  }, [setActiveSession, setParticipants, setSessionStatus, navigateToPage, setPages])
+
+  // Check for live session join link (from /live page redirect)
+  useEffect(() => {
+    const joinData = sessionStorage.getItem('dash-live-join')
+    if (!joinData) return
+    sessionStorage.removeItem('dash-live-join')
+
+    try {
+      const { roomId, key } = JSON.parse(joinData)
+      if (!roomId || !key) return
+      joinLiveSessionAsGuest(roomId, key)
+    } catch (e) {
+      console.error('Failed to parse live session join data:', e)
+    }
+  }, [joinLiveSessionAsGuest])
+
+  // Load persisted guest pages from localStorage on startup (fix 1)
+  useEffect(() => {
+    const stored = loadGuestPages()
+    if (stored.length > 0) {
+      setPages(prev => {
+        const existingIds = new Set(prev.map(p => p.id))
+        const toAdd = stored.filter(p => !existingIds.has(p.id))
+        return toAdd.length > 0 ? [...prev, ...toAdd] : prev
+      })
+    }
+  }, [setPages])
+
+  // Clean up rejoin timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (rejoinTimeoutRef.current) clearTimeout(rejoinTimeoutRef.current)
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+      if (sessionExpiryRef.current) clearTimeout(sessionExpiryRef.current)
+    }
+  }, [])
 
   const handlePageSelect = (page) => {
     if (currentPage && currentPage.password && tempUnlockedPages.has(currentPage.id)) {
@@ -1002,6 +1951,7 @@ export default function RichTextEditor() {
           break
         }
         case 'encrypted-share': {
+          if (window.__editorFlush) await window.__editorFlush()
           setIsShareModalOpen(true)
           break
         }
@@ -1280,6 +2230,17 @@ export default function RichTextEditor() {
   }
 
   const handleDeletePage = useCallback((page) => {
+    // Live guest pages: remove from state + localStorage directly, no confirmation needed
+    if (page.id?.startsWith('live-')) {
+      const roomId = page.id.replace('live-', '')
+      try { localStorage.removeItem('dash-live-page-' + roomId) } catch { /* ignore */ }
+      setPages(prev => prev.filter(p => p.id !== page.id))
+      if (currentPage?.id === page.id) {
+        const remaining = pages.filter(p => p.id !== page.id && p.type !== 'folder')
+        if (remaining.length > 0) setCurrentPage(remaining[0])
+      }
+      return
+    }
     setConfirmModal({
       isOpen: true,
       title: 'Delete Page',
@@ -1289,7 +2250,7 @@ export default function RichTextEditor() {
       confirmText: 'Delete',
       showCancel: true
     })
-  }, [deletePage])
+  }, [deletePage, currentPage, pages, setPages, setCurrentPage])
 
   const filteredPages = useCallback(() => {
     return pages.filter(page => {
@@ -1380,8 +2341,8 @@ export default function RichTextEditor() {
     }
   }, [currentPage, calculateWordCount]);
 
-  const handleCreateFolder = (folderName) => {
-    createFolder(folderName)
+  const handleCreateFolder = (folderName, emoji) => {
+    createFolder(folderName, emoji)
     setIsFolderModalOpen(false)
   }
 
@@ -1742,6 +2703,21 @@ export default function RichTextEditor() {
     )
   }
 
+  // Compute avatar colors for live session sidebar dots — based on participants count + known cursor colors
+  const liveAllAvatarColors = (() => {
+    if (!activeSession) return []
+    const localColor = AVATAR_COLORS[Math.abs(localPeerIdRef.current.charCodeAt(0)) % AVATAR_COLORS.length]
+    const cursorColors = Object.values(remoteCursors).map(c => c.color)
+    // Use participants count to ensure we show the right number of dots even before cursors are sent
+    const totalParticipants = Math.max(participants, 1 + cursorColors.length)
+    const colors = [localColor, ...cursorColors]
+    // Fill remaining slots with sequential AVATAR_COLORS
+    for (let i = colors.length; i < totalParticipants; i++) {
+      colors.push(AVATAR_COLORS[i % AVATAR_COLORS.length])
+    }
+    return colors
+  })()
+
   return (
     <div
       className={`${getMainContainerClasses()} ${isMacElectron ? 'mac-electron' : ''}`}
@@ -1820,6 +2796,22 @@ export default function RichTextEditor() {
           }`}
         >
           {focusSessionStats.wordsWritten >= 0 ? '+' : ''}{focusSessionStats.wordsWritten} words in {Math.max(1, Math.round(focusSessionStats.elapsed / 60000))} min
+        </div>
+      )}
+
+      {/* Live session toast */}
+      {liveToast && (
+        <div
+          className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-medium shadow-2xl ${
+            theme === 'fallout' ? 'text-green-400 bg-green-900/90 border border-green-500/40' :
+            theme === 'dark' ? 'text-white bg-[#2a2a2a] border border-[#4a4a4a]/60' :
+            theme === 'darkblue' ? 'text-white bg-[#1c2438] border border-[#2a3555]' :
+            'text-gray-800 bg-gray-900 text-white border border-gray-700'
+          }`}
+          style={{ animation: 'dash-modal-in 200ms ease-out' }}
+        >
+          <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+          {liveToast}
         </div>
       )}
 
@@ -2054,6 +3046,8 @@ export default function RichTextEditor() {
                         selfDestructingPages={selfDestructingPages}
                         completeSelfDestruct={completeSelfDestruct}
                         pagesCount={folderPageIds.length}
+                        liveSessionPageId={activeSession?.pageId}
+                        liveAvatarColors={liveAllAvatarColors}
                       />
                     )
                   }
@@ -2081,6 +3075,8 @@ export default function RichTextEditor() {
                         isInsideFolder={false}
                         isSelfDestructing={selfDestructingPages.has(item.id)}
                         onSelfDestructComplete={completeSelfDestruct}
+                        isLiveSession={activeSession?.pageId === item.id}
+                        liveAvatarColors={activeSession?.pageId === item.id || item.id?.startsWith('live-') ? liveAllAvatarColors : []}
                       />
                     );
                   }
@@ -2179,7 +3175,7 @@ export default function RichTextEditor() {
                   </span>
                 ) : null
               })()}
-              {currentPage && (
+              {currentPage && !currentPage.id?.startsWith('live-') && (
                 <div className="flex items-center ml-2 space-x-1 flex-shrink-0">
                   <Tooltip text={currentPage.password?.hash && !tempUnlockedPages.has(currentPage.id) ? 'Unlock page' : 'Lock page'}>
                   <button
@@ -2232,33 +3228,52 @@ export default function RichTextEditor() {
               ) : (
                 <>
                   <ExportDropdown onExport={handleExport} className={`cursor-pointer ${getButtonHoverClasses()}`} />
-                  <Tooltip text="Share encrypted note">
-                  <button
-                    onClick={() => setIsShareModalOpen(true)}
-                    className={`p-2 rounded-lg cursor-pointer ${getButtonHoverClasses()}`}
-                  >
-                    <Share2 className="h-4 w-4 pointer-events-none" />
-                  </button>
-                  </Tooltip>
-                  {shouldShowMobileInstall() && (
-                    <Tooltip text="Use on your phone">
+                  {activeSession && currentPage?.id === activeSession.pageId ? (
+                    <LiveSessionChip
+                      participants={participants}
+                      status={sessionStatus}
+                      onEnd={handleEndLiveSession}
+                      theme={theme}
+                      isHost={activeSession.isHost}
+                      link={activeSession?.link}
+                      typingPeers={remoteTyping}
+                      duration={activeSession?.duration}
+                      startedAt={activeSession?.startedAt}
+                      peerColors={liveAllAvatarColors}
+                      remoteCursors={remoteCursors}
+                    />
+                  ) : null}
+                  {!currentPage.id?.startsWith('live-') && (
+                    <>
+                    <Tooltip text="Share encrypted note">
                     <button
-                      onClick={() => setIsInstallModalOpen(true)}
+                      onClick={async () => { if (window.__editorFlush) await window.__editorFlush(); setIsShareModalOpen(true) }}
                       className={`p-2 rounded-lg cursor-pointer ${getButtonHoverClasses()}`}
                     >
-                      <Smartphone className="h-4 w-4 pointer-events-none" />
+                      <Share2 className="h-4 w-4 pointer-events-none" />
                     </button>
                     </Tooltip>
+                    {shouldShowMobileInstall() && (
+                      <Tooltip text="Use on your phone">
+                      <button
+                        onClick={() => setIsInstallModalOpen(true)}
+                        className={`p-2 rounded-lg cursor-pointer ${getButtonHoverClasses()}`}
+                      >
+                        <Smartphone className="h-4 w-4 pointer-events-none" />
+                      </button>
+                      </Tooltip>
+                    )}
+                    <Tooltip text={isImporting ? 'Importing…' : 'Import encrypted bundle'}>
+                    <button
+                      onClick={handleImportBundleClick}
+                      className={`p-2 rounded-lg cursor-pointer ${getButtonHoverClasses()}`}
+                      disabled={isImporting}
+                    >
+                      <Import className={`h-4 w-4 pointer-events-none ${isImporting ? 'animate-pulse' : ''}`} />
+                    </button>
+                    </Tooltip>
+                    </>
                   )}
-                  <Tooltip text={isImporting ? 'Importing…' : 'Import encrypted bundle'}>
-                  <button
-                    onClick={handleImportBundleClick}
-                    className={`p-2 rounded-lg cursor-pointer ${getButtonHoverClasses()}`}
-                    disabled={isImporting}
-                  >
-                    <Import className={`h-4 w-4 pointer-events-none ${isImporting ? 'animate-pulse' : ''}`} />
-                  </button>
-                  </Tooltip>
                   <Tooltip text="Report a bug">
                   <button
                     onClick={() => {
@@ -2269,15 +3284,15 @@ export default function RichTextEditor() {
                     <Bug className="h-4 w-4 pointer-events-none" />
                   </button>
                   </Tooltip>
-                  <Tooltip text="Check for updates">
+                  <Tooltip text={editRequests.length > 0 ? `${editRequests.length} edit request${editRequests.length > 1 ? 's' : ''}` : 'Check for updates'}>
                   <button
-                    onClick={handleBellClick}
-                    disabled={!canCheckForUpdates}
-                    className={`relative p-2 rounded-lg cursor-pointer ${getIconClasses()} ${getButtonHoverClasses()} ${!canCheckForUpdates ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    onClick={editRequests.length > 0 ? () => setIsLiveNotificationsOpen(!isLiveNotificationsOpen) : handleBellClick}
+                    disabled={editRequests.length === 0 && !canCheckForUpdates}
+                    className={`relative p-2 rounded-lg cursor-pointer ${getIconClasses()} ${getButtonHoverClasses()} ${editRequests.length === 0 && !canCheckForUpdates ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <Bell className={`h-4 w-4 pointer-events-none ${isCheckingForUpdates ? 'animate-pulse' : ''}`} />
-                    {updateInfo?.available && (
-                      <span className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 ${theme === 'dark' ? 'border border-[#0d0d0d]' : theme === 'darkblue' ? 'border border-[#0c1017]' : theme === 'fallout' ? 'border border-gray-900' : 'border border-white'} shadow-sm`}></span>
+                    {(updateInfo?.available || editRequests.length > 0) && (
+                      <span className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full ${editRequests.length > 0 ? 'bg-blue-500' : 'bg-red-500'} ${theme === 'dark' ? 'border border-[#0d0d0d]' : theme === 'darkblue' ? 'border border-[#0c1017]' : theme === 'fallout' ? 'border border-gray-900' : 'border border-white'} shadow-sm`}></span>
                     )}
                   </button>
                   </Tooltip>
@@ -2286,7 +3301,7 @@ export default function RichTextEditor() {
               )}
             </div>
         </div>
-        {currentPage.tagNames && currentPage.tagNames.length > 0 && (
+        {currentPage.tagNames && currentPage.tagNames.length > 0 && !currentPage.id?.startsWith('live-') && (
           <div className="flex items-center flex-wrap gap-1.5 mt-2">
             {currentPage.tagNames.map((tagName, index) => {
               const tag = (tags || []).find(t => t.name === tagName)
@@ -2333,7 +3348,7 @@ export default function RichTextEditor() {
             </Button>
           </div>
         )}
-        {(!currentPage.tagNames || currentPage.tagNames.length === 0) && (
+        {(!currentPage.tagNames || currentPage.tagNames.length === 0) && !currentPage.id?.startsWith('live-') && (
           <div className="flex items-center mt-2">
             <Button
               variant="ghost"
@@ -2351,20 +3366,100 @@ export default function RichTextEditor() {
         )}
     </div>
 
+        {/* Live Session Bar */}
         {/* Editor */ }
   <div className="flex-1 relative overflow-hidden">
   <div ref={editorScrollRef} className={`h-full overflow-auto p-6 ${getMainContentClasses()} ${focusMode ? 'focus-mode-scroll pt-16' : ''} ${currentPage && selfDestructingPages.has(currentPage.id) ? 'pointer-events-none' : ''}`}>
     <div className={`${focusMode ? 'max-w-2xl mx-auto w-full' : ''} ${focusMode && paragraphDimming ? 'paragraph-dimming' : ''} ${focusMode && typewriterMode ? 'pb-[50vh]' : ''}`}>
       {currentPage && (
-        <EditorErrorBoundary>
-          <DynamicEditor
-            key={currentPage.id + '-' + editorReloadKey}
-            data={currentPage.content}
-            onChange={handleEditorChange}
-            holder="editorjs"
-            onPageLinkClick={handlePageLinkClick}
-          />
-        </EditorErrorBoundary>
+        <div className="relative">
+          {/* Read-only banner for guest live pages when session is not active */}
+          {currentPage.id?.startsWith('live-') && !activeSession && (() => {
+            const roomId = currentPage.id.replace('live-', '')
+            let storedData = null
+            try { const raw = localStorage.getItem('dash-live-page-' + roomId); if (raw) storedData = JSON.parse(raw) } catch { /* ignore */ }
+            const isEnded = sessionEndedByHostRef.current || storedData?.sessionEnded
+
+            const bannerCls = theme === 'fallout' ? 'bg-green-500/10 border border-green-500/20 text-green-400 font-mono'
+              : theme === 'darkblue' ? 'bg-blue-500/5 border border-blue-500/10 text-[#8b99b5]'
+              : theme === 'dark' ? 'bg-blue-500/5 border border-blue-500/10 text-[#8e8e8e]'
+              : 'bg-blue-50 border border-blue-100 text-gray-500'
+            const btnCls = theme === 'fallout' ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+              : theme === 'darkblue' ? 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25'
+              : theme === 'dark' ? 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25'
+              : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+
+            return (
+              <div className={`flex items-center gap-2 px-4 py-2.5 mb-3 rounded-xl text-sm ${bannerCls}`}>
+                <Shield className="w-4 h-4 flex-shrink-0 pointer-events-none" />
+                <span className="flex-1">
+                  {isEnded
+                    ? 'Session ended — this is your copy now'
+                    : 'Shared page from a live session'
+                  }
+                </span>
+                {isEnded ? (
+                  <button
+                    onClick={() => {
+                      // Convert to a normal page
+                      const newId = crypto.randomUUID()
+                      const adoptedPage = { ...currentPage, id: newId, tags: [], lastEdited: Date.now() }
+                      setPages(prev => [adoptedPage, ...prev.filter(p => p.id !== currentPage.id)])
+                      navigateToPage(adoptedPage)
+                      try { localStorage.removeItem('dash-live-page-' + roomId) } catch { /* ignore */ }
+                    }}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors flex-shrink-0 ${btnCls}`}
+                  >
+                    Keep as My Page
+                  </button>
+                ) : storedData?.roomId && storedData?.keyStr && (
+                  <button
+                    onClick={() => {
+                      joinLiveSessionAsGuest(storedData.roomId, storedData.keyStr)
+                      if (rejoinTimeoutRef.current) clearTimeout(rejoinTimeoutRef.current)
+                      rejoinTimeoutRef.current = setTimeout(() => {
+                        if (!liveGuestSyncedRef.current) {
+                          setLiveToast('Session no longer available — the host may have ended it')
+                          if (liveToastTimerRef.current) clearTimeout(liveToastTimerRef.current)
+                          liveToastTimerRef.current = setTimeout(() => setLiveToast(null), 4000)
+                          handleEndLiveSession()
+                          // Mark as ended so next render shows the right banner
+                          sessionEndedByHostRef.current = true
+                          try {
+                            const stored = localStorage.getItem('dash-live-page-' + roomId)
+                            if (stored) {
+                              const data = JSON.parse(stored)
+                              data.sessionEnded = true
+                              localStorage.setItem('dash-live-page-' + roomId, JSON.stringify(data))
+                            }
+                          } catch { /* ignore */ }
+                        }
+                      }, 5000)
+                    }}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors flex-shrink-0 ${btnCls}`}
+                  >
+                    Rejoin
+                  </button>
+                )}
+              </div>
+            )
+          })()}
+          <EditorErrorBoundary>
+            <DynamicEditor
+              key={currentPage.id + '-' + editorReloadKey}
+              data={currentPage.content}
+              onChange={handleEditorChange}
+              holder="editorjs"
+              onPageLinkClick={handlePageLinkClick}
+              liveUpdateKey={activeSession ? liveUpdateKey : undefined}
+              readOnly={undefined}
+            />
+          </EditorErrorBoundary>
+          {/* Remote cursor indicators — inside scroll container so they scroll with content */}
+          {activeSession && currentPage?.id === activeSession.pageId && Object.entries(remoteCursors).map(([peerId, cursor]) => (
+            <RemoteCursorIndicator key={peerId} blockIndex={cursor.blockIndex} color={cursor.color} alias={cursor.alias} />
+          ))}
+        </div>
       )}
     </div>
   </div>
@@ -2412,7 +3507,10 @@ export default function RichTextEditor() {
         </button>
         </Tooltip>
       )}
-      <span>{wordCount} words</span>
+      <span
+        onClick={() => { if (!currentPage?.id?.startsWith('live-') && !activeSession) setIsLiveSessionModalOpen(true) }}
+        className={!currentPage?.id?.startsWith('live-') && !activeSession ? 'cursor-pointer' : ''}
+      >{wordCount} words</span>
       <Tooltip text={showMiniOutline ? 'Hide contents' : 'Table of contents'}>
       <button
         onClick={toggleMiniOutline}
@@ -2632,6 +3730,137 @@ export default function RichTextEditor() {
         noteContent={currentPage?.content}
         noteTitle={currentPage?.title}
         theme={theme}
+      />
+
+      <LiveSessionModal
+        isOpen={isLiveSessionModalOpen}
+        onClose={() => setIsLiveSessionModalOpen(false)}
+        onStartSession={handleStartLiveSession}
+        theme={theme}
+        participants={participants}
+      />
+
+      {/* Guest password prompt for password-protected sessions (fix 6) */}
+      {passwordPrompt && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) { passwordPrompt.resolve(null); setPasswordPrompt(null) } }}
+        >
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { passwordPrompt.resolve(null); setPasswordPrompt(null) }} style={{ animation: 'dash-backdrop-in 150ms ease-out forwards' }} />
+          <div
+            style={{ animation: 'dash-modal-in 150ms ease-out forwards' }}
+            className={`
+              relative w-full max-w-sm rounded-2xl overflow-hidden
+              ${theme === 'fallout'
+                ? 'bg-gray-900 border-2 border-green-500/60'
+                : theme === 'darkblue'
+                  ? 'bg-[#141825] border border-[#1c2438] shadow-2xl'
+                  : theme === 'dark'
+                    ? 'bg-[#1a1a1a] border border-[#3a3a3a]/50 shadow-2xl'
+                    : 'bg-white border border-gray-200 shadow-2xl'
+              }
+            `}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className={`p-2 rounded-xl ${
+                  theme === 'fallout' ? 'bg-green-500/20 text-green-400'
+                    : theme === 'darkblue' ? 'bg-blue-500/20 text-blue-400'
+                    : theme === 'dark' ? 'bg-blue-500/20 text-blue-400'
+                    : 'bg-blue-100 text-blue-600'
+                }`}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
+                <div>
+                  <h3 className={`text-base font-semibold ${
+                    theme === 'fallout' ? 'text-green-400 font-mono' : theme === 'darkblue' ? 'text-[#e0e6f0]' : theme === 'dark' ? 'text-white' : 'text-gray-900'
+                  }`}>Password Required</h3>
+                  <p className={`text-xs ${
+                    theme === 'fallout' ? 'text-green-600 font-mono' : theme === 'darkblue' ? 'text-[#5d6b88]' : theme === 'dark' ? 'text-[#6b6b6b]' : 'text-gray-500'
+                  }`}>This session is password-protected</p>
+                </div>
+              </div>
+              {passwordPrompt.error && (
+                <p className={`text-xs mb-3 ${
+                  theme === 'fallout' ? 'text-red-400 font-mono' : 'text-red-500'
+                }`}>{passwordPrompt.error}</p>
+              )}
+              <form onSubmit={(e) => {
+                e.preventDefault()
+                const pw = passwordPromptRef.current?.value || ''
+                if (pw) {
+                  passwordPrompt.resolve(pw)
+                  if (passwordPromptRef.current) passwordPromptRef.current.value = ''
+                }
+              }}>
+                <input
+                  ref={passwordPromptRef}
+                  type="password"
+                  autoFocus
+                  placeholder="Enter session password"
+                  className={`
+                    w-full px-3 py-2.5 rounded-lg text-sm mb-3 outline-none
+                    ${theme === 'fallout'
+                      ? 'bg-gray-800 border border-green-500/30 text-green-400 placeholder-green-700 font-mono focus:border-green-500/60'
+                      : theme === 'darkblue'
+                        ? 'bg-[#0c1017] border border-[#1c2438] text-[#e0e6f0] placeholder-[#3d4f6f] focus:border-[#2a3555]'
+                        : theme === 'dark'
+                          ? 'bg-[#2f2f2f] border border-[#3a3a3a] text-[#c0c0c0] placeholder-[#555] focus:border-[#555]'
+                          : 'bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:border-gray-300'
+                    }
+                  `}
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { passwordPrompt.resolve(null); setPasswordPrompt(null) }}
+                    className={`flex-1 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      theme === 'fallout'
+                        ? 'bg-gray-800 border border-green-500/40 text-green-400 hover:bg-gray-700 font-mono'
+                        : theme === 'darkblue'
+                          ? 'bg-[#1a2035] border border-[#1c2438] text-[#8b99b5] hover:bg-[#232b42]'
+                          : theme === 'dark'
+                            ? 'bg-[#2f2f2f] border border-[#3a3a3a] text-[#c0c0c0] hover:bg-[#3a3a3a]'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className={`flex-1 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      theme === 'fallout'
+                        ? 'bg-green-500 text-gray-900 hover:bg-green-400 font-mono'
+                        : theme === 'darkblue' || theme === 'dark'
+                          ? 'bg-blue-500 text-white hover:bg-blue-400'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                  >
+                    Join
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <LiveNotificationsPanel
+        isOpen={isLiveNotificationsOpen}
+        onClose={() => setIsLiveNotificationsOpen(false)}
+        theme={theme}
+        onApproveRequest={(req) => {
+          // Approve → start a new live session for the requested doc
+          setIsLiveNotificationsOpen(false)
+          if (req.pageId) {
+            const page = pages.find(p => p.id === req.pageId)
+            if (page) {
+              setCurrentPage(page)
+              setTimeout(() => setIsLiveSessionModalOpen(true), 100)
+            }
+          }
+        }}
       />
 
       <DecoyVaultSetupModal

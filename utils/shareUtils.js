@@ -95,6 +95,9 @@ export async function generateEncryptedPayload (content, title) {
  * @returns {Promise<{ link: string|null, passphrase: string, tooLarge: boolean }>}
  */
 export async function generateShareLink (content, title) {
+  if (typeof window !== 'undefined' && window.__DASH_DEBUG) {
+    console.log('[share] generateShareLink called — title:', title, 'blocks:', content?.blocks?.length, 'contentSize:', JSON.stringify(content || {}).length, 'chars')
+  }
   const { encryptedBase64Url, passphrase } = await generateEncryptedPayload(content, title)
   const fragment = `${encodeURIComponent(passphrase)}.${encryptedBase64Url}`
 

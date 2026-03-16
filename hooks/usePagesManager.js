@@ -205,7 +205,8 @@ export function usePagesManager() {
       setSaveStatus('saving')
       dbg('save', 'debounce fired v' + currentVersion)
       // Always save the latest pages data, not stale closure data
-      const pagesToSave = pagesRef.current
+      // Filter out live session guest pages (they're virtual, not persisted)
+      const pagesToSave = pagesRef.current.filter(p => !p.id?.startsWith('live-'))
 
       // Queue the save with version tracking
       pendingSaveRef.current = { pages: pagesToSave, version: currentVersion }
@@ -239,8 +240,21 @@ export function usePagesManager() {
         savePagesToStorage(validPages)
       }
 
-      setPages(validPages)
-      pagesRef.current = validPages
+      // Preserve any existing live session guest pages (they're virtual, not in storage)
+      // Check both React state ref AND localStorage (state ref may not be flushed yet)
+      const liveFromState = pagesRef.current.filter(p => p.id?.startsWith('live-'))
+      let existingLivePages = liveFromState
+      if (existingLivePages.length === 0) {
+        try {
+          const liveKeys = Object.keys(localStorage).filter(k => k.startsWith('dash-live-page-'))
+          existingLivePages = liveKeys.map(k => {
+            try { return JSON.parse(localStorage.getItem(k)) } catch { return null }
+          }).filter(Boolean).map(p => ({ id: p.id, title: p.title || 'Live Session', content: p.content || { blocks: [] }, tags: p.tags || [], lastEdited: p.lastEdited || Date.now() }))
+        } catch { /* ignore */ }
+      }
+      const mergedPages = existingLivePages.length > 0 ? [...existingLivePages, ...validPages] : validPages
+      setPages(mergedPages)
+      pagesRef.current = mergedPages
 
       if (validPages.length > 0 && !currentPageRef.current) {
         const firstPage = validPages[0]
@@ -707,7 +721,7 @@ export function usePagesManager() {
   }, [updateTag, savePagesToStorage])
 
   // Folder management functions
-  const createFolder = useCallback(async (folderName) => {
+  const createFolder = useCallback(async (folderName, emoji) => {
     if (!folderName) return
 
     const newFolder = {
@@ -715,7 +729,8 @@ export function usePagesManager() {
       title: folderName.slice(0, 30),
       type: 'folder',
       pages: [],
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      ...(emoji ? { emoji } : {})
     }
 
     setPages(prevPages => {

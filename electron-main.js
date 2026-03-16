@@ -734,13 +734,17 @@ let pendingDeepLink = null
 function handleDeepLink (urlString) {
   try {
     if (!urlString || !urlString.startsWith('dashnotes://')) return
-    // Extract everything after dashnotes://share# (or dashnotes://share/# etc.)
     const hashIdx = urlString.indexOf('#')
     if (hashIdx === -1) return
     const hash = urlString.slice(hashIdx + 1)
     if (!hash) return
     if (mainWindow?.webContents) {
-      mainWindow.webContents.send('deep-link-share', hash)
+      // Route to live session or share handler based on URL path
+      if (urlString.includes('dashnotes://live')) {
+        mainWindow.webContents.send('deep-link-live', hash)
+      } else {
+        mainWindow.webContents.send('deep-link-share', hash)
+      }
     }
   } catch (err) {
     log.error('Failed to handle deep link:', err.message)

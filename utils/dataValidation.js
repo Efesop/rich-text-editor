@@ -6,6 +6,18 @@ export function validateAndRepairPage(page) {
     return createDefaultPage()
   }
 
+  // Folders have a different shape — preserve their properties
+  if (page.type === 'folder') {
+    return {
+      id: validateId(page.id),
+      title: validateTitle(page.title),
+      type: 'folder',
+      pages: Array.isArray(page.pages) ? page.pages : [],
+      createdAt: validateDate(page.createdAt),
+      ...(page.emoji ? { emoji: page.emoji } : {})
+    }
+  }
+
   const repairedPage = {
     id: validateId(page.id),
     title: validateTitle(page.title),
@@ -27,7 +39,9 @@ function validateId(id) {
     return id.trim()
   }
   // Generate new ID if invalid
-  return Date.now().toString() + Math.random().toString(36).substr(2, 9)
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Date.now().toString() + Math.random().toString(36).slice(2, 11)
 }
 
 // Validate page title

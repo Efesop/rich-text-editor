@@ -25,7 +25,9 @@ const PageItem = ({
   isInsideFolder = false,
   onDuplicate,
   isSelfDestructing = false,
-  onSelfDestructComplete
+  onSelfDestructComplete,
+  isLiveSession = false,
+  liveAvatarColors = []
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false)
@@ -197,6 +199,13 @@ const PageItem = ({
     >
       {sidebarOpen ? (
       <div className="flex items-center flex-1 min-w-0" style={{ marginRight: isHovered ? 0 : -24, transition: 'margin-right 150ms' }}>
+        {(page.id?.startsWith('live-') || isLiveSession) && (
+          <div className="flex items-center -space-x-1 mr-1.5 flex-shrink-0">
+            {(liveAvatarColors.length > 0 ? liveAvatarColors.slice(0, 3) : ['#3b82f6']).map((color, i) => (
+              <div key={i} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color, zIndex: 3 - i }} />
+            ))}
+          </div>
+        )}
         {page.selfDestructAt && (
           <Timer className={`h-3 w-3 flex-shrink-0 mr-1.5 ${getSelfDestructIconClasses()}`} strokeWidth={2} />
         )}
@@ -235,6 +244,13 @@ const PageItem = ({
         >
           {page.title.slice(0, 3)}
         </div>
+        {(page.id?.startsWith('live-') || isLiveSession) && (
+          <div className="absolute -bottom-0.5 -right-0.5 flex -space-x-0.5">
+            {(liveAvatarColors.length > 0 ? liveAvatarColors.slice(0, 2) : ['#3b82f6']).map((color, i) => (
+              <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+            ))}
+          </div>
+        )}
         {page.password && page.password.hash && !tempUnlockedPages.has(page.id) && (
           <LockKeyhole className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 ${getIconClasses()}`} />
         )}
@@ -283,91 +299,95 @@ const PageItem = ({
           }}
         >
           <div className="py-1">
-            <button
-              role="menuitem"
-              className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
-              onClick={(e) => {
-                e.stopPropagation()
-                onRename(page)
-                setIsDropdownOpen(false)
-              }}
-            >
-              <Edit3 className="h-4 w-4 inline mr-2" aria-hidden="true" />
-              Rename
-            </button>
-            <button
-              role="menuitem"
-              className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
-              onClick={(e) => {
-                e.stopPropagation()
-                onDuplicate(page)
-                setIsDropdownOpen(false)
-              }}
-            >
-              <Copy className="h-4 w-4 inline mr-2" aria-hidden="true" />
-              Duplicate
-            </button>
-            {onMoveToFolder && (
-              <button
-                role="menuitem"
-                className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onMoveToFolder(page)
-                  setIsDropdownOpen(false)
-                }}
-              >
-                <FolderPlus className="h-4 w-4 inline mr-2" aria-hidden="true" />
-                Move to Folder
-              </button>
-            )}
-            <button
-              role="menuitem"
-              className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
-              onClick={(e) => {
-                e.stopPropagation()
-                onToggleLock(page)
-                setIsDropdownOpen(false)
-              }}
-            >
-              {page.password && page.password.hash ? (
-                <>
-                  <Unlock className="h-4 w-4 inline mr-2" aria-hidden="true" />
-                  Unlock
-                </>
-              ) : (
-                <>
-                  <Lock className="h-4 w-4 inline mr-2" aria-hidden="true" />
-                  Lock
-                </>
-              )}
-            </button>
-            {page.selfDestructAt ? (
-              <button
-                role="menuitem"
-                className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onCancelSelfDestruct?.(page)
-                  setIsDropdownOpen(false)
-                }}
-              >
-                <TimerOff className="h-4 w-4 inline mr-2" aria-hidden="true" />
-                Cancel Self-Destruct
-              </button>
-            ) : (
-              <button
-                role="menuitem"
-                className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onSelfDestruct?.(page)
-                  setIsDropdownOpen(false)
-                }}
-              >
-                <Timer className="h-4 w-4 inline mr-2" aria-hidden="true" />
-                Self-Destruct
-              </button>
+            {!page.id?.startsWith('live-') && (
+              <>
+                <button
+                  role="menuitem"
+                  className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onRename(page)
+                    setIsDropdownOpen(false)
+                  }}
+                >
+                  <Edit3 className="h-4 w-4 inline mr-2" aria-hidden="true" />
+                  Rename
+                </button>
+                <button
+                  role="menuitem"
+                  className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDuplicate(page)
+                    setIsDropdownOpen(false)
+                  }}
+                >
+                  <Copy className="h-4 w-4 inline mr-2" aria-hidden="true" />
+                  Duplicate
+                </button>
+                {onMoveToFolder && (
+                  <button
+                    role="menuitem"
+                    className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onMoveToFolder(page)
+                      setIsDropdownOpen(false)
+                    }}
+                  >
+                    <FolderPlus className="h-4 w-4 inline mr-2" aria-hidden="true" />
+                    Move to Folder
+                  </button>
+                )}
+                <button
+                  role="menuitem"
+                  className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onToggleLock(page)
+                    setIsDropdownOpen(false)
+                  }}
+                >
+                  {page.password && page.password.hash ? (
+                    <>
+                      <Unlock className="h-4 w-4 inline mr-2" aria-hidden="true" />
+                      Unlock
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="h-4 w-4 inline mr-2" aria-hidden="true" />
+                      Lock
+                    </>
+                  )}
+                </button>
+                {page.selfDestructAt ? (
+                  <button
+                    role="menuitem"
+                    className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onCancelSelfDestruct?.(page)
+                      setIsDropdownOpen(false)
+                    }}
+                  >
+                    <TimerOff className="h-4 w-4 inline mr-2" aria-hidden="true" />
+                    Cancel Self-Destruct
+                  </button>
+                ) : (
+                  <button
+                    role="menuitem"
+                    className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onSelfDestruct?.(page)
+                      setIsDropdownOpen(false)
+                    }}
+                  >
+                    <Timer className="h-4 w-4 inline mr-2" aria-hidden="true" />
+                    Self-Destruct
+                  </button>
+                )}
+              </>
             )}
             <button
               role="menuitem"
@@ -379,7 +399,7 @@ const PageItem = ({
               }}
             >
               <Trash2 className="h-4 w-4 inline mr-2" aria-hidden="true" />
-              Delete
+              {page.id?.startsWith('live-') ? 'Remove' : 'Delete'}
             </button>
             {onRemoveFromFolder && (
               <button
@@ -406,52 +426,56 @@ const PageItem = ({
         onClose={() => setIsActionSheetOpen(false)}
         title={page.title}
       >
-        <ActionSheetItem
-          icon={Edit3}
-          label="Rename"
-          onClick={() => {
-            onRename(page)
-            setIsActionSheetOpen(false)
-          }}
-        />
-        <ActionSheetItem
-          icon={Copy}
-          label="Duplicate"
-          onClick={() => {
-            onDuplicate(page)
-            setIsActionSheetOpen(false)
-          }}
-        />
-        {onMoveToFolder && (
-          <ActionSheetItem
-            icon={FolderPlus}
-            label="Move to Folder"
-            onClick={() => {
-              onMoveToFolder(page)
-              setIsActionSheetOpen(false)
-            }}
-          />
+        {!page.id?.startsWith('live-') && (
+          <>
+            <ActionSheetItem
+              icon={Edit3}
+              label="Rename"
+              onClick={() => {
+                onRename(page)
+                setIsActionSheetOpen(false)
+              }}
+            />
+            <ActionSheetItem
+              icon={Copy}
+              label="Duplicate"
+              onClick={() => {
+                onDuplicate(page)
+                setIsActionSheetOpen(false)
+              }}
+            />
+            {onMoveToFolder && (
+              <ActionSheetItem
+                icon={FolderPlus}
+                label="Move to Folder"
+                onClick={() => {
+                  onMoveToFolder(page)
+                  setIsActionSheetOpen(false)
+                }}
+              />
+            )}
+            <ActionSheetItem
+              icon={page.password && page.password.hash ? Unlock : Lock}
+              label={page.password && page.password.hash ? 'Unlock' : 'Lock'}
+              onClick={() => {
+                onToggleLock(page)
+                setIsActionSheetOpen(false)
+              }}
+            />
+            <ActionSheetItem
+              icon={page.selfDestructAt ? TimerOff : Timer}
+              label={page.selfDestructAt ? 'Cancel Self-Destruct' : 'Self-Destruct'}
+              onClick={() => {
+                if (page.selfDestructAt) {
+                  onCancelSelfDestruct?.(page)
+                } else {
+                  onSelfDestruct?.(page)
+                }
+                setIsActionSheetOpen(false)
+              }}
+            />
+          </>
         )}
-        <ActionSheetItem
-          icon={page.password && page.password.hash ? Unlock : Lock}
-          label={page.password && page.password.hash ? 'Unlock' : 'Lock'}
-          onClick={() => {
-            onToggleLock(page)
-            setIsActionSheetOpen(false)
-          }}
-        />
-        <ActionSheetItem
-          icon={page.selfDestructAt ? TimerOff : Timer}
-          label={page.selfDestructAt ? 'Cancel Self-Destruct' : 'Self-Destruct'}
-          onClick={() => {
-            if (page.selfDestructAt) {
-              onCancelSelfDestruct?.(page)
-            } else {
-              onSelfDestruct?.(page)
-            }
-            setIsActionSheetOpen(false)
-          }}
-        />
         {onRemoveFromFolder && (
           <>
             <ActionSheetSeparator />
@@ -468,7 +492,7 @@ const PageItem = ({
         <ActionSheetSeparator />
         <ActionSheetItem
           icon={Trash2}
-          label="Delete"
+          label={page.id?.startsWith('live-') ? 'Remove' : 'Delete'}
           variant="danger"
           onClick={() => {
             onDelete(page)

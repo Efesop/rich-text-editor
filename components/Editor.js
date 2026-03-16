@@ -7,44 +7,148 @@ import { stripImageMetadata } from '@/utils/imageUtils'
 // Auto-linkify plain-text URLs in a string, skipping URLs already inside <a> tags
 function autoLinkify(html) {
   if (!html || typeof html !== 'string') return html
-  // If it already contains an <a tag, parse more carefully
+  const urlPattern = /(?:https?:\/\/)[^\s<>"'`,)}\]]+/gi
+  const escapeAttr = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+  const linkify = (text) => text.replace(urlPattern, url => {
+    // Strip trailing punctuation that's likely not part of the URL
+    const cleaned = url.replace(/[.,;:!?]+$/, '')
+    const trailing = url.slice(cleaned.length)
+    return `<a href="${escapeAttr(cleaned)}" target="_blank" rel="noopener noreferrer">${cleaned}</a>${trailing}`
+  })
+  // If it already contains an <a tag, only linkify text outside existing links
   if (html.includes('<a ')) {
-    // Split by existing anchor tags, only linkify the text parts
     const parts = html.split(/(<a\s[^>]*>.*?<\/a>)/gi)
-    return parts.map(part => {
-      if (part.startsWith('<a ')) return part
-      return part.replace(
-        /(?:https?:\/\/)[^\s<>"'`,)}\]]+/gi,
-        url => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`
-      )
-    }).join('')
+    return parts.map(part => /^<a\s/i.test(part) ? part : linkify(part)).join('')
   }
-  return html.replace(
-    /(?:https?:\/\/)[^\s<>"'`,)}\]]+/gi,
-    url => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`
-  )
+  return linkify(html)
 }
 
 // Process table blocks to auto-linkify URLs in cells
 function linkifyTableBlocks(blocks) {
   if (!Array.isArray(blocks)) return blocks
-  let changed = false
+  let anyChanged = false
   const result = blocks.map(block => {
     if (block.type !== 'table' || !Array.isArray(block.data?.content)) return block
+    let blockChanged = false
     const newContent = block.data.content.map(row =>
       Array.isArray(row) ? row.map(cell => {
         const linked = autoLinkify(cell)
-        if (linked !== cell) changed = true
+        if (linked !== cell) blockChanged = true
         return linked
       }) : row
     )
-    if (!changed) return block
+    if (!blockChanged) return block
+    anyChanged = true
     return { ...block, data: { ...block.data, content: newContent } }
   })
-  return changed ? result : blocks
+  return anyChanged ? result : blocks
 }
 
-export default function Editor({ data, onChange, holder, onPageLinkClick }) {
+/**
+ * Parse markdown text into Editor.js block objects.
+ * Supports: headings, bold/italic, lists, checkboxes, code blocks, blockquotes, links, horizontal rules.
+ */
+function parseMarkdownToBlocks (markdown) {
+  const lines = markdown.split('\n')
+  const blocks = []
+  let i = 0
+
+  while (i < lines.length) {
+    const line = lines[i]
+
+    // Skip empty lines
+    if (!line.trim()) { i++; continue }
+
+    // Code block (fenced)
+    if (line.trim().startsWith('```')) {
+      const codeLines = []
+      i++
+      while (i < lines.length && !lines[i].trim().startsWith('```')) {
+        codeLines.push(lines[i])
+        i++
+      }
+      i++ // skip closing ```
+      blocks.push({ type: 'codeBlock', data: { code: codeLines.join('\n') } })
+      continue
+    }
+
+    // Heading
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)/)
+    if (headingMatch) {
+      const level = Math.min(Math.max(headingMatch[1].length, 2), 4) // Clamp to 2-4 (Editor.js range)
+      blocks.push({ type: 'header', data: { text: convertInlineMarkdown(headingMatch[2]), level } })
+      i++; continue
+    }
+
+    // Horizontal rule
+    if (/^[-*_]{3,}\s*$/.test(line.trim())) {
+      blocks.push({ type: 'delimiter', data: {} })
+      i++; continue
+    }
+
+    // Checkbox list item
+    const checkMatch = line.match(/^[-*+]\s+\[([ xX])\]\s+(.*)/)
+    if (checkMatch) {
+      blocks.push({ type: 'checklistItem', data: { text: convertInlineMarkdown(checkMatch[2]), checked: checkMatch[1].toLowerCase() === 'x' } })
+      i++; continue
+    }
+
+    // Unordered list item
+    const ulMatch = line.match(/^[-*+]\s+(.+)/)
+    if (ulMatch) {
+      blocks.push({ type: 'bulletListItem', data: { text: convertInlineMarkdown(ulMatch[1]) } })
+      i++; continue
+    }
+
+    // Ordered list item
+    const olMatch = line.match(/^\d+\.\s+(.+)/)
+    if (olMatch) {
+      blocks.push({ type: 'numberedListItem', data: { text: convertInlineMarkdown(olMatch[1]) } })
+      i++; continue
+    }
+
+    // Blockquote
+    if (line.startsWith('>')) {
+      const quoteLines = []
+      while (i < lines.length && lines[i].startsWith('>')) {
+        quoteLines.push(lines[i].replace(/^>\s?/, ''))
+        i++
+      }
+      blocks.push({ type: 'quote', data: { text: convertInlineMarkdown(quoteLines.join('<br>')), caption: '' } })
+      continue
+    }
+
+    // Regular paragraph
+    blocks.push({ type: 'paragraph', data: { text: convertInlineMarkdown(line) } })
+    i++
+  }
+
+  return blocks
+}
+
+/** Convert inline markdown (bold, italic, code, links, strikethrough) to HTML */
+function convertInlineMarkdown (text) {
+  if (!text) return ''
+  return text
+    // Links: [text](url)
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    // Bold+italic: ***text*** or ___text___
+    .replace(/\*{3}([^*]+)\*{3}/g, '<b><i>$1</i></b>')
+    // Bold: **text** or __text__
+    .replace(/\*{2}([^*]+)\*{2}/g, '<b>$1</b>')
+    .replace(/_{2}([^_]+)_{2}/g, '<b>$1</b>')
+    // Italic: *text* or _text_
+    .replace(/\*([^*]+)\*/g, '<i>$1</i>')
+    .replace(/(?<![a-zA-Z0-9])_([^_]+)_(?![a-zA-Z0-9])/g, '<i>$1</i>')
+    // Inline code: `text`
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    // Strikethrough: ~~text~~
+    .replace(/~~([^~]+)~~/g, '<s>$1</s>')
+    // Mark/highlight: ==text==
+    .replace(/==([^=]+)==/g, '<mark>$1</mark>')
+}
+
+export default function Editor({ data, onChange, holder, onPageLinkClick, liveUpdateKey, readOnly }) {
   const editorRef = useRef(null)
   const isInitializedRef = useRef(false)
   const dataRef = useRef(data)
@@ -64,6 +168,17 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
     dataRef.current = data
     onChangeRef.current = onChange
   }, [data, onChange])
+
+  // Toggle readOnly mode dynamically when prop changes
+  useEffect(() => {
+    const editor = editorRef.current
+    if (!editor || !isInitializedRef.current) return
+    editor.isReady.then(() => {
+      if (editor.readOnly.isEnabled !== !!readOnly) {
+        editor.readOnly.toggle(!!readOnly)
+      }
+    }).catch(() => {})
+  }, [readOnly])
 
   // Memoize editor configuration to prevent unnecessary re-initializations
   const editorConfig = useMemo(() => ({
@@ -423,11 +538,31 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
         editorRef.current = new EditorJS({
           ...editorConfig,
           tools,
-          data: migratedData
+          data: migratedData,
+          readOnly: !!readOnly
         })
 
         await editorRef.current.isReady
         isInitializedRef.current = true
+
+        // Expose flush function so external code can force-save before reading content
+        window.__editorFlush = async () => {
+          if (!editorRef.current || !isInitializedRef.current) return
+          // Cancel any pending debounced save
+          if (editorRef.current.onChange) {
+            clearTimeout(editorRef.current.onChange)
+            editorRef.current.onChange = null
+          }
+          const content = await editorRef.current.saver.save()
+          if (content && content.blocks) {
+            content.blocks = linkifyTableBlocks(content.blocks)
+            const blocksStr = JSON.stringify(content.blocks)
+            if (blocksStr !== lastSavedRef.current) {
+              lastSavedRef.current = blocksStr
+              onChangeRef.current?.(content)
+            }
+          }
+        }
 
         // Initialize undo stack with initial data
         undoStackRef.current = [JSON.parse(JSON.stringify(migratedData.blocks))]
@@ -444,22 +579,83 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
         // Auto-linkify URLs pasted into table cells
         const editorEl = document.getElementById(holder)
         if (editorEl) {
-          editorEl.addEventListener('paste', () => {
+          const pasteHandler = () => {
             setTimeout(() => {
               const cells = editorEl.querySelectorAll('.tc-cell')
               cells.forEach(cell => {
                 const html = cell.innerHTML
-                if (!html) return
-                // Only process cells with plain-text URLs (not already linked)
-                if (/https?:\/\//.test(html)) {
-                  const linked = autoLinkify(html)
-                  if (linked !== html) {
-                    cell.innerHTML = linked
+                if (!html || !(/https?:\/\//.test(html))) return
+                const linked = autoLinkify(html)
+                if (linked !== html) {
+                  // Use DOMParser to safely apply linkified HTML
+                  const doc = new DOMParser().parseFromString(linked, 'text/html')
+                  cell.textContent = ''
+                  while (doc.body.firstChild) {
+                    cell.appendChild(doc.body.firstChild)
                   }
                 }
               })
             }, 100)
-          })
+          }
+          editorEl.addEventListener('paste', pasteHandler)
+
+          // Markdown paste handler — intercepts plain text that looks like markdown
+          const markdownPasteHandler = async (e) => {
+            const plain = e.clipboardData?.getData('text/plain')
+            const html = e.clipboardData?.getData('text/html')
+            // Only intercept if we have plain text but no rich HTML (or HTML is just wrapper tags)
+            if (!plain || (html && !html.startsWith('<meta') && html.includes('<h'))) return
+            // Check if the text looks like markdown (has at least 2 markdown patterns)
+            const mdPatterns = [
+              /^#{1,6}\s/m,           // headings
+              /\*\*[^*]+\*\*/,        // bold
+              /^[-*+]\s/m,            // unordered list
+              /^\d+\.\s/m,            // ordered list
+              /^>\s/m,                // blockquote
+              /^```/m,                // code fence
+              /^---+$/m,              // horizontal rule
+              /^- \[[ x]\]/m,         // checkbox
+              /\[([^\]]+)\]\([^)]+\)/, // links
+            ]
+            const matchCount = mdPatterns.filter(p => p.test(plain)).length
+            if (matchCount < 2) return
+
+            // Prevent default paste — we'll handle it
+            e.preventDefault()
+            e.stopPropagation()
+
+            const blocks = parseMarkdownToBlocks(plain)
+            if (!blocks.length) return
+
+            const editor = editorRef.current
+            if (!editor) return
+
+            try {
+              // Get current block index to insert after
+              const currentIndex = editor.blocks.getCurrentBlockIndex()
+              // Insert blocks
+              for (let i = 0; i < blocks.length; i++) {
+                await editor.blocks.insert(
+                  blocks[i].type,
+                  blocks[i].data,
+                  undefined,
+                  currentIndex + i + 1,
+                  true
+                )
+              }
+              // Remove the empty block we were on if it's empty
+              const currentBlock = editor.blocks.getBlockByIndex(currentIndex)
+              if (currentBlock) {
+                const saved = await currentBlock.save()
+                if (!saved?.data?.text?.trim()) {
+                  editor.blocks.delete(currentIndex)
+                }
+              }
+            } catch (err) {
+              if (window.__DASH_DEBUG) console.error('[editor] markdown paste error:', err)
+            }
+          }
+          editorEl.addEventListener('paste', markdownPasteHandler, true) // capture phase
         }
 
       } catch (error) {
@@ -504,6 +700,94 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
 
     updateEditorData()
   }, [data])
+
+  // Force re-render when live update arrives (bypasses data comparison)
+  // Uses smart block diffing to preserve cursor position when possible
+  useEffect(() => {
+    if (!liveUpdateKey || !editorRef.current || !isInitializedRef.current) return
+    const smartUpdate = async () => {
+      try {
+        await editorRef.current.isReady
+        const validData = data && typeof data === 'object' && Array.isArray(data.blocks)
+          ? data
+          : { time: Date.now(), blocks: [], version: '2.30.6' }
+        const migratedData = migrateEditorData(validData)
+        const newBlocks = migratedData.blocks
+        lastSavedRef.current = JSON.stringify(newBlocks)
+
+        const editor = editorRef.current
+        const currentCount = editor.blocks.getBlocksCount()
+        const newCount = newBlocks.length
+
+        // If block count changed (add/delete), fall back to full render
+        if (currentCount !== newCount || newCount === 0) {
+          await editor.render(migratedData)
+          dataRef.current = data
+          return
+        }
+
+        // Smart diff: only update blocks whose content changed
+        let anyUpdated = false
+        for (let i = 0; i < newCount; i++) {
+          const currentBlock = editor.blocks.getBlockByIndex(i)
+          if (!currentBlock) {
+            // Block missing, fall back to full render
+            await editor.render(migratedData)
+            dataRef.current = data
+            return
+          }
+
+          const currentSaved = await currentBlock.save()
+          const newBlock = newBlocks[i]
+
+          // If block type changed, must do full render (can't update type in place)
+          if (currentSaved.tool !== newBlock.type) {
+            await editor.render(migratedData)
+            dataRef.current = data
+            return
+          }
+
+          // Compare data — update in place if changed
+          if (JSON.stringify(currentSaved.data) !== JSON.stringify(newBlock.data)) {
+            try {
+              await editor.blocks.update(currentBlock.id, newBlock.data)
+              anyUpdated = true
+              // Flash highlight on the changed block
+              const blockEl = editor.blocks.getBlockByIndex(i)?.holder
+              if (blockEl) {
+                blockEl.classList.add('live-block-changed')
+                setTimeout(() => blockEl.classList.remove('live-block-changed'), 1500)
+              }
+            } catch {
+              // If update fails, fall back to full render
+              await editor.render(migratedData)
+              dataRef.current = data
+              return
+            }
+          }
+        }
+
+        dataRef.current = data
+        if (anyUpdated && window.__DASH_DEBUG) {
+          console.log('[editor] live update: smart-diffed blocks')
+        }
+      } catch (error) {
+        // If smart diff fails, fall back to full render
+        try {
+          const validData = data && typeof data === 'object' && Array.isArray(data.blocks)
+            ? data
+            : { time: Date.now(), blocks: [], version: '2.30.6' }
+          const migratedData = migrateEditorData(validData)
+          lastSavedRef.current = JSON.stringify(migratedData.blocks)
+          await editorRef.current.render(migratedData)
+          dataRef.current = data
+        } catch (fallbackError) {
+          console.error('Error in live update render:', fallbackError)
+        }
+      }
+    }
+    smartUpdate()
+  }, [liveUpdateKey])
 
   // Handle link clicks (page links + external links)
   const onPageLinkClickRef = useRef(onPageLinkClick)
@@ -845,6 +1129,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick }) {
   useEffect(() => {
     return () => {
       if (snapshotTimerRef.current) clearTimeout(snapshotTimerRef.current)
+      window.__editorFlush = null
 
       if (multiBlockEnhancerRef.current) {
         multiBlockEnhancerRef.current.destroy()

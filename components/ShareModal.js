@@ -22,6 +22,10 @@ export default function ShareModal ({ isOpen, onClose, noteContent, noteTitle, t
 
   const encrypt = useCallback(async () => {
     if (!noteContent) return
+    if (typeof window !== 'undefined' && window.__DASH_DEBUG) {
+      console.log('[share] encrypting — title:', noteTitle, 'blocks:', noteContent?.blocks?.length, 'types:', noteContent?.blocks?.map(b => b.type).join(', '))
+      if (noteContent?.blocks?.[0]) console.log('[share] first block:', JSON.stringify(noteContent.blocks[0]).slice(0, 200))
+    }
     setLoading(true)
     setError(null)
     setTooLarge(false)

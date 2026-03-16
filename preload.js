@@ -46,14 +46,15 @@ contextBridge.exposeInMainWorld('electron', {
       'update-error',
       'download-progress',
       'update-downloaded',
-      'deep-link-share'
+      'deep-link-share',
+      'deep-link-live'
     ];
-    
+
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, (event, ...args) => func(...args));
     }
   },
-  
+
   removeListener: (channel, func) => {
     const validChannels = [
       'checking-for-update',
@@ -62,7 +63,8 @@ contextBridge.exposeInMainWorld('electron', {
       'update-error',
       'download-progress',
       'update-downloaded',
-      'deep-link-share'
+      'deep-link-share',
+      'deep-link-live'
     ];
     
     if (validChannels.includes(channel)) {

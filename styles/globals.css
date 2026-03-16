@@ -4719,3 +4719,31 @@ button:focus {
 .dash-emoji-picker .epr-emoji-category-label {
   display: none !important;
 }
+
+/* Live session — remote change highlight */
+.live-block-changed .ce-block__content {
+  animation: live-block-flash 1.5s ease-out;
+}
+
+@keyframes live-block-flash {
+  0% { background-color: rgba(99, 102, 241, 0.15); }
+  100% { background-color: transparent; }
+}
+
+.dark .live-block-changed .ce-block__content {
+  animation: live-block-flash-dark 1.5s ease-out;
+}
+
+@keyframes live-block-flash-dark {
+  0% { background-color: rgba(99, 102, 241, 0.12); }
+  100% { background-color: transparent; }
+}
+
+.fallout .live-block-changed .ce-block__content {
+  animation: live-block-flash-fallout 1.5s ease-out;
+}
+
+@keyframes live-block-flash-fallout {
+  0% { background-color: rgba(34, 197, 94, 0.12); }
+  100% { background-color: transparent; }
+}

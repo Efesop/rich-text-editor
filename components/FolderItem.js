@@ -35,6 +35,8 @@ export function FolderItem({
   isDndEnabled = false,
   folderPageIds = [],
   isDraggingFolder = false,
+  liveSessionPageId,
+  liveAvatarColors = [],
 }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false)
@@ -300,6 +302,8 @@ export function FolderItem({
                   onCancelSelfDestruct={onCancelSelfDestruct}
                   isSelfDestructing={selfDestructingPages && selfDestructingPages.has(page.id)}
                   onSelfDestructComplete={completeSelfDestruct}
+                  isLiveSession={liveSessionPageId === page.id}
+                  liveAvatarColors={liveSessionPageId === page.id ? liveAvatarColors : []}
                 />
                 </div>
               )

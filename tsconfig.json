@@ -23,5 +23,5 @@
     "baseUrl": "."
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "utils/exportUtils.js", "components/RenameModal.js"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "server"]
 }
