@@ -23,17 +23,53 @@ function convertInlineMarkdown(text) {
 }
 
 function renderBlocks(blocks) {
-  return blocks.map(function (b) {
+  let html = ''
+  let i = 0
+  while (i < blocks.length) {
+    const b = blocks[i]
     const d = b.data || {}
+
+    // Group consecutive bulletListItem blocks into a single <ul>
+    if (b.type === 'bulletListItem') {
+      html += '<ul>'
+      while (i < blocks.length && blocks[i].type === 'bulletListItem') {
+        html += '<li>' + convertInlineMarkdown(blocks[i].data?.text || '') + '</li>'
+        i++
+      }
+      html += '</ul>'
+      continue
+    }
+
+    // Group consecutive numberedListItem blocks into a single <ol>
+    if (b.type === 'numberedListItem') {
+      html += '<ol>'
+      while (i < blocks.length && blocks[i].type === 'numberedListItem') {
+        html += '<li>' + convertInlineMarkdown(blocks[i].data?.text || '') + '</li>'
+        i++
+      }
+      html += '</ol>'
+      continue
+    }
+
+    // Group consecutive checklistItem blocks into a single <ul>
+    if (b.type === 'checklistItem') {
+      html += '<ul style="list-style:none;padding-left:0">'
+      while (i < blocks.length && blocks[i].type === 'checklistItem') {
+        const ck = blocks[i].data?.checked ? '\u2611' : '\u2610'
+        html += '<li>' + ck + ' ' + convertInlineMarkdown(blocks[i].data?.text || '') + '</li>'
+        i++
+      }
+      html += '</ul>'
+      continue
+    }
+
     switch (b.type) {
       case 'paragraph': {
         const text = d.text || ''
-        // If a paragraph contains markdown line breaks (e.g. pasted raw markdown),
-        // split and render each line with markdown conversion
         if (text.includes('---') || text.includes('# ') || text.includes('**')) {
           const lines = text.split(/(?:<br\s*\/?>|\n)/)
           if (lines.length > 1) {
-            return lines.map(function (line) {
+            html += lines.map(function (line) {
               const trimmed = line.trim()
               if (!trimmed) return ''
               if (/^---+$/.test(trimmed)) return '<hr />'
@@ -44,50 +80,61 @@ function renderBlocks(blocks) {
               }
               return '<p>' + convertInlineMarkdown(trimmed) + '</p>'
             }).join('')
+            i++
+            continue
           }
         }
-        return '<p>' + convertInlineMarkdown(text) + '</p>'
+        html += '<p>' + convertInlineMarkdown(text) + '</p>'
+        break
       }
-      case 'header': return '<h' + (d.level || 2) + '>' + convertInlineMarkdown(d.text || '') + '</h' + (d.level || 2) + '>'
+      case 'header':
+        html += '<h' + (d.level || 2) + '>' + convertInlineMarkdown(d.text || '') + '</h' + (d.level || 2) + '>'
+        break
       case 'list': case 'nestedlist': {
         const tag = d.style === 'ordered' ? 'ol' : 'ul'
-        const items = (d.items || []).map(function (i) {
-          const text = typeof i === 'string' ? i : (i.content || i.text || '')
-          return '<li>' + convertInlineMarkdown(text) + '</li>'
+        const items = (d.items || []).map(function (item) {
+          const t = typeof item === 'string' ? item : (item.content || item.text || '')
+          return '<li>' + convertInlineMarkdown(t) + '</li>'
         }).join('')
-        return '<' + tag + '>' + items + '</' + tag + '>'
+        html += '<' + tag + '>' + items + '</' + tag + '>'
+        break
       }
       case 'checklist':
-        return '<ul style="list-style:none;padding-left:0">' + (d.items || []).map(function (i) {
-          const check = i.checked ? '\u2611' : '\u2610'
-          return '<li>' + check + ' ' + convertInlineMarkdown(i.text || '') + '</li>'
+        html += '<ul style="list-style:none;padding-left:0">' + (d.items || []).map(function (item) {
+          const check = item.checked ? '\u2611' : '\u2610'
+          return '<li>' + check + ' ' + convertInlineMarkdown(item.text || '') + '</li>'
         }).join('') + '</ul>'
-      case 'bulletListItem': return '<ul><li>' + convertInlineMarkdown(d.text || '') + '</li></ul>'
-      case 'numberedListItem': return '<ol><li>' + convertInlineMarkdown(d.text || '') + '</li></ol>'
-      case 'checklistItem': {
-        const ck = d.checked ? '\u2611' : '\u2610'
-        return '<p>' + ck + ' ' + convertInlineMarkdown(d.text || '') + '</p>'
-      }
+        break
       case 'quote':
-        return '<blockquote><p>' + convertInlineMarkdown(d.text || '') + '</p>' +
+        html += '<blockquote><p>' + convertInlineMarkdown(d.text || '') + '</p>' +
           (d.caption ? '<cite>' + convertInlineMarkdown(d.caption) + '</cite>' : '') + '</blockquote>'
+        break
       case 'code': case 'codeBlock':
-        return '<pre><code>' + (d.code || '').replace(/</g, '&lt;') + '</code></pre>'
+        html += '<pre><code>' + (d.code || '').replace(/</g, '&lt;') + '</code></pre>'
+        break
       case 'image': {
         const url = d.file ? d.file.url : (d.url || '')
-        return '<figure><img src="' + url + '" style="max-width:100%;border-radius:8px" />' +
+        html += '<figure><img src="' + url + '" style="max-width:100%;border-radius:8px" />' +
           (d.caption ? '<figcaption>' + d.caption + '</figcaption>' : '') + '</figure>'
+        break
       }
       case 'table': {
         const rows = (d.content || []).map(function (row) {
           return '<tr>' + row.map(function (cell) { return '<td>' + cell + '</td>' }).join('') + '</tr>'
         }).join('')
-        return '<table>' + rows + '</table>'
+        html += '<table>' + rows + '</table>'
+        break
       }
-      case 'delimiter': return '<hr />'
-      default: return d.text ? '<p>' + d.text + '</p>' : ''
+      case 'delimiter':
+        html += '<hr />'
+        break
+      default:
+        if (d.text) html += '<p>' + d.text + '</p>'
+        break
     }
-  }).join('')
+    i++
+  }
+  return html
 }
 
 function sanitize(html) {
@@ -188,18 +235,7 @@ export default function SharePage() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <a href="https://dashnote.io" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{
-              width: 28,
-              height: 28,
-              borderRadius: 7,
-              background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 14,
-              fontWeight: 700,
-              color: 'white',
-            }}>D</div>
+            <img src="./icons/dash-logo.png" alt="Dash" style={{ width: 28, height: 28, borderRadius: 7 }} />
             <span style={{ fontSize: 15, fontWeight: 600, color: '#e5e5e5', letterSpacing: '-0.01em' }}>Dash</span>
           </a>
           <span style={{
@@ -402,19 +438,7 @@ export default function SharePage() {
                 background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.04), rgba(59, 130, 246, 0.01))',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                  <div style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 9,
-                    background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 16,
-                    fontWeight: 700,
-                    color: 'white',
-                    flexShrink: 0,
-                  }}>D</div>
+                  <img src="./icons/dash-logo.png" alt="Dash" style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0 }} />
                   <div>
                     <p style={{ fontSize: 14, fontWeight: 600, color: '#e5e5e5', margin: 0 }}>Save to Dash</p>
                     <p style={{ fontSize: 12, color: '#737373', margin: 0, marginTop: 1 }}>Import this note for offline access</p>
