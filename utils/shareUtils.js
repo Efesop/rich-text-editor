@@ -7,6 +7,29 @@
 
 const textEncoder = new TextEncoder()
 
+/** Compress a Uint8Array using deflate (CompressionStream API). */
+async function compressBytes (bytes) {
+  const cs = new CompressionStream('deflate')
+  const writer = cs.writable.getWriter()
+  writer.write(bytes)
+  writer.close()
+  const chunks = []
+  const reader = cs.readable.getReader()
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value)
+  }
+  const totalLength = chunks.reduce((sum, c) => sum + c.length, 0)
+  const result = new Uint8Array(totalLength)
+  let offset = 0
+  for (const chunk of chunks) {
+    result.set(chunk, offset)
+    offset += chunk.length
+  }
+  return result
+}
+
 /** Convert a Uint8Array to a base64 string (loop-based, safe for large arrays). */
 function bytesToBase64 (bytes) {
   let binary = ''
@@ -74,10 +97,20 @@ export async function generateEncryptedPayload (content, title) {
   )
 
   const payload = JSON.stringify({ title, content, exportedAt: new Date().toISOString() })
+
+  // Compress payload with deflate before encrypting (text compresses ~60-80%)
+  const payloadBytes = textEncoder.encode(payload)
+  const compressed = await compressBytes(payloadBytes)
+
+  // Prepend version byte: 0x01 = compressed payload
+  const versioned = new Uint8Array(1 + compressed.length)
+  versioned[0] = 0x01
+  versioned.set(compressed, 1)
+
   const ciphertext = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     key,
-    textEncoder.encode(payload)
+    versioned
   )
 
   const combined = new Uint8Array(salt.length + iv.length + ciphertext.byteLength)
