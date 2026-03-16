@@ -3,7 +3,7 @@ import Head from 'next/head'
 import DOMPurify from 'dompurify'
 import { decryptSharePayload, bytesToBase64Url } from '@/utils/shareDecrypt'
 
-const RELAY_URL = 'https://dash-relay.efesop.deno.dev'
+const RELAY_URL = 'https://dash-relay.efesop.deno.net'
 
 /**
  * Static decryptor page for shared notes.

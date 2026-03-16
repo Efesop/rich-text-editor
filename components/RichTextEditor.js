@@ -952,7 +952,7 @@ export default function RichTextEditor() {
       }
       try {
         const { decryptSharePayload, bytesToBase64Url } = await import('@/utils/shareDecrypt')
-        const RELAY = process.env.NEXT_PUBLIC_RELAY_URL || 'https://dash-relay.efesop.deno.dev'
+        const RELAY = process.env.NEXT_PUBLIC_RELAY_URL || 'https://dash-relay.efesop.deno.net'
         let json
 
         if (hash.startsWith('s:')) {
@@ -1089,7 +1089,7 @@ export default function RichTextEditor() {
       setTimeout(async () => {
         try {
           const { decryptSharePayload, bytesToBase64Url } = await import('@/utils/shareDecrypt')
-          const RELAY = process.env.NEXT_PUBLIC_RELAY_URL || 'https://dash-relay.efesop.deno.dev'
+          const RELAY = process.env.NEXT_PUBLIC_RELAY_URL || 'https://dash-relay.efesop.deno.net'
           let json
 
           if (hash.startsWith('s:')) {
