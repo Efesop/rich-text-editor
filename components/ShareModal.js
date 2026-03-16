@@ -10,6 +10,7 @@ export default function ShareModal ({ isOpen, onClose, noteContent, noteTitle, t
   const [copied, setCopied] = useState(null)
   const [error, setError] = useState(null)
   const [tooLarge, setTooLarge] = useState(false)
+  const [serverStored, setServerStored] = useState(false)
   const [showQR, setShowQR] = useState(false)
   const [passwordProtected, setPasswordProtected] = useState(false)
   const copiedTimerRef = useRef(null)
@@ -38,6 +39,7 @@ export default function ShareModal ({ isOpen, onClose, noteContent, noteTitle, t
         setShareLink(result.link)
         setShareLinkProtected(result.linkProtected)
         setPassphrase(result.passphrase)
+        setServerStored(result.serverStored || false)
       }
     } catch (err) {
       setError('Failed to encrypt note: ' + err.message)
@@ -322,7 +324,9 @@ export default function ShareModal ({ isOpen, onClose, noteContent, noteTitle, t
             <p className={`text-xs mt-3 text-center ${subtextClass}`}>
               {passwordProtected
                 ? 'The link alone cannot decrypt the note. The password is required.'
-                : 'Only people with this link can read the note. Nothing is stored on any server.'}
+                : serverStored
+                  ? 'Encrypted data stored for 30 days. Only link holders can decrypt.'
+                  : 'Only people with this link can read the note. Nothing is stored on any server.'}
             </p>
           </>
         )}

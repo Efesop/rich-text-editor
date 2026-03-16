@@ -73,12 +73,17 @@ function generatePassphrase () {
 /** Base URL of the hosted share/decryptor page. */
 const SHARE_BASE_URL = 'https://dash-share.vercel.app'
 
+/** Relay server URL for storing encrypted share payloads. */
+const RELAY_URL = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_RELAY_URL)
+  ? process.env.NEXT_PUBLIC_RELAY_URL
+  : 'https://dash-relay.efesop.deno.dev'
+
 /** Maximum URL fragment size (bytes). Safari ~80KB, Firefox ~65KB. Use 50KB to be safe. */
 const MAX_FRAGMENT_SIZE = 50000
 
 /**
  * Encrypt note content with a passphrase using PBKDF2 + AES-256-GCM.
- * @returns {Promise<{ encryptedBase64Url: string, passphrase: string }>}
+ * @returns {Promise<{ encryptedBytes: Uint8Array, encryptedBase64Url: string, passphrase: string }>}
  */
 export async function generateEncryptedPayload (content, title) {
   const passphrase = generatePassphrase()
@@ -119,28 +124,64 @@ export async function generateEncryptedPayload (content, title) {
   combined.set(new Uint8Array(ciphertext), salt.length + iv.length)
 
   const encryptedBase64Url = toBase64Url(bytesToBase64(combined))
-  return { encryptedBase64Url, passphrase }
+  return { encryptedBytes: combined, encryptedBase64Url, passphrase }
+}
+
+/**
+ * Upload encrypted bytes to the relay server for short link generation.
+ * @returns {Promise<string|null>} Short ID or null on failure
+ */
+async function uploadSharePayload (encryptedBytes) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 8000)
+  try {
+    const res = await fetch(`${RELAY_URL}/share`, {
+      method: 'POST',
+      body: encryptedBytes,
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+    if (!res.ok) return null
+    const json = await res.json()
+    return json.id || null
+  } catch {
+    clearTimeout(timeout)
+    return null
+  }
 }
 
 /**
  * Generate a share link for a note.
- * Link format: https://host/share#password.base64url-encrypted-data
- * @returns {Promise<{ link: string|null, passphrase: string, tooLarge: boolean }>}
+ * Tries server storage first (short link), falls back to inline (long link).
+ * @returns {Promise<{ link: string|null, linkProtected: string|null, passphrase: string, tooLarge: boolean, serverStored: boolean }>}
  */
 export async function generateShareLink (content, title) {
   if (typeof window !== 'undefined' && window.__DASH_DEBUG) {
     console.log('[share] generateShareLink called — title:', title, 'blocks:', content?.blocks?.length, 'contentSize:', JSON.stringify(content || {}).length, 'chars')
   }
-  const { encryptedBase64Url, passphrase } = await generateEncryptedPayload(content, title)
-  const fragment = `${encodeURIComponent(passphrase)}.${encryptedBase64Url}`
+  const { encryptedBytes, encryptedBase64Url, passphrase } = await generateEncryptedPayload(content, title)
 
+  // Try server storage first — produces short links
+  const shareId = await uploadSharePayload(encryptedBytes)
+  if (shareId) {
+    const fragment = `s:${shareId}.${encodeURIComponent(passphrase)}`
+    const link = `${SHARE_BASE_URL}/share.html#${fragment}`
+    const linkProtected = `${SHARE_BASE_URL}/share.html#s:${shareId}`
+    if (typeof window !== 'undefined' && window.__DASH_DEBUG) {
+      console.log('[share] server-stored — id:', shareId, 'link length:', link.length)
+    }
+    return { link, linkProtected, passphrase, tooLarge: false, serverStored: true }
+  }
+
+  // Fallback: inline link (original behavior)
+  const fragment = `${encodeURIComponent(passphrase)}.${encryptedBase64Url}`
   if (fragment.length > MAX_FRAGMENT_SIZE) {
-    return { link: null, linkProtected: null, passphrase, tooLarge: true }
+    return { link: null, linkProtected: null, passphrase, tooLarge: true, serverStored: false }
   }
 
   const link = `${SHARE_BASE_URL}/share.html#${fragment}`
   const linkProtected = `${SHARE_BASE_URL}/share.html#${encryptedBase64Url}`
-  return { link, linkProtected, passphrase, tooLarge: false }
+  return { link, linkProtected, passphrase, tooLarge: false, serverStored: false }
 }
 
 /**

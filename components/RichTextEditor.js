@@ -951,18 +951,36 @@ export default function RichTextEditor() {
         return
       }
       try {
-        const { decryptSharePayload } = await import('@/utils/shareDecrypt')
-        const dotIdx = hash.indexOf('.')
+        const { decryptSharePayload, bytesToBase64Url } = await import('@/utils/shareDecrypt')
+        const RELAY = process.env.NEXT_PUBLIC_RELAY_URL || 'https://dash-relay.efesop.deno.dev'
         let json
-        if (dotIdx === -1) {
-          // Password-protected — no password in URL, prompt user
-          const pw = window.prompt('Enter the password for this shared note:')
-          if (!pw) return
-          json = await decryptSharePayload(pw.trim(), hash)
+
+        if (hash.startsWith('s:')) {
+          const rest = hash.slice(2)
+          const dotIdx = rest.indexOf('.')
+          let id, pw
+          if (dotIdx === -1) {
+            id = rest
+            pw = window.prompt('Enter the password for this shared note:')
+            if (!pw) return
+          } else {
+            id = rest.slice(0, dotIdx)
+            pw = decodeURIComponent(rest.slice(dotIdx + 1))
+          }
+          const res = await fetch(`${RELAY}/share/${id}`)
+          if (!res.ok) throw new Error('Share not found or expired')
+          const bytes = new Uint8Array(await res.arrayBuffer())
+          json = await decryptSharePayload(pw.trim(), bytesToBase64Url(bytes))
         } else {
-          const pw = decodeURIComponent(hash.slice(0, dotIdx))
-          const data = hash.slice(dotIdx + 1)
-          json = await decryptSharePayload(pw, data)
+          const dotIdx = hash.indexOf('.')
+          if (dotIdx === -1) {
+            const pw = window.prompt('Enter the password for this shared note:')
+            if (!pw) return
+            json = await decryptSharePayload(pw.trim(), hash)
+          } else {
+            const pw = decodeURIComponent(hash.slice(0, dotIdx))
+            json = await decryptSharePayload(pw, hash.slice(dotIdx + 1))
+          }
         }
 
         const newPage = {
@@ -1070,16 +1088,36 @@ export default function RichTextEditor() {
       pendingDeepLinkRef.current = null
       setTimeout(async () => {
         try {
-          const { decryptSharePayload } = await import('@/utils/shareDecrypt')
-          const dotIdx = hash.indexOf('.')
+          const { decryptSharePayload, bytesToBase64Url } = await import('@/utils/shareDecrypt')
+          const RELAY = process.env.NEXT_PUBLIC_RELAY_URL || 'https://dash-relay.efesop.deno.dev'
           let json
-          if (dotIdx === -1) {
-            const pw = window.prompt('Enter the password for this shared note:')
-            if (!pw) return
-            json = await decryptSharePayload(pw.trim(), hash)
+
+          if (hash.startsWith('s:')) {
+            const rest = hash.slice(2)
+            const dotIdx = rest.indexOf('.')
+            let id, pw
+            if (dotIdx === -1) {
+              id = rest
+              pw = window.prompt('Enter the password for this shared note:')
+              if (!pw) return
+            } else {
+              id = rest.slice(0, dotIdx)
+              pw = decodeURIComponent(rest.slice(dotIdx + 1))
+            }
+            const res = await fetch(`${RELAY}/share/${id}`)
+            if (!res.ok) throw new Error('Share not found or expired')
+            const bytes = new Uint8Array(await res.arrayBuffer())
+            json = await decryptSharePayload(pw.trim(), bytesToBase64Url(bytes))
           } else {
-            const pw = decodeURIComponent(hash.slice(0, dotIdx))
-            json = await decryptSharePayload(pw, hash.slice(dotIdx + 1))
+            const dotIdx = hash.indexOf('.')
+            if (dotIdx === -1) {
+              const pw = window.prompt('Enter the password for this shared note:')
+              if (!pw) return
+              json = await decryptSharePayload(pw.trim(), hash)
+            } else {
+              const pw = decodeURIComponent(hash.slice(0, dotIdx))
+              json = await decryptSharePayload(pw, hash.slice(dotIdx + 1))
+            }
           }
           const newPage = {
             id: crypto.randomUUID(),

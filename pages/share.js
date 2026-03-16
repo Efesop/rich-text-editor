@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import Head from 'next/head'
 import DOMPurify from 'dompurify'
-import { decryptSharePayload } from '@/utils/shareDecrypt'
+import { decryptSharePayload, bytesToBase64Url } from '@/utils/shareDecrypt'
+
+const RELAY_URL = 'https://dash-relay.efesop.deno.dev'
 
 /**
  * Static decryptor page for shared notes.
@@ -154,6 +156,7 @@ export default function SharePage() {
   const [error, setError] = useState('')
   const [password, setPassword] = useState('')
   const [encData, setEncData] = useState('')
+  const [shareId, setShareId] = useState('')
   const [decrypting, setDecrypting] = useState(false)
   const [dashStatus, setDashStatus] = useState(null) // null | 'checking' | 'not-found'
 
@@ -170,9 +173,24 @@ export default function SharePage() {
       return
     }
 
+    // Server-stored format: s:SHORT_ID.passphrase or s:SHORT_ID (password-protected)
+    if (hash.startsWith('s:')) {
+      const rest = hash.slice(2)
+      const dotIdx = rest.indexOf('.')
+      if (dotIdx === -1) {
+        setShareId(rest)
+        setStatus('needPassword')
+      } else {
+        const id = rest.slice(0, dotIdx)
+        const pw = decodeURIComponent(rest.slice(dotIdx + 1))
+        fetchAndDecrypt(id, pw)
+      }
+      return
+    }
+
+    // Legacy inline format: passphrase.ENCRYPTED_DATA or just ENCRYPTED_DATA
     const dotIdx = hash.indexOf('.')
     if (dotIdx === -1) {
-      // No password in URL — show password input
       setEncData(hash)
       setStatus('needPassword')
       return
@@ -183,10 +201,49 @@ export default function SharePage() {
     decryptNote(pw, data)
   }, [])
 
+  async function fetchAndDecrypt(id, pw) {
+    setStatus('decrypting')
+    setDecrypting(true)
+    setError('')
+    try {
+      const res = await fetch(RELAY_URL + '/share/' + id)
+      if (!res.ok) {
+        if (res.status === 404) {
+          setStatus('error')
+          setError('This shared note has expired or does not exist.')
+          return
+        }
+        throw new Error('Server error')
+      }
+      const bytes = new Uint8Array(await res.arrayBuffer())
+      const b64Data = bytesToBase64Url(bytes)
+      const json = await decryptSharePayload(pw, b64Data)
+      setTitle(json.title || 'Untitled')
+      const blocks = json.content?.blocks || []
+      setContentHtml(sanitize(renderBlocks(blocks)))
+      setStatus('success')
+    } catch (err) {
+      if (shareId || id) {
+        setStatus('needPassword')
+        setShareId(id)
+        setError('Wrong password. Please try again.')
+      } else {
+        setStatus('error')
+        setError('Unable to decrypt this note. The link may be invalid or corrupted.')
+      }
+    } finally {
+      setDecrypting(false)
+    }
+  }
+
   function handlePasswordSubmit(e) {
     e?.preventDefault()
     if (!password.trim() || decrypting) return
-    decryptNote(password.trim(), encData)
+    if (shareId) {
+      fetchAndDecrypt(shareId, password.trim())
+    } else {
+      decryptNote(password.trim(), encData)
+    }
   }
 
   async function decryptNote(pw, b64Data) {

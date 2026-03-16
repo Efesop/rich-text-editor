@@ -76,3 +76,12 @@ export async function decryptSharePayload (password, b64Data) {
   // Legacy uncompressed payload (starts with '{' = 0x7B)
   return JSON.parse(new TextDecoder().decode(plain))
 }
+
+/** Convert Uint8Array to base64url string (for converting fetched bytes back to decryptable format). */
+export function bytesToBase64Url (bytes) {
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
