@@ -386,7 +386,8 @@ ipcMain.handle('save-pages', async (event, pages) => {
           title: page.title.slice(0, 200),
           type: 'folder',
           pages: Array.isArray(page.pages) ? page.pages : [],
-          createdAt: page.createdAt || new Date().toISOString()
+          createdAt: page.createdAt || new Date().toISOString(),
+          ...(page.emoji ? { emoji: page.emoji } : {})
         };
       }
 

@@ -73,10 +73,12 @@ function generatePassphrase () {
 /** Base URL of the hosted share/decryptor page. */
 const SHARE_BASE_URL = 'https://dash-share.vercel.app'
 
-/** Relay server URL for storing encrypted share payloads. */
-const RELAY_URL = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_RELAY_URL)
-  ? process.env.NEXT_PUBLIC_RELAY_URL
-  : 'https://dash-relay.efesop.deno.net'
+/** Relay server URL for storing encrypted share payloads (always HTTPS, not WSS). */
+const RELAY_URL = (() => {
+  const env = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_RELAY_URL) || ''
+  const url = env || 'https://dash-relay.efesop.deno.net'
+  return url.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://')
+})()
 
 /** Maximum URL fragment size (bytes). Safari ~80KB, Firefox ~65KB. Use 50KB to be safe. */
 const MAX_FRAGMENT_SIZE = 50000
