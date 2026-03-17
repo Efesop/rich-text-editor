@@ -73,13 +73,13 @@ Cloud providers can change their terms. They can introduce AI training on your c
 
 Dash collects **zero** user data. This isn't a policy choice — it's an architectural impossibility:
 
-- **No server**: Dash has no backend server that receives, processes, or stores user data
+- **No data-collecting server**: Dash has no backend that collects, processes, or stores user data. A zero-knowledge relay server exists for optional features (encrypted sharing and live collaboration), but it only handles encrypted blobs it cannot read — no accounts, no logs, no user data
 - **No accounts**: No sign-up, no login, no email, no identity
 - **No analytics**: No Segment, Amplitude, Google Analytics, Mixpanel, Sentry, or any other telemetry service
-- **No external API calls**: The app makes zero network requests during normal operation (the only network activity is checking for app updates on desktop)
+- **No telemetry**: The app makes no tracking or analytics network requests. The only network activity is: checking for app updates (desktop), and optional user-initiated features (encrypted share uploads and live collaboration sessions) — all of which are end-to-end encrypted
 - **No cookies or tracking**: No third-party scripts, no tracking pixels, no fingerprinting
 
-This can be verified by inspecting the open-source code — there are no analytics packages in the dependencies and no outbound network calls in the application logic.
+This can be verified by inspecting the open-source code — there are no analytics packages in the dependencies and no tracking calls in the application logic.
 
 ### Local-Only Storage
 
@@ -128,7 +128,7 @@ This is as important as what Dash does:
 - **No "anonymous" analytics** — there's no usage tracking at all, not even anonymized
 - **No crash reporting** — no Sentry, Bugsnag, or similar services that capture app state
 - **No A/B testing** — no feature flags that phone home
-- **No social features** — no sharing, collaboration, or "discover" features that require servers
+- **End-to-end encrypted sharing** — when you choose to share a note or start a live session, content is encrypted on your device before anything touches the network. The relay server only sees encrypted blobs it cannot decrypt. Shared note blobs are auto-deleted after 30 days
 - **No advertisements** — no ad networks, no tracking for ad targeting
 - **No data broker relationships** — no user data exists to sell
 
@@ -142,7 +142,7 @@ This is as important as what Dash does:
 | Data stored on servers | No | Yes |
 | Encryption key holder | Only you | Usually the service |
 | Analytics/telemetry | None | Typically 3-5 analytics services |
-| Network requests (normal use) | None | Continuous (sync, analytics, ads) |
+| Network requests (normal use) | None (optional E2E encrypted sharing/collaboration) | Continuous (sync, analytics, ads) |
 | Password recovery | Not possible (zero-knowledge) | Usually available (they have your data) |
 | AI training on your content | Never (no data leaves device) | Check their ToS (often ambiguous) |
 | Works without internet | Yes, fully | Limited or not at all |
@@ -170,10 +170,10 @@ This isn't compliance through legal effort — it's compliance through architect
 For technically-minded users, here's what Dash protects against and what it doesn't:
 
 ### Protected Against
-- Server-side data breaches (no server)
-- Man-in-the-middle attacks on note content (no network transmission)
-- Service provider reading your notes (no service provider)
-- Government data requests to the developer (no data to provide)
+- Server-side data breaches (relay only stores encrypted blobs it cannot read, auto-deleted after 30 days)
+- Man-in-the-middle attacks on note content (all sharing and collaboration is end-to-end encrypted; encryption keys are in URL fragments, never sent to servers)
+- Service provider reading your notes (zero-knowledge architecture — even the relay server cannot decrypt content)
+- Government data requests to the developer (no user data, no accounts; relay stores only encrypted blobs with no identifying information)
 - Analytics company profiling (no analytics)
 - Account compromise (no accounts)
 - Brute-force on encrypted pages (PBKDF2 with 600K iterations + AES-256)

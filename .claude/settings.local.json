@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git log --all --grep=\"secret\\\\|password\\\\|token\\\\|credential\\\\|key\\\\|env\\\\|API\" -i)",
+      "Bash(git check-ignore -v certificate.p12 .env .env.local encoded-certificate.txt)",
+      "Bash(git rev-list --all --objects)",
+      "Bash(ls -lh /Users/ollie/rich-text-editor/.env* /Users/ollie/rich-text-editor/certificate*)",
+      "WebFetch(domain:editorjs.io)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(grep -r \"window.getSelection\\\\|document.getSelection\\\\|cursor\\\\|blur\\\\|focus\" /Users/ollie/rich-text-editor/components/*.js)",
+      "Bash(grep -n 'conversionConfig\\\\|get toolbox\\\\|enableLineBreaks' /Users/ollie/rich-text-editor/node_modules/@editorjs/nested-list/dist/*.js)",
+      "Bash(grep -r \"toolbox\\\\|title.*:\" /Users/ollie/rich-text-editor/components/editor-tools/*.js)",
+      "Bash(npm version patch)",
+      "Bash(git push origin main --follow-tags)",
+      "WebSearch",
+      "Bash(grep -E \"\\\\.js$\")",
+      "Read(//Users/ollie/**)",
+      "Bash(grep -o \"case ''[^'']*''\" /Users/ollie/rich-text-editor/utils/shareUtils.js)",
+      "Bash(/tmp/check_blocks.txt:*)",
+      "Read(//tmp/**)",
+      "Bash(grep -o \"case ''[^'']*''\" /Users/ollie/rich-text-editor/utils/exportUtils.js)",
+      "Bash(grep -n \"dashpack\\\\|value === ''dashpack''\" /Users/ollie/rich-text-editor/components/RichTextEditor.js)",
+      "Bash(grep -n \"pointer-events\\\\|position: fixed\\\\|position: absolute\" /Users/ollie/rich-text-editor/components/*.js)",
+      "Bash(grep -n \"fixed.*z-\\\\|zIndex.*9999\\\\|z-\\\\[9999\\\\]\" /Users/ollie/rich-text-editor/components/*.js)",
+      "Bash(grep -n \"inputRef.current?.focus\\\\|confirmButtonRef.current?.focus\" /Users/ollie/rich-text-editor/components/*.js)",
+      "Bash(grep -r \"Table\" /Users/ollie/rich-text-editor/components/*.js)",
+      "Bash(grep -rn \"resiz\\\\|reorder\\\\|drag\\\\|column.*width\" /Users/ollie/rich-text-editor/node_modules/@editorjs/table/dist/*.d.ts)",
+      "Bash(npm search editorjs table --json)",
+      "Bash(ls -la /Users/ollie/rich-text-editor/hooks/*.js)",
+      "Bash(npx next build)",
+      "WebFetch(domain:www.dashnote.io)",
+      "WebFetch(domain:dashnote.io)",
+      "Bash(gh api repos/codex-team/editor.js/contents/src/components/utils.ts --jq '.content')",
+      "Bash(gh api repos/codex-team/editor.js/contents/src/components/modules/api/blocks.ts --jq '.content')",
+      "Bash(grep -n \"case ''ai\\\\|case ''AI\\\\|AIBlock\\\\|aiBlock\" /Users/ollie/rich-text-editor/utils/exportUtils.js /Users/ollie/rich-text-editor/utils/dataValidation.js /Users/ollie/rich-text-editor/utils/securityUtils.js)"
+    ]
+  }
+}

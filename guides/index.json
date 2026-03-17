@@ -85,11 +85,11 @@
       "slug": "features",
       "title": "All Features",
       "subtitle": "Complete Feature Guide for Dash",
-      "description": "A comprehensive overview of every feature in Dash — encryption, encrypted sharing, EXIF stripping, decoy app, self-destructing notes, focus mode, themes, keyboard shortcuts, and more.",
+      "description": "A comprehensive overview of every feature in Dash — encryption, encrypted sharing, live collaboration, EXIF stripping, decoy app, self-destructing notes, markdown paste, focus mode, themes, keyboard shortcuts, and more.",
       "file": "features.md",
-      "tags": ["features", "overview", "guide", "security", "editor", "sharing", "privacy"],
-      "relatedFeatures": ["encryption", "app-lock", "focus-mode", "themes", "shortcuts", "encrypted-sharing", "exif-stripping", "decoy-app"],
-      "lastUpdated": "2026-03-12"
+      "tags": ["features", "overview", "guide", "security", "editor", "sharing", "privacy", "live-sessions", "collaboration"],
+      "relatedFeatures": ["encryption", "app-lock", "focus-mode", "themes", "shortcuts", "encrypted-sharing", "exif-stripping", "decoy-app", "live-sessions", "markdown-paste"],
+      "lastUpdated": "2026-03-17"
     }
   ]
 }

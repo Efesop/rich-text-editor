@@ -55,7 +55,7 @@ The data is still stored as readable text (or easily parseable JSON/SQLite) on d
 
 ### Real Encryption, Not Just a Screen
 
-When you enable app lock in Dash, your notes are **actually encrypted** using AES-256-GCM — the same military-grade encryption used for individual page locks, but applied to all your pages automatically.
+When you enable app lock in Dash, your notes are **actually encrypted** using AES-256-GCM (the same encryption standard used by governments and banks) — the same algorithm used for individual page locks, but applied to all your pages automatically.
 
 ### The Full Flow
 

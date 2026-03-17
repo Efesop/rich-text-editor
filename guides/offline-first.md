@@ -108,11 +108,19 @@ When a user transitions between storage backends (e.g., first opening the PWA af
 Dash intentionally does not sync data between devices. This is a deliberate privacy and simplicity choice:
 
 - **No sync conflicts**: You never lose data to a merge conflict
-- **No server infrastructure**: No servers to maintain, secure, or pay for
 - **No account required**: No sign-up, no login, no email address needed
-- **No data in transit**: Your notes are never sent over a network
+- **Your notes stay on your device**: Notes are never uploaded to a server unless you explicitly choose to share them
 
 For users who want to move data between devices, Dash provides **export/import** in multiple formats (JSON, Markdown, PDF, DOCX, and more). Encrypted exports can be password-protected for secure transfer.
+
+### Optional Network Features
+
+While Dash works fully offline, two optional features use a zero-knowledge relay server when you choose to use them:
+
+- **Encrypted sharing**: When you share a note, the content is encrypted on your device with AES-256-GCM before being uploaded to the relay. The server stores only an encrypted blob it cannot read, which is auto-deleted after 30 days.
+- **Live collaboration**: Real-time editing sessions use WebSocket connections through the relay to exchange encrypted messages between participants. The relay forwards encrypted binary data — it never sees plaintext content.
+
+Both features are entirely opt-in. If you never share a note or start a live session, Dash makes no network requests beyond checking for app updates on desktop.
 
 ---
 

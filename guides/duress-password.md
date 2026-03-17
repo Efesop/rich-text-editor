@@ -2,7 +2,7 @@
 
 ## What is the Decoy App?
 
-The Decoy App feature (also known as a duress password or panic password) lets you set a secondary password that shows fake decoy notes when entered at the lock screen. If someone forces you to unlock the app, you enter the decoy password instead of your real one. The app opens normally — but shows convincing fake notes instead of your real data. Your actual notes stay encrypted and hidden on disk.
+The Decoy App feature (also known as a decoy password) lets you set a secondary password that shows fake decoy notes when entered at the lock screen. If someone forces you to unlock the app, you enter the decoy password instead of your real one. The app opens normally — but shows convincing fake notes instead of your real data. Your actual notes stay encrypted and hidden on disk.
 
 ## How It Works
 
@@ -28,46 +28,39 @@ When the app is locked:
 
 There is zero visual difference between a normal unlock and a decoy unlock. The attacker cannot tell which password was entered.
 
-## Duress Actions
+## How Hide Mode Works
 
-### Hide Data
+When the decoy password is entered:
 
-- Clears all notes from memory (the app appears empty)
-- **Data is preserved on disk** — nothing is deleted
+- Clears all real notes from memory (the app appears to contain only the decoy notes)
+- **Data is preserved on disk** — nothing is deleted or wiped
 - The app lock encryption key is cleared from memory
+- All saves are blocked to prevent the empty/decoy state from overwriting real data
 - Next time you lock and unlock with your real password, all data is restored
-- Best for: situations where you might need your data back later
 
-### Wipe All Data
-
-- Permanently deletes all pages from memory and disk
-- Clears the app lock settings entirely
-- **This is irreversible** — there is no way to recover wiped data
-- The app returns to a fresh, empty state
-- Best for: extreme situations where data must not be recoverable
+This is hide mode only — your real data is always safe and recoverable.
 
 ## Security Considerations
 
-- The duress password hash is stored alongside (but separately from) the real password hash using bcrypt
+- The decoy password hash is stored alongside (but separately from) the real password hash using bcrypt
 - Both hashes use independent salt values — comparing them reveals nothing
-- The lock screen checks the duress password first, then the real password. A wrong password (matching neither) just shows an error.
-- Rate limiting applies equally to all password attempts (real, duress, or wrong)
-- When app lock is disabled, duress settings are also cleared
+- The lock screen checks the decoy password first, then the real password. A wrong password (matching neither) just shows an error.
+- Rate limiting applies equally to all password attempts (real, decoy, or wrong)
+- When app lock is disabled, decoy settings are also cleared
 
 ## Comparison with Other Apps
 
 | Feature | Dash | VeraCrypt | Signal |
 |---------|------|-----------|--------|
-| Duress password | Yes | Yes (hidden volumes) | No |
+| Decoy password | Yes | Yes (hidden volumes) | No |
 | Hide mode (reversible) | Yes | Yes | N/A |
-| Wipe mode (irreversible) | Yes | No | No |
 | Works offline | Yes | Yes | No |
 | Plausible deniability | Yes | Yes | N/A |
 
 ## Important Notes
 
-- **Test your duress password** in Hide mode first to make sure you understand how it works before considering Wipe mode
+- **Test your decoy password** after setting it up to make sure it works as expected
 - **Remember both passwords** — there is no password recovery for either
-- **Hide mode is reversible** — you can always get your data back by entering the real password after a hide-mode duress unlock
-- **Wipe mode is permanent** — once triggered, all data is gone forever
-- The duress password feature is designed for extreme privacy scenarios. Most users will never need it.
+- **Hide mode is reversible** — you can always get your data back by entering the real password after a decoy unlock
+- **Your data is never deleted** — the decoy feature only hides data, it does not wipe it
+- The decoy password feature is designed for extreme privacy scenarios. Most users will never need it.

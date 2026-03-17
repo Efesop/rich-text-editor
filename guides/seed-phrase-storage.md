@@ -47,7 +47,7 @@ Click "Copy All" to copy the full phrase to your clipboard. The clipboard is aut
 1. **Lock the page** — Use Dash's page encryption to password-protect any page containing a seed phrase
 2. **Enable app lock** — Set up the app lock with a strong master password so all notes are encrypted at rest
 3. **Don't rely on digital storage alone** — Consider keeping a physical backup in a secure location as well
-4. **Use the duress password** — If you're concerned about coercion, set up a duress password that wipes or hides your data
+4. **Use the decoy password** — If you're concerned about coercion, set up a decoy password that hides your real data behind convincing fake notes
 
 ## How It's Stored
 
