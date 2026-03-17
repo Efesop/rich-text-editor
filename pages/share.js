@@ -567,8 +567,8 @@ export default function SharePage() {
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                     <div>
-                      <p style={{ fontSize: 12, fontWeight: 500, color: '#d4d4d4', margin: 0 }}>Desktop, mobile & web</p>
-                      <p style={{ fontSize: 11, color: '#525252', margin: 0, marginTop: 2 }}>macOS, Windows, Linux, iOS, Android</p>
+                      <p style={{ fontSize: 12, fontWeight: 500, color: '#d4d4d4', margin: 0 }}>Desktop & web</p>
+                      <p style={{ fontSize: 11, color: '#525252', margin: 0, marginTop: 2 }}>macOS app & browser PWA</p>
                     </div>
                   </div>
                 </div>
@@ -617,8 +617,9 @@ export default function SharePage() {
         .share-note-content table { width: 100%; border-collapse: collapse; margin: 16px 0; }
         .share-note-content td { border: 1px solid #1a1a1a; padding: 10px 14px; }
         .share-note-content hr { border: none; border-top: 1px solid #1a1a1a; margin: 24px 0; }
-        .share-note-content ul, .share-note-content ol { padding-left: 24px; margin: 10px 0; }
-        .share-note-content li { margin: 4px 0; }
+        .share-note-content ul { padding-left: 24px; margin: 10px 0; list-style-type: disc; }
+        .share-note-content ol { padding-left: 24px; margin: 10px 0; list-style-type: decimal; }
+        .share-note-content li { margin: 4px 0; display: list-item; }
         .share-note-content figure { margin: 16px 0; }
         .share-note-content figcaption, .share-note-content cite { color: #737373; font-size: 13px; }
         .share-note-content b, .share-note-content strong { color: #e5e5e5; }

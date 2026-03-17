@@ -215,14 +215,16 @@ export default function ShareModal ({ isOpen, onClose, noteContent, noteTitle, t
 
             {/* Action buttons */}
             <div className="flex gap-2">
-              <button
-                onClick={handleShare}
-                disabled={!ready}
-                className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl transition-colors disabled:opacity-40 ${primaryBtnClass}`}
-              >
-                <Share2 className="h-4 w-4" />
-                <span className="text-sm font-medium">Share</span>
-              </button>
+              {typeof navigator !== 'undefined' && navigator.share && (
+                <button
+                  onClick={handleShare}
+                  disabled={!ready}
+                  className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl transition-colors disabled:opacity-40 ${primaryBtnClass}`}
+                >
+                  <Share2 className="h-4 w-4" />
+                  <span className="text-sm font-medium">Share</span>
+                </button>
+              )}
 
               <button
                 onClick={handleCopyLink}

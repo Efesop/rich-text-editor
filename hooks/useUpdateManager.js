@@ -41,6 +41,13 @@ export function useUpdateManager() {
 
     const handleUpdateError = (errorInfo) => {
       if (!isMountedRef.current) return;
+      // Silently ignore network errors — user may be offline intentionally
+      const msg = errorInfo?.message || ''
+      if (msg.includes('net::') || msg.includes('INTERNET_DISCONNECTED') || msg.includes('ERR_NETWORK') || msg.includes('ENOTFOUND')) {
+        setIsCheckingForUpdates(false);
+        setIsDownloading(false);
+        return;
+      }
       setError(errorInfo);
       setIsCheckingForUpdates(false);
       setIsDownloading(false);
@@ -128,8 +135,8 @@ export function useUpdateManager() {
           canRetry: result.canRetry || false
         });
         
-        // Only show notifications for actual errors (offline, etc.)
-        if (result.offline) {
+        // Silently ignore offline errors — user chose to be offline
+        if (!result.offline) {
           setShowUpdateNotification(true);
         }
       } else {

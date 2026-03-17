@@ -86,25 +86,63 @@ function parseMarkdownToBlocks (markdown) {
       i++; continue
     }
 
-    // Checkbox list item
-    const checkMatch = line.match(/^[-*+]\s+\[([ xX])\]\s+(.*)/)
+    // Image ![alt](url)
+    const imgMatch = line.match(/^!\[([^\]]*)\]\(([^)]+)\)/)
+    if (imgMatch) {
+      blocks.push({ type: 'image', data: { file: { url: imgMatch[2] }, caption: imgMatch[1] } })
+      i++; continue
+    }
+
+    // Checkbox list item (supports indented/nested — flattened to top level)
+    const checkMatch = line.match(/^\s*[-*+]\s+\[([ xX])\]\s+(.*)/)
     if (checkMatch) {
       blocks.push({ type: 'checklistItem', data: { text: convertInlineMarkdown(checkMatch[2]), checked: checkMatch[1].toLowerCase() === 'x' } })
       i++; continue
     }
 
-    // Unordered list item
-    const ulMatch = line.match(/^[-*+]\s+(.+)/)
+    // Unordered list item (supports indented/nested — flattened to top level)
+    const ulMatch = line.match(/^\s*[-*+]\s+(.+)/)
     if (ulMatch) {
       blocks.push({ type: 'bulletListItem', data: { text: convertInlineMarkdown(ulMatch[1]) } })
       i++; continue
     }
 
-    // Ordered list item
-    const olMatch = line.match(/^\d+\.\s+(.+)/)
+    // Ordered list item (supports indented/nested — flattened to top level)
+    const olMatch = line.match(/^\s*\d+\.\s+(.+)/)
     if (olMatch) {
       blocks.push({ type: 'numberedListItem', data: { text: convertInlineMarkdown(olMatch[1]) } })
       i++; continue
+    }
+
+    // Markdown table (| col | col | with separator row |---|---|)
+    if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+      const tableRows = []
+      let j = i
+      // Collect consecutive lines that look like table rows
+      while (j < lines.length && lines[j].trim().startsWith('|') && lines[j].trim().endsWith('|')) {
+        const row = lines[j].trim()
+        tableRows.push(row)
+        j++
+      }
+      // Need at least 2 rows (header + separator, or header + data)
+      if (tableRows.length >= 2) {
+        const parseRow = (row) => row.split('|').slice(1, -1).map(cell => convertInlineMarkdown(cell.trim()))
+        const content = []
+        let withHeadings = false
+        for (let r = 0; r < tableRows.length; r++) {
+          // Skip separator rows (|---|---|)
+          if (/^\|[\s:]*[-]+[\s:]*(\|[\s:]*[-]+[\s:]*)+\|$/.test(tableRows[r])) {
+            withHeadings = r === 1 // separator after first row means first row is header
+            continue
+          }
+          content.push(parseRow(tableRows[r]))
+        }
+        if (content.length > 0) {
+          blocks.push({ type: 'table', data: { content, withHeadings } })
+          i = j
+          continue
+        }
+      }
     }
 
     // Blockquote
@@ -616,6 +654,8 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
               /^---+$/m,              // horizontal rule
               /^- \[[ x]\]/m,         // checkbox
               /\[([^\]]+)\]\([^)]+\)/, // links
+              /!\[[^\]]*\]\([^)]+\)/,   // images
+              /^\|.+\|$/m,              // table rows
             ]
             const matchCount = mdPatterns.filter(p => p.test(plain)).length
             if (matchCount < 2) return
