@@ -50,6 +50,15 @@ export function KeyboardShortcutsModal({ isOpen, onClose, theme }) {
         { label: 'Deselect block', keys: [mod, 'Click'] },
         { label: 'Clear selection', keys: ['Esc'] }
       ]
+    },
+    {
+      title: 'Local AI',
+      shortcuts: [
+        { label: 'Open Local AI (slash menu)', keys: ['/', 'ai'] },
+        { label: 'AI from block settings', keys: ['⋮⋮', '→', 'Use Local AI'] },
+        { label: 'AI from text selection', keys: ['Select text', '→', 'AI icon'] },
+        { label: 'AI from multi-block', keys: ['Select blocks', '→', 'Use Local AI'] }
+      ]
     }
   ], [mod])
 

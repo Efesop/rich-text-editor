@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, Share2, List, Users, Shield, Copy, Check } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, Share2, List, Users, Shield, Copy, Check, Bot } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
@@ -68,6 +68,7 @@ import AppLockSetupModal from './AppLockSetupModal'
 import AppLockSettingsModal from './AppLockSettingsModal'
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal'
 import FeaturesPanel from './FeaturesPanel'
+import AIPanel from './AIPanel'
 import ShareModal from './ShareModal'
 import LiveSessionModal from './LiveSessionModal'
 // LiveSessionChip is defined inline above RichTextEditor
@@ -858,6 +859,28 @@ export default function RichTextEditor() {
 
   // Features panel
   const [isFeaturesOpen, setIsFeaturesOpen] = useState(false)
+
+  // AI panel
+  const [isAIPanelOpen, setIsAIPanelOpen] = useState(false)
+  const [aiContextText, setAiContextText] = useState(null)
+  const [aiBlockIndex, setAiBlockIndex] = useState(null)
+  const [aiBlockIndices, setAiBlockIndices] = useState(null)
+  const [aiReloadKey, setAiReloadKey] = useState(0)
+  const [aiCanUndo, setAiCanUndo] = useState(false)
+  const aiUndoSnapshotRef = useRef(null)
+
+  useEffect(() => {
+    const handler = (e) => {
+      const text = e.detail.selectedText
+      setAiContextText(text || null) // empty string → null (full note context)
+      setAiBlockIndex(e.detail.blockIndex ?? null)
+      setAiBlockIndices(e.detail.blockIndices ?? null)
+      setIsAIPanelOpen(true)
+    }
+    window.addEventListener('dash-ai-inline', handler)
+    return () => window.removeEventListener('dash-ai-inline', handler)
+  }, [])
+
   const [showFeaturesTooltip, setShowFeaturesTooltip] = useState(false)
 
   useEffect(() => {
@@ -1361,6 +1384,117 @@ export default function RichTextEditor() {
     setWordCount(calculateWordCount(content))
     setOutlineHeadings(extractHeadings(content.blocks))
   }, [savePage])
+
+  // AI panel insertion handler
+  const handleAIInsertBlocks = useCallback(async (blocks, mode, selectionText, sourceBlockIndex, sourceBlockIndices) => {
+    if (!currentPageRef.current) return
+    const existingBlocks = currentPageRef.current.content?.blocks || []
+    let newBlocks
+
+    // If we have exact block indices (from multi-block selection), replace that range
+    if (mode === 'replace' && Array.isArray(sourceBlockIndices) && sourceBlockIndices.length > 0) {
+      const sorted = [...sourceBlockIndices].sort((a, b) => a - b)
+      const startIdx = sorted[0]
+      const endIdx = sorted[sorted.length - 1]
+      if (startIdx >= 0 && endIdx < existingBlocks.length) {
+        newBlocks = [
+          ...existingBlocks.slice(0, startIdx),
+          ...blocks,
+          ...existingBlocks.slice(endIdx + 1)
+        ]
+      }
+    }
+
+    // If we have an exact block index (from single-block AI tune), use it directly
+    if (!newBlocks && mode === 'replace' && sourceBlockIndex != null && sourceBlockIndex >= 0 && sourceBlockIndex < existingBlocks.length) {
+      newBlocks = [
+        ...existingBlocks.slice(0, sourceBlockIndex),
+        ...blocks,
+        ...existingBlocks.slice(sourceBlockIndex + 1)
+      ]
+    }
+
+    if (!newBlocks && mode === 'replace' && selectionText) {
+      // Selection-level replace: find blocks whose text appears in the selection
+      const selectionClean = selectionText.replace(/\s+/g, ' ').trim()
+
+      // Extract plain text from any block type
+      const extractBlockText = (b) => {
+        // Table: extract from content 2D array
+        if (b.type === 'table' && Array.isArray(b.data?.content)) {
+          return b.data.content.map(row =>
+            Array.isArray(row) ? row.map(cell => (cell || '').replace(/<[^>]*>/g, '').trim()).join(' ') : ''
+          ).join(' ')
+        }
+        // List items
+        if (Array.isArray(b.data?.items)) {
+          return b.data.items.map(item => {
+            const t = typeof item === 'string' ? item : (item.text || item.content || '')
+            return t.replace(/<[^>]*>/g, '').trim()
+          }).join(' ')
+        }
+        const raw = b.data?.text || b.data?.code || b.data?.caption || ''
+        return raw.replace(/<[^>]*>/g, '').trim()
+      }
+
+      // Score each block by whether its text content appears in the selection
+      let startIdx = -1
+      let endIdx = -1
+      for (let i = 0; i < existingBlocks.length; i++) {
+        const b = existingBlocks[i]
+        const blockText = extractBlockText(b).replace(/\s+/g, ' ').trim()
+        if (!blockText || blockText.length < 2) continue
+
+        // Check if block text is a substring of the selection (or vice versa for short blocks)
+        const inSelection = selectionClean.includes(blockText) || blockText.includes(selectionClean.slice(0, 60))
+        if (inSelection) {
+          if (startIdx === -1) startIdx = i
+          endIdx = i
+        } else if (startIdx !== -1) {
+          // Stop once we've left the matching range
+          break
+        }
+      }
+
+      if (startIdx !== -1 && endIdx !== -1) {
+        newBlocks = [
+          ...existingBlocks.slice(0, startIdx),
+          ...blocks,
+          ...existingBlocks.slice(endIdx + 1)
+        ]
+      } else {
+        // Fallback: append below instead of silently replacing the whole note
+        newBlocks = [...existingBlocks, ...blocks]
+      }
+    } else if (!newBlocks && mode === 'replace') {
+      newBlocks = blocks
+    }
+
+    if (!newBlocks) {
+      newBlocks = [...existingBlocks, ...blocks]
+    }
+
+    // Snapshot current content for undo
+    aiUndoSnapshotRef.current = JSON.parse(JSON.stringify(currentPageRef.current.content || {}))
+
+    const newContent = { ...(currentPageRef.current.content || {}), blocks: newBlocks, time: Date.now() }
+    await handleEditorChange(newContent)
+    // Force-sync React state so the editor remount gets fresh data
+    // (savePage only updates refs, not React state, to avoid MutationObserver loops during normal edits)
+    setCurrentPage({ ...currentPageRef.current, content: newContent })
+    setAiReloadKey(k => k + 1)
+    setAiCanUndo(true)
+  }, [handleEditorChange, setCurrentPage])
+
+  const handleAIUndo = useCallback(async () => {
+    if (!aiUndoSnapshotRef.current || !currentPageRef.current) return
+    const restoredContent = aiUndoSnapshotRef.current
+    aiUndoSnapshotRef.current = null
+    await handleEditorChange(restoredContent)
+    setCurrentPage({ ...currentPageRef.current, content: restoredContent })
+    setAiReloadKey(k => k + 1)
+    setAiCanUndo(false)
+  }, [handleEditorChange, setCurrentPage])
 
   // ── Live Session Handlers ─────────────────────────────────────
   const handleStartLiveSession = useCallback(async ({ roomId, keyStr, link, duration, sessionPassword }) => {
@@ -3484,7 +3618,7 @@ export default function RichTextEditor() {
           })()}
           <EditorErrorBoundary>
             <DynamicEditor
-              key={currentPage.id + '-' + editorReloadKey}
+              key={currentPage.id + '-' + editorReloadKey + '-' + aiReloadKey}
               data={currentPage.content}
               onChange={handleEditorChange}
               holder="editorjs"
@@ -3560,6 +3694,19 @@ export default function RichTextEditor() {
         }`}
       >
         <List size={12} className="pointer-events-none" />
+      </button>
+      </Tooltip>
+      <Tooltip text="Local AI">
+      <button
+        onClick={() => { setAiContextText(null); setIsAIPanelOpen(true) }}
+        className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-colors ${
+          theme === 'fallout' ? 'text-green-600 hover:text-green-400 hover:bg-green-900/30' :
+          theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0] hover:bg-[#2a2a2a]' :
+          theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5] hover:bg-[#1c2438]' :
+          'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100'
+        }`}
+      >
+        <Bot size={12} className="pointer-events-none" />
       </button>
       </Tooltip>
       <div className="relative">
@@ -3940,6 +4087,19 @@ export default function RichTextEditor() {
         isOpen={isFeaturesOpen}
         onClose={() => setIsFeaturesOpen(false)}
         theme={theme}
+      />
+
+      <AIPanel
+        isOpen={isAIPanelOpen}
+        onClose={() => { setIsAIPanelOpen(false); setAiContextText(null); setAiBlockIndex(null); setAiBlockIndices(null) }}
+        theme={theme}
+        currentPage={currentPage}
+        contextText={aiContextText}
+        blockIndex={aiBlockIndex}
+        blockIndices={aiBlockIndices}
+        onInsertBlocks={handleAIInsertBlocks}
+        canUndo={aiCanUndo}
+        onUndo={handleAIUndo}
       />
 
       <PageLinkDropdown

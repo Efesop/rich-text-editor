@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react'
 import {
   X, Sparkles, Lock, ShieldCheck, ShieldAlert, Timer, KeyRound,
   Link, Code, GripVertical, Undo2, Search, Focus, Keyboard, Palette, Fingerprint,
-  FolderOpen, Download, Plus, Share2, ImageOff
+  FolderOpen, Download, Plus, Share2, ImageOff, Bot
 } from 'lucide-react'
 import { featuresList } from '@/lib/releaseNotes'
 
 const iconMap = {
   Lock, ShieldCheck, ShieldAlert, Timer, KeyRound,
   Link, Code, GripVertical, Undo2, Search, Focus, Keyboard, Palette, Sparkles,
-  FolderOpen, Download, Plus, Share2, ImageOff
+  FolderOpen, Download, Plus, Share2, ImageOff, Bot
 }
 
 const CATEGORIES = [
@@ -379,6 +379,22 @@ function FeatureIllustration({ animation, theme }) {
             <div className="dash-feat-exif-tag dash-feat-exif-tag-3" style={{ background: `${textMuted}30`, color: textMuted }}>
               <span style={{ fontSize: 5 }}>DATE</span>
             </div>
+          </div>
+        </div>
+      )
+
+    case 'bot':
+      // Bot head with streaming text response
+      return (
+        <div className="dash-feat-illus dash-feat-illus-bot">
+          <div className="dash-feat-bot-head" style={{ borderColor: accent, color: accent }}>
+            <div className="dash-feat-bot-eye" style={{ background: accent }} />
+            <div className="dash-feat-bot-eye" style={{ background: accent }} />
+          </div>
+          <div className="dash-feat-bot-lines">
+            <div className="dash-feat-bot-line dash-feat-bot-line-1" style={{ background: accent }} />
+            <div className="dash-feat-bot-line dash-feat-bot-line-2" style={{ background: `${accent}80` }} />
+            <div className="dash-feat-bot-line dash-feat-bot-line-3" style={{ background: `${accent}60` }} />
           </div>
         </div>
       )

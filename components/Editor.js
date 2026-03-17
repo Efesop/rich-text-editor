@@ -2,6 +2,8 @@
 import MultiBlockTuneEnhancer from './MultiBlockToolbar'
 import { migrateEditorData } from '@/utils/migrateBlocks'
 import { PageLinkInlineTool } from './editor-tools/PageLink'
+import { AIInlineTool } from './editor-tools/AIInlineTool'
+import { AIBlockTool } from './editor-tools/AIBlockTool'
 import { stripImageMetadata } from '@/utils/imageUtils'
 
 // Auto-linkify plain-text URLs in a string, skipping URLs already inside <a> tags
@@ -48,7 +50,7 @@ function linkifyTableBlocks(blocks) {
  * Parse markdown text into Editor.js block objects.
  * Supports: headings, bold/italic, lists, checkboxes, code blocks, blockquotes, links, horizontal rules.
  */
-function parseMarkdownToBlocks (markdown) {
+export function parseMarkdownToBlocks (markdown) {
   const lines = markdown.split('\n')
   const blocks = []
   let i = 0
@@ -68,7 +70,7 @@ function parseMarkdownToBlocks (markdown) {
         i++
       }
       i++ // skip closing ```
-      blocks.push({ type: 'codeBlock', data: { code: codeLines.join('\n') } })
+      blocks.push({ type: 'code', data: { code: codeLines.join('\n') } })
       continue
     }
 
@@ -225,6 +227,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
     minHeight: 100,
     autofocus: true,
     defaultBlock: 'paragraph',
+    tunes: ['aiTune'],
     sanitizer: {
       p: true,
       b: true,
@@ -319,7 +322,8 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
         BulletListItem,
         NumberedListItem,
         ChecklistItemTool,
-        SeedPhraseTool
+        SeedPhraseTool,
+        AIBlockTune
       ] = await Promise.all([
         import('@editorjs/editorjs').then(m => m.default),
         import('@editorjs/header').then(m => m.default),
@@ -335,12 +339,13 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
         import('@editorjs/paragraph').then(m => m.default),
         import('@editorjs/nested-list').then(m => m.default),
         import('@editorjs/underline').then(m => m.default),
-        import('editorjs-text-alignment-blocktune').then(m => m.default),
+        import('./editor-tools/AlignmentTune').then(m => m.default),
         import('editorjs-drag-drop').then(m => m.default),
         import('./editor-tools/BulletListItem').then(m => m.default),
         import('./editor-tools/NumberedListItem').then(m => m.default),
         import('./editor-tools/ChecklistItem').then(m => m.default),
         import('./editor-tools/SeedPhrase').then(m => m.default),
+        import('./editor-tools/AIBlockTune').then(m => m.default),
       ])
 
       // Auto-link bare URLs in HTML (skip URLs already inside <a> tags)
@@ -405,7 +410,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
         header: {
           class: Header,
           inlineToolbar: ['marker', 'inlineCode'],
-          tunes: ['alignment'],
+          tunes: ['alignment', 'aiTune'],
           config: {
             placeholder: 'Enter a header',
             levels: [2, 3, 4],
@@ -473,6 +478,12 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
         pageLink: {
           class: PageLinkInlineTool,
         },
+        aiTool: {
+          class: AIInlineTool,
+        },
+        ai: {
+          class: AIBlockTool,
+        },
         table: {
           class: Table,
           inlineToolbar: true,
@@ -531,10 +542,13 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
             default: 'left'
           }
         },
+        aiTune: {
+          class: AIBlockTune
+        },
         paragraph: {
           class: Paragraph,
           inlineToolbar: true,
-          tunes: ['alignment']
+          tunes: ['alignment', 'aiTune']
         }
       }
 
