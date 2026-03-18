@@ -467,6 +467,7 @@
 .ce-tune-alignment--center { text-align: center; }
 .ce-tune-alignment--right { text-align: right; }
 
+/* AI Orb is rendered via Canvas — see components/AIOrb.js */
 /* ── Features Panel: Bot / Local AI illustration ── */
 .dash-feat-illus-bot {
   flex-direction: column;
@@ -5284,3 +5285,118 @@ button:focus {
   0% { background-color: rgba(34, 197, 94, 0.12); }
   100% { background-color: transparent; }
 }
+
+/* ── AI Panel Editor Highlight ─────────────────────────────── */
+.dash-ai-highlight .ce-block__content {
+  background: rgba(59, 130, 246, 0.08);
+  border-radius: 4px;
+  outline: 1px solid rgba(59, 130, 246, 0.2);
+  outline-offset: 2px;
+  transition: background 200ms, outline 200ms;
+}
+[data-theme="dark"] .dash-ai-highlight .ce-block__content {
+  background: rgba(96, 165, 250, 0.08);
+  outline-color: rgba(96, 165, 250, 0.2);
+}
+[data-theme="darkblue"] .dash-ai-highlight .ce-block__content {
+  background: rgba(96, 165, 250, 0.08);
+  outline-color: rgba(96, 165, 250, 0.15);
+}
+.fallout .dash-ai-highlight .ce-block__content {
+  background: rgba(74, 222, 128, 0.08);
+  outline-color: rgba(74, 222, 128, 0.2);
+}
+
+/* ── AI Panel Markdown Styles ─────────────────────────────────── */
+.dash-ai-md {
+  font-size: 0.875rem;
+  line-height: 1.65;
+  word-break: break-word;
+}
+.dash-ai-md h1 { font-size: 1.25rem; font-weight: 700; margin: 1rem 0 0.5rem; }
+.dash-ai-md h2 { font-size: 1.1rem; font-weight: 600; margin: 0.85rem 0 0.4rem; }
+.dash-ai-md h3 { font-size: 1rem; font-weight: 600; margin: 0.75rem 0 0.35rem; }
+.dash-ai-md h4,
+.dash-ai-md h5,
+.dash-ai-md h6 { font-size: 0.875rem; font-weight: 600; margin: 0.5rem 0 0.25rem; }
+.dash-ai-md p { margin: 0.4rem 0; }
+.dash-ai-md ul { list-style: disc; padding-left: 1.25rem; margin: 0.4rem 0; }
+.dash-ai-md ol { list-style: decimal; padding-left: 1.25rem; margin: 0.4rem 0; }
+.dash-ai-md li { margin: 0.15rem 0; }
+.dash-ai-md li > ul,
+.dash-ai-md li > ol { margin: 0.1rem 0; }
+.dash-ai-md blockquote {
+  border-left: 3px solid;
+  padding-left: 0.75rem;
+  margin: 0.5rem 0;
+  opacity: 0.85;
+}
+.dash-ai-md pre {
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+  overflow-x: auto;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.dash-ai-md code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+}
+.dash-ai-md pre code {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.dash-ai-md hr {
+  border: none;
+  border-top: 1px solid;
+  margin: 0.75rem 0;
+  opacity: 0.3;
+}
+.dash-ai-md table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.8rem; }
+.dash-ai-md th,
+.dash-ai-md td { border: 1px solid; padding: 0.35rem 0.5rem; text-align: left; }
+.dash-ai-md th { font-weight: 600; }
+.dash-ai-md a { text-decoration: underline; }
+.dash-ai-md strong { font-weight: 600; }
+.dash-ai-md > *:first-child { margin-top: 0; }
+.dash-ai-md > *:last-child { margin-bottom: 0; }
+
+/* Light theme */
+.dash-ai-md code { background: rgba(0,0,0,0.06); color: #d63384; }
+.dash-ai-md pre { background: #f5f5f5; color: #333; }
+.dash-ai-md blockquote { border-color: #d1d5db; }
+.dash-ai-md th,
+.dash-ai-md td { border-color: #e5e7eb; }
+.dash-ai-md th { background: #f9fafb; }
+.dash-ai-md a { color: #2563eb; }
+
+/* Dark theme */
+[data-theme="dark"] .dash-ai-md code { background: rgba(255,255,255,0.1); color: #f472b6; }
+[data-theme="dark"] .dash-ai-md pre { background: rgba(0,0,0,0.3); color: #d4d4d4; }
+[data-theme="dark"] .dash-ai-md blockquote { border-color: #4a4a4a; }
+[data-theme="dark"] .dash-ai-md th,
+[data-theme="dark"] .dash-ai-md td { border-color: #3a3a3a; }
+[data-theme="dark"] .dash-ai-md th { background: rgba(255,255,255,0.05); }
+[data-theme="dark"] .dash-ai-md a { color: #60a5fa; }
+
+/* DarkBlue theme */
+[data-theme="darkblue"] .dash-ai-md code { background: rgba(255,255,255,0.08); color: #c084fc; }
+[data-theme="darkblue"] .dash-ai-md pre { background: rgba(0,0,0,0.3); color: #c8d0e0; }
+[data-theme="darkblue"] .dash-ai-md blockquote { border-color: #2a3452; }
+[data-theme="darkblue"] .dash-ai-md th,
+[data-theme="darkblue"] .dash-ai-md td { border-color: #1c2438; }
+[data-theme="darkblue"] .dash-ai-md th { background: rgba(255,255,255,0.04); }
+[data-theme="darkblue"] .dash-ai-md a { color: #60a5fa; }
+
+/* Fallout theme */
+[data-theme="fallout"] .dash-ai-md code { background: rgba(74,222,128,0.1); color: #4ade80; }
+[data-theme="fallout"] .dash-ai-md pre { background: rgba(0,0,0,0.4); color: #4ade80; }
+[data-theme="fallout"] .dash-ai-md blockquote { border-color: #166534; }
+[data-theme="fallout"] .dash-ai-md th,
+[data-theme="fallout"] .dash-ai-md td { border-color: #166534; }
+[data-theme="fallout"] .dash-ai-md th { background: rgba(74,222,128,0.06); }
+[data-theme="fallout"] .dash-ai-md a { color: #4ade80; }

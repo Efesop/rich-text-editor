@@ -55,6 +55,11 @@ Future feature ideas and enhancements for Dash.
 - Encrypted clipboard
 - Note content hashing (integrity verification)
 
+## Local AI Enhancements
+- Multi-note folder context: open AI panel from folder's 3-dot menu with all folder notes pre-loaded as context. Folder badge shown in panel, placeholder "Ask about these notes…". Large context warning for 15k+ char payloads.
+- Model presets: save per-model temperature/max token preferences
+- Prompt library: save and reuse custom prompts
+
 ## Themes & Customization
 - Custom theme editor
 - Font selection

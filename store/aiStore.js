@@ -11,7 +11,7 @@ export const AI_PRESETS = {
       'Download & install Ollama from ollama.com',
       'Open a terminal and run: ollama pull llama3.2',
       'Ollama runs automatically after install — no server start needed',
-      'Enable CORS: run OLLAMA_ORIGINS="*" ollama serve in a terminal',
+      'Enable CORS: run OLLAMA_ORIGINS="http://localhost:3000" ollama serve',
       'Click Test Connection below'
     ]
   },
@@ -95,13 +95,15 @@ function saveToStorage(state) {
 }
 
 const saved = loadFromStorage()
+// Migrate old default: 1024 was too low for thinking models
+if (saved?.maxTokens === 1024) saved.maxTokens = 4096
 
 const useAIStore = create((set, get) => ({
   presetKey: saved?.presetKey || 'ollama',
   endpoint: saved?.endpoint || AI_PRESETS.ollama.defaultEndpoint,
   model: saved?.model || '',
   temperature: saved?.temperature ?? 0.7,
-  maxTokens: saved?.maxTokens ?? 1024,
+  maxTokens: saved?.maxTokens ?? 4096,
 
   setPreset: (key) => {
     const preset = AI_PRESETS[key]

@@ -4,7 +4,7 @@
  * Uses the MenuConfig API (Editor.js 2.26+) for proper popover integration.
  */
 
-const AI_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="-4 -4 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>'
+const AI_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><defs><filter id="ot-bl"><feGaussianBlur stdDeviation="2.5"/></filter></defs><clipPath id="ot-cp"><circle cx="12" cy="12" r="10"/></clipPath><g clip-path="url(#ot-cp)" filter="url(#ot-bl)"><circle cx="9" cy="9" r="8" fill="rgba(70,120,255,0.9)"/><circle cx="16" cy="10" r="7" fill="rgba(140,80,250,0.8)"/><circle cx="12" cy="16" r="6" fill="rgba(230,90,180,0.7)"/><circle cx="7" cy="14" r="6" fill="rgba(40,180,255,0.65)"/></g><circle cx="12" cy="12" r="10" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/></svg>'
 
 export default class AIBlockTune {
   static get isTune () {
@@ -23,10 +23,11 @@ export default class AIBlockTune {
       onActivate: () => {
         const text = this._extractBlockText()
         if (text) {
-          // Pass blockIndex so replace can target the exact block
+          // Pass blockIndex and blockId so replace can target the exact block
           const blockIndex = this.api.blocks.getCurrentBlockIndex()
+          const blockId = this.block.id
           window.dispatchEvent(new CustomEvent('dash-ai-inline', {
-            detail: { selectedText: text, blockIndex }
+            detail: { selectedText: text, blockIndex, blockId }
           }))
         }
         this.api.toolbar.close()

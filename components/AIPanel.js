@@ -1,7 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { X, Bot, RefreshCw, Copy, Check, ChevronDown, ChevronUp, Square, ArrowDownToLine, Replace, Send, Undo2,
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { X, RefreshCw, Copy, Check, ChevronDown, ChevronUp, Square, ArrowDownToLine, Replace, Send, Undo2,
   Sparkles, PenLine, ArrowRight, SpellCheck, Maximize2, List,
-  Lightbulb, ListTree, CheckSquare, Users, Scale, BookOpen, Notebook, CalendarDays } from 'lucide-react'
+  Lightbulb, ListTree, CheckSquare, Users, Scale, BookOpen, Notebook, CalendarDays, FilePlus } from 'lucide-react'
+import { marked } from 'marked'
+import DOMPurify from 'isomorphic-dompurify'
+import AIOrb from './AIOrb'
 import useAIStore, { AI_PRESETS } from '@/store/aiStore'
 import { checkConnection, streamChat, buildPrompt } from '@/lib/localAI'
 import { exportToMarkdown } from '@/utils/exportUtils'
@@ -212,7 +215,7 @@ function AISuggestionIllus ({ anim, theme }) {
   }
 }
 
-export default function AIPanel ({ isOpen, onClose, theme, currentPage, contextText, blockIndex, blockIndices, onInsertBlocks, canUndo, onUndo }) {
+export default function AIPanel ({ isOpen, onClose, theme, currentPage, contextText, blockIndex, blockId, blockIndices, onInsertBlocks, canUndo, onUndo, onSaveAsNote }) {
   const [animateIn, setAnimateIn] = useState(false)
   const [showSettings, setShowSettings] = useState(true)
   const [models, setModels] = useState([])
@@ -223,11 +226,15 @@ export default function AIPanel ({ isOpen, onClose, theme, currentPage, contextT
   const [isStreaming, setIsStreaming] = useState(false)
   const [isDone, setIsDone] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [showFullContext, setShowFullContext] = useState(false)
-  const [contextCollapsed, setContextCollapsed] = useState(false)
   const abortRef = useRef(null)
+  const [waitSeconds, setWaitSeconds] = useState(0)
+  const waitTimerRef = useRef(null)
   const responseRef = useRef(null)
+  const chatScrollRef = useRef(null)
   const fullTextRef = useRef('')
+  const [chatHistory, setChatHistory] = useState([])     // full messages array for API
+  const [chatDisplay, setChatDisplay] = useState([])      // [{role, content}] for UI thread
+  const sentMessagesRef = useRef([])                       // messages sent to API for current turn
 
   const { presetKey, endpoint, model, temperature, maxTokens, setPreset, setEndpoint, setModel } = useAIStore()
   const preset = AI_PRESETS[presetKey] || AI_PRESETS.ollama
@@ -250,11 +257,17 @@ export default function AIPanel ({ isOpen, onClose, theme, currentPage, contextT
       setIsDone(false)
       setStreamingText('')
       setCustomPrompt('')
-      setContextCollapsed(false)
-      setShowFullContext(false)
+      setWaitSeconds(0)
+      if (waitTimerRef.current) { clearInterval(waitTimerRef.current); waitTimerRef.current = null }
       fullTextRef.current = ''
+      setChatHistory([])
+      setChatDisplay([])
+      sentMessagesRef.current = []
+      setSelectedResponseIdx(-1)
+      setExpandedMsgIdx(null)
     } else {
       setAnimateIn(false)
+      if (waitTimerRef.current) { clearInterval(waitTimerRef.current); waitTimerRef.current = null }
     }
   }, [isOpen])
 
@@ -274,8 +287,11 @@ export default function AIPanel ({ isOpen, onClose, theme, currentPage, contextT
     if (result.connected) {
       setConnectionStatus('connected')
       setModels(result.models)
-      if (result.models.length > 0 && !model) {
-        setModel(result.models[0])
+      if (result.models.length > 0) {
+        // Auto-select first model if none saved, or if saved model isn't available
+        if (!model || !result.models.includes(model)) {
+          setModel(result.models[0])
+        }
       }
     } else {
       setConnectionStatus('error')
@@ -305,18 +321,33 @@ export default function AIPanel ({ isOpen, onClose, theme, currentPage, contextT
 
   const handleSend = useCallback(async () => {
     if (!customPrompt.trim() || isStreaming) return
-    const markdown = getContextMarkdown() || ''
+    const promptText = customPrompt.trim()
 
     setIsStreaming(true)
     setIsDone(false)
     setStreamingText('')
-    setContextCollapsed(true)
     fullTextRef.current = ''
+    setWaitSeconds(0)
+    if (waitTimerRef.current) clearInterval(waitTimerRef.current)
+    waitTimerRef.current = setInterval(() => setWaitSeconds(s => s + 1), 1000)
 
     const controller = new AbortController()
     abortRef.current = controller
 
-    const messages = buildPrompt('custom', markdown, customPrompt)
+    let messages
+    if (chatHistory.length > 0) {
+      // Follow-up — append to existing conversation
+      messages = [...chatHistory, { role: 'user', content: promptText }]
+    } else {
+      // First message — include note context
+      const markdown = getContextMarkdown() || ''
+      messages = buildPrompt('custom', markdown, promptText)
+    }
+    sentMessagesRef.current = messages
+
+    // Add user message to display immediately
+    setChatDisplay(prev => [...prev, { role: 'user', content: promptText }])
+    setCustomPrompt('')
 
     await streamChat({
       endpoint,
@@ -327,27 +358,41 @@ export default function AIPanel ({ isOpen, onClose, theme, currentPage, contextT
       maxTokens,
       signal: controller.signal,
       onChunk: (chunk) => {
+        // Stop the wait timer once first token arrives
+        if (waitTimerRef.current) { clearInterval(waitTimerRef.current); waitTimerRef.current = null }
         fullTextRef.current += chunk
         setStreamingText(fullTextRef.current)
         if (responseRef.current) {
           responseRef.current.scrollTop = responseRef.current.scrollHeight
         }
+        if (chatScrollRef.current) {
+          chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight
+        }
       },
       onDone: () => {
+        if (waitTimerRef.current) { clearInterval(waitTimerRef.current); waitTimerRef.current = null }
         setIsStreaming(false)
+        if (!fullTextRef.current) {
+          setStreamingText('*No response received — the model may have used all tokens on internal reasoning. Try increasing max tokens or using a different model.*')
+        }
+        // Update chat history for follow-ups
+        const updated = [...sentMessagesRef.current, { role: 'assistant', content: fullTextRef.current }]
+        setChatHistory(updated)
+        setChatDisplay(prev => [...prev, { role: 'assistant', content: fullTextRef.current }])
         setIsDone(true)
       },
       onError: (err) => {
+        if (waitTimerRef.current) { clearInterval(waitTimerRef.current); waitTimerRef.current = null }
         setIsStreaming(false)
         setIsDone(true)
-        if (fullTextRef.current) {
-          setStreamingText(fullTextRef.current + '\n\n---\n*Error: ' + err.message + '*')
-        } else {
-          setStreamingText('*Error: ' + err.message + '*')
-        }
+        const errMsg = fullTextRef.current
+          ? fullTextRef.current + '\n\n---\n*Error: ' + err.message + '*'
+          : '*Error: ' + err.message + '*'
+        setStreamingText(errMsg)
+        setChatDisplay(prev => [...prev, { role: 'assistant', content: errMsg }])
       }
     })
-  }, [isStreaming, getContextMarkdown, endpoint, model, presetKey, temperature, maxTokens, customPrompt])
+  }, [isStreaming, getContextMarkdown, endpoint, model, presetKey, temperature, maxTokens, customPrompt, chatHistory])
 
   const handleStop = useCallback(() => {
     if (abortRef.current) {
@@ -356,26 +401,89 @@ export default function AIPanel ({ isOpen, onClose, theme, currentPage, contextT
     }
   }, [])
 
+  const [selectedResponseIdx, setSelectedResponseIdx] = useState(-1) // -1 = latest (streaming/current)
+  const [expandedMsgIdx, setExpandedMsgIdx] = useState(null) // index of expanded previous assistant message
+
+  const insertingRef = useRef(false)
+
+  // Get the text for the currently selected response (for insert/copy/save)
+  const getSelectedText = useCallback(() => {
+    if (selectedResponseIdx === -1) return fullTextRef.current
+    // Find the nth assistant message in chatDisplay
+    let count = 0
+    for (const msg of chatDisplay) {
+      if (msg.role === 'assistant') {
+        if (count === selectedResponseIdx) return msg.content
+        count++
+      }
+    }
+    return fullTextRef.current
+  }, [selectedResponseIdx, chatDisplay])
+
+  const handleInsert = useCallback(async (mode) => {
+    const text = getSelectedText()
+    if (!text || !onInsertBlocks || insertingRef.current) return
+    insertingRef.current = true
+    try {
+      const { parseMarkdownToBlocks } = await import('./Editor')
+      const { sanitizeEditorContent } = await import('@/utils/securityUtils')
+      const rawBlocks = parseMarkdownToBlocks(text)
+      const sanitized = sanitizeEditorContent({ blocks: rawBlocks })
+      const blocks = sanitized?.blocks || []
+      if (blocks.length > 0) {
+        onInsertBlocks(blocks, mode, contextText, blockIndex, blockIndices, blockId)
+        handleClose()
+      }
+    } finally {
+      insertingRef.current = false
+    }
+  }, [onInsertBlocks, handleClose, contextText, blockIndex, blockId, blockIndices, getSelectedText])
+
   const handleCopy = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(fullTextRef.current)
+      await navigator.clipboard.writeText(getSelectedText())
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch { /* ignore */ }
+  }, [getSelectedText])
+
+  // Markdown rendering
+  const renderMarkdown = useCallback((text) => {
+    if (!text) return ''
+    return DOMPurify.sanitize(marked.parse(text, { breaks: true, gfm: true }))
   }, [])
 
-  const handleInsert = useCallback(async (mode) => {
-    if (!fullTextRef.current || !onInsertBlocks) return
-    const { parseMarkdownToBlocks } = await import('./Editor')
-    const { sanitizeEditorContent } = await import('@/utils/securityUtils')
-    const rawBlocks = parseMarkdownToBlocks(fullTextRef.current)
-    const sanitized = sanitizeEditorContent({ blocks: rawBlocks })
-    const blocks = sanitized?.blocks || []
-    if (blocks.length > 0) {
-      onInsertBlocks(blocks, mode, contextText, blockIndex, blockIndices)
-      handleClose()
+  const renderedResponse = useMemo(() => renderMarkdown(streamingText), [streamingText, renderMarkdown])
+
+  // Group chat into user+assistant pairs for joined display
+  // Each pair: { user: string, assistant: string|null, assistantIdx: number }
+  // The last pair may have no assistant if it's currently streaming
+  const chatPairs = useMemo(() => {
+    const pairs = []
+    let assistantCount = 0
+    for (let i = 0; i < chatDisplay.length; i++) {
+      const msg = chatDisplay[i]
+      if (msg.role === 'user') {
+        const next = chatDisplay[i + 1]
+        if (next && next.role === 'assistant') {
+          // Check if this is the last assistant message (shown separately as streamingText)
+          const isLastAssistant = i + 1 === chatDisplay.length - 1
+          if (isLastAssistant) {
+            // This pair's assistant is shown via streamingText — don't include it here
+            pairs.push({ user: msg.content, assistant: null, assistantIdx: assistantCount })
+          } else {
+            pairs.push({ user: msg.content, assistant: next.content, assistantIdx: assistantCount })
+          }
+          assistantCount++
+          i++ // skip the assistant message
+        } else {
+          // User message with no response yet (currently streaming)
+          pairs.push({ user: msg.content, assistant: null, assistantIdx: null })
+        }
+      }
     }
-  }, [onInsertBlocks, handleClose, contextText, blockIndex, blockIndices])
+    return pairs
+  }, [chatDisplay])
 
   if (!isOpen) return null
 
@@ -447,6 +555,14 @@ export default function AIPanel ({ isOpen, onClose, theme, currentPage, contextT
         ? 'bg-[#151515] border-[#2a2a2a] text-[#d4d4d4]'
         : 'bg-gray-50 border-gray-200 text-gray-800'
 
+  const userMsgBg = isFallout
+    ? 'bg-green-500/8 border-green-500/15 text-green-300 font-mono'
+    : isDarkBlue
+      ? 'bg-blue-500/8 border-[#1c2438] text-[#c8d0e0]'
+      : isDark
+        ? 'bg-blue-500/8 border-[#2a2a2a] text-[#d4d4d4]'
+        : 'bg-blue-50/50 border-blue-100 text-gray-800'
+
   const isEncrypted = currentPage?.encryptedContent && !currentPage?.content
   const hasNote = !!currentPage
   const isConnected = connectionStatus === 'connected'
@@ -481,21 +597,32 @@ export default function AIPanel ({ isOpen, onClose, theme, currentPage, contextT
           ${isFallout ? 'border-b border-green-500/30' : isDarkBlue ? 'border-b border-[#1c2438]' : isDark ? 'border-b border-[#3a3a3a]' : 'border-b border-gray-100'}
         `}>
           <div className="flex items-center gap-3">
-            <div className={`p-2.5 rounded-xl ${isFallout ? 'bg-green-500/20 text-green-400' : isDarkBlue ? 'bg-blue-500/20 text-blue-400' : isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600'}`}>
-              <Bot className="w-5 h-5" />
+            <div className="transition-all duration-500 ease-out" style={{ transform: isStreaming ? 'scale(0.55)' : 'scale(1)', marginRight: isStreaming ? -10 : 0 }}>
+              <AIOrb state={isStreaming ? 'generating' : 'idle'} size={44} theme={theme} />
             </div>
             <div>
               <h2 className={`text-lg font-semibold ${titleColor}`}>Local AI</h2>
               <p className={`text-xs ${descColor}`}>Runs on your machine, stays private</p>
             </div>
           </div>
-          <button onClick={handleClose} className={`p-2 rounded-lg transition-colors ${isFallout ? 'hover:bg-green-500/10 text-green-500' : isDarkBlue ? 'hover:bg-[#1c2438] text-[#5d6b88]' : isDark ? 'hover:bg-[#2a2a2a] text-[#6b6b6b]' : 'hover:bg-gray-100 text-gray-400'}`}>
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            {(isDone || chatHistory.length > 0) && (
+              <button
+                onClick={() => { setIsDone(false); setStreamingText(''); fullTextRef.current = ''; setCustomPrompt(''); setChatHistory([]); setChatDisplay([]); sentMessagesRef.current = []; setSelectedResponseIdx(-1); setExpandedMsgIdx(null) }}
+                className={`p-2 rounded-lg transition-colors ${isFallout ? 'hover:bg-green-500/10 text-green-500' : isDarkBlue ? 'hover:bg-[#1c2438] text-[#5d6b88]' : isDark ? 'hover:bg-[#2a2a2a] text-[#6b6b6b]' : 'hover:bg-gray-100 text-gray-400'}`}
+                title="New chat"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            )}
+            <button onClick={handleClose} className={`p-2 rounded-lg transition-colors ${isFallout ? 'hover:bg-green-500/10 text-green-500' : isDarkBlue ? 'hover:bg-[#1c2438] text-[#5d6b88]' : isDark ? 'hover:bg-[#2a2a2a] text-[#6b6b6b]' : 'hover:bg-gray-100 text-gray-400'}`}>
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-6 py-4 space-y-4 flex flex-col">
           {/* Settings */}
           <div>
             <button
@@ -531,6 +658,23 @@ export default function AIPanel ({ isOpen, onClose, theme, currentPage, contextT
                     </button>
                   ))}
                 </div>
+
+                {/* Model selector */}
+                {models.length > 0 && (
+                  <div>
+                    <label className={`text-xs font-medium ${descColor}`}>Model</label>
+                    <select
+                      value={model}
+                      onChange={(e) => setModel(e.target.value)}
+                      className={`mt-1 w-full px-3 py-2 rounded-lg border text-sm outline-none ${inputBg}`}
+                    >
+                      {!model && <option value="">Select a model...</option>}
+                      {models.map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 {/* Endpoint */}
                 <div>
@@ -595,23 +739,6 @@ export default function AIPanel ({ isOpen, onClose, theme, currentPage, contextT
                     )}
                   </div>
                 )}
-
-                {/* Model selector */}
-                {models.length > 0 && (
-                  <div>
-                    <label className={`text-xs font-medium ${descColor}`}>Model</label>
-                    <select
-                      value={model}
-                      onChange={(e) => setModel(e.target.value)}
-                      className={`mt-1 w-full px-3 py-2 rounded-lg border text-sm outline-none ${inputBg}`}
-                    >
-                      {!model && <option value="">Select a model...</option>}
-                      {models.map(m => (
-                        <option key={m} value={m}>{m}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -628,183 +755,309 @@ export default function AIPanel ({ isOpen, onClose, theme, currentPage, contextT
             <p className={`text-sm ${descColor}`}>Follow the setup steps above to connect</p>
           ) : (
             <>
-              {/* Context preview — collapsible, hidden when empty */}
-              {(() => {
-                const contextMd = getContextMarkdown()
-                if (!contextMd || !contextMd.trim()) return null
-                const lines = contextMd.split('\n').filter(l => l.trim())
-                const isLong = lines.length > 4 || contextMd.length > 300
-                const preview = isLong && !showFullContext
-                  ? lines.slice(0, 3).join('\n').slice(0, 280)
-                  : contextMd
+              {/* First message: input + suggestions inline */}
+              {chatHistory.length === 0 && !isStreaming && (!isDone || !streamingText) && (
+                <div className="space-y-2.5">
+                  {/* Selected text context — compact, blue tint */}
+                  {(() => {
+                    if (!hasSelection) return null
+                    const contextMd = getContextMarkdown()
+                    if (!contextMd || !contextMd.trim()) return null
+                    const lines = contextMd.split('\n').filter(l => l.trim())
+                    const preview = contextMd.length > 120 ? contextMd.slice(0, 120) + '…' : contextMd
+                    return (
+                      <div className={`rounded-lg border px-2.5 py-1.5 text-[11px] leading-relaxed ${
+                        isFallout ? 'bg-green-500/10 border-green-500/20 text-green-300/70 font-mono' : isDarkBlue ? 'bg-blue-500/10 border-blue-500/20 text-blue-200/70' : isDark ? 'bg-blue-500/10 border-blue-500/20 text-blue-200/70' : 'bg-blue-50 border-blue-200 text-blue-700/70'
+                      }`}>
+                        <span className={`font-semibold ${isFallout ? 'text-green-400' : isDarkBlue ? 'text-blue-300' : isDark ? 'text-blue-300' : 'text-blue-600'}`}>Selected text</span>
+                        <span className={`ml-1.5 opacity-60 ${isFallout ? 'text-green-400' : isDarkBlue ? 'text-blue-300' : isDark ? 'text-blue-300' : 'text-blue-500'}`}>· {lines.length} {lines.length === 1 ? 'line' : 'lines'}</span>
+                        <p className="mt-0.5 whitespace-pre-wrap break-words line-clamp-2">{preview}</p>
+                      </div>
+                    )
+                  })()}
 
-                if (contextCollapsed) {
-                  return (
-                    <button
-                      onClick={() => setContextCollapsed(false)}
-                      className={`flex items-center gap-2 text-xs ${descColor}`}
-                    >
-                      <ChevronDown className="w-3 h-3" />
-                      {hasSelection ? 'Selected text' : 'Full note'} · {lines.length} lines
-                    </button>
-                  )
-                }
+                  <div className="relative">
+                    <textarea
+                      value={customPrompt}
+                      onChange={(e) => setCustomPrompt(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && canSend) {
+                          e.preventDefault()
+                          handleSend()
+                        } else if (e.key === 'Enter' && !e.shiftKey && canSend) {
+                          e.preventDefault()
+                          handleSend()
+                        }
+                      }}
+                      placeholder={hasSelection ? 'What do you want to do with this text?' : 'What would you like to write about?'}
+                      rows={3}
+                      disabled={isStreaming}
+                      className={`w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none disabled:opacity-50 ${inputBg}`}
+                    />
+                    <span className={`absolute bottom-1.5 right-2.5 text-[10px] ${descColor} pointer-events-none`}>
+                      ⏎ send · ⇧⏎ new line
+                    </span>
+                  </div>
 
-                return (
-                  <div className={`rounded-lg border p-3 ${cardBg}`}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className={`text-[10px] uppercase tracking-wider font-semibold ${descColor}`}>
-                        {hasSelection ? 'Selected text' : 'Full note'}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {isLong && (
-                          <button
-                            onClick={() => setShowFullContext(!showFullContext)}
-                            className={`text-[10px] font-medium ${isFallout ? 'text-green-400' : isDarkBlue ? 'text-blue-400' : isDark ? 'text-blue-400' : 'text-blue-600'}`}
-                          >
-                            {showFullContext ? 'Show less' : 'Show more'}
-                          </button>
+                  <button
+                    onClick={() => handleSend()}
+                    disabled={!canSend}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 ${btnPrimary}`}
+                  >
+                    <Send className="w-3.5 h-3.5" /> Submit
+                  </button>
+
+                  {/* Suggestions */}
+                  <div className="space-y-3 pt-1">
+                    {((hasSelection || noteHasContent) ? CONTENT_SUGGESTIONS : EMPTY_SUGGESTIONS).map((section, si) => (
+                      <div key={section.heading || si}>
+                        {section.heading && (
+                          <p className={`text-[10px] uppercase tracking-wider font-semibold mb-1.5 ${descColor}`}>
+                            {section.heading}
+                          </p>
                         )}
+                        <div className="space-y-1">
+                          {section.items.map((action, ai) => {
+                            const isActive = customPrompt === action.prompt
+                            return (
+                              <button
+                                key={action.label}
+                                onClick={() => setCustomPrompt(action.prompt)}
+                                className={`dash-feat-card-enter w-full text-left px-3 py-2.5 rounded-lg border transition-colors flex items-center gap-2.5 ${
+                                  isActive ? cardActiveBg : `${cardBg} ${descColor}`
+                                }`}
+                                style={{ animationDelay: `${ai * 50}ms` }}
+                              >
+                                <span className="flex-1">
+                                  <span className={`text-xs font-semibold ${isActive
+                                    ? ''
+                                    : isFallout ? 'text-green-300' : isDarkBlue ? 'text-[#c0ccdf]' : isDark ? 'text-[#ddd]' : 'text-gray-800'
+                                  }`}>
+                                    {action.label}
+                                  </span>
+                                  <span className={`text-[11px] ml-2 ${isActive ? 'opacity-80' : ''}`}>
+                                    {action.desc}
+                                  </span>
+                                </span>
+                                <div className="flex-shrink-0 w-8 h-6 flex items-center justify-center">
+                                  <AISuggestionIllus anim={action.anim} theme={theme} />
+                                </div>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Chat messages — pushed to bottom (only shown when chat has started) */}
+              {(chatHistory.length > 0 || isStreaming || (isDone && streamingText)) && (
+              <div className="mt-auto space-y-3">
+
+              {/* Previous exchange pairs (user Q + AI A joined) */}
+              {chatPairs.filter(p => p.assistant != null).map((pair, i) => {
+                const isSelected = selectedResponseIdx === pair.assistantIdx
+                const isInactive = (selectedResponseIdx !== -1 && !isSelected) || isStreaming
+                const isExpanded = expandedMsgIdx === i
+                const accentColor = isFallout ? 'text-green-400' : isDarkBlue ? 'text-blue-400' : isDark ? 'text-blue-400' : 'text-blue-600'
+                const activeBorder = isFallout ? 'border-green-500/50 ring-1 ring-green-500/20' : isDarkBlue ? 'border-blue-500/40 ring-1 ring-blue-500/15' : isDark ? 'border-blue-500/40 ring-1 ring-blue-500/15' : 'border-blue-400 ring-1 ring-blue-100'
+                const dotColor = isFallout ? 'bg-green-400' : isDarkBlue ? 'bg-blue-400' : isDark ? 'bg-blue-400' : 'bg-blue-500'
+                return (
+                  <div
+                    key={i}
+                    className={`rounded-xl border overflow-hidden cursor-pointer transition-all duration-150 ${
+                      isFallout ? 'border-green-500/20' : isDarkBlue ? 'border-[#1c2438]' : isDark ? 'border-[#2a2a2a]' : 'border-gray-200'
+                    } ${isSelected ? activeBorder : ''} ${isInactive ? 'opacity-50' : ''}`}
+                    onClick={() => setSelectedResponseIdx(isSelected ? -1 : pair.assistantIdx)}
+                  >
+                    {/* User question */}
+                    <div className={`px-3 py-2.5 pb-3 text-sm ${userMsgBg}`}>
+                      <div className="flex items-start gap-2">
+                        {isSelected && <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${dotColor}`} />}
+                        <p className="flex-1">{pair.user}</p>
                       </div>
                     </div>
-                    <div className={`text-xs leading-relaxed whitespace-pre-wrap break-words ${showFullContext ? 'max-h-[200px] overflow-y-auto' : ''} ${
-                      isFallout ? 'text-green-300/70 font-mono' : isDarkBlue ? 'text-[#8b99b5]' : isDark ? 'text-[#999]' : 'text-gray-600'
-                    }`}>
-                      {preview}{isLong && !showFullContext ? '…' : ''}
+                    {/* AI response */}
+                    <div className={`px-3 py-2.5 text-sm ${responseBg}`} data-theme={theme}>
+                      {isExpanded ? (
+                        <div className="dash-ai-md" dangerouslySetInnerHTML={{ __html: renderMarkdown(pair.assistant) }} />
+                      ) : (
+                        <div className="dash-ai-md max-h-[4.5em] overflow-hidden" dangerouslySetInnerHTML={{ __html: renderMarkdown(pair.assistant) }} />
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setExpandedMsgIdx(isExpanded ? null : i) }}
+                        className={`text-[10px] font-medium mt-1.5 ml-5 ${accentColor}`}
+                      >
+                        {isExpanded ? 'Collapse' : 'Expand'}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+
+              {/* Current exchange (latest user Q + streaming/done response) */}
+              {(streamingText || isStreaming) && (() => {
+                const lastUserMsg = chatPairs.length > 0 ? chatPairs[chatPairs.length - 1] : null
+                const currentUser = lastUserMsg && lastUserMsg.assistant == null ? lastUserMsg.user : null
+                const isSelected = selectedResponseIdx === -1
+                const isInactive = selectedResponseIdx !== -1
+                const accentColor = isFallout ? 'text-green-400' : isDarkBlue ? 'text-blue-400' : isDark ? 'text-blue-400' : 'text-blue-600'
+                const activeBorder = isFallout ? 'border-green-500/50 ring-1 ring-green-500/20' : isDarkBlue ? 'border-blue-500/40 ring-1 ring-blue-500/15' : isDark ? 'border-blue-500/40 ring-1 ring-blue-500/15' : 'border-blue-400 ring-1 ring-blue-100'
+                const dotColor = isFallout ? 'bg-green-400' : isDarkBlue ? 'bg-blue-400' : isDark ? 'bg-blue-400' : 'bg-blue-500'
+                const hasPreviousPairs = chatPairs.some(p => p.assistant != null)
+                return (
+                  <div
+                    className={`rounded-xl border overflow-hidden transition-all duration-150 ${
+                      isFallout ? 'border-green-500/20' : isDarkBlue ? 'border-[#1c2438]' : isDark ? 'border-[#2a2a2a]' : 'border-gray-200'
+                    } ${isDone && isSelected && hasPreviousPairs ? activeBorder : ''} ${isDone && isInactive ? 'opacity-50' : ''} ${isDone && hasPreviousPairs ? 'cursor-pointer' : ''}`}
+                    onClick={() => { if (isDone && hasPreviousPairs) setSelectedResponseIdx(-1) }}
+                  >
+                    {/* User question */}
+                    {currentUser && (
+                      <div className={`px-3 py-2.5 pb-3 text-sm ${userMsgBg} ${
+                        isFallout ? 'border-b border-green-500/10' : isDarkBlue ? 'border-b border-[#1c2438]' : isDark ? 'border-b border-[#2a2a2a]' : 'border-b border-gray-100'
+                      }`}>
+                        <div className="flex items-start gap-2">
+                          {isSelected && hasPreviousPairs && <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${dotColor}`} />}
+                          <p className="flex-1">{currentUser}</p>
+                        </div>
+                      </div>
+                    )}
+                    {/* AI response */}
+                    <div
+                      ref={responseRef}
+                      className={`max-h-[40vh] overflow-y-auto px-3 py-2.5 text-sm leading-relaxed ${responseBg}`}
+                      data-theme={theme}
+                    >
+                      {streamingText ? (
+                        <div className="dash-ai-md" dangerouslySetInnerHTML={{ __html: renderedResponse }} />
+                      ) : (
+                        <div className="flex flex-col items-center gap-3 py-4">
+                          <AIOrb state="generating" size={56} theme={theme} />
+                          <span className={`text-sm font-medium ${descColor}`}>
+                            {waitSeconds < 3 ? 'Thinking…' : `Thinking… ${waitSeconds}s`}
+                          </span>
+                          {waitSeconds >= 8 && (
+                            <span className={`text-xs px-3 py-1.5 rounded-full ${
+                              isFallout ? 'bg-green-500/10 text-green-400' : isDarkBlue ? 'bg-blue-500/10 text-blue-300' : isDark ? 'bg-blue-500/10 text-blue-300' : 'bg-blue-50 text-blue-600'
+                            }`}>
+                              Larger models can take longer to start generating
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {isStreaming && <span className="inline-block w-1.5 h-4 ml-0.5 animate-pulse" style={{ background: isFallout ? '#4ade80' : '#60a5fa' }} />}
                     </div>
                   </div>
                 )
               })()}
-
-              {/* Prompt input + submit */}
-              {!isDone && (
-                <div className="space-y-3">
-                  <textarea
-                    value={customPrompt}
-                    onChange={(e) => setCustomPrompt(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey && canSend) {
-                        e.preventDefault()
-                        handleSend()
-                      }
-                    }}
-                    placeholder={hasSelection ? 'What do you want to do with this text?' : 'What would you like to write about?'}
-                    rows={3}
-                    disabled={isStreaming}
-                    className={`w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none disabled:opacity-50 ${inputBg}`}
-                  />
-
-                  {/* Submit / Stop */}
-                  <div className="flex gap-2">
-                    {isStreaming ? (
-                      <button
-                        onClick={handleStop}
-                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${btnSecondary}`}
-                      >
-                        <Square className="w-3.5 h-3.5" /> Stop
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleSend()}
-                        disabled={!canSend}
-                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 ${btnPrimary}`}
-                      >
-                        <Send className="w-3.5 h-3.5" /> Submit
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Context-aware suggestions */}
-                  {!isStreaming && (
-                    <div className="space-y-3">
-                      {((hasSelection || noteHasContent) ? CONTENT_SUGGESTIONS : EMPTY_SUGGESTIONS).map((section, si) => (
-                        <div key={section.heading || si}>
-                          {section.heading && (
-                            <p className={`text-[10px] uppercase tracking-wider font-semibold mb-1.5 ${descColor}`}>
-                              {section.heading}
-                            </p>
-                          )}
-                          <div className="space-y-1">
-                            {section.items.map((action, ai) => {
-                              const isActive = customPrompt === action.prompt
-                              return (
-                                <button
-                                  key={action.label}
-                                  onClick={() => setCustomPrompt(action.prompt)}
-                                  className={`dash-feat-card-enter w-full text-left px-3 py-2.5 rounded-lg border transition-colors flex items-center gap-2.5 ${
-                                    isActive ? cardActiveBg : `${cardBg} ${descColor}`
-                                  }`}
-                                  style={{ animationDelay: `${ai * 50}ms` }}
-                                >
-                                  <span className="flex-1">
-                                    <span className={`text-xs font-semibold ${isActive
-                                      ? ''
-                                      : isFallout ? 'text-green-300' : isDarkBlue ? 'text-[#c0ccdf]' : isDark ? 'text-[#ddd]' : 'text-gray-800'
-                                    }`}>
-                                      {action.label}
-                                    </span>
-                                    <span className={`text-[11px] ml-2 ${isActive ? 'opacity-80' : ''}`}>
-                                      {action.desc}
-                                    </span>
-                                  </span>
-                                  <div className="flex-shrink-0 w-8 h-6 flex items-center justify-center">
-                                    <AISuggestionIllus anim={action.anim} theme={theme} />
-                                  </div>
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Response */}
-              {(streamingText || isStreaming) && (
-                <div
-                  ref={responseRef}
-                  className={`max-h-[40vh] overflow-y-auto rounded-xl border p-4 text-sm leading-relaxed whitespace-pre-wrap ${responseBg}`}
-                >
-                  {streamingText || (
-                    <span className={`${descColor} animate-pulse`}>Thinking...</span>
-                  )}
-                  {isStreaming && <span className="inline-block w-1.5 h-4 ml-0.5 animate-pulse" style={{ background: isFallout ? '#4ade80' : '#60a5fa' }} />}
-                </div>
+              </div>
               )}
             </>
           )}
         </div>
 
-        {/* Fixed bottom action bar — shown when response is done */}
-        {isDone && streamingText && (
-          <div className={`flex-shrink-0 px-6 py-4 space-y-3 ${
+        {/* Fixed bottom input area — only shown after chat has started */}
+        {hasNote && !isEncrypted && isConnected && (chatHistory.length > 0 || isStreaming) && (
+          <div className={`flex-shrink-0 px-6 py-3 space-y-2.5 ${
             isFallout ? 'border-t border-green-500/30' : isDarkBlue ? 'border-t border-[#1c2438]' : isDark ? 'border-t border-[#3a3a3a]' : 'border-t border-gray-100'
           }`}>
-            <p className={`text-[10px] ${descColor}`}>
-              Content will be formatted when inserted into your note
-            </p>
+            {/* Selected text context — compact, blue tint */}
+            {(() => {
+              if (!hasSelection) return null
+              const contextMd = getContextMarkdown()
+              if (!contextMd || !contextMd.trim()) return null
+              const lines = contextMd.split('\n').filter(l => l.trim())
+              const preview = contextMd.length > 120 ? contextMd.slice(0, 120) + '…' : contextMd
+              return (
+                <div className={`rounded-lg border px-2.5 py-1.5 text-[11px] leading-relaxed ${
+                  isFallout ? 'bg-green-500/10 border-green-500/20 text-green-300/70 font-mono' : isDarkBlue ? 'bg-blue-500/10 border-blue-500/20 text-blue-200/70' : isDark ? 'bg-blue-500/10 border-blue-500/20 text-blue-200/70' : 'bg-blue-50 border-blue-200 text-blue-700/70'
+                }`}>
+                  <span className={`font-semibold ${isFallout ? 'text-green-400' : isDarkBlue ? 'text-blue-300' : isDark ? 'text-blue-300' : 'text-blue-600'}`}>Selected text</span>
+                  <span className={`ml-1.5 opacity-60 ${isFallout ? 'text-green-400' : isDarkBlue ? 'text-blue-300' : isDark ? 'text-blue-300' : 'text-blue-500'}`}>· {lines.length} {lines.length === 1 ? 'line' : 'lines'}</span>
+                  <p className="mt-0.5 whitespace-pre-wrap break-words line-clamp-2">{preview}</p>
+                </div>
+              )
+            })()}
+
+            <div className="relative">
+              <textarea
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && canSend) {
+                    e.preventDefault()
+                    handleSend()
+                  } else if (e.key === 'Enter' && !e.shiftKey && canSend) {
+                    e.preventDefault()
+                    handleSend()
+                  }
+                }}
+                placeholder="Ask a follow-up…"
+                rows={3}
+                disabled={isStreaming}
+                className={`w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none disabled:opacity-50 ${inputBg}`}
+              />
+              <span className={`absolute bottom-1.5 right-2.5 text-[10px] ${descColor} pointer-events-none`}>
+                ⏎ send · ⇧⏎ new line
+              </span>
+            </div>
+
+            <button
+              onClick={() => handleSend()}
+              disabled={!canSend}
+              className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 ${btnPrimary}`}
+            >
+              <Send className="w-3.5 h-3.5" /> Send
+            </button>
+          </div>
+        )}
+
+        {/* Fixed bottom action bar — shown when response is done */}
+        {isDone && streamingText && (
+          <div className={`flex-shrink-0 px-6 py-3 ${
+            isFallout ? 'border-t border-green-500/30' : isDarkBlue ? 'border-t border-[#1c2438]' : isDark ? 'border-t border-[#3a3a3a]' : 'border-t border-gray-100'
+          }`}>
             <div className="flex gap-2">
-              <button
-                onClick={() => handleInsert('replace')}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors ${btnPrimary}`}
-              >
-                <Replace className="w-3.5 h-3.5" /> {hasSelection ? 'Replace selection' : noteHasContent ? 'Replace note' : 'Create'}
-              </button>
+              {hasSelection ? (
+                <button
+                  onClick={() => handleInsert('replace')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${btnPrimary}`}
+                >
+                  <Replace className="w-3.5 h-3.5" /> Replace selection
+                </button>
+              ) : !noteHasContent ? (
+                <button
+                  onClick={() => handleInsert('replace')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${btnPrimary}`}
+                >
+                  <Replace className="w-3.5 h-3.5" /> Create
+                </button>
+              ) : null}
               <button
                 onClick={() => handleInsert('append')}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors ${btnSecondary}`}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${hasSelection || !noteHasContent ? btnSecondary : btnPrimary}`}
               >
-                <ArrowDownToLine className="w-3.5 h-3.5" /> Insert below
+                <ArrowDownToLine className="w-3.5 h-3.5" /> {noteHasContent ? 'Insert below' : 'Insert'}
               </button>
               <button
                 onClick={handleCopy}
-                className={`px-3 py-2.5 rounded-lg text-xs font-medium transition-colors ${btnSecondary}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${btnSecondary}`}
                 title="Copy to clipboard"
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
+              {onSaveAsNote && (
+                <button
+                  onClick={() => { onSaveAsNote(getSelectedText()); handleClose() }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${btnSecondary}`}
+                  title="Save as new note"
+                >
+                  <FilePlus className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </div>
         )}

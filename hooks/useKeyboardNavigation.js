@@ -15,7 +15,8 @@ export function useKeyboardNavigation({
   currentPage,
   pages,
   onSelectPage,
-  onToggleShortcutsModal
+  onToggleShortcutsModal,
+  onToggleAIPanel
 }) {
   const currentPageIndexRef = useRef(0)
 
@@ -104,6 +105,12 @@ export function useKeyboardNavigation({
             onDeletePage?.(currentPage)
           }
           break
+        case 'a':
+          if (shiftKey) {
+            event.preventDefault()
+            onToggleAIPanel?.()
+          }
+          break
       }
       return
     }
@@ -179,7 +186,8 @@ export function useKeyboardNavigation({
     currentPage,
     pages,
     onSelectPage,
-    onToggleShortcutsModal
+    onToggleShortcutsModal,
+    onToggleAIPanel
   ])
 
   useEffect(() => {
@@ -205,7 +213,8 @@ export function useKeyboardNavigation({
       firstPage: 'Alt+Home',
       lastPage: 'Alt+End',
       escape: 'Esc',
-      shortcuts: '?'
+      shortcuts: '?',
+      aiPanel: 'Ctrl+Shift+A'
     }
   }
 }

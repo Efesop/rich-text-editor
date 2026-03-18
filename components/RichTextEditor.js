@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, Share2, List, Users, Shield, Copy, Check, Bot } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, Share2, List, Users, Shield, Copy, Check } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
@@ -864,6 +864,7 @@ export default function RichTextEditor() {
   const [isAIPanelOpen, setIsAIPanelOpen] = useState(false)
   const [aiContextText, setAiContextText] = useState(null)
   const [aiBlockIndex, setAiBlockIndex] = useState(null)
+  const [aiBlockId, setAiBlockId] = useState(null)
   const [aiBlockIndices, setAiBlockIndices] = useState(null)
   const [aiReloadKey, setAiReloadKey] = useState(0)
   const [aiCanUndo, setAiCanUndo] = useState(false)
@@ -874,12 +875,39 @@ export default function RichTextEditor() {
       const text = e.detail.selectedText
       setAiContextText(text || null) // empty string → null (full note context)
       setAiBlockIndex(e.detail.blockIndex ?? null)
+      setAiBlockId(e.detail.blockId ?? null)
       setAiBlockIndices(e.detail.blockIndices ?? null)
       setIsAIPanelOpen(true)
     }
     window.addEventListener('dash-ai-inline', handler)
     return () => window.removeEventListener('dash-ai-inline', handler)
   }, [])
+
+  // Reset AI state when switching pages
+  useEffect(() => {
+    setAiCanUndo(false)
+    aiUndoSnapshotRef.current = null
+    if (isAIPanelOpen) {
+      setIsAIPanelOpen(false)
+      setAiContextText(null)
+      setAiBlockIndex(null)
+      setAiBlockId(null)
+      setAiBlockIndices(null)
+    }
+  }, [currentPage?.id])
+
+  // Highlight selected blocks in editor while AI panel is open
+  useEffect(() => {
+    if (!isAIPanelOpen || !aiContextText) return
+    const blocks = document.querySelectorAll('.ce-block')
+    const indices = aiBlockIndices || (aiBlockIndex != null ? [aiBlockIndex] : [])
+    indices.forEach(idx => {
+      if (blocks[idx]) blocks[idx].classList.add('dash-ai-highlight')
+    })
+    return () => {
+      document.querySelectorAll('.dash-ai-highlight').forEach(el => el.classList.remove('dash-ai-highlight'))
+    }
+  }, [isAIPanelOpen, aiContextText, aiBlockIndex, aiBlockIndices])
 
   const [showFeaturesTooltip, setShowFeaturesTooltip] = useState(false)
 
@@ -1386,7 +1414,7 @@ export default function RichTextEditor() {
   }, [savePage])
 
   // AI panel insertion handler
-  const handleAIInsertBlocks = useCallback(async (blocks, mode, selectionText, sourceBlockIndex, sourceBlockIndices) => {
+  const handleAIInsertBlocks = useCallback(async (blocks, mode, selectionText, sourceBlockIndex, sourceBlockIndices, sourceBlockId) => {
     if (!currentPageRef.current) return
     const existingBlocks = currentPageRef.current.content?.blocks || []
     let newBlocks
@@ -1405,13 +1433,21 @@ export default function RichTextEditor() {
       }
     }
 
-    // If we have an exact block index (from single-block AI tune), use it directly
-    if (!newBlocks && mode === 'replace' && sourceBlockIndex != null && sourceBlockIndex >= 0 && sourceBlockIndex < existingBlocks.length) {
-      newBlocks = [
-        ...existingBlocks.slice(0, sourceBlockIndex),
-        ...blocks,
-        ...existingBlocks.slice(sourceBlockIndex + 1)
-      ]
+    // If we have an exact block index (from single-block AI tune), resolve by block ID first
+    if (!newBlocks && mode === 'replace' && sourceBlockIndex != null) {
+      // Prefer blockId lookup (stable even if blocks shifted) over stale index
+      let resolvedIndex = sourceBlockIndex
+      if (sourceBlockId) {
+        const idIdx = existingBlocks.findIndex(b => b.id === sourceBlockId)
+        if (idIdx !== -1) resolvedIndex = idIdx
+      }
+      if (resolvedIndex >= 0 && resolvedIndex < existingBlocks.length) {
+        newBlocks = [
+          ...existingBlocks.slice(0, resolvedIndex),
+          ...blocks,
+          ...existingBlocks.slice(resolvedIndex + 1)
+        ]
+      }
     }
 
     if (!newBlocks && mode === 'replace' && selectionText) {
@@ -1495,6 +1531,24 @@ export default function RichTextEditor() {
     setAiReloadKey(k => k + 1)
     setAiCanUndo(false)
   }, [handleEditorChange, setCurrentPage])
+
+  const handleAISaveAsNote = useCallback(async (markdownText) => {
+    if (!markdownText) return
+    const { parseMarkdownToBlocks } = await import('./Editor')
+    const { sanitizeEditorContent } = await import('@/utils/securityUtils')
+    const rawBlocks = parseMarkdownToBlocks(markdownText)
+    const sanitized = sanitizeEditorContent({ blocks: rawBlocks })
+    const blocks = sanitized?.blocks || []
+    if (blocks.length > 0) {
+      const newPage = await handleNewPage()
+      if (newPage) {
+        const content = { time: Date.now(), blocks, version: '2.30.6' }
+        await handleEditorChange(content)
+        setCurrentPage({ ...currentPageRef.current, content })
+        setAiReloadKey(k => k + 1)
+      }
+    }
+  }, [handleNewPage, handleEditorChange, setCurrentPage])
 
   // ── Live Session Handlers ─────────────────────────────────────
   const handleStartLiveSession = useCallback(async ({ roomId, keyStr, link, duration, sessionPassword }) => {
@@ -2661,7 +2715,11 @@ export default function RichTextEditor() {
     currentPage,
     pages: (Array.isArray(pages) ? pages : []).filter(page => page.type !== 'folder'), // Use pages directly instead of filteredPages()
     onSelectPage: handlePageSelect,
-    onToggleShortcutsModal: () => setIsShortcutsModalOpen(true)
+    onToggleShortcutsModal: () => setIsShortcutsModalOpen(true),
+    onToggleAIPanel: () => {
+      setAiContextText(null)
+      setIsAIPanelOpen(prev => !prev)
+    }
   })
 
   // Page link [[wiki links]] interceptor
@@ -3706,7 +3764,7 @@ export default function RichTextEditor() {
           'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100'
         }`}
       >
-        <Bot size={12} className="pointer-events-none" />
+        <svg width="14" height="14" viewBox="0 0 24 24" className="pointer-events-none"><defs><filter id="fo-bl"><feGaussianBlur stdDeviation="2.5"/></filter></defs><clipPath id="fo-cp"><circle cx="12" cy="12" r="10"/></clipPath><g clipPath="url(#fo-cp)" filter="url(#fo-bl)"><circle cx="9" cy="9" r="8" fill="rgba(70,120,255,0.9)"/><circle cx="16" cy="10" r="7" fill="rgba(140,80,250,0.8)"/><circle cx="12" cy="16" r="6" fill="rgba(230,90,180,0.7)"/><circle cx="7" cy="14" r="6" fill="rgba(40,180,255,0.65)"/></g><circle cx="12" cy="12" r="10" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="0.5"/></svg>
       </button>
       </Tooltip>
       <div className="relative">
@@ -4091,15 +4149,17 @@ export default function RichTextEditor() {
 
       <AIPanel
         isOpen={isAIPanelOpen}
-        onClose={() => { setIsAIPanelOpen(false); setAiContextText(null); setAiBlockIndex(null); setAiBlockIndices(null) }}
+        onClose={() => { setIsAIPanelOpen(false); setAiContextText(null); setAiBlockIndex(null); setAiBlockId(null); setAiBlockIndices(null) }}
         theme={theme}
         currentPage={currentPage}
         contextText={aiContextText}
         blockIndex={aiBlockIndex}
+        blockId={aiBlockId}
         blockIndices={aiBlockIndices}
         onInsertBlocks={handleAIInsertBlocks}
         canUndo={aiCanUndo}
         onUndo={handleAIUndo}
+        onSaveAsNote={handleAISaveAsNote}
       />
 
       <PageLinkDropdown
