@@ -4,6 +4,7 @@ import { sanitizeEditorContent, validatePageStructure } from '@/utils/securityUt
 import { deriveKeyFromPassphrase, encryptJsonWithKey, decryptJsonWithKey } from '@/utils/cryptoUtils'
 import useTagStore from '../store/tagStore'
 import { readPages, savePages as savePagesToFallback, saveDecoyPages } from '@/lib/storage'
+import { deleteMultipleAttachments } from '@/lib/attachmentStorage'
 import { encryptJsonWithPassphrase } from '@/utils/cryptoUtils'
 
 // Debug logger: enable in browser console with window.__DASH_DEBUG = true
@@ -397,6 +398,18 @@ export function usePagesManager() {
       return updatedPages
     })
 
+    // Clean up any file attachments associated with this page
+    if (pageToDelete.content?.blocks) {
+      const attachmentIds = pageToDelete.content.blocks
+        .filter(b => b.type === 'attachment' && b.data?.attachmentId)
+        .map(b => b.data.attachmentId)
+      if (attachmentIds.length > 0) {
+        deleteMultipleAttachments(attachmentIds).catch(err =>
+          console.error('Failed to clean up attachments:', err)
+        )
+      }
+    }
+
     // Handle current page cleanup
     if (currentPageRef.current?.id === pageToDelete.id) {
       const remainingPages = (Array.isArray(pagesRef.current) ? pagesRef.current : []).filter(p => p.type !== 'folder')
@@ -503,6 +516,7 @@ export function usePagesManager() {
           return newPages
         })
         _setCurrentPage(updatedPage)
+        setEditorReloadKey(k => k + 1)
       } else {
         // Permanent unlock: remove encryption, save plaintext to storage
         const updatedPage = { ...page, content: decryptedContent }
@@ -525,6 +539,7 @@ export function usePagesManager() {
           return newPages
         })
         _setCurrentPage(updatedPage)
+        setEditorReloadKey(k => k + 1)
       }
 
       return true

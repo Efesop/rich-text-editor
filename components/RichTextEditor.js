@@ -2445,10 +2445,8 @@ export default function RichTextEditor() {
       if (pageToAccess?.id) {
         delete passwordAttemptsRef.current[pageToAccess.id]
       }
-      // Navigate to the unlocked page (bypasses lock check since tempUnlockedPages may not be flushed yet)
-      if (pageToAccess && (actionType === 'open' || actionType === 'removeLock')) {
-        navigateToPage(pageToAccess)
-      }
+      // No need to navigate — unlockPage() already calls _setCurrentPage() with the decrypted page.
+      // Calling navigateToPage(pageToAccess) here would overwrite it with the stale encrypted object.
       setIsPasswordModalOpen(false)
       setPasswordInput('')
       setPageToAccess(null)
@@ -3868,7 +3866,7 @@ export default function RichTextEditor() {
           setPasswordInput('')
         }}
         onConfirm={handlePasswordConfirm}
-        action={passwordAction}
+        action={pageToAccess?.password?.hash ? (passwordAction === 'lock' ? 'access' : passwordAction) : passwordAction}
         password={passwordInput}
         onPasswordChange={setPasswordInput}
         error={passwordError}
