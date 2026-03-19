@@ -5,6 +5,7 @@ import { deriveKeyFromPassphrase, encryptJsonWithKey, decryptJsonWithKey } from 
 import useTagStore from '../store/tagStore'
 import { readPages, savePages as savePagesToFallback, saveDecoyPages } from '@/lib/storage'
 import { deleteMultipleAttachments } from '@/lib/attachmentStorage'
+import { captureVersion, deleteVersions } from '@/lib/versionStorage'
 import { encryptJsonWithPassphrase } from '@/utils/cryptoUtils'
 
 // Debug logger: enable in browser console with window.__DASH_DEBUG = true
@@ -24,7 +25,11 @@ export function usePagesManager() {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
   const [pageToAccess, setPageToAccess] = useState(null)
 
-  // Refs to prevent race conditions and stale closures
+  // IMPORTANT: pagesRef is the single source of truth for page data.
+  // savePage() only updates pagesRef (not React state) to avoid re-render loops
+  // with Editor.js's MutationObserver. ALL page-modifying operations (delete,
+  // rename, duplicate, reorder, lock, etc.) MUST read from pagesRef.current,
+  // never from prevPages via setPages(prevPages => ...), which may be stale.
   const pagesRef = useRef([])
   const currentPageRef = useRef(null)
   const saveTimeoutRef = useRef(null)
@@ -353,6 +358,12 @@ export function usePagesManager() {
       pagesRef.current = newPages
       currentPageRef.current = validation.sanitized
       savePagesToStorage(newPages)
+
+      // Capture version snapshot (fire-and-forget, never blocks save)
+      // Skip for password-locked pages — versions would store plaintext on disk
+      if (!validation.sanitized.password?.hash) {
+        captureVersion(validation.sanitized.id, sanitizedContent.blocks).catch(() => {})
+      }
     } catch (error) {
       console.error('Error saving page:', error)
       // Show user-friendly error message
@@ -363,44 +374,51 @@ export function usePagesManager() {
 
   const deletePage = useCallback(async (pageToDelete) => {
     dbg('pages', 'deleting:', pageToDelete.title || pageToDelete.id, pageToDelete.type === 'folder' ? '(folder)' : '')
-    setPages(prevPages => {
-      let updatedPages = prevPages.filter(p => p.id !== pageToDelete.id)
+    // Get latest page content from pagesRef BEFORE filtering (for attachment cleanup below)
+    const latestPage = pagesRef.current.find(p => p.id === pageToDelete.id) || pageToDelete
+    // Use pagesRef.current (source of truth) instead of React state (prevPages)
+    // because savePage only updates pagesRef, not React state — prevPages is stale
+    let updatedPages = pagesRef.current.filter(p => p.id !== pageToDelete.id)
 
-      // Handle folder cleanup
-      if (pageToDelete.folderId) {
-        updatedPages = updatedPages.map(item => {
-          if (item.id === pageToDelete.folderId && item.type === 'folder') {
-            return {
-              ...item,
-              pages: (Array.isArray(item.pages) ? item.pages : []).filter(pageId => pageId !== pageToDelete.id)
-            }
+    // Handle folder cleanup
+    if (pageToDelete.folderId) {
+      updatedPages = updatedPages.map(item => {
+        if (item.id === pageToDelete.folderId && item.type === 'folder') {
+          return {
+            ...item,
+            pages: (Array.isArray(item.pages) ? item.pages : []).filter(pageId => pageId !== pageToDelete.id)
           }
-          return item
-        })
-      }
-
-      // Ensure we always have at least one page
-      if (updatedPages.filter(p => p.type !== 'folder').length === 0) {
-        const defaultPage = {
-          id: crypto.randomUUID(),
-          title: 'New Page',
-          content: { time: Date.now(), blocks: [], version: '2.30.6' },
-          tags: [],
-          tagNames: [],
-          createdAt: new Date().toISOString(),
-          password: null
         }
-        updatedPages.push(defaultPage)
+        return item
+      })
+    }
+
+    // Ensure we always have at least one page
+    if (updatedPages.filter(p => p.type !== 'folder').length === 0) {
+      const defaultPage = {
+        id: crypto.randomUUID(),
+        title: 'New Page',
+        content: { time: Date.now(), blocks: [], version: '2.30.6' },
+        tags: [],
+        tagNames: [],
+        createdAt: new Date().toISOString(),
+        password: null
       }
+      updatedPages.push(defaultPage)
+    }
 
-      pagesRef.current = updatedPages
-      savePagesToStorage(updatedPages)
-      return updatedPages
-    })
+    pagesRef.current = updatedPages
+    savePagesToStorage(updatedPages)
+    setPages(updatedPages)
 
-    // Clean up any file attachments associated with this page
-    if (pageToDelete.content?.blocks) {
-      const attachmentIds = pageToDelete.content.blocks
+    // Clean up version history for this page
+    deleteVersions(pageToDelete.id).catch(err =>
+      console.error('Failed to clean up versions:', err)
+    )
+
+    // Clean up any file attachments using latest content (grabbed before filter above)
+    if (latestPage.content?.blocks) {
+      const attachmentIds = latestPage.content.blocks
         .filter(b => b.type === 'attachment' && b.data?.attachmentId)
         .map(b => b.data.attachmentId)
       if (attachmentIds.length > 0) {
@@ -421,16 +439,16 @@ export function usePagesManager() {
     if (!pageToRename || !newTitle || newTitle === pageToRename.title) return
 
     const trimmedTitle = newTitle.slice(0, 50) // Reasonable title length limit
-    const updatedPage = { ...pageToRename, title: trimmedTitle }
+    // Use pagesRef for latest content (savePage updates ref, not React state)
+    const latestPage = pagesRef.current.find(p => p.id === pageToRename.id) || pageToRename
+    const updatedPage = { ...latestPage, title: trimmedTitle }
 
-    setPages(prevPages => {
-      const newPages = prevPages.map(p =>
-        p.id === pageToRename.id ? updatedPage : p
-      )
-      pagesRef.current = newPages
-      savePagesToStorage(newPages)
-      return newPages
-    })
+    const newPages = pagesRef.current.map(p =>
+      p.id === pageToRename.id ? updatedPage : p
+    )
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
 
     if (currentPageRef.current?.id === pageToRename.id) {
       _setCurrentPage(updatedPage)
@@ -456,14 +474,15 @@ export function usePagesManager() {
       const updatedPage = { ...latestPage, password: { hash: hashedPassword } }
       setTempUnlockedPages(prev => new Set(prev).add(page.id))
 
-      setPages(prevPages => {
-        const newPages = prevPages.map(p =>
-          p.id === updatedPage.id ? updatedPage : p
-        )
-        pagesRef.current = newPages
-        savePagesToStorage(newPages)
-        return newPages
-      })
+      const newPages = pagesRef.current.map(p =>
+        p.id === updatedPage.id ? updatedPage : p
+      )
+      pagesRef.current = newPages
+      savePagesToStorage(newPages)
+      setPages(newPages)
+
+      // Remove plaintext version history now that page is locked
+      deleteVersions(page.id).catch(() => {})
 
       if (currentPageRef.current?.id === page.id) {
         _setCurrentPage(updatedPage)
@@ -507,14 +526,12 @@ export function usePagesManager() {
         // Temp unlock: update in-memory state with decrypted content, don't save to storage
         setTempUnlockedPages(prev => new Set(prev).add(page.id))
         const updatedPage = { ...page, content: decryptedContent }
-        setPages(prevPages => {
-          const newPages = prevPages.map(p =>
-            p.id === updatedPage.id ? updatedPage : p
-          )
-          pagesRef.current = newPages
-          // Don't call savePagesToStorage — content is decrypted in memory only
-          return newPages
-        })
+        const newPages = pagesRef.current.map(p =>
+          p.id === updatedPage.id ? updatedPage : p
+        )
+        pagesRef.current = newPages
+        // Don't call savePagesToStorage — content is decrypted in memory only
+        setPages(newPages)
         _setCurrentPage(updatedPage)
         setEditorReloadKey(k => k + 1)
       } else {
@@ -530,14 +547,12 @@ export function usePagesManager() {
           return next
         })
 
-        setPages(prevPages => {
-          const newPages = prevPages.map(p =>
-            p.id === updatedPage.id ? updatedPage : p
-          )
-          pagesRef.current = newPages
-          savePagesToStorage(newPages)
-          return newPages
-        })
+        const newPages = pagesRef.current.map(p =>
+          p.id === updatedPage.id ? updatedPage : p
+        )
+        pagesRef.current = newPages
+        savePagesToStorage(newPages)
+        setPages(newPages)
         _setCurrentPage(updatedPage)
         setEditorReloadKey(k => k + 1)
       }
@@ -561,20 +576,18 @@ export function usePagesManager() {
 
     encryptionKeysRef.current.delete(pageId)
 
-    setPages(prevPages => {
-      const newPages = prevPages.map(p => {
-        if (p.id === pageId) {
-          const updated = { ...p }
-          delete updated.password
-          delete updated.encryptedContent
-          return updated
-        }
-        return p
-      })
-      pagesRef.current = newPages
-      savePagesToStorage(newPages)
-      return newPages
+    const newPages = pagesRef.current.map(p => {
+      if (p.id === pageId) {
+        const updated = { ...p }
+        delete updated.password
+        delete updated.encryptedContent
+        return updated
+      }
+      return p
     })
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
 
     // Update currentPage if it's the same page
     if (currentPageRef.current?.id === pageId) {
@@ -595,24 +608,22 @@ export function usePagesManager() {
     const trimmedTag = { ...tag, name: tag.name.slice(0, 15) }
     addTag(trimmedTag)
 
-    setPages(prevPages => {
-      const newPages = prevPages.map(page => {
-        if (page.id === pageId) {
-          const currentTagNames = page.tagNames || []
-          if (!currentTagNames.includes(trimmedTag.name)) {
-            return {
-              ...page,
-              tagNames: [...currentTagNames, trimmedTag.name]
-            }
+    const newPages = pagesRef.current.map(page => {
+      if (page.id === pageId) {
+        const currentTagNames = page.tagNames || []
+        if (!currentTagNames.includes(trimmedTag.name)) {
+          return {
+            ...page,
+            tagNames: [...currentTagNames, trimmedTag.name]
           }
         }
-        return page
-      })
-
-      pagesRef.current = newPages
-      savePagesToStorage(newPages)
-      return newPages
+      }
+      return page
     })
+
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
 
     if (currentPageRef.current?.id === pageId) {
       _setCurrentPage(prevPage => {
@@ -631,21 +642,19 @@ export function usePagesManager() {
   const removeTagFromPage = useCallback(async (pageId, tagName) => {
     if (!pageId || !tagName) return
 
-    setPages(prevPages => {
-      const newPages = prevPages.map(page => {
-        if (page.id === pageId) {
-          return {
-            ...page,
-            tagNames: (page.tagNames || []).filter(t => t !== tagName)
-          }
+    const newPages = pagesRef.current.map(page => {
+      if (page.id === pageId) {
+        return {
+          ...page,
+          tagNames: (page.tagNames || []).filter(t => t !== tagName)
         }
-        return page
-      })
-
-      pagesRef.current = newPages
-      savePagesToStorage(newPages)
-      return newPages
+      }
+      return page
     })
+
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
 
     if (currentPageRef.current?.id === pageId) {
       _setCurrentPage(prevPage => ({
@@ -658,16 +667,14 @@ export function usePagesManager() {
   const deleteTagFromAllPages = useCallback(async (tagName) => {
     if (!tagName) return
 
-    setPages(prevPages => {
-      const newPages = prevPages.map(page => ({
-        ...page,
-        tagNames: (page.tagNames || []).filter(t => t !== tagName)
-      }))
+    const newPages = pagesRef.current.map(page => ({
+      ...page,
+      tagNames: (page.tagNames || []).filter(t => t !== tagName)
+    }))
 
-      pagesRef.current = newPages
-      savePagesToStorage(newPages)
-      return newPages
-    })
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
 
     if (currentPageRef.current) {
       _setCurrentPage(prevPage => ({
@@ -710,18 +717,16 @@ export function usePagesManager() {
   const updateTagInPages = useCallback(async (oldName, updatedTag) => {
     if (!oldName || !updatedTag?.name) return
 
-    setPages(prevPages => {
-      const newPages = prevPages.map(page => ({
-        ...page,
-        tagNames: (page.tagNames || []).map(tagName =>
-          tagName === oldName ? updatedTag.name : tagName
-        )
-      }))
+    const newPages = pagesRef.current.map(page => ({
+      ...page,
+      tagNames: (page.tagNames || []).map(tagName =>
+        tagName === oldName ? updatedTag.name : tagName
+      )
+    }))
 
-      pagesRef.current = newPages
-      savePagesToStorage(newPages)
-      return newPages
-    })
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
 
     if (currentPageRef.current) {
       _setCurrentPage(prevPage => ({
@@ -748,12 +753,10 @@ export function usePagesManager() {
       ...(emoji ? { emoji } : {})
     }
 
-    setPages(prevPages => {
-      const newPages = [newFolder, ...prevPages]
-      pagesRef.current = newPages
-      savePagesToStorage(newPages)
-      return newPages
-    })
+    const newPages = [newFolder, ...pagesRef.current]
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
   }, [savePagesToStorage])
 
   const deleteFolder = useCallback(async (folderId) => {
@@ -762,27 +765,23 @@ export function usePagesManager() {
     // Check if currentPage is in this folder before deleting
     const currentPageInFolder = currentPageRef.current?.folderId === folderId
 
-    setPages(prevPages => {
-      const folderToDelete = prevPages.find(item => item.id === folderId && item.type === 'folder')
+    const folderToDelete = pagesRef.current.find(item => item.id === folderId && item.type === 'folder')
 
-      if (folderToDelete) {
-        // Move pages out of folder before deleting
-        const folderPages = Array.isArray(folderToDelete.pages) ? folderToDelete.pages : []
-        const updatedPages = prevPages.map(item => {
-          if (folderPages.includes(item.id)) {
-            const { folderId: _, ...pageWithoutFolder } = item
-            return pageWithoutFolder
-          }
-          return item
-        }).filter(item => item.id !== folderId)
+    if (folderToDelete) {
+      // Move pages out of folder before deleting
+      const folderPages = Array.isArray(folderToDelete.pages) ? folderToDelete.pages : []
+      const updatedPages = pagesRef.current.map(item => {
+        if (folderPages.includes(item.id)) {
+          const { folderId: _, ...pageWithoutFolder } = item
+          return pageWithoutFolder
+        }
+        return item
+      }).filter(item => item.id !== folderId)
 
-        pagesRef.current = updatedPages
-        savePagesToStorage(updatedPages)
-        return updatedPages
-      }
-
-      return prevPages
-    })
+      pagesRef.current = updatedPages
+      savePagesToStorage(updatedPages)
+      setPages(updatedPages)
+    }
 
     // Update currentPage if it was in the deleted folder
     if (currentPageInFolder) {
@@ -796,23 +795,21 @@ export function usePagesManager() {
   const addPageToFolder = useCallback(async (pageId, folderId) => {
     if (!pageId || !folderId) return
 
-    setPages(prevPages => {
-      const newPages = prevPages.map(item => {
-        if (item.id === folderId && item.type === 'folder') {
-          const existing = Array.isArray(item.pages) ? item.pages : []
-          const updatedPages = [...new Set([...existing, pageId])]
-          return { ...item, pages: updatedPages }
-        }
-        if (item.id === pageId && item.type !== 'folder') {
-          return { ...item, folderId }
-        }
-        return item
-      })
-
-      pagesRef.current = newPages
-      savePagesToStorage(newPages)
-      return newPages
+    const newPages = pagesRef.current.map(item => {
+      if (item.id === folderId && item.type === 'folder') {
+        const existing = Array.isArray(item.pages) ? item.pages : []
+        const updatedPages = [...new Set([...existing, pageId])]
+        return { ...item, pages: updatedPages }
+      }
+      if (item.id === pageId && item.type !== 'folder') {
+        return { ...item, folderId }
+      }
+      return item
     })
+
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
 
     // Update currentPage if it's the one being added to folder
     if (currentPageRef.current?.id === pageId) {
@@ -823,34 +820,32 @@ export function usePagesManager() {
   const movePageToFolder = useCallback(async (pageId, targetFolderId) => {
     if (!pageId || !targetFolderId) return
 
-    setPages(prevPages => {
-      const page = prevPages.find(p => p.id === pageId)
-      if (!page) return prevPages
+    const page = pagesRef.current.find(p => p.id === pageId)
+    if (!page) return
 
-      const oldFolderId = page.folderId
+    const oldFolderId = page.folderId
 
-      const newPages = prevPages.map(item => {
-        // Remove page from old folder's pages array
-        if (oldFolderId && item.id === oldFolderId && item.type === 'folder') {
-          const currentPages = Array.isArray(item.pages) ? item.pages : []
-          return { ...item, pages: currentPages.filter(id => id !== pageId) }
-        }
-        // Add page to new folder's pages array
-        if (item.id === targetFolderId && item.type === 'folder') {
-          const existing = Array.isArray(item.pages) ? item.pages : []
-          return { ...item, pages: [...new Set([...existing, pageId])] }
-        }
-        // Update the page's folderId
-        if (item.id === pageId && item.type !== 'folder') {
-          return { ...item, folderId: targetFolderId }
-        }
-        return item
-      })
-
-      pagesRef.current = newPages
-      savePagesToStorage(newPages)
-      return newPages
+    const newPages = pagesRef.current.map(item => {
+      // Remove page from old folder's pages array
+      if (oldFolderId && item.id === oldFolderId && item.type === 'folder') {
+        const currentPages = Array.isArray(item.pages) ? item.pages : []
+        return { ...item, pages: currentPages.filter(id => id !== pageId) }
+      }
+      // Add page to new folder's pages array
+      if (item.id === targetFolderId && item.type === 'folder') {
+        const existing = Array.isArray(item.pages) ? item.pages : []
+        return { ...item, pages: [...new Set([...existing, pageId])] }
+      }
+      // Update the page's folderId
+      if (item.id === pageId && item.type !== 'folder') {
+        return { ...item, folderId: targetFolderId }
+      }
+      return item
     })
+
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
 
     // Update currentPage if it's the one being moved
     if (currentPageRef.current?.id === pageId) {
@@ -861,23 +856,21 @@ export function usePagesManager() {
   const removePageFromFolder = useCallback(async (pageId, folderId) => {
     if (!pageId || !folderId) return
 
-    setPages(prevPages => {
-      const newPages = prevPages.map(item => {
-        if (item.id === folderId && item.type === 'folder') {
-          const currentPages = Array.isArray(item.pages) ? item.pages : []
-          return { ...item, pages: currentPages.filter(id => id !== pageId) }
-        }
-        if (item.id === pageId) {
-          const { folderId: _, ...pageWithoutFolder } = item
-          return pageWithoutFolder
-        }
-        return item
-      })
-
-      pagesRef.current = newPages
-      savePagesToStorage(newPages)
-      return newPages
+    const newPages = pagesRef.current.map(item => {
+      if (item.id === folderId && item.type === 'folder') {
+        const currentPages = Array.isArray(item.pages) ? item.pages : []
+        return { ...item, pages: currentPages.filter(id => id !== pageId) }
+      }
+      if (item.id === pageId) {
+        const { folderId: _, ...pageWithoutFolder } = item
+        return pageWithoutFolder
+      }
+      return item
     })
+
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
 
     // Update currentPage if it's the one being removed from folder
     if (currentPageRef.current?.id === pageId) {
@@ -891,26 +884,24 @@ export function usePagesManager() {
   const renameFolder = useCallback(async (folderId, newName, emoji) => {
     if (!folderId || !newName) return
 
-    setPages(prevPages => {
-      const newPages = prevPages.map(item => {
-        if (item.id === folderId && item.type === 'folder') {
-          const updated = { ...item, title: newName.slice(0, 30) }
-          if (emoji !== undefined) {
-            if (emoji) {
-              updated.emoji = emoji
-            } else {
-              delete updated.emoji
-            }
+    const newPages = pagesRef.current.map(item => {
+      if (item.id === folderId && item.type === 'folder') {
+        const updated = { ...item, title: newName.slice(0, 30) }
+        if (emoji !== undefined) {
+          if (emoji) {
+            updated.emoji = emoji
+          } else {
+            delete updated.emoji
           }
-          return updated
         }
-        return item
-      })
-
-      pagesRef.current = newPages
-      savePagesToStorage(newPages)
-      return newPages
+        return updated
+      }
+      return item
     })
+
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
   }, [savePagesToStorage])
 
   const handleDuplicatePage = useCallback(async (page) => {
@@ -947,79 +938,74 @@ export function usePagesManager() {
       }
     }
 
-    setPages(prevPages => {
-      let newPages = [...prevPages]
-      const pageIndex = newPages.findIndex(p => p.id === page.id)
+    // Use pagesRef.current (source of truth) to preserve in-flight edits
+    let newPages = [...pagesRef.current]
+    const pageIndex = newPages.findIndex(p => p.id === page.id)
 
-      if (pageIndex !== -1) {
-        newPages.splice(pageIndex + 1, 0, newPage)
-      } else {
-        newPages.unshift(newPage)
-      }
+    if (pageIndex !== -1) {
+      newPages.splice(pageIndex + 1, 0, newPage)
+    } else {
+      newPages.unshift(newPage)
+    }
 
-      // Handle folder membership
-      if (page.folderId) {
-        const folderIndex = newPages.findIndex(item =>
-          item.id === page.folderId && item.type === 'folder'
-        )
-        if (folderIndex !== -1) {
-          newPages[folderIndex] = {
-            ...newPages[folderIndex],
-            pages: [...newPages[folderIndex].pages, newPage.id]
-          }
+    // Handle folder membership
+    if (page.folderId) {
+      const folderIndex = newPages.findIndex(item =>
+        item.id === page.folderId && item.type === 'folder'
+      )
+      if (folderIndex !== -1) {
+        newPages[folderIndex] = {
+          ...newPages[folderIndex],
+          pages: [...newPages[folderIndex].pages, newPage.id]
         }
-        newPage.folderId = page.folderId
       }
+      newPage.folderId = page.folderId
+    }
 
-      pagesRef.current = newPages
-      savePagesToStorage(newPages)
-      return newPages
-    })
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
 
     setCurrentPage(newPage)
   }, [savePagesToStorage, setCurrentPage])
 
   const reorderItems = useCallback((activeId, overId, dropPos) => {
-    setPages(prevPages => {
-      const newPages = [...prevPages]
-      const oldIndex = newPages.findIndex(p => p.id === activeId)
-      const newIndex = newPages.findIndex(p => p.id === overId)
-      if (oldIndex === -1 || newIndex === -1) return prevPages
-      const [moved] = newPages.splice(oldIndex, 1)
-      // After removing, find where overId ended up and insert based on dropPos
-      let insertIdx = newPages.findIndex(p => p.id === overId)
-      if (insertIdx === -1) insertIdx = newIndex > oldIndex ? newIndex - 1 : newIndex
-      if (dropPos === 'below') insertIdx += 1
-      newPages.splice(insertIdx, 0, moved)
-      pagesRef.current = newPages
-      savePagesToStorage(newPages)
-      return newPages
-    })
+    const newPages = [...pagesRef.current]
+    const oldIndex = newPages.findIndex(p => p.id === activeId)
+    const newIndex = newPages.findIndex(p => p.id === overId)
+    if (oldIndex === -1 || newIndex === -1) return
+    const [moved] = newPages.splice(oldIndex, 1)
+    // After removing, find where overId ended up and insert based on dropPos
+    let insertIdx = newPages.findIndex(p => p.id === overId)
+    if (insertIdx === -1) insertIdx = newIndex > oldIndex ? newIndex - 1 : newIndex
+    if (dropPos === 'below') insertIdx += 1
+    newPages.splice(insertIdx, 0, moved)
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
   }, [savePagesToStorage])
 
   const reorderWithinFolder = useCallback((folderId, activeId, overId, dropPos) => {
-    setPages(prevPages => {
-      const newPages = prevPages.map(item => {
-        if (item.id === folderId && item.type === 'folder') {
-          const folderPages = Array.isArray(item.pages) ? [...item.pages] : []
-          const oldIdx = folderPages.indexOf(activeId)
-          const newIdx = folderPages.indexOf(overId)
-          if (oldIdx !== -1 && newIdx !== -1) {
-            const [moved] = folderPages.splice(oldIdx, 1)
-            // After removing, adjust target index based on drop position
-            let insertIdx = folderPages.indexOf(overId)
-            if (insertIdx === -1) insertIdx = newIdx > oldIdx ? newIdx - 1 : newIdx
-            if (dropPos === 'below') insertIdx += 1
-            folderPages.splice(insertIdx, 0, moved)
-            return { ...item, pages: folderPages }
-          }
+    const newPages = pagesRef.current.map(item => {
+      if (item.id === folderId && item.type === 'folder') {
+        const folderPages = Array.isArray(item.pages) ? [...item.pages] : []
+        const oldIdx = folderPages.indexOf(activeId)
+        const newIdx = folderPages.indexOf(overId)
+        if (oldIdx !== -1 && newIdx !== -1) {
+          const [moved] = folderPages.splice(oldIdx, 1)
+          // After removing, adjust target index based on drop position
+          let insertIdx = folderPages.indexOf(overId)
+          if (insertIdx === -1) insertIdx = newIdx > oldIdx ? newIdx - 1 : newIdx
+          if (dropPos === 'below') insertIdx += 1
+          folderPages.splice(insertIdx, 0, moved)
+          return { ...item, pages: folderPages }
         }
-        return item
-      })
-      pagesRef.current = newPages
-      savePagesToStorage(newPages)
-      return newPages
+      }
+      return item
     })
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
   }, [savePagesToStorage])
 
   const persistPages = useCallback(() => {
@@ -1091,64 +1077,62 @@ export function usePagesManager() {
   // Move a page between containers (folder↔root, folder↔folder)
   // nearItemId: page to insert near; dropPosition: 'above' or 'below' relative to nearItemId
   const movePageToContainer = useCallback((pageId, fromContainer, toContainer, nearItemId, dropPos) => {
-    setPages(prevPages => {
-      let newPages = [...prevPages]
+    let newPages = [...pagesRef.current]
 
-      // Remove from old folder's pages array
-      if (fromContainer !== 'root') {
-        newPages = newPages.map(item => {
-          if (item.id === fromContainer && item.type === 'folder') {
-            return { ...item, pages: (Array.isArray(item.pages) ? item.pages : []).filter(id => id !== pageId) }
-          }
-          return item
-        })
-      }
-
-      // Add to new folder's pages array
-      if (toContainer !== 'root') {
-        newPages = newPages.map(item => {
-          if (item.id === toContainer && item.type === 'folder') {
-            const fp = (Array.isArray(item.pages) ? item.pages : []).filter(id => id !== pageId)
-            if (nearItemId) {
-              const nearIdx = fp.indexOf(nearItemId)
-              if (nearIdx !== -1) {
-                const insertIdx = dropPos === 'below' ? nearIdx + 1 : nearIdx
-                fp.splice(insertIdx, 0, pageId)
-                return { ...item, pages: fp }
-              }
-            }
-            return { ...item, pages: [...fp, pageId] }
-          }
-          return item
-        })
-      }
-
-      // Update the page's folderId
+    // Remove from old folder's pages array
+    if (fromContainer !== 'root') {
       newPages = newPages.map(item => {
-        if (item.id === pageId) {
-          if (toContainer === 'root') {
-            const { folderId: _, ...rest } = item
-            return rest
-          }
-          return { ...item, folderId: toContainer }
+        if (item.id === fromContainer && item.type === 'folder') {
+          return { ...item, pages: (Array.isArray(item.pages) ? item.pages : []).filter(id => id !== pageId) }
         }
         return item
       })
+    }
 
-      // Position near the target item in flat array (for root placement)
-      if (toContainer === 'root' && nearItemId) {
-        const pageIdx = newPages.findIndex(p => p.id === pageId)
-        const nearIdx = newPages.findIndex(p => p.id === nearItemId)
-        if (pageIdx !== -1 && nearIdx !== -1) {
-          const [moved] = newPages.splice(pageIdx, 1)
-          newPages.splice(nearIdx, 0, moved)
+    // Add to new folder's pages array
+    if (toContainer !== 'root') {
+      newPages = newPages.map(item => {
+        if (item.id === toContainer && item.type === 'folder') {
+          const fp = (Array.isArray(item.pages) ? item.pages : []).filter(id => id !== pageId)
+          if (nearItemId) {
+            const nearIdx = fp.indexOf(nearItemId)
+            if (nearIdx !== -1) {
+              const insertIdx = dropPos === 'below' ? nearIdx + 1 : nearIdx
+              fp.splice(insertIdx, 0, pageId)
+              return { ...item, pages: fp }
+            }
+          }
+          return { ...item, pages: [...fp, pageId] }
         }
-      }
+        return item
+      })
+    }
 
-      pagesRef.current = newPages
-      savePagesToStorage(newPages)
-      return newPages
+    // Update the page's folderId
+    newPages = newPages.map(item => {
+      if (item.id === pageId) {
+        if (toContainer === 'root') {
+          const { folderId: _, ...rest } = item
+          return rest
+        }
+        return { ...item, folderId: toContainer }
+      }
+      return item
     })
+
+    // Position near the target item in flat array (for root placement)
+    if (toContainer === 'root' && nearItemId) {
+      const pageIdx = newPages.findIndex(p => p.id === pageId)
+      const nearIdx = newPages.findIndex(p => p.id === nearItemId)
+      if (pageIdx !== -1 && nearIdx !== -1) {
+        const [moved] = newPages.splice(pageIdx, 1)
+        newPages.splice(nearIdx, 0, moved)
+      }
+    }
+
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
   }, [savePagesToStorage])
 
   // Import pages from an encrypted bundle (merges with existing)
@@ -1161,18 +1145,16 @@ export function usePagesManager() {
       return { ...item, content: sanitizeEditorContent(item.content) }
     })
 
-    setPages(prevPages => {
-      // Merge: imported items overwrite existing items with same ID
-      const map = new Map(prevPages.map(item => [item.id, item]))
-      sanitizedItems.forEach(item => {
-        map.set(item.id, item)
-      })
-      const newPages = Array.from(map.values())
-
-      pagesRef.current = newPages
-      savePagesToStorage(newPages)
-      return newPages
+    // Merge: imported items overwrite existing items with same ID
+    const map = new Map(pagesRef.current.map(item => [item.id, item]))
+    sanitizedItems.forEach(item => {
+      map.set(item.id, item)
     })
+    const newPages = Array.from(map.values())
+
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
 
     // Update currentPage if it was overwritten by import
     if (currentPageRef.current) {
@@ -1188,14 +1170,12 @@ export function usePagesManager() {
     if (!pageId || !durationMs) return
     const selfDestructAt = Date.now() + durationMs
 
-    setPages(prevPages => {
-      const newPages = prevPages.map(p =>
-        p.id === pageId ? { ...p, selfDestructAt } : p
-      )
-      pagesRef.current = newPages
-      savePagesToStorage(newPages)
-      return newPages
-    })
+    const newPages = pagesRef.current.map(p =>
+      p.id === pageId ? { ...p, selfDestructAt } : p
+    )
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
 
     if (currentPageRef.current?.id === pageId) {
       _setCurrentPage(prev => ({ ...prev, selfDestructAt }))
@@ -1206,18 +1186,16 @@ export function usePagesManager() {
   const cancelSelfDestruct = useCallback((pageId) => {
     if (!pageId) return
 
-    setPages(prevPages => {
-      const newPages = prevPages.map(p => {
-        if (p.id === pageId) {
-          const { selfDestructAt: _, ...rest } = p
-          return rest
-        }
-        return p
-      })
-      pagesRef.current = newPages
-      savePagesToStorage(newPages)
-      return newPages
+    const newPages = pagesRef.current.map(p => {
+      if (p.id === pageId) {
+        const { selfDestructAt: _, ...rest } = p
+        return rest
+      }
+      return p
     })
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
 
     if (currentPageRef.current?.id === pageId) {
       _setCurrentPage(prev => {
@@ -1459,6 +1437,7 @@ export function usePagesManager() {
     selfDestructingPages,
     completeSelfDestruct,
     editorReloadKey,
+    setEditorReloadKey,
     decryptAllAppLockPages,
     encryptAndClearAppLockPages,
     reEncryptAppLockPages,
