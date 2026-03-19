@@ -31,8 +31,19 @@ export default function ShareModal ({ isOpen, onClose, noteContent, noteTitle, t
     setError(null)
     setTooLarge(false)
     try {
+      // Strip attachment blocks (binary files can't be shared via links) — replace with placeholder
+      const shareContent = noteContent?.blocks
+        ? {
+            ...noteContent,
+            blocks: noteContent.blocks.map(b =>
+              b.type === 'attachment'
+                ? { ...b, type: 'paragraph', data: { text: `[Attachment: ${b.data?.filename || 'File'}]` } }
+                : b
+            )
+          }
+        : noteContent
       const { generateShareLink } = await import('@/utils/shareUtils')
-      const result = await generateShareLink(noteContent, noteTitle)
+      const result = await generateShareLink(shareContent, noteTitle)
       if (result.tooLarge) {
         setTooLarge(true)
       } else {

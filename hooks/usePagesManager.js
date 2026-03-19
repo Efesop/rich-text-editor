@@ -923,6 +923,30 @@ export function usePagesManager() {
       createdAt: new Date().toISOString(),
     }
 
+    // Duplicate attachment files so each page owns independent copies
+    if (newPage.content?.blocks) {
+      const attachmentIds = newPage.content.blocks
+        .filter(b => b.type === 'attachment' && b.data?.attachmentId)
+        .map(b => b.data.attachmentId)
+      if (attachmentIds.length > 0) {
+        try {
+          const { duplicateAttachments } = await import('@/lib/attachmentStorage')
+          const idMap = await duplicateAttachments(attachmentIds)
+          newPage.content = {
+            ...newPage.content,
+            blocks: newPage.content.blocks.map(b => {
+              if (b.type === 'attachment' && b.data?.attachmentId && idMap[b.data.attachmentId]) {
+                return { ...b, data: { ...b.data, attachmentId: idMap[b.data.attachmentId] } }
+              }
+              return b
+            })
+          }
+        } catch (err) {
+          console.error('Failed to duplicate attachments:', err)
+        }
+      }
+    }
+
     setPages(prevPages => {
       let newPages = [...prevPages]
       const pageIndex = newPages.findIndex(p => p.id === page.id)

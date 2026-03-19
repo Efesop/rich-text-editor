@@ -580,7 +580,10 @@ export const downloadFile = (content, fileName, contentType) => {
 
 export const exportEncryptedBundle = async (pages, tags, passphrase) => {
   // Note: 'pages' parameter now includes both pages AND folders for complete export
-  const payload = { pages, tags, createdAt: new Date().toISOString() }
+  // Bundle attachment file data so dashpacks are fully portable
+  const { collectAttachmentsForExport } = await import('@/lib/attachmentStorage')
+  const attachments = await collectAttachmentsForExport(pages)
+  const payload = { pages, tags, createdAt: new Date().toISOString(), attachments }
   const encrypted = await encryptJsonWithPassphrase(payload, passphrase)
   const json = JSON.stringify(encrypted)
   // Add timestamp to filename to avoid overwriting previous exports
@@ -591,6 +594,11 @@ export const exportEncryptedBundle = async (pages, tags, passphrase) => {
 export const importEncryptedBundle = async (file, passphrase) => {
   const text = await file.text()
   const parsed = JSON.parse(text)
-  const { pages, tags } = await decryptJsonWithPassphrase(parsed, passphrase)
+  const { pages, tags, attachments } = await decryptJsonWithPassphrase(parsed, passphrase)
+  // Restore bundled attachment files to local storage
+  if (attachments && typeof attachments === 'object' && Object.keys(attachments).length > 0) {
+    const { restoreAttachmentsFromImport } = await import('@/lib/attachmentStorage')
+    await restoreAttachmentsFromImport(attachments)
+  }
   return { pages, tags }
 }
