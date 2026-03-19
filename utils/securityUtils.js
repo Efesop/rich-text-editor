@@ -165,6 +165,16 @@ export function sanitizeEditorContent(content) {
         }
         break
 
+      case 'attachment':
+        sanitizedBlock.data = {
+          attachmentId: typeof block.data?.attachmentId === 'string' ? block.data.attachmentId.slice(0, 36) : '',
+          filename: typeof block.data?.filename === 'string' ? block.data.filename.slice(0, 255) : '',
+          mimeType: typeof block.data?.mimeType === 'string' ? block.data.mimeType.slice(0, 100) : '',
+          size: typeof block.data?.size === 'number' ? block.data.size : 0,
+          preview: typeof block.data?.preview === 'string' && block.data.preview.startsWith('data:image/') ? block.data.preview : ''
+        }
+        break
+
       default:
         // For unknown block types, sanitize all string values
         if (block.data && typeof block.data === 'object') {
@@ -193,7 +203,7 @@ function sanitizeBlockType(type) {
   const allowedTypes = [
     'paragraph', 'header', 'list', 'checklist', 'quote', 'code',
     'table', 'linkTool', 'image', 'embed', 'delimiter', 'marker',
-    'inlineCode', 'nestedlist', 'bulletListItem', 'numberedListItem', 'checklistItem', 'seedPhrase'
+    'inlineCode', 'nestedlist', 'bulletListItem', 'numberedListItem', 'checklistItem', 'seedPhrase', 'attachment'
   ]
   
   return allowedTypes.includes(type) ? type : 'paragraph'

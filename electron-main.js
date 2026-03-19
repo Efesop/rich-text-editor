@@ -346,6 +346,73 @@ ipcMain.handle('safe-storage-delete', async (event, key) => {
   return true;
 });
 
+// --- Attachment storage ---
+const attachmentsDir = path.join(app.getPath('userData'), 'attachments');
+
+// Ensure attachments directory exists
+async function ensureAttachmentsDir() {
+  try {
+    await fs.mkdir(attachmentsDir, { recursive: true });
+  } catch { /* already exists */ }
+}
+
+// Validate attachment ID to prevent path traversal (crypto.randomUUID() can produce upper or lowercase)
+const isValidAttachmentId = (id) => typeof id === 'string' && /^[a-f0-9-]{36}$/i.test(id);
+
+ipcMain.handle('save-attachment', async (event, attachmentId, dataArray) => {
+  if (!isValidAttachmentId(attachmentId)) throw new Error('Invalid attachment ID');
+  await ensureAttachmentsDir();
+  const filePath = path.join(attachmentsDir, attachmentId);
+  const tempPath = filePath + '.tmp';
+  // dataArray may be Uint8Array (structured clone) or plain Array (fallback)
+  const buffer = Buffer.from(dataArray instanceof Uint8Array ? dataArray : new Uint8Array(dataArray));
+  // Atomic write
+  await fs.writeFile(tempPath, buffer);
+  await fs.rename(tempPath, filePath);
+  return { success: true };
+});
+
+ipcMain.handle('load-attachment', async (event, attachmentId) => {
+  if (!isValidAttachmentId(attachmentId)) return null;
+  try {
+    const filePath = path.join(attachmentsDir, attachmentId);
+    const buffer = await fs.readFile(filePath);
+    // Return as Uint8Array for efficient structured clone transfer
+    return new Uint8Array(buffer);
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  }
+});
+
+ipcMain.handle('delete-attachment', async (event, attachmentId) => {
+  if (!isValidAttachmentId(attachmentId)) return { success: false };
+  try {
+    await fs.unlink(path.join(attachmentsDir, attachmentId));
+  } catch { /* file may not exist */ }
+  return { success: true };
+});
+
+ipcMain.handle('open-attachment', async (event, attachmentId, filename, mimeType) => {
+  if (!isValidAttachmentId(attachmentId)) return { opened: false };
+  try {
+    const srcPath = path.join(attachmentsDir, attachmentId);
+    // Sanitize filename: strip path separators to prevent traversal
+    const safeName = path.basename(filename || 'file').replace(/[<>:"/\\|?*]/g, '_') || 'file';
+    // Write to temp dir with original filename so the OS opens it with the right app
+    const tmpDir = path.join(app.getPath('temp'), 'dash-attachments');
+    await fs.mkdir(tmpDir, { recursive: true });
+    const tmpFile = path.join(tmpDir, safeName);
+    await fs.copyFile(srcPath, tmpFile);
+    const { shell } = require('electron');
+    await shell.openPath(tmpFile);
+    return { opened: true };
+  } catch (error) {
+    log.error('Failed to open attachment:', error.message);
+    return { opened: false };
+  }
+});
+
 ipcMain.handle('read-pages', async () => {
   try {
     const data = await fs.readFile(path.join(app.getPath('userData'), 'pages.json'), 'utf8');

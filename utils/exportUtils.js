@@ -118,6 +118,9 @@ export const exportToPDF = (content, title) => {
         doc.line(10, yOffset, 190, yOffset);
         yOffset += 10;
         break;
+      case 'attachment':
+        addText(`[Attachment: ${block.data.filename || 'File'}]`, 12);
+        break;
     }
     yOffset += 5;
   });
@@ -175,6 +178,8 @@ export const exportToMarkdown = (content) => {
         return `- [${block.data.checked ? 'x' : ' '}] ${block.data.text || ''}\n`;
       case 'seedPhrase':
         return `**Seed Phrase:**\n${(block.data.words || []).map((w, i) => `${i + 1}. ${w}`).join('\n')}\n\n`;
+      case 'attachment':
+        return `[Attachment: ${block.data.filename || 'File'}]\n\n`;
       default:
         return '';
     }
@@ -227,6 +232,8 @@ export const exportToPlainText = (content) => {
         return `[${block.data.checked ? 'x' : ' '}] ${block.data.text || ''}\n`;
       case 'seedPhrase':
         return `Seed Phrase:\n${(block.data.words || []).map((w, i) => `${i + 1}. ${w}`).join('\n')}\n\n`;
+      case 'attachment':
+        return `[Attachment: ${block.data.filename || 'File'}]\n\n`;
       default:
         return '';
     }
@@ -303,6 +310,9 @@ export const exportToRTF = (content) => {
         (block.data.words || []).forEach((w, i) => {
           rtf += `${i + 1}. ${w}\n\\par\n`;
         });
+        break;
+      case 'attachment':
+        rtf += `[Attachment: ${block.data.filename || 'File'}]\n\\par\n`;
         break;
     }
   });
@@ -393,6 +403,8 @@ export const exportToDocx = async (content) => {
                 children: [new TextRun(`${i + 1}. ${w}`)]
               }))
             ];
+          case 'attachment':
+            return new Paragraph(`[Attachment: ${block.data.filename || 'File'}]`);
           default:
             return new Paragraph('');
         }
@@ -446,6 +458,8 @@ export const exportToCSV = (content) => {
         return [['Checklist Item', block.data.checked ? 'Checked' : 'Unchecked', block.data.text || '']];
       case 'seedPhrase':
         return (block.data.words || []).map((w, i) => ['Seed Phrase', i + 1, w]);
+      case 'attachment':
+        return [['Attachment', '', block.data.filename || 'File']];
       default:
         return [];
     }
@@ -543,6 +557,9 @@ export const exportToXML = (content) => {
         });
         break;
       }
+      case 'attachment':
+        root.ele('attachment', { filename: block.data.filename || '', mimeType: block.data.mimeType || '', size: block.data.size || 0 });
+        break;
     }
   });
 

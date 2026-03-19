@@ -467,6 +467,159 @@
 .ce-tune-alignment--center { text-align: center; }
 .ce-tune-alignment--right { text-align: right; }
 
+/* ── Image tool ── */
+.image-tool__image {
+  max-width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.image-tool__image img {
+  max-height: 500px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+/* Hide caption input until focused/has content */
+.image-tool__caption[contenteditable] {
+  font-size: 13px;
+  padding: 6px 8px;
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  transition: opacity 0.15s, max-height 0.15s, padding 0.15s;
+}
+.image-tool__caption[contenteditable]:focus,
+.image-tool__caption[contenteditable]:not(:empty) {
+  opacity: 1;
+  max-height: 60px;
+  padding: 6px 8px;
+}
+.image-tool:hover .image-tool__caption[contenteditable] {
+  opacity: 0.5;
+  max-height: 30px;
+  padding: 4px 8px;
+}
+.image-tool:hover .image-tool__caption[contenteditable]:focus,
+.image-tool:hover .image-tool__caption[contenteditable]:not(:empty) {
+  opacity: 1;
+  max-height: 60px;
+  padding: 6px 8px;
+}
+
+/* ── Attachment block tool ── */
+.attachment-block {
+  margin: 4px 0;
+}
+.attachment-uploader {
+  border: 2px dashed rgba(150, 160, 180, 0.3);
+  border-radius: 10px;
+  padding: 20px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.attachment-uploader:hover {
+  border-color: rgba(100, 130, 220, 0.5);
+  background: rgba(100, 130, 220, 0.04);
+}
+.attachment-uploader-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: rgba(120, 130, 150, 0.7);
+  font-size: 13px;
+}
+.attachment-uploader-hint {
+  font-size: 11px;
+  opacity: 0.6;
+}
+.attachment-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid rgba(150, 160, 180, 0.2);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  position: relative;
+}
+.attachment-card:hover {
+  background: rgba(100, 130, 220, 0.06);
+  border-color: rgba(100, 130, 220, 0.3);
+}
+.attachment-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(100, 130, 220, 0.08);
+  color: rgba(100, 130, 220, 0.7);
+}
+.attachment-thumbnail {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.attachment-info {
+  flex: 1;
+  min-width: 0;
+}
+.attachment-filename {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attachment-size {
+  font-size: 11px;
+  opacity: 0.5;
+  margin-top: 1px;
+}
+.attachment-delete {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+  color: inherit;
+}
+.attachment-card:hover .attachment-delete {
+  opacity: 0.5;
+}
+.attachment-delete:hover {
+  opacity: 1 !important;
+  background: rgba(220, 50, 50, 0.1);
+  color: rgb(220, 50, 50);
+}
+.attachment-loading {
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  opacity: 0.6;
+}
+.attachment-error {
+  padding: 12px;
+  text-align: center;
+  font-size: 13px;
+  color: rgb(220, 80, 60);
+  background: rgba(220, 80, 60, 0.06);
+  border-radius: 8px;
+}
+
 /* AI Orb is rendered via Canvas — see components/AIOrb.js */
 /* ── Features Panel: Bot / Local AI illustration ── */
 .dash-feat-illus-bot {

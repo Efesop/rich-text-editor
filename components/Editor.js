@@ -5,6 +5,7 @@ import { PageLinkInlineTool } from './editor-tools/PageLink'
 import { AIInlineTool } from './editor-tools/AIInlineTool'
 import { AIBlockTool } from './editor-tools/AIBlockTool'
 import { stripImageMetadata } from '@/utils/imageUtils'
+import AttachmentTool from './editor-tools/AttachmentTool'
 
 // Auto-linkify plain-text URLs in a string, skipping URLs already inside <a> tags
 function autoLinkify(html) {
@@ -169,7 +170,7 @@ export function parseMarkdownToBlocks (markdown) {
 /** Convert inline markdown (bold, italic, code, links, strikethrough) to HTML */
 function convertInlineMarkdown (text) {
   if (!text) return ''
-  return text
+  let result = text
     // Links: [text](url)
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
     // Bold+italic: ***text*** or ___text___
@@ -186,6 +187,8 @@ function convertInlineMarkdown (text) {
     .replace(/~~([^~]+)~~/g, '<s>$1</s>')
     // Mark/highlight: ==text==
     .replace(/==([^=]+)==/g, '<mark>$1</mark>')
+  // Auto-linkify bare URLs that aren't already inside <a> tags
+  return autoLinkify(result)
 }
 
 export default function Editor({ data, onChange, holder, onPageLinkClick, liveUpdateKey, readOnly }) {
@@ -431,6 +434,9 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
         },
         seedPhrase: {
           class: SeedPhraseTool,
+        },
+        attachment: {
+          class: AttachmentTool,
         },
         // Legacy tools kept for backwards compatibility (migration converts data before render)
         // Hidden from toolbox and conversion menus — only used to render unmigrated blocks

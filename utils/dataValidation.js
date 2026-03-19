@@ -93,7 +93,7 @@ function validateBlock(block) {
   const validTypes = [
     'paragraph', 'header', 'list', 'checklist', 'quote', 'code',
     'table', 'linkTool', 'image', 'embed', 'delimiter', 'marker',
-    'inlineCode', 'nestedlist', 'bulletListItem', 'numberedListItem', 'checklistItem', 'seedPhrase'
+    'inlineCode', 'nestedlist', 'bulletListItem', 'numberedListItem', 'checklistItem', 'seedPhrase', 'attachment'
   ]
 
   return {
@@ -168,6 +168,15 @@ function validateBlockData(data, type) {
       return {
         words: Array.isArray(data.words) ? data.words.map(w => typeof w === 'string' ? w : '').slice(0, 24) : [],
         count: data.count === 24 ? 24 : 12
+      }
+
+    case 'attachment':
+      return {
+        attachmentId: typeof data.attachmentId === 'string' ? data.attachmentId : '',
+        filename: typeof data.filename === 'string' ? data.filename : '',
+        mimeType: typeof data.mimeType === 'string' ? data.mimeType : '',
+        size: typeof data.size === 'number' ? data.size : 0,
+        preview: typeof data.preview === 'string' ? data.preview : ''
       }
 
     default:

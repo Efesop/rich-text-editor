@@ -30,7 +30,11 @@ contextBridge.exposeInMainWorld('electron', {
       'safe-storage-retrieve',
       'safe-storage-delete',
       'read-decoy-pages',
-      'save-decoy-pages'
+      'save-decoy-pages',
+      'save-attachment',
+      'load-attachment',
+      'delete-attachment',
+      'open-attachment'
     ];
 
     if (validChannels.includes(channel)) {
