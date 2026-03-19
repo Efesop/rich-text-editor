@@ -413,6 +413,49 @@ ipcMain.handle('open-attachment', async (event, attachmentId, filename, mimeType
   }
 });
 
+// --- Version history storage ---
+const versionsDir = path.join(app.getPath('userData'), 'versions');
+
+async function ensureVersionsDir() {
+  try {
+    await fs.mkdir(versionsDir, { recursive: true });
+  } catch { /* already exists */ }
+}
+
+// Validate page ID (UUID format) to prevent path traversal
+const isValidPageId = (id) => typeof id === 'string' && /^[a-f0-9-]{36}$/i.test(id);
+
+ipcMain.handle('read-versions', async (event, pageId) => {
+  if (!isValidPageId(pageId)) return [];
+  try {
+    const filePath = path.join(versionsDir, `${pageId}.json`);
+    const data = await fs.readFile(filePath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    if (error.code === 'ENOENT') return [];
+    log.error('Failed to read versions:', error.message);
+    return [];
+  }
+});
+
+ipcMain.handle('save-versions', async (event, pageId, versions) => {
+  if (!isValidPageId(pageId)) throw new Error('Invalid page ID');
+  await ensureVersionsDir();
+  const filePath = path.join(versionsDir, `${pageId}.json`);
+  const tempPath = filePath + '.tmp';
+  await fs.writeFile(tempPath, JSON.stringify(versions), 'utf8');
+  await fs.rename(tempPath, filePath);
+  return { success: true };
+});
+
+ipcMain.handle('delete-versions', async (event, pageId) => {
+  if (!isValidPageId(pageId)) return { success: false };
+  try {
+    await fs.unlink(path.join(versionsDir, `${pageId}.json`));
+  } catch { /* file may not exist */ }
+  return { success: true };
+});
+
 ipcMain.handle('read-pages', async () => {
   try {
     const data = await fs.readFile(path.join(app.getPath('userData'), 'pages.json'), 'utf8');

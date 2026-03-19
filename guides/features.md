@@ -189,6 +189,27 @@ Export any page to 7 different formats, or share pages between devices using `.d
 - Import `.dashpack` files to restore or merge pages
 - All export happens locally — no cloud processing
 
+### Local AI
+
+A built-in AI writing assistant that runs entirely on your device. Connects to local AI servers (Ollama, LM Studio, LocalAI, Jan, or any OpenAI-compatible endpoint) running on localhost. Your notes never leave your machine — the AI processes everything locally.
+
+- Built-in presets for Ollama, LM Studio, LocalAI, Jan, and custom endpoints
+- Guided actions: Summarize, Rewrite, Continue, Fix grammar, Expand, Bullet points
+- Generative mode: Brainstorm, Outline, To-do list, Meeting notes, Pros and cons, and more
+- Free-form custom prompts with note content as context
+- Chat mode with follow-up questions and conversation history
+- Streaming markdown-rendered responses with theme-aware styling
+- Select which AI response to insert — click to choose from multiple responses
+- Insert actions: Replace selection, Insert below, Copy to clipboard, Save as new note
+- Multi-block AI: select multiple editor blocks and send combined content to AI
+- Editor highlights selected blocks while AI panel is open
+- Keyboard shortcuts: Cmd+Shift+A to toggle panel, Enter to send
+- Hard localhost enforcement — code rejects any non-local endpoint
+- No API keys, no accounts, no cloud, no telemetry
+- Chat history is in-memory only — cleared when panel closes
+- Encrypted pages blocked from AI access until unlocked
+- Automatic model discovery from the local server
+
 ---
 
 ## Navigation & UI
@@ -218,6 +239,7 @@ Comprehensive keyboard shortcut support. Press `?` or click the keyboard icon in
 
 - `?` — Show shortcuts reference
 - `Cmd+P` — Quick switcher
+- `Cmd+Shift+A` — Toggle AI panel
 - `Cmd+Shift+F` — Focus mode
 - `Cmd+Z` / `Cmd+Shift+Z` — Undo / Redo
 - `Cmd+U` — Underline

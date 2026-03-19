@@ -82,14 +82,24 @@
       "lastUpdated": "2026-03-12"
     },
     {
+      "slug": "local-ai",
+      "title": "Local AI for Note-Taking",
+      "subtitle": "On-Device AI Writing Assistant That Never Sees the Cloud",
+      "description": "Learn how local AI works, why it matters for privacy, and how Dash integrates with Ollama, LM Studio, and other local AI providers to give you AI writing assistance without your notes ever leaving your device.",
+      "file": "local-ai.md",
+      "tags": ["ai", "local-ai", "privacy", "ollama", "writing-assistant", "offline"],
+      "relatedFeatures": ["local-ai", "privacy", "offline-first", "encryption"],
+      "lastUpdated": "2026-03-19"
+    },
+    {
       "slug": "features",
       "title": "All Features",
       "subtitle": "Complete Feature Guide for Dash",
-      "description": "A comprehensive overview of every feature in Dash — encryption, encrypted sharing, live collaboration, EXIF stripping, decoy app, self-destructing notes, markdown paste, focus mode, themes, keyboard shortcuts, and more.",
+      "description": "A comprehensive overview of every feature in Dash — encryption, encrypted sharing, live collaboration, local AI, EXIF stripping, decoy app, self-destructing notes, markdown paste, focus mode, themes, keyboard shortcuts, and more.",
       "file": "features.md",
-      "tags": ["features", "overview", "guide", "security", "editor", "sharing", "privacy", "live-sessions", "collaboration"],
-      "relatedFeatures": ["encryption", "app-lock", "focus-mode", "themes", "shortcuts", "encrypted-sharing", "exif-stripping", "decoy-app", "live-sessions", "markdown-paste"],
-      "lastUpdated": "2026-03-17"
+      "tags": ["features", "overview", "guide", "security", "editor", "sharing", "privacy", "live-sessions", "collaboration", "ai"],
+      "relatedFeatures": ["encryption", "app-lock", "focus-mode", "themes", "shortcuts", "encrypted-sharing", "exif-stripping", "decoy-app", "live-sessions", "markdown-paste", "local-ai"],
+      "lastUpdated": "2026-03-19"
     }
   ]
 }

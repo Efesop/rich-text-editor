@@ -37,6 +37,7 @@ import SearchModal from '@/components/SearchModal'
 import SortDropdown from '@/components/SortDropdown'
 import { FolderModal } from '@/components/FolderModal'
 import { AddPageToFolderModal } from './AddPageToFolderModal'
+import VersionHistoryModal from './VersionHistoryModal'
 import { MoveToFolderModal } from './MoveToFolderModal'
 import { FolderIcon } from 'lucide-react'
 import UpdateNotification from './UpdateNotification'
@@ -448,6 +449,7 @@ export default function RichTextEditor() {
     selfDestructingPages,
     completeSelfDestruct,
     editorReloadKey,
+    setEditorReloadKey,
     decryptAllAppLockPages,
     encryptAndClearAppLockPages,
     reEncryptAppLockPages,
@@ -484,6 +486,8 @@ export default function RichTextEditor() {
   const [isAddToFolderModalOpen, setIsAddToFolderModalOpen] = useState(false)
   const [isMoveToFolderModalOpen, setIsMoveToFolderModalOpen] = useState(false)
   const [pageToMoveToFolder, setPageToMoveToFolder] = useState(null)
+  const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false)
+  const [versionHistoryPage, setVersionHistoryPage] = useState(null)
   const [passwordAction, setPasswordAction] = useState('lock')
   const [passwordError, setPasswordError] = useState('')
   // Rate limiting for password attempts — persisted to localStorage
@@ -2605,6 +2609,29 @@ export default function RichTextEditor() {
     setPageToMoveToFolder(null)
   }
 
+  const handleVersionHistory = (page) => {
+    setVersionHistoryPage(page)
+    setIsVersionHistoryOpen(true)
+  }
+
+  const handleRestoreVersion = async (blocks) => {
+    if (!versionHistoryPage) return
+    // Build the restored page with content already set (avoids race with savePage)
+    const restoredPage = {
+      id: crypto.randomUUID(),
+      title: `${versionHistoryPage.title || 'Untitled'} (restored)`,
+      content: { time: Date.now(), blocks, version: '2.30.6' },
+      tags: [],
+      tagNames: [],
+      createdAt: new Date().toISOString(),
+      password: null
+    }
+    // Insert into pages via importPages (handles storage + state atomically)
+    await importPages([restoredPage])
+    navigateToPage(restoredPage)
+    setEditorReloadKey(k => k + 1)
+  }
+
   useEffect(() => {
     const handleLinkClick = (event) => {
       const link = event.target?.closest && event.target.closest('a')
@@ -3268,6 +3295,7 @@ export default function RichTextEditor() {
                         onRename={handleRenamePage}
                         onToggleLock={handleToggleLock}
                         onDuplicate={handleDuplicatePage}
+                        onVersionHistory={handleVersionHistory}
                         onMoveToFolder={handleMoveToFolder}
                         onSelfDestruct={handleSelfDestruct}
                         onCancelSelfDestruct={handleCancelSelfDestruct}
@@ -3293,6 +3321,7 @@ export default function RichTextEditor() {
                         onDelete={handleDeletePage}
                         onToggleLock={handleToggleLock}
                         onDuplicate={handleDuplicatePage}
+                        onVersionHistory={handleVersionHistory}
                         onMoveToFolder={handleMoveToFolder}
                         onSelfDestruct={handleSelfDestruct}
                         onCancelSelfDestruct={handleCancelSelfDestruct}
@@ -3921,6 +3950,17 @@ export default function RichTextEditor() {
         onConfirm={handleMoveToFolderConfirm}
         folders={(pages || []).filter(item => item.type === 'folder')}
         currentFolderId={pageToMoveToFolder?.folderId || null}
+        theme={theme}
+      />
+
+      <VersionHistoryModal
+        isOpen={isVersionHistoryOpen}
+        onClose={() => {
+          setIsVersionHistoryOpen(false)
+          setVersionHistoryPage(null)
+        }}
+        page={versionHistoryPage}
+        onRestore={handleRestoreVersion}
         theme={theme}
       />
 

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Lock, LockKeyhole, Unlock, Trash2, MoreVertical, FolderMinus, FolderPlus, Copy, Edit3, Timer, TimerOff } from 'lucide-react'
+import { Lock, LockKeyhole, Unlock, Trash2, MoreVertical, FolderMinus, FolderPlus, Copy, Edit3, Timer, TimerOff, History } from 'lucide-react'
 import StackedTags from './StackedTags'
 import Tooltip from './Tooltip'
 import { isMobileDevice, isSmallScreen } from '@/utils/deviceUtils'
@@ -24,6 +24,7 @@ const PageItem = ({
   className = '',
   isInsideFolder = false,
   onDuplicate,
+  onVersionHistory,
   isSelfDestructing = false,
   onSelfDestructComplete,
   isLiveSession = false,
@@ -325,6 +326,20 @@ const PageItem = ({
                   <Copy className="h-4 w-4 inline mr-2" aria-hidden="true" />
                   Duplicate
                 </button>
+                {!page.password?.hash && (
+                  <button
+                    role="menuitem"
+                    className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onVersionHistory?.(page)
+                      setIsDropdownOpen(false)
+                    }}
+                  >
+                    <History className="h-4 w-4 inline mr-2" aria-hidden="true" />
+                    Version History
+                  </button>
+                )}
                 {onMoveToFolder && (
                   <button
                     role="menuitem"
@@ -444,6 +459,16 @@ const PageItem = ({
                 setIsActionSheetOpen(false)
               }}
             />
+            {!page.password?.hash && (
+              <ActionSheetItem
+                icon={History}
+                label="Version History"
+                onClick={() => {
+                  onVersionHistory?.(page)
+                  setIsActionSheetOpen(false)
+                }}
+              />
+            )}
             {onMoveToFolder && (
               <ActionSheetItem
                 icon={FolderPlus}

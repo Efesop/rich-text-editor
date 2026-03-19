@@ -28,6 +28,7 @@ export function FolderItem({
   onMoveToFolder,
   onSelfDestruct,
   onCancelSelfDestruct,
+  onVersionHistory,
   selfDestructingPages,
   completeSelfDestruct,
   pagesCount,
@@ -297,6 +298,7 @@ export function FolderItem({
                   tempUnlockedPages={tempUnlockedPages}
                   isInsideFolder={true}
                   onDuplicate={onDuplicate}
+                  onVersionHistory={onVersionHistory}
                   onMoveToFolder={onMoveToFolder}
                   onSelfDestruct={onSelfDestruct}
                   onCancelSelfDestruct={onCancelSelfDestruct}

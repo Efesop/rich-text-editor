@@ -34,7 +34,10 @@ contextBridge.exposeInMainWorld('electron', {
       'save-attachment',
       'load-attachment',
       'delete-attachment',
-      'open-attachment'
+      'open-attachment',
+      'read-versions',
+      'save-versions',
+      'delete-versions'
     ];
 
     if (validChannels.includes(channel)) {
