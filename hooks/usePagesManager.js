@@ -1391,6 +1391,10 @@ export function usePagesManager() {
     }
   }, [])
 
+  // Returns latest pages from pagesRef (source of truth).
+  // React `pages` state can be stale because savePage() only updates pagesRef.
+  const getLatestPages = useCallback(() => pagesRef.current, [])
+
   return {
     pages,
     setPages,
@@ -1442,5 +1446,6 @@ export function usePagesManager() {
     encryptAndClearAppLockPages,
     reEncryptAppLockPages,
     removeAppLockEncryption,
+    getLatestPages,
   }
 }

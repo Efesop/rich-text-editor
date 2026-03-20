@@ -605,7 +605,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
 
         // Expose flush function so external code can force-save before reading content
         window.__editorFlush = async () => {
-          if (!editorRef.current || !isInitializedRef.current) return
+          if (!editorRef.current || !isInitializedRef.current) return null
           // Cancel any pending debounced save
           if (editorRef.current.onChange) {
             clearTimeout(editorRef.current.onChange)
@@ -620,6 +620,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
               onChangeRef.current?.(content)
             }
           }
+          return content
         }
 
         // Initialize undo stack with initial data

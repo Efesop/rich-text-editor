@@ -455,6 +455,7 @@ export default function RichTextEditor() {
     reEncryptAppLockPages,
     removeAppLockEncryption,
     setPages,
+    getLatestPages,
   } = usePagesManager()
 
   const {
@@ -541,6 +542,7 @@ export default function RichTextEditor() {
   const [isPassphraseOpen, setIsPassphraseOpen] = useState(false)
   const [pendingAction, setPendingAction] = useState(null) // 'export' | 'import'
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [shareNoteContent, setShareNoteContent] = useState(null)
   const [isLiveSessionModalOpen, setIsLiveSessionModalOpen] = useState(false)
   const [isDecoySetupOpen, setIsDecoySetupOpen] = useState(false)
 
@@ -1688,8 +1690,11 @@ export default function RichTextEditor() {
 
     liveSessionRef.current = session
     liveGuestSyncedRef.current = true // Host is always synced
-    lastLocalBlocksRef.current = currentPage.content ? JSON.stringify(currentPage.content.blocks) : null
-    liveBlocksRef.current = currentPage.content?.blocks || []
+    // Flush editor to get latest content (savePage only updates pagesRef, not React state)
+    const flushedLive = window.__editorFlush ? await window.__editorFlush() : null
+    const liveContent = flushedLive || currentPage.content
+    lastLocalBlocksRef.current = liveContent ? JSON.stringify(liveContent.blocks) : null
+    liveBlocksRef.current = liveContent?.blocks || []
     locallyModifiedBlocksRef.current.clear()
     setActiveSession({ roomId, keyStr, docId, pageId: currentPage.id, isHost: true, link, duration: duration || null, startedAt: Date.now(), passwordHash })
 
@@ -2133,7 +2138,9 @@ export default function RichTextEditor() {
     if (!isClient || !currentPage) return
 
     try {
-      const content = currentPage.content
+      // Flush editor to get latest content (savePage only updates pagesRef, not React state)
+      const flushed = window.__editorFlush ? await window.__editorFlush() : null
+      const content = flushed || currentPage.content
       const fileName = currentPage.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()
 
       switch (exportType) {
@@ -2181,7 +2188,7 @@ export default function RichTextEditor() {
           break
         }
         case 'encrypted-share': {
-          if (window.__editorFlush) await window.__editorFlush()
+          setShareNoteContent(content)
           setIsShareModalOpen(true)
           break
         }
@@ -2245,9 +2252,12 @@ export default function RichTextEditor() {
 
     try {
       if (pendingAction === 'export') {
+        // Flush editor to get latest content before exporting
+        if (window.__editorFlush) await window.__editorFlush()
         const { exportEncryptedBundle } = await import('@/utils/exportUtils')
         // Export ALL items including folders to preserve folder structure
-        const allItems = pages || []
+        // Use getLatestPages() — React `pages` state can be stale (savePage only updates pagesRef)
+        const allItems = getLatestPages() || []
         await exportEncryptedBundle(allItems, tags, passphrase)
         return
       }
@@ -2715,7 +2725,7 @@ export default function RichTextEditor() {
   // Initialize keyboard navigation after all functions are defined
   useKeyboardNavigation({
     onNewPage: handleNewPageWithRename,
-    onSavePage: () => savePage(currentPage?.content),
+    onSavePage: async () => { if (window.__editorFlush) await window.__editorFlush() },
     onSearch: () => {
       setIsSearchModalOpen(true)
       announce('Search modal opened')
@@ -3504,7 +3514,7 @@ export default function RichTextEditor() {
                     <>
                     <Tooltip text="Share encrypted note">
                     <button
-                      onClick={async () => { if (window.__editorFlush) await window.__editorFlush(); setIsShareModalOpen(true) }}
+                      onClick={async () => { const flushed = window.__editorFlush ? await window.__editorFlush() : null; setShareNoteContent(flushed || currentPage?.content); setIsShareModalOpen(true) }}
                       className={`p-2 rounded-lg cursor-pointer ${getButtonHoverClasses()}`}
                     >
                       <Share2 className="h-4 w-4 pointer-events-none" />
@@ -4007,8 +4017,8 @@ export default function RichTextEditor() {
 
       <ShareModal
         isOpen={isShareModalOpen}
-        onClose={() => setIsShareModalOpen(false)}
-        noteContent={currentPage?.content}
+        onClose={() => { setIsShareModalOpen(false); setShareNoteContent(null) }}
+        noteContent={shareNoteContent || currentPage?.content}
         noteTitle={currentPage?.title}
         theme={theme}
       />
