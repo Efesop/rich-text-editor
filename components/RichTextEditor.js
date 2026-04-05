@@ -3636,7 +3636,7 @@ export default function RichTextEditor() {
         {/* Live Session Bar */}
         {/* Editor */ }
   <div className="flex-1 relative overflow-hidden">
-  <div ref={editorScrollRef} className={`h-full overflow-auto p-6 ${getMainContentClasses()} ${focusMode ? 'focus-mode-scroll pt-16' : ''} ${currentPage && selfDestructingPages.has(currentPage.id) ? 'pointer-events-none' : ''}`}>
+  <div ref={editorScrollRef} className={`h-full overflow-auto p-6 md:pl-[72px] ${getMainContentClasses()} ${focusMode ? 'focus-mode-scroll pt-16' : ''} ${currentPage && selfDestructingPages.has(currentPage.id) ? 'pointer-events-none' : ''}`}>
     <div className={`${focusMode ? 'max-w-2xl mx-auto w-full' : ''} ${focusMode && paragraphDimming ? 'paragraph-dimming' : ''} ${focusMode && typewriterMode ? 'pb-[50vh]' : ''}`}>
       {currentPage && (
         <div className="relative">
