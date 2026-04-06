@@ -11,7 +11,6 @@ files:
   - 'out/**/*'
   - 'electron-main.js'
   - 'preload.js'
-  - '.env'
 mac:
   icon: icons/Dashmac1024.icns
   target:

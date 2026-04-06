@@ -144,7 +144,7 @@ function createWindow() {
           "style-src 'self' 'unsafe-inline'; " +
           "img-src 'self' data:; " +
           "font-src 'self' data:; " +
-          "connect-src 'self' https://dash-relay.efesop.deno.net wss://dash-relay.efesop.deno.net http://localhost:3000 http://127.0.0.1:3000; " +
+          "connect-src 'self' https://dash-relay.efesop.deno.net wss://dash-relay.efesop.deno.net http://localhost:* http://127.0.0.1:*; " +
           "frame-src 'none'; " +
           "object-src 'none';"
         ]
@@ -211,7 +211,11 @@ ipcMain.handle('read-tags', async () => {
 
 ipcMain.handle('save-tags', async (event, tags) => {
   try {
-    await fs.writeFile(tagsPath, JSON.stringify(tags, null, 2));
+    if (!Array.isArray(tags)) throw new Error('Tags must be an array');
+    if (tags.length > 1000) throw new Error('Too many tags');
+    const data = JSON.stringify(tags, null, 2);
+    if (data.length > 1024 * 1024) throw new Error('Tags data too large');
+    await fs.writeFile(tagsPath, data);
   } catch (error) {
     throw error;
   }
@@ -512,7 +516,8 @@ ipcMain.handle('save-pages', async (event, pages) => {
 
       // Encrypted pages have content: null and encryptedContent: {...}
       // Don't force a fallback content object when encrypted content exists
-      const hasEncryptedContent = page.encryptedContent && typeof page.encryptedContent === 'object'
+      const ec = page.encryptedContent
+      const hasEncryptedContent = ec && typeof ec === 'object' && ec.data && ec.iv
       const content = hasEncryptedContent
         ? null
         : (page.content && typeof page.content === 'object')
@@ -546,9 +551,9 @@ ipcMain.handle('save-pages', async (event, pages) => {
     const backupPath = pagesPath + '.bak';
     const data = JSON.stringify(sanitizedPages, null, 2);
 
-    // Atomic write: write to temp file, backup existing, then rename
-    await fs.writeFile(tempPath, data);
+    // Atomic write: backup existing first, then write temp, then rename
     try { await fs.copyFile(pagesPath, backupPath); } catch { /* no existing file to backup */ }
+    await fs.writeFile(tempPath, data);
     await fs.rename(tempPath, pagesPath);
 
     return { success: true };
@@ -883,7 +888,7 @@ function handleDeepLink (urlString) {
     const hashIdx = urlString.indexOf('#')
     if (hashIdx === -1) return
     const hash = urlString.slice(hashIdx + 1)
-    if (!hash) return
+    if (!hash || !/^[a-zA-Z0-9_.\-=+/]+$/.test(hash)) return
     if (mainWindow?.webContents) {
       // Route to live session or share handler based on URL path
       if (urlString.includes('dashnotes://live')) {

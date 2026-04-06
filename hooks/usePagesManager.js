@@ -376,6 +376,8 @@ export function usePagesManager() {
     dbg('pages', 'deleting:', pageToDelete.title || pageToDelete.id, pageToDelete.type === 'folder' ? '(folder)' : '')
     // Get latest page content from pagesRef BEFORE filtering (for attachment cleanup below)
     const latestPage = pagesRef.current.find(p => p.id === pageToDelete.id) || pageToDelete
+    // Clean up cached encryption key for this page
+    encryptionKeysRef.current.delete(pageToDelete.id)
     // Use pagesRef.current (source of truth) instead of React state (prevPages)
     // because savePage only updates pagesRef, not React state — prevPages is stale
     let updatedPages = pagesRef.current.filter(p => p.id !== pageToDelete.id)

@@ -72,7 +72,7 @@ export default class AttachmentTool {
       const file = e.target.files[0]
       if (!file) return
 
-      const validation = validateAttachment(file)
+      const validation = await validateAttachment(file)
       if (!validation.valid) {
         this._showError(validation.error)
         return
