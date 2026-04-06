@@ -189,11 +189,11 @@ export default class BulletListItem {
       }
 
       const { beforeCaret, afterCaret } = this._splitAtCursor()
-      this._data.text = beforeCaret
-      this._element.innerHTML = beforeCaret
+      this._data.text = DOMPurify.sanitize(beforeCaret)
+      this._element.innerHTML = this._data.text
 
       const currentIndex = this.api.blocks.getCurrentBlockIndex()
-      this.api.blocks.insert('bulletListItem', { text: afterCaret }, {}, currentIndex + 1, true)
+      this.api.blocks.insert('bulletListItem', { text: DOMPurify.sanitize(afterCaret) }, {}, currentIndex + 1, true)
 
       // Ensure caret lands in the new block
       setTimeout(() => {

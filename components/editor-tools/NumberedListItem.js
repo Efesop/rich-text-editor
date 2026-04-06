@@ -168,11 +168,11 @@ export default class NumberedListItem {
       }
 
       const { beforeCaret, afterCaret } = this._splitAtCursor()
-      this._data.text = beforeCaret
-      this._element.innerHTML = beforeCaret
+      this._data.text = DOMPurify.sanitize(beforeCaret)
+      this._element.innerHTML = this._data.text
 
       const currentIndex = this.api.blocks.getCurrentBlockIndex()
-      this.api.blocks.insert('numberedListItem', { text: afterCaret }, {}, currentIndex + 1, true)
+      this.api.blocks.insert('numberedListItem', { text: DOMPurify.sanitize(afterCaret) }, {}, currentIndex + 1, true)
 
       setTimeout(() => {
         this.api.caret.setToBlock(currentIndex + 1, 'start')

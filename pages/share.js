@@ -116,8 +116,13 @@ function renderBlocks(blocks) {
         break
       case 'image': {
         const url = d.file ? d.file.url : (d.url || '')
-        html += '<figure><img src="' + url + '" style="max-width:100%;border-radius:8px" />' +
-          (d.caption ? '<figcaption>' + d.caption + '</figcaption>' : '') + '</figure>'
+        // Validate URL scheme to prevent javascript: XSS
+        if (url && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:image/'))) {
+          const safeUrl = url.replace(/"/g, '&quot;')
+          const safeCaption = (d.caption || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          html += '<figure><img src="' + safeUrl + '" style="max-width:100%;border-radius:8px" />' +
+            (safeCaption ? '<figcaption>' + safeCaption + '</figcaption>' : '') + '</figure>'
+        }
         break
       }
       case 'table': {

@@ -907,8 +907,15 @@ export function usePagesManager() {
   const handleDuplicatePage = useCallback(async (page) => {
     if (!page) return
 
+    // Strip encryption fields — duplicate starts as an unencrypted copy
+    const { password, encryptedContent, appLockEncrypted, ...pageWithoutEncryption } = page
+    if (!pageWithoutEncryption.content) {
+      // Page is locked and not temp-unlocked — can't duplicate without content
+      dbg('pages', 'cannot duplicate locked page without decrypted content')
+      return
+    }
     const newPage = {
-      ...page,
+      ...pageWithoutEncryption,
       id: crypto.randomUUID(),
       title: `${page.title} (Copy)`,
       createdAt: new Date().toISOString(),
@@ -1139,30 +1146,41 @@ export function usePagesManager() {
   const importPages = useCallback(async (importedItems) => {
     if (!Array.isArray(importedItems) || importedItems.length === 0) return
 
-    // Sanitize imported items before merging
-    const sanitizedItems = importedItems.map(item => {
-      if (item.type === 'folder' || !item.content?.blocks) return item
-      return { ...item, content: sanitizeEditorContent(item.content) }
+    // Generate new UUIDs for all imported items to prevent overwriting existing pages
+    const idMap = new Map()
+    importedItems.forEach(item => {
+      if (item.id) idMap.set(item.id, crypto.randomUUID())
     })
 
-    // Merge: imported items overwrite existing items with same ID
-    const map = new Map(pagesRef.current.map(item => [item.id, item]))
-    sanitizedItems.forEach(item => {
-      map.set(item.id, item)
+    // Re-map IDs, folder references, and sanitize content
+    const remappedItems = importedItems.map(item => {
+      const newId = idMap.get(item.id) || crypto.randomUUID()
+      const remapped = { ...item, id: newId }
+
+      // Remap folder page references
+      if (item.type === 'folder' && Array.isArray(item.pages)) {
+        remapped.pages = item.pages.map(pid => idMap.get(pid) || pid)
+      }
+
+      // Remap folderId reference
+      if (item.folderId && idMap.has(item.folderId)) {
+        remapped.folderId = idMap.get(item.folderId)
+      }
+
+      // Sanitize content
+      if (item.type !== 'folder' && item.content?.blocks) {
+        remapped.content = sanitizeEditorContent(item.content)
+      }
+
+      return remapped
     })
-    const newPages = Array.from(map.values())
+
+    // Merge: existing pages are NEVER overwritten (all imported IDs are new)
+    const newPages = [...pagesRef.current, ...remappedItems]
 
     pagesRef.current = newPages
     savePagesToStorage(newPages)
     setPages(newPages)
-
-    // Update currentPage if it was overwritten by import
-    if (currentPageRef.current) {
-      const importedCurrent = sanitizedItems.find(item => item.id === currentPageRef.current.id)
-      if (importedCurrent) {
-        _setCurrentPage(importedCurrent)
-      }
-    }
   }, [savePagesToStorage])
 
   // Self-destruct: set a timer on a page
@@ -1317,6 +1335,8 @@ export function usePagesManager() {
   const [selfDestructingPages, setSelfDestructingPages] = useState(new Set())
   const selfDestructingPagesRef = useRef(new Set())
 
+  // completeSelfDestruct: called from UI when viewing a self-destructing page
+  // The page is ALREADY deleted from storage by checkExpired — this just handles navigation + cleanup
   const completeSelfDestruct = useCallback((pageId) => {
     selfDestructingPagesRef.current.delete(pageId)
     setSelfDestructingPages(prev => {
@@ -1324,16 +1344,13 @@ export function usePagesManager() {
       next.delete(pageId)
       return next
     })
-    // Navigate away first if we're viewing this page, so the editor doesn't show stale content
     if (currentPageRef.current?.id === pageId) {
       const remaining = pagesRef.current.filter(p => p.type !== 'folder' && p.id !== pageId)
       if (remaining.length > 0) {
         setCurrentPage(remaining[0])
       }
     }
-    const page = pagesRef.current.find(p => p.id === pageId)
-    if (page) deletePage(page)
-  }, [deletePage, setCurrentPage])
+  }, [setCurrentPage])
 
   // Self-destruct: check for expired pages every 5 seconds
   useEffect(() => {
@@ -1344,10 +1361,18 @@ export function usePagesManager() {
       )
       expired.forEach(page => {
         if (!selfDestructingPagesRef.current.has(page.id)) {
-          // Wait 2s after expiry so "Expired" badge is visible, then start dissolve
+          // Wait 2s after expiry so "Expired" badge is visible, then delete + animate
           const elapsed = now - page.selfDestructAt
           if (elapsed < 2000) return
 
+          // Delete from storage IMMEDIATELY so force-quit can't preserve the page
+          deletePage(page)
+          // Delete backup so content can't be recovered from .bak
+          if (typeof window !== 'undefined' && window.electron?.invoke) {
+            setTimeout(() => window.electron.invoke('delete-pages-backup').catch(() => {}), 500)
+          }
+
+          // Start dissolve animation (cosmetic only — data is already gone)
           selfDestructingPagesRef.current.add(page.id)
           setSelfDestructingPages(prev => {
             const next = new Set(prev)
@@ -1355,7 +1380,7 @@ export function usePagesManager() {
             return next
           })
 
-          // For pages not being viewed, delete after sidebar dissolve animation (800ms)
+          // Clean up animation state after dissolve
           if (currentPageRef.current?.id !== page.id) {
             setTimeout(() => {
               selfDestructingPagesRef.current.delete(page.id)
@@ -1364,7 +1389,6 @@ export function usePagesManager() {
                 next.delete(page.id)
                 return next
               })
-              deletePage(page)
             }, 900)
           }
         }

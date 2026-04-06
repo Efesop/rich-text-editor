@@ -1,15 +1,58 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Lock, Fingerprint, AlertCircle } from 'lucide-react'
 
+// Rate-limit storage helpers — use Electron IPC (tamper-resistant) with localStorage fallback
+const ATTEMPT_KEY = 'dl_a'
+const LOCKOUT_KEY = 'dl_u'
+
+async function loadAttemptData () {
+  try {
+    if (typeof window !== 'undefined' && window.electron?.invoke) {
+      const data = await window.electron.invoke('lock-get-attempts')
+      if (data) return data
+    }
+  } catch {}
+  try {
+    return {
+      attempts: parseInt(localStorage.getItem(ATTEMPT_KEY) || '0', 10),
+      lockedUntil: parseInt(localStorage.getItem(LOCKOUT_KEY) || '0', 10)
+    }
+  } catch { return { attempts: 0, lockedUntil: 0 } }
+}
+
+function persistAttemptData (attempts, lockedUntil) {
+  try { localStorage.setItem(ATTEMPT_KEY, String(attempts)) } catch {}
+  try { localStorage.setItem(LOCKOUT_KEY, String(lockedUntil)) } catch {}
+  if (typeof window !== 'undefined' && window.electron?.invoke) {
+    window.electron.invoke('lock-record-attempt', { attempts, lockedUntil }).catch(() => {})
+  }
+}
+
+function clearAttemptData () {
+  try { localStorage.removeItem(ATTEMPT_KEY) } catch {}
+  try { localStorage.removeItem(LOCKOUT_KEY) } catch {}
+  if (typeof window !== 'undefined' && window.electron?.invoke) {
+    window.electron.invoke('lock-record-attempt', { attempts: 0, lockedUntil: 0 }).catch(() => {})
+  }
+}
+
 export default function AppLockScreen({ onUnlock, onBiometricUnlock, biometricAvailable, biometricEnabled, onDuressUnlock, duressEnabled, theme }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [attempts, setAttempts] = useState(() => {
-    try { return parseInt(sessionStorage.getItem('dash-lock-attempts') || '0', 10) } catch { return 0 }
-  })
-  const [lockedUntil, setLockedUntil] = useState(() => {
-    try { return parseInt(sessionStorage.getItem('dash-lock-until') || '0', 10) } catch { return 0 }
-  })
+  const [attempts, setAttempts] = useState(0)
+  const [lockedUntil, setLockedUntil] = useState(0)
+  const attemptDataLoaded = useRef(false)
+
+  // Load persisted attempt data on mount
+  useEffect(() => {
+    loadAttemptData().then(data => {
+      if (data) {
+        setAttempts(data.attempts || 0)
+        setLockedUntil(data.lockedUntil || 0)
+      }
+      attemptDataLoaded.current = true
+    })
+  }, [])
   const [cooldownRemaining, setCooldownRemaining] = useState(0)
   const inputRef = useRef(null)
 
@@ -63,7 +106,7 @@ export default function AppLockScreen({ onUnlock, onBiometricUnlock, biometricAv
         setPassword('')
         setError('')
         setAttempts(0)
-        try { sessionStorage.removeItem('dash-lock-attempts'); sessionStorage.removeItem('dash-lock-until') } catch {}
+        clearAttemptData()
         return
       }
     }
@@ -73,36 +116,33 @@ export default function AppLockScreen({ onUnlock, onBiometricUnlock, biometricAv
       setPassword('')
       setError('')
       setAttempts(0)
-      try { sessionStorage.removeItem('dash-lock-attempts'); sessionStorage.removeItem('dash-lock-until') } catch {}
+      clearAttemptData()
     } else {
       const newAttempts = attempts + 1
       setAttempts(newAttempts)
-      try { sessionStorage.setItem('dash-lock-attempts', String(newAttempts)) } catch {}
 
       // Increasing cooldowns: 3 attempts = 1s, 5 = 5s, 7 = 15s, 9+ = 30s
+      let until = 0
       if (newAttempts >= 9) {
-        const until = Date.now() + 30000
+        until = Date.now() + 30000
         setLockedUntil(until)
-        try { sessionStorage.setItem('dash-lock-until', String(until)) } catch {}
         setError('Too many attempts. Please wait 30 seconds.')
       } else if (newAttempts >= 7) {
-        const until = Date.now() + 15000
+        until = Date.now() + 15000
         setLockedUntil(until)
-        try { sessionStorage.setItem('dash-lock-until', String(until)) } catch {}
         setError('Too many attempts. Please wait 15 seconds.')
       } else if (newAttempts >= 5) {
-        const until = Date.now() + 5000
+        until = Date.now() + 5000
         setLockedUntil(until)
-        try { sessionStorage.setItem('dash-lock-until', String(until)) } catch {}
         setError('Too many attempts. Please wait 5 seconds.')
       } else if (newAttempts >= 3) {
-        const until = Date.now() + 1000
+        until = Date.now() + 1000
         setLockedUntil(until)
-        try { sessionStorage.setItem('dash-lock-until', String(until)) } catch {}
         setError('Incorrect password. Please try again carefully.')
       } else {
         setError('Incorrect password')
       }
+      persistAttemptData(newAttempts, until)
       setPassword('')
       inputRef.current?.focus()
     }

@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('electron', {
     const validChannels = [
       'read-pages',
       'save-pages',
+      'delete-pages-backup',
       'read-tags',
       'save-tags',
       'check-for-updates',
@@ -24,6 +25,8 @@ contextBridge.exposeInMainWorld('electron', {
       'save-whats-new',
       'read-app-lock',
       'save-app-lock',
+      'lock-record-attempt',
+      'lock-get-attempts',
       'check-biometric-available',
       'prompt-touch-id',
       'safe-storage-store',

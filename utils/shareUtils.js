@@ -63,11 +63,13 @@ const WORDS = [
 ]
 
 function generatePassphrase () {
-  const randomValues = crypto.getRandomValues(new Uint32Array(3))
+  const randomValues = crypto.getRandomValues(new Uint32Array(5))
   const word1 = WORDS[randomValues[0] % WORDS.length]
   const word2 = WORDS[randomValues[1] % WORDS.length]
-  const num = (randomValues[2] % 90) + 10
-  return `${word1}-${word2}-${num}`
+  const word3 = WORDS[randomValues[2] % WORDS.length]
+  const word4 = WORDS[randomValues[3] % WORDS.length]
+  const num = (randomValues[4] % 900) + 100
+  return `${word1}-${word2}-${word3}-${word4}-${num}`
 }
 
 /** Base URL of the hosted share/decryptor page. */

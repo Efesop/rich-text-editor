@@ -140,11 +140,11 @@ function createWindow() {
         ...details.responseHeaders,
         'Content-Security-Policy': [
           "default-src 'self'; " +
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+          "script-src 'self' 'unsafe-inline'; " +
           "style-src 'self' 'unsafe-inline'; " +
           "img-src 'self' data:; " +
           "font-src 'self' data:; " +
-          "connect-src 'self' https://dash-relay.efesop.deno.net wss://dash-relay.efesop.deno.net http://localhost:* http://127.0.0.1:*; " +
+          "connect-src 'self' https://dash-relay.efesop.deno.net wss://dash-relay.efesop.deno.net http://localhost:3000 http://127.0.0.1:3000; " +
           "frame-src 'none'; " +
           "object-src 'none';"
         ]
@@ -217,15 +217,24 @@ ipcMain.handle('save-tags', async (event, tags) => {
   }
 });
 
-// Decoy vault persistence (encrypted blob — indistinguishable from any encrypted data)
-const decoyPath = path.join(app.getPath('userData'), 'decoy-pages.json');
+// Decoy vault persistence (obfuscated filename — prevents forensic detection of duress mode)
+const decoyPath = path.join(app.getPath('userData'), 'dc.json');
+const oldDecoyPath = path.join(app.getPath('userData'), 'decoy-pages.json');
 
 ipcMain.handle('read-decoy-pages', async () => {
   try {
     const data = await fs.readFile(decoyPath, 'utf8');
     return JSON.parse(data);
   } catch (error) {
-    if (error.code === 'ENOENT') return null;
+    if (error.code === 'ENOENT') {
+      // Migrate from old filename
+      try {
+        const old = await fs.readFile(oldDecoyPath, 'utf8');
+        await fs.writeFile(decoyPath, old);
+        await fs.unlink(oldDecoyPath).catch(() => {});
+        return JSON.parse(old);
+      } catch { return null; }
+    }
     throw error;
   }
 });
@@ -546,6 +555,32 @@ ipcMain.handle('save-pages', async (event, pages) => {
   } catch (error) {
     console.error('Error saving pages:', error);
     throw error;
+  }
+});
+
+// Lock attempt tracking (tamper-resistant — stored in main process, not renderer)
+const lockAttemptsPath = path.join(app.getPath('userData'), 'lock-attempts.json');
+ipcMain.handle('lock-record-attempt', async (event, data) => {
+  try {
+    await fs.writeFile(lockAttemptsPath, JSON.stringify(data));
+    return true;
+  } catch { return false; }
+});
+ipcMain.handle('lock-get-attempts', async () => {
+  try {
+    const raw = await fs.readFile(lockAttemptsPath, 'utf8');
+    return JSON.parse(raw);
+  } catch { return { attempts: 0, lockedUntil: 0 }; }
+});
+
+// Delete pages backup (used after self-destruct to prevent recovery)
+ipcMain.handle('delete-pages-backup', async () => {
+  try {
+    const backupPath = path.join(app.getPath('userData'), 'pages.json.bak');
+    await fs.unlink(backupPath);
+    return true;
+  } catch {
+    return true; // Already deleted or never existed
   }
 });
 
@@ -935,7 +970,13 @@ app.on('activate', function () {
 async function createGitHubIssue(report) {
   try {
     const { Octokit } = await import('@octokit/rest');
-    const token = app.config?.get('githubToken');
+    // Retrieve token from safeStorage (OS keychain)
+    let token = null;
+    try {
+      const filePath = path.join(app.getPath('userData'), 'safe-github-token.enc');
+      const encrypted = await fs.readFile(filePath);
+      token = safeStorage.decryptString(encrypted);
+    } catch {}
     if (!token) {
       throw new Error('GitHub token not found');
     }
@@ -961,8 +1002,14 @@ ipcMain.handle('create-github-issue', async (event, report) => {
 });
 
 ipcMain.handle('set-github-token', async (event, token) => {
-  if (app.config) {
-    app.config.set('githubToken', token);
+  try {
+    if (!safeStorage.isEncryptionAvailable()) return false;
+    const encrypted = safeStorage.encryptString(token);
+    const filePath = path.join(app.getPath('userData'), 'safe-github-token.enc');
+    await fs.writeFile(filePath, encrypted);
+    return true;
+  } catch {
+    return false;
   }
 });
 

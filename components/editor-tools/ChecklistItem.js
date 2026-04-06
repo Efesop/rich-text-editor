@@ -126,11 +126,11 @@ export default class ChecklistItem {
       }
 
       const { beforeCaret, afterCaret } = this._splitAtCursor()
-      this._data.text = beforeCaret
-      this._textEl.innerHTML = beforeCaret
+      this._data.text = DOMPurify.sanitize(beforeCaret)
+      this._textEl.innerHTML = this._data.text
 
       const currentIndex = this.api.blocks.getCurrentBlockIndex()
-      this.api.blocks.insert('checklistItem', { text: afterCaret, checked: false }, {}, currentIndex + 1, true)
+      this.api.blocks.insert('checklistItem', { text: DOMPurify.sanitize(afterCaret), checked: false }, {}, currentIndex + 1, true)
 
       // For ChecklistItem, the contentEditable is inside a wrapper,
       // so api.caret won't find it. Manually focus the new block's text element.

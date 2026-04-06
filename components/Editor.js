@@ -1,4 +1,5 @@
  import React, { useEffect, useRef, useCallback, useMemo } from 'react'
+import DOMPurify from 'isomorphic-dompurify'
 import MultiBlockTuneEnhancer from './MultiBlockToolbar'
 import { migrateEditorData } from '@/utils/migrateBlocks'
 import { PageLinkInlineTool } from './editor-tools/PageLink'
@@ -393,7 +394,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
         onPaste(event) {
           const html = event.detail.data?.innerHTML || ''
           const linked = autoLinkUrls(html)
-          this._data = { text: linked }
+          this._data = { text: DOMPurify.sanitize(linked) }
           window.requestAnimationFrame(() => {
             if (this._element) {
               this._element.innerHTML = this._data.text || ''

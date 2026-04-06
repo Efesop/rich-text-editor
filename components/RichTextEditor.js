@@ -1232,6 +1232,9 @@ export default function RichTextEditor() {
     const success = await appLock.updatePassword(currentPassword, newPassword)
     if (!success) return false
 
+    // Flush any pending editor saves before re-encrypting
+    if (window.__editorFlush) await window.__editorFlush()
+
     // Derive new encryption key
     const newSalt = crypto.getRandomValues(new Uint8Array(16))
     const newKey = await deriveKeyFromPassphrase(newPassword, newSalt)

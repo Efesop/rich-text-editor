@@ -240,43 +240,46 @@ export const exportToPlainText = (content) => {
   }).join('');
 };
 
+// Escape RTF special characters to prevent injection
+const escRTF = (text) => (text || '').replace(/[\\{}]/g, m => '\\' + m)
+
 export const exportToRTF = (content) => {
   let rtf = '{\\rtf1\\ansi\\deff0 {\\fonttbl{\\f0 Times New Roman;}}\n';
-  
+
   let rtfNumCounter = 0;
   content.blocks.forEach((block, blockIndex) => {
     switch (block.type) {
       case 'header':
-        rtf += `{\\b\\fs${28 + (6 - (block.data.level || 1)) * 2} ${block.data.text || ''}}\n\\par\n`;
+        rtf += `{\\b\\fs${28 + (6 - (block.data.level || 1)) * 2} ${escRTF(block.data.text)}}\n\\par\n`;
         break;
       case 'paragraph':
-        rtf += `${block.data.text || ''}\n\\par\n`;
+        rtf += `${escRTF(block.data.text)}\n\\par\n`;
         break;
       case 'list':
         block.data.items?.forEach((item) => {
-          rtf += `{\\pntext\\f0 \\'B7\\tab}{\\*\\pn\\pnlvlblt\\pnf0\\pnindent0{\\pntxtb\\'B7}}${item}\n\\par\n`;
+          rtf += `{\\pntext\\f0 \\'B7\\tab}{\\*\\pn\\pnlvlblt\\pnf0\\pnindent0{\\pntxtb\\'B7}}${escRTF(item)}\n\\par\n`;
         });
         break;
       case 'checklist':
         block.data.items?.forEach((item) => {
           const checkbox = item.checked ? '[x]' : '[ ]';
-          rtf += `${checkbox} ${item.text}\n\\par\n`;
+          rtf += `${checkbox} ${escRTF(item.text)}\n\\par\n`;
         });
         break;
       case 'table':
         block.data.content.forEach((row) => {
-          rtf += row.join('\\tab') + '\\par\n';
+          rtf += row.map(c => escRTF(c)).join('\\tab') + '\\par\n';
         });
         break;
       case 'quote':
-        rtf += `{\\i "${block.data.text}" - ${block.data.caption}}\n\\par\n`;
+        rtf += `{\\i "${escRTF(block.data.text)}" - ${escRTF(block.data.caption)}}\n\\par\n`;
         break;
       case 'code':
-        rtf += `{\\f1 ${block.data.code}}\n\\par\n`;
+        rtf += `{\\f1 ${escRTF(block.data.code)}}\n\\par\n`;
         break;
       case 'image':
         // RTF does not support embedding images directly, so we add a placeholder
-        rtf += `[Image: ${block.data.caption}]\n\\par\n`;
+        rtf += `[Image: ${escRTF(block.data.caption)}]\n\\par\n`;
         break;
       case 'delimiter':
         rtf += `---\n\\par\n`;
@@ -284,7 +287,7 @@ export const exportToRTF = (content) => {
       case 'nestedlist':
         const renderNestedListRTF = (items, level = 0) => {
           items.forEach((item) => {
-            rtf += `${'\t'.repeat(level)}\\bullet ${item.content}\\par\n`;
+            rtf += `${'\t'.repeat(level)}\\bullet ${escRTF(item.content)}\\par\n`;
             if (item.items && item.items.length > 0) {
               renderNestedListRTF(item.items, level + 1);
             }
