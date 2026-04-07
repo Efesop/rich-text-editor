@@ -53,9 +53,15 @@ export function usePagesManager() {
   const isDuressModeRef = useRef(false)
   const duressKeyRef = useRef(null) // passphrase string for re-encrypting decoy saves
 
-  // Update refs when state changes
+  // Sync refs from React state ONLY on initial load.
+  // After init, pagesRef is the source of truth — all operations set it explicitly.
+  // A blanket `pagesRef.current = pages` useEffect would overwrite fresh pagesRef
+  // data with stale React state when setPages triggers a re-render after savePage
+  // has already written newer content to pagesRef.
   useEffect(() => {
-    pagesRef.current = pages
+    if (!isInitializedRef.current) {
+      pagesRef.current = pages
+    }
   }, [pages])
 
   useEffect(() => {
@@ -314,9 +320,16 @@ export function usePagesManager() {
 
   const lastSavedContentRef = useRef(null)
 
-  const savePage = useCallback(async (pageContent) => {
-    const currentPageData = currentPageRef.current
-    if (!currentPageData || !pageContent) return
+  const savePage = useCallback(async (pageContent, forPageId) => {
+    // ARCHITECTURAL RULE: Every save MUST carry the page ID from the editor
+    // instance that produced the content. We NEVER read currentPageRef here
+    // because it can point to a different page if a switch happened between
+    // content capture and save execution (async gap = race condition).
+    // Fallback to currentPageRef.current?.id only for legacy callers.
+    const targetId = forPageId || currentPageRef.current?.id
+    if (!targetId || !pageContent) return
+    const currentPageData = pagesRef.current.find(p => p.id === targetId)
+    if (!currentPageData) return
     // Block saves for pages that are self-destructing
     if (selfDestructingPagesRef.current.has(currentPageData.id)) return
 
@@ -356,7 +369,12 @@ export function usePagesManager() {
         p.id === validation.sanitized.id ? validation.sanitized : p
       )
       pagesRef.current = newPages
-      currentPageRef.current = validation.sanitized
+      // Only update currentPageRef if saved page IS the current page.
+      // If the user has already switched away, this save is for the old page
+      // and must not overwrite the ref pointing to the new page.
+      if (currentPageRef.current?.id === validation.sanitized.id) {
+        currentPageRef.current = validation.sanitized
+      }
       savePagesToStorage(newPages)
 
       // Capture version snapshot (fire-and-forget, never blocks save)

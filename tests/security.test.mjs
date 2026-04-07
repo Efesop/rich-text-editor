@@ -666,3 +666,103 @@ describe('Electron save-pages field whitelist', () => {
     assert.ok(code.includes("type: 'folder'"), 'must handle folder type')
   })
 })
+
+// ===== PAGE-SWITCH RACE CONDITION PREVENTION =====
+describe('Page-switch race condition prevention', () => {
+  it('Editor unmount flush passes pageId to onChange (not relying on currentPageRef)', () => {
+    const code = readSrc('components/Editor.js')
+    // The unmount flush must capture pageIdRef.current BEFORE the async save
+    assert.ok(code.includes('const flushPageId = pageIdRef.current'), 'must capture pageId before async save')
+    // The onChange call must pass flushPageId as second argument
+    assert.ok(code.includes('onChangeRef.current?.(content, flushPageId)'), 'must pass captured pageId to onChange')
+  })
+
+  it('Editor accepts pageId prop and stores in ref', () => {
+    const code = readSrc('components/Editor.js')
+    assert.ok(code.includes('pageId }') || code.includes('pageId}'), 'Editor must accept pageId prop')
+    assert.ok(code.includes('pageIdRef'), 'must store pageId in a ref')
+  })
+
+  it('savePage always looks up page from pagesRef by ID (never currentPageRef)', () => {
+    const code = readSrc('hooks/usePagesManager.js')
+    // savePage must accept forPageId parameter
+    assert.ok(code.includes('forPageId'), 'savePage must accept forPageId parameter')
+    // Must always look up from pagesRef.current.find, never directly use currentPageRef for page data
+    assert.ok(code.includes('pagesRef.current.find(p => p.id === targetId)'), 'must always look up page by ID from pagesRef')
+    // Must derive targetId from forPageId first, with currentPageRef as fallback only
+    assert.ok(code.includes('forPageId || currentPageRef.current?.id'), 'must prefer forPageId over currentPageRef')
+  })
+
+  it('handleEditorChange passes forPageId through to savePage', () => {
+    const code = readSrc('components/RichTextEditor.js')
+    // handleEditorChange must accept forPageId
+    assert.ok(code.includes('content, forPageId'), 'handleEditorChange must accept forPageId')
+    // Must pass it to savePage
+    assert.ok(code.includes('savePage(content, forPageId)'), 'must pass forPageId to savePage')
+  })
+
+  it('DynamicEditor receives pageId prop', () => {
+    const code = readSrc('components/RichTextEditor.js')
+    assert.ok(code.includes('pageId={currentPage.id}'), 'DynamicEditor must receive pageId prop')
+  })
+
+  it('ALL onChange calls in Editor.js pass pageId (no bare onChange calls)', () => {
+    const code = readSrc('components/Editor.js')
+    // Find all onChangeRef.current?.( calls
+    const matches = [...code.matchAll(/onChangeRef\.current\?\.\(([^)]+)\)/g)]
+    assert.ok(matches.length >= 4, `expected at least 4 onChange calls, found ${matches.length}`)
+    for (const match of matches) {
+      const args = match[1]
+      // Every call must pass a page ID as second argument
+      assert.ok(
+        args.includes('pageIdRef.current') || args.includes('flushPageId'),
+        `onChange call must pass pageId: onChangeRef.current?.(${args})`
+      )
+    }
+  })
+
+  it('savePage only updates currentPageRef when saved page is the active page', () => {
+    const code = readSrc('hooks/usePagesManager.js')
+    // Must compare IDs before updating currentPageRef
+    assert.ok(
+      code.includes('currentPageRef.current?.id === validation.sanitized.id'),
+      'must check if saved page IS the current page before updating currentPageRef'
+    )
+  })
+
+  it('handleInstantLock flushes editor before encrypting', () => {
+    const code = readSrc('components/RichTextEditor.js')
+    // Find the actual function definition, not references to it
+    const fnStart = code.indexOf('const handleInstantLock')
+    assert.ok(fnStart > 0, 'handleInstantLock function must exist')
+    const lockFn = code.substring(fnStart, fnStart + 500)
+    // Strip comments to check actual code order
+    const codeOnly = lockFn.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')
+    // __editorFlush must appear BEFORE encryptAndClearAppLockPages in actual code
+    const flushIdx = codeOnly.indexOf('__editorFlush')
+    const encryptIdx = codeOnly.indexOf('encryptAndClearAppLockPages')
+    assert.ok(flushIdx > 0, 'handleInstantLock must call __editorFlush')
+    assert.ok(encryptIdx > 0, 'handleInstantLock must call encryptAndClearAppLockPages')
+    assert.ok(flushIdx < encryptIdx, '__editorFlush must be called BEFORE encryptAndClearAppLockPages')
+  })
+
+  it('beforeunload handler flushes editor before encrypting', () => {
+    const code = readSrc('components/RichTextEditor.js')
+    const beforeUnload = code.substring(code.indexOf('handleBeforeUnload'), code.indexOf('handleBeforeUnload') + 500)
+    const flushIdx = beforeUnload.indexOf('__editorFlush')
+    const encryptIdx = beforeUnload.indexOf('encryptAndClearAppLockPages')
+    assert.ok(flushIdx > 0, 'beforeunload must call __editorFlush')
+    assert.ok(encryptIdx > 0, 'beforeunload must call encryptAndClearAppLockPages')
+    assert.ok(flushIdx < encryptIdx, '__editorFlush must be called BEFORE encryptAndClearAppLockPages')
+  })
+
+  it('pagesRef useEffect only syncs before initialization', () => {
+    const code = readSrc('hooks/usePagesManager.js')
+    // The useEffect that syncs pagesRef must be guarded by isInitializedRef
+    assert.ok(code.includes('if (!isInitializedRef.current)'), 'pagesRef sync must be guarded by isInitializedRef')
+    // Find the guarded block and verify it sets pagesRef
+    const guardIdx = code.indexOf('if (!isInitializedRef.current)')
+    const nearbyCode = code.substring(guardIdx, guardIdx + 200)
+    assert.ok(nearbyCode.includes('pagesRef.current = pages'), 'guarded block must sync pagesRef from React state')
+  })
+})

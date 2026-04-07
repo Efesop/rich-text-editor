@@ -192,13 +192,14 @@ function convertInlineMarkdown (text) {
   return autoLinkify(result)
 }
 
-export default function Editor({ data, onChange, holder, onPageLinkClick, liveUpdateKey, readOnly }) {
+export default function Editor({ data, onChange, holder, onPageLinkClick, liveUpdateKey, readOnly, pageId }) {
   const editorRef = useRef(null)
   const isInitializedRef = useRef(false)
   const dataRef = useRef(data)
   const onChangeRef = useRef(onChange)
   const multiBlockEnhancerRef = useRef(null)
   const lastSavedRef = useRef(null) // Dedup: prevent MutationObserver feedback loops
+  const pageIdRef = useRef(pageId) // Pin page ID for unmount flush
 
   // Custom undo/redo state
   const undoStackRef = useRef([])
@@ -277,7 +278,9 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
             }
             lastSavedRef.current = blocksStr
             if (window.__DASH_DEBUG) console.log('[editor] onChange →', content.blocks?.length, 'blocks')
-            onChangeRef.current?.(content)
+            // Always pass pageIdRef so saves are pinned to THIS editor's page,
+            // not whatever currentPageRef happens to point to at save time
+            onChangeRef.current?.(content, pageIdRef.current)
 
             // Capture undo snapshot (debounced to group rapid typing into one step)
             // Skip if this onChange was triggered by an undo/redo render
@@ -618,7 +621,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
             const blocksStr = JSON.stringify(content.blocks)
             if (blocksStr !== lastSavedRef.current) {
               lastSavedRef.current = blocksStr
-              onChangeRef.current?.(content)
+              onChangeRef.current?.(content, pageIdRef.current)
             }
           }
           return content
@@ -927,7 +930,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
         try {
           await editorRef.current.render({ blocks: snapshot })
           lastSavedRef.current = JSON.stringify(snapshot)
-          onChangeRef.current?.({ blocks: snapshot })
+          onChangeRef.current?.({ blocks: snapshot }, pageIdRef.current)
         } finally {
           // Keep flag true long enough to suppress the onChange pipeline
           // (300ms debounce + 500ms snapshot debounce = 800ms)
@@ -965,7 +968,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
         try {
           await editorRef.current.render({ blocks: JSON.parse(JSON.stringify(previousSnapshot)) })
           lastSavedRef.current = JSON.stringify(previousSnapshot)
-          onChangeRef.current?.({ blocks: previousSnapshot })
+          onChangeRef.current?.({ blocks: previousSnapshot }, pageIdRef.current)
         } finally {
           setTimeout(() => { isUndoRedoRef.current = false }, 1000)
         }
@@ -1208,13 +1211,16 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
 
         // If there was a pending debounced save, flush it before destroying
         // This prevents data loss when switching pages within the 300ms debounce window
+        // CRITICAL: Capture pageId NOW (before async save resolves) to avoid race condition
+        // where currentPageRef has already switched to the new page by the time .then() fires
+        const flushPageId = pageIdRef.current
         if (hadPendingSave && typeof editor.saver?.save === 'function') {
           editor.saver.save().then(content => {
             if (content && content.blocks) {
               const blocksStr = JSON.stringify(content.blocks)
               if (blocksStr !== lastSavedRef.current) {
                 lastSavedRef.current = blocksStr
-                onChangeRef.current?.(content)
+                onChangeRef.current?.(content, flushPageId)
               }
             }
           }).catch(() => {}).finally(() => {

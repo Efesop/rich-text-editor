@@ -1093,6 +1093,10 @@ export default function RichTextEditor() {
   // Idle timer for auto-lock (encrypts before locking)
   const handleInstantLock = useCallback(async () => {
     if (appLock.isEnabled) {
+      // Flush editor's debounced save FIRST — without this, content typed in the
+      // last ~300ms (Editor.js debounce window) would not reach pagesRef and would
+      // be lost when encryptAndClearAppLockPages reads pagesRef to encrypt
+      if (window.__editorFlush) await window.__editorFlush()
       await encryptAndClearAppLockPages()
       appLock.lock()
     }
@@ -1303,7 +1307,9 @@ export default function RichTextEditor() {
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (appLock.isEnabled && !appLock.isLocked && appLock.getEncryptionKey()) {
-        // Synchronous — best effort to trigger save
+        // Best effort — flush editor debounce then encrypt
+        // beforeunload cannot await async, but triggering the chain gives it a chance
+        if (window.__editorFlush) window.__editorFlush()
         encryptAndClearAppLockPages()
       }
     }
@@ -1362,7 +1368,7 @@ export default function RichTextEditor() {
 
   const lastLocalBlocksRef = useRef(null) // Track local blocks for delta diffing
 
-  const handleEditorChange = useCallback(async (content) => {
+  const handleEditorChange = useCallback(async (content, forPageId) => {
     // Broadcast to live session peers
     // Skip if: not connected, guest hasn't synced yet, or content matches last remote update (echo prevention)
     const isOnSessionPage = activeSessionRef.current && currentPageRef.current?.id === activeSessionRef.current.pageId
@@ -1415,8 +1421,11 @@ export default function RichTextEditor() {
     }
 
     // Skip saving for guest virtual pages (they aren't real pages in storage)
-    if (!currentPageRef.current?.id?.startsWith('live-')) {
-      await savePage(content)
+    // forPageId is set during unmount flush — pins save to the correct page even if
+    // currentPageRef has already switched to a different page (race condition fix)
+    const targetId = forPageId || currentPageRef.current?.id
+    if (!targetId?.startsWith('live-')) {
+      await savePage(content, forPageId)
     }
     setWordCount(calculateWordCount(content))
     setOutlineHeadings(extractHeadings(content.blocks))
@@ -3720,6 +3729,7 @@ export default function RichTextEditor() {
               data={currentPage.content}
               onChange={handleEditorChange}
               holder="editorjs"
+              pageId={currentPage.id}
               onPageLinkClick={handlePageLinkClick}
               liveUpdateKey={activeSession ? liveUpdateKey : undefined}
               readOnly={undefined}
