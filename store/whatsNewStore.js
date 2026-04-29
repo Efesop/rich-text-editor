@@ -32,7 +32,9 @@ const useWhatsNewStore = create((set, get) => ({
     set({ lastSeenVersion: version })
     try {
       if (typeof window !== 'undefined' && window.electron?.invoke) {
-        await window.electron.invoke('save-whats-new', { lastSeenVersion: version })
+        // Read-then-merge so we don't clobber sibling keys (featuresTooltipSeen, etc.)
+        const existing = await window.electron.invoke('read-whats-new')
+        await window.electron.invoke('save-whats-new', { ...(existing || {}), lastSeenVersion: version })
       } else {
         localStorage.setItem(STORAGE_KEY, version)
       }

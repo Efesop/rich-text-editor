@@ -160,11 +160,12 @@ Theme preference persists across sessions.
 
 ### Duress Password
 - Set a secondary password during app lock setup or in settings
-- When entered at the lock screen, silently triggers a panic action — the attacker sees a normal empty app
-- **Hide mode** — clears the app from memory but preserves data on disk. Re-entering the real password restores everything.
-- **Wipe mode** — permanently deletes all pages. Irreversible.
+- When entered at the lock screen, silently triggers a panic action — the attacker sees a decoy app
+- **Show Decoy Notes (Hide mode)** — fake notes are shown; real data stays encrypted on disk. Re-entering the real password restores everything. Saves are blocked while in duress mode so the decoy state can never overwrite real data.
 - Must be different from the real password
 - No visual indication that a duress action was triggered
+
+> **Note:** Wipe mode (irreversibly deleting all data) was previously available but is **disabled** as of v1.3.131 due to a data-loss incident. Only Hide mode is exposed in the UI.
 
 ### Seed Phrase Storage
 - Dedicated Editor.js block type for storing cryptocurrency wallet recovery phrases
@@ -181,6 +182,89 @@ Theme preference persists across sessions.
 - Countdown badge in the sidebar shows precise time remaining
 - Badge color shifts from green to orange to red as expiry approaches
 - Cancel self-destruct at any time via the page's context menu
+
+---
+
+## File Attachments
+
+Attach images and PDFs directly to notes via the `+` block menu or drag-and-drop.
+
+- **Supported types** (v1): JPEG, PNG, GIF, WebP, PDF
+- **Max size**: 10 MB per file
+- **Magic-bytes validation** — file headers verified against MIME type (not just extension), so renamed `.exe`-as-`.png` files are rejected
+- **Storage** — files stored separately from the page JSON: Electron uses `userData/attachments/`, PWA uses IndexedDB, browser uses localStorage base64
+- **Card UI** — attachment blocks render as a compact card with file icon, filename, and size badge; click opens the file (Electron uses `shell.openPath`, web uses a blob URL)
+- **Dashpack export** bundles attachment data as base64
+- **Page duplicate** copies attachment files with new UUIDs
+- **Share** replaces attachment blocks with `[Attachment: filename]` placeholders (attachments are not transmitted in share links)
+- **Page delete** cleans up associated attachment files
+
+---
+
+## Version History
+
+Browse and restore previous versions of any page.
+
+- **Up to 10 versions per page** — oldest dropped automatically when the limit is hit
+- **Throttled** — minimum 30 seconds between captures, with SHA-256 content-hash dedup so identical states aren't snapshotted twice
+- **Block preview** — version list modal shows a preview of each version's blocks before restoring
+- **Restore as New Page** — restoring creates a *new* page with the old content rather than overwriting; non-destructive, no tag/folder conflicts
+- **Privacy** — locked pages do **not** capture versions, and existing versions are deleted the moment a page is locked. The "Version History" menu item is hidden for locked pages.
+- **Storage** — versions stored separately per page (Electron: `userData/versions/{pageId}.json`, PWA: IndexedDB, browser: localStorage)
+- **Page delete** cleans up associated version history
+
+---
+
+## Local AI
+
+Optional integration with **on-device large language models** — Ollama, LM Studio, LocalAI, and Jan. All data stays on your machine; nothing is sent to a cloud service.
+
+### Setup
+- Pick a preset (Ollama, LM Studio, LocalAI, Jan, or Custom) or enter your own endpoint
+- Configure model name, temperature, and max tokens
+- Settings persisted locally in `localStorage`
+
+### Entry points
+- **Footer Bot button** — opens AI panel with full note context
+- **Inline toolbar** — highlight text, click the Bot icon
+- **Block settings menu** — every block has an "AI" tune via the 6-dot popover
+- **Multi-block selection** — drag-select or Cmd+click multiple blocks, then send to AI
+- **Slash menu** — type `/ai` for an AI block
+
+### Actions
+- **Summarize** the current note or selection
+- **Rewrite** to improve clarity or change tone
+- **Continue** writing from the cursor
+- **Explain** the selected text
+- **Custom prompt** — write your own instruction
+- **Chat mode** — multi-turn conversation about the current note
+
+### Output handling
+- **Streaming** — AI responses stream in token-by-token with markdown preview
+- **Insert / Replace** — append the response below the source, replace a single block, or replace the whole note
+- **Save as Note** — convert the AI response into a brand-new page
+
+### Network
+- **CSP** allows `localhost:*` and `127.0.0.1:*` so any local LLM port works (Ollama 11434, LM Studio 1234, LocalAI 8080, Jan 1337, custom)
+- No external connections — if the local LLM is offline, AI features are simply unavailable
+
+---
+
+## Encrypted Sharing
+
+Generate read-only, encrypted share links of any note.
+
+- **Zero-knowledge** — payload is encrypted client-side and embedded in the URL fragment (`#`), which browsers never send to the server
+- **Passphrase** — auto-generated 4-word + 3-digit passphrase (~38 bits entropy), or set your own password
+- **Optional server storage** — opt in to upload the encrypted blob to the relay (`dash-relay.efesop.deno.net`) for a 30-day shorter link; the relay only ever sees ciphertext
+- **Deflate compression** — share payloads compressed before encryption
+- **EXIF stripping** — image attachments have EXIF metadata removed before encoding
+- **QR code** — share via QR for in-person handoff
+- **System share sheet** — native share sheet on supported platforms
+- **Open in Dash** — `dash://share#…` deep-link protocol opens shared notes directly in the desktop app
+- **Decryption page** at `https://dash-share.vercel.app` — purely client-side, runs in any modern browser
+
+---
 
 ---
 

@@ -33,7 +33,7 @@ Dash is a privacy-first, offline-first note-taking app. Everything is stored loc
 - **Folders & Tags** - Organize with drag-and-drop folders and color-coded tags.
 - **Quick Switcher** - Cmd+P to jump to any note instantly.
 - **Self-Destructing Notes** - Set notes to auto-delete after a time period.
-- **Duress Password** - A secondary password that silently wipes or hides your data under coercion.
+- **Duress Password** - A secondary password that silently shows decoy notes under coercion (real data stays encrypted on disk).
 - **Seed Phrase Storage** - Secure numbered grid for crypto wallet recovery phrases with BIP-39 validation.
 - **Touch ID** - Biometric unlock on macOS.
 - **Focus Mode** - Distraction-free writing with typewriter scrolling, paragraph dimming, and session stats.

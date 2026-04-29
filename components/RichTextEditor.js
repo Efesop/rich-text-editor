@@ -82,6 +82,11 @@ import { usePageLinkInterceptor, PageLinkDropdown, PageLinkInlineTool } from './
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
 
+// Live sessions disabled — implementation kept in tree for future re-enable.
+// All entry points (UI triggers, deep links, auto-join, modal/chip/notifications render)
+// are gated on this flag.
+const LIVE_SESSIONS_ENABLED = false
+
 const AVATAR_COLORS = ['#1e40af', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#1d4ed8', '#0284c7', '#0ea5e9']
 const ADJECTIVES = ['Red', 'Blue', 'Green', 'Gold', 'Silver', 'Purple', 'Amber', 'Coral']
 const ANIMALS = ['Fox', 'Owl', 'Bear', 'Wolf', 'Hawk', 'Lynx', 'Deer', 'Crane']
@@ -917,6 +922,21 @@ export default function RichTextEditor() {
 
   const [showFeaturesTooltip, setShowFeaturesTooltip] = useState(false)
 
+  // Persist that the tooltip has been shown — so closing the app without
+  // clicking still counts as "seen". Read-then-merge so we don't clobber
+  // sibling keys (lastSeenVersion etc.) in whats-new.json.
+  const persistFeaturesTooltipSeen = useCallback(async () => {
+    const key = 'dash-features-tooltip-seen'
+    try {
+      if (typeof window !== 'undefined' && window.electron?.invoke) {
+        const data = await window.electron.invoke('read-whats-new')
+        await window.electron.invoke('save-whats-new', { ...(data || {}), featuresTooltipSeen: true })
+      } else {
+        localStorage.setItem(key, 'true')
+      }
+    } catch {}
+  }, [])
+
   useEffect(() => {
     const key = 'dash-features-tooltip-seen'
     const checkTooltip = async () => {
@@ -929,25 +949,21 @@ export default function RichTextEditor() {
           seen = localStorage.getItem(key) === 'true'
         }
         if (!seen) {
-          setTimeout(() => setShowFeaturesTooltip(true), 2000)
+          setTimeout(() => {
+            setShowFeaturesTooltip(true)
+            // Mark as seen the moment it becomes visible — show-once semantics.
+            persistFeaturesTooltipSeen()
+          }, 2000)
         }
       } catch {}
     }
     checkTooltip()
-  }, [])
+  }, [persistFeaturesTooltipSeen])
 
   const dismissFeaturesTooltip = useCallback(async () => {
     setShowFeaturesTooltip(false)
-    const key = 'dash-features-tooltip-seen'
-    try {
-      if (typeof window !== 'undefined' && window.electron?.invoke) {
-        const data = await window.electron.invoke('read-whats-new')
-        await window.electron.invoke('save-whats-new', { ...data, featuresTooltipSeen: true })
-      } else {
-        localStorage.setItem(key, 'true')
-      }
-    } catch {}
-  }, [])
+    persistFeaturesTooltipSeen()
+  }, [persistFeaturesTooltipSeen])
 
   // Self-Destruct modal
   const [isSelfDestructModalOpen, setIsSelfDestructModalOpen] = useState(false)
@@ -1570,6 +1586,7 @@ export default function RichTextEditor() {
 
   // ── Live Session Handlers ─────────────────────────────────────
   const handleStartLiveSession = useCallback(async ({ roomId, keyStr, link, duration, sessionPassword }) => {
+    if (!LIVE_SESSIONS_ENABLED) return
     if (!currentPage) return
     // Destroy any existing session before starting a new one
     if (liveSessionRef.current) {
@@ -1792,6 +1809,7 @@ export default function RichTextEditor() {
 
   // Join a live session as guest (used by both /live page redirect and deep links)
   const joinLiveSessionAsGuest = useCallback(async (roomId, key) => {
+    if (!LIVE_SESSIONS_ENABLED) return
     try {
       // Destroy any existing session before joining a new one
       if (liveSessionRef.current) {
@@ -3324,7 +3342,7 @@ export default function RichTextEditor() {
                         selfDestructingPages={selfDestructingPages}
                         completeSelfDestruct={completeSelfDestruct}
                         pagesCount={folderPageIds.length}
-                        liveSessionPageId={activeSession?.pageId}
+                        liveSessionPageId={LIVE_SESSIONS_ENABLED ? activeSession?.pageId : null}
                         liveAvatarColors={liveAllAvatarColors}
                       />
                     )
@@ -3354,7 +3372,7 @@ export default function RichTextEditor() {
                         isInsideFolder={false}
                         isSelfDestructing={selfDestructingPages.has(item.id)}
                         onSelfDestructComplete={completeSelfDestruct}
-                        isLiveSession={activeSession?.pageId === item.id}
+                        isLiveSession={LIVE_SESSIONS_ENABLED && activeSession?.pageId === item.id}
                         liveAvatarColors={activeSession?.pageId === item.id || item.id?.startsWith('live-') ? liveAllAvatarColors : []}
                       />
                     );
@@ -3507,7 +3525,7 @@ export default function RichTextEditor() {
               ) : (
                 <>
                   <ExportDropdown onExport={handleExport} className={`cursor-pointer ${getButtonHoverClasses()}`} />
-                  {activeSession && currentPage?.id === activeSession.pageId ? (
+                  {LIVE_SESSIONS_ENABLED && activeSession && currentPage?.id === activeSession.pageId ? (
                     <LiveSessionChip
                       participants={participants}
                       status={sessionStatus}
@@ -3563,15 +3581,15 @@ export default function RichTextEditor() {
                     <Bug className="h-4 w-4 pointer-events-none" />
                   </button>
                   </Tooltip>
-                  <Tooltip text={editRequests.length > 0 ? `${editRequests.length} edit request${editRequests.length > 1 ? 's' : ''}` : 'Check for updates'}>
+                  <Tooltip text={LIVE_SESSIONS_ENABLED && editRequests.length > 0 ? `${editRequests.length} edit request${editRequests.length > 1 ? 's' : ''}` : 'Check for updates'}>
                   <button
-                    onClick={editRequests.length > 0 ? () => setIsLiveNotificationsOpen(!isLiveNotificationsOpen) : handleBellClick}
-                    disabled={editRequests.length === 0 && !canCheckForUpdates}
-                    className={`relative p-2 rounded-lg cursor-pointer ${getIconClasses()} ${getButtonHoverClasses()} ${editRequests.length === 0 && !canCheckForUpdates ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    onClick={LIVE_SESSIONS_ENABLED && editRequests.length > 0 ? () => setIsLiveNotificationsOpen(!isLiveNotificationsOpen) : handleBellClick}
+                    disabled={(!LIVE_SESSIONS_ENABLED || editRequests.length === 0) && !canCheckForUpdates}
+                    className={`relative p-2 rounded-lg cursor-pointer ${getIconClasses()} ${getButtonHoverClasses()} ${(!LIVE_SESSIONS_ENABLED || editRequests.length === 0) && !canCheckForUpdates ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <Bell className={`h-4 w-4 pointer-events-none ${isCheckingForUpdates ? 'animate-pulse' : ''}`} />
-                    {(updateInfo?.available || editRequests.length > 0) && (
-                      <span className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full ${editRequests.length > 0 ? 'bg-blue-500' : 'bg-red-500'} ${theme === 'dark' ? 'border border-[#0d0d0d]' : theme === 'darkblue' ? 'border border-[#0c1017]' : theme === 'fallout' ? 'border border-gray-900' : 'border border-white'} shadow-sm`}></span>
+                    {(updateInfo?.available || (LIVE_SESSIONS_ENABLED && editRequests.length > 0)) && (
+                      <span className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full ${LIVE_SESSIONS_ENABLED && editRequests.length > 0 ? 'bg-blue-500' : 'bg-red-500'} ${theme === 'dark' ? 'border border-[#0d0d0d]' : theme === 'darkblue' ? 'border border-[#0c1017]' : theme === 'fallout' ? 'border border-gray-900' : 'border border-white'} shadow-sm`}></span>
                     )}
                   </button>
                   </Tooltip>
@@ -3657,7 +3675,8 @@ export default function RichTextEditor() {
             const roomId = currentPage.id.replace('live-', '')
             let storedData = null
             try { const raw = localStorage.getItem('dash-live-page-' + roomId); if (raw) storedData = JSON.parse(raw) } catch { /* ignore */ }
-            const isEnded = sessionEndedByHostRef.current || storedData?.sessionEnded
+            // Live sessions disabled — treat any persisted live page as ended so user can adopt it
+            const isEnded = !LIVE_SESSIONS_ENABLED || sessionEndedByHostRef.current || storedData?.sessionEnded
 
             const bannerCls = theme === 'fallout' ? 'bg-green-500/10 border border-green-500/20 text-green-400 font-mono'
               : theme === 'darkblue' ? 'bg-blue-500/5 border border-blue-500/10 text-[#8b99b5]'
@@ -3788,8 +3807,7 @@ export default function RichTextEditor() {
         </Tooltip>
       )}
       <span
-        onClick={() => { if (!currentPage?.id?.startsWith('live-') && !activeSession) setIsLiveSessionModalOpen(true) }}
-        className={!currentPage?.id?.startsWith('live-') && !activeSession ? 'cursor-pointer' : ''}
+        className=""
       >{wordCount} words</span>
       <Tooltip text={showMiniOutline ? 'Hide contents' : 'Table of contents'}>
       <button
@@ -4036,6 +4054,7 @@ export default function RichTextEditor() {
         theme={theme}
       />
 
+      {LIVE_SESSIONS_ENABLED && (
       <LiveSessionModal
         isOpen={isLiveSessionModalOpen}
         onClose={() => setIsLiveSessionModalOpen(false)}
@@ -4043,6 +4062,7 @@ export default function RichTextEditor() {
         theme={theme}
         participants={participants}
       />
+      )}
 
       {/* Guest password prompt for password-protected sessions (fix 6) */}
       {passwordPrompt && (
@@ -4150,22 +4170,17 @@ export default function RichTextEditor() {
         </div>
       )}
 
+      {LIVE_SESSIONS_ENABLED && (
       <LiveNotificationsPanel
         isOpen={isLiveNotificationsOpen}
         onClose={() => setIsLiveNotificationsOpen(false)}
         theme={theme}
-        onApproveRequest={(req) => {
-          // Approve → start a new live session for the requested doc
+        onApproveRequest={() => {
+          // Live sessions disabled — do nothing
           setIsLiveNotificationsOpen(false)
-          if (req.pageId) {
-            const page = pages.find(p => p.id === req.pageId)
-            if (page) {
-              setCurrentPage(page)
-              setTimeout(() => setIsLiveSessionModalOpen(true), 100)
-            }
-          }
         }}
       />
+      )}
 
       <DecoyVaultSetupModal
         isOpen={isDecoySetupOpen}

@@ -18,7 +18,7 @@ Future feature ideas and enhancements for Dash.
 
 ## Note Management
 - Trash / recently deleted with 30-day recovery
-- Note versioning / revision history
+- ~~Note versioning / revision history~~ ✓ **Shipped in v1.3.159** — see [FEATURES.md#version-history](./FEATURES.md#version-history)
 - Pinned notes and favorites
 - Smart filters (by date, tag, word count, locked status)
 - Nested folders (sub-folders)

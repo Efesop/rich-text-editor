@@ -2,6 +2,8 @@
 
 Complete reference for all sharing and real-time collaboration features in Dash.
 
+> **Status:** Encrypted share links are **shipped and active**. Live Sessions are **disabled in the UI** — the implementation is retained in the codebase for future re-enable, but all UI entry points (word-count click, bell edit-requests path, modal/chip/notifications-panel renders, sidebar live indicators, deep-link auto-join) are gated on `LIVE_SESSIONS_ENABLED = false` in `components/RichTextEditor.js`. The Live Sessions section below documents the design as it was when last enabled.
+
 ---
 
 ## Table of Contents

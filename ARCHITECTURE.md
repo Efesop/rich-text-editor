@@ -35,18 +35,28 @@ dash/
 │   │   ├── ChecklistItem.js    # Individual checklist item
 │   │   ├── SeedPhrase.js       # Seed phrase storage grid (12/24 words, BIP-39)
 │   │   ├── PageLink.js         # Page linking inline tool + [[ interceptor + dropdown
+│   │   ├── AttachmentTool.js   # File attachment block (images + PDF)
+│   │   ├── AIBlockTune.js      # "AI" tune in every block's settings menu
+│   │   ├── AIInlineTool.js     # Bot icon in inline toolbar
+│   │   ├── AIBlockTool.js      # /ai slash-menu block
 │   │   └── CodeBlock.js        # Syntax-highlighted code block
+│   ├── AIPanel.js              # Local AI slide-over panel
+│   ├── VersionHistoryModal.js  # Version history viewer + "Restore as New Page"
 │   └── ...
 ├── hooks/
 │   ├── usePagesManager.js    # Page/folder CRUD + DnD reorder operations
 │   ├── useKeyboardNavigation.js # Keyboard shortcuts
 │   └── useUpdateManager.js   # Auto-update handling
 ├── lib/
-│   ├── storage.js            # Storage abstraction layer
-│   └── mobileStorage.js      # PWA-specific storage
+│   ├── storage.js              # Storage abstraction (auto-detects environment)
+│   ├── mobileStorage.js        # IndexedDB v3 (PWA + mobile)
+│   ├── attachmentStorage.js    # File attachment storage (Electron/PWA/browser)
+│   ├── versionStorage.js       # Version history storage (Electron/PWA/browser)
+│   └── localAI.js              # Local LLM API layer (Ollama + OpenAI-compatible)
 ├── store/
-│   ├── tagStore.js            # Zustand store for tags
-│   └── appLockStore.js        # App lock state, duress password, biometric settings
+│   ├── tagStore.js             # Zustand store for tags
+│   ├── aiStore.js              # Zustand store for local AI settings
+│   └── appLockStore.js         # App lock state, duress password, biometric settings
 ├── utils/
 │   ├── securityUtils.js      # Content sanitization
 │   ├── passwordUtils.js      # AES-256 encryption
@@ -321,9 +331,7 @@ The app lock system (`store/appLockStore.js`) manages:
 - **Master password** — bcrypt-hashed, stored persistently
 - **Encryption key** — AES-256 key derived from password via PBKDF2, cached in module-level variable (not serialized in Zustand)
 - **Duress password** — separate bcrypt hash, checked before the real password on the lock screen
-- **Duress actions**:
-  - *Hide*: clears in-memory state (`setPages([])`) without writing to disk. Data preserved on disk, restored on next real unlock.
-  - *Wipe*: calls `wipeAllPages()` which synchronously sets `pagesRef.current = []` and saves empty state to disk. Also calls `appLock.disable()` which clears all lock settings.
+- **Duress action (Hide / Show Decoy Notes)** — only mode exposed in the UI. Sets `savesBlockedRef = true` BEFORE clearing in-memory state, then cancels pending debounced saves and clears encryption key refs. Real data stays encrypted on disk; re-entering the real password restores everything. Wipe mode (`wipeAllPages()`) exists in code but is **disabled** in the UI as of v1.3.131 — see [data-safety.md](./data-safety.md) (or memory) for the incident report.
 
 On lock, all pages are encrypted with AES-256-GCM and plaintext is cleared from memory. On unlock, pages are decrypted back into memory.
 
@@ -363,6 +371,101 @@ Supported export formats:
 - **JSON**: Raw Editor.js data
 - **XML**: Structured data export
 - **Encrypted Bundle (.dashpack)**: For secure transfer
+
+## File Attachments
+
+Files are stored separately from the page JSON to keep page data small and avoid IndexedDB bloat.
+
+```
+Page block (in Editor.js JSON):
+  { type: 'attachment', data: { attachmentId, filename, mimeType, size } }
+
+Actual file bytes:
+  Electron → userData/attachments/{attachmentId}
+  PWA      → IndexedDB attachments store, keyed by attachmentId
+  Browser  → localStorage (base64), keyed by attachmentId
+```
+
+`lib/attachmentStorage.js` exposes `saveAttachment`, `loadAttachment`, `deleteAttachment`, `duplicateAttachments`, `collectAttachmentsForExport`, `validateAttachment`.
+
+**Validation**: `validateAttachment()` is async and reads the first 8 bytes of the file to verify magic bytes against the declared MIME type. Callers MUST `await`. Allowed types: JPEG, PNG, GIF, WebP, PDF. Max 10 MB per file.
+
+**Lifecycle**:
+- `duplicatePage` → `duplicateAttachments()` copies files with new UUIDs.
+- Dashpack export → `collectAttachmentsForExport()` bundles base64 data alongside the page JSON.
+- Page delete → `deleteMultipleAttachments()` cleans up the orphaned files.
+- Share → attachment blocks are replaced with `[Attachment: filename]` placeholder paragraphs (attachments are not transmitted in share links).
+
+## Version History
+
+Per-page snapshot history, stored independently from the live page data.
+
+```
+Storage:
+  Electron → userData/versions/{pageId}.json
+  PWA      → IndexedDB versions store, keyed by pageId
+  Browser  → localStorage, keyed by pageId
+
+Snapshot:
+  { id, timestamp, contentHash, content }
+```
+
+`lib/versionStorage.js` exposes `captureVersion`, `loadVersions`, `deleteVersions`.
+
+**Throttling and dedup**:
+- Minimum 30 seconds between captures per page.
+- SHA-256 content hash via `crypto.subtle.digest()` with a DJB2 fallback for non-HTTPS environments. First 8 bytes (16 hex chars) used for dedup.
+- Max 10 versions per page; oldest is dropped when the limit is hit.
+
+**Security**:
+- No versions captured for password-locked pages.
+- Existing versions deleted the moment a page is locked.
+- "Version History" menu item hidden for locked pages.
+
+**Restore** creates a new page with the old content (non-destructive — the active page is untouched, no folder/tag conflicts).
+
+## Local AI Integration
+
+Optional integration with on-device LLMs (Ollama, LM Studio, LocalAI, Jan, custom). All inference happens locally — no cloud calls.
+
+### Components
+
+| File | Purpose |
+|------|---------|
+| `store/aiStore.js` | Zustand store: endpoint, model, preset, temperature, maxTokens. Persisted to `localStorage('dash-ai-settings')`. |
+| `lib/localAI.js` | API layer: `checkConnection()`, `streamChat()`, `buildPrompt()`. Handles Ollama native (`/api/chat`, NDJSON) + OpenAI-compatible (`/v1/chat/completions`, SSE). |
+| `components/AIPanel.js` | Right-side slide-over panel (settings, actions, streaming response, insert/replace/save-as-note). |
+| `components/editor-tools/AIBlockTune.js` | Block Tune — adds "AI" to every block's settings menu via the MenuConfig API. |
+| `components/editor-tools/AIInlineTool.js` | Inline tool — Bot icon in text-selection toolbar. |
+| `components/editor-tools/AIBlockTool.js` | Slash-menu tool — `/ai` command. |
+| `components/MultiBlockToolbar.js` | Multi-block selection toolbar — sends multiple selected blocks to AI. |
+
+### Data Flow
+
+All entry points dispatch `window.dispatchEvent(new CustomEvent('dash-ai-inline', { detail }))`:
+- `detail.selectedText` — text to send as context
+- `detail.blockIndex` — (optional) exact block index for single-block replacement (from `AIBlockTune`)
+
+`RichTextEditor` listens for the event, sets `aiContextText` / `aiBlockIndex`, and opens `AIPanel`. After the response, the user can:
+
+- **Insert** — append blocks at the end of the note
+- **Replace** — swap a single block (when `blockIndex` is set), a selected range (text-matched), or the entire note
+- **Save as Note** — create a brand-new page from the response
+
+After saving, `setCurrentPage()` is called to force-sync React state (because `savePage` only updates refs during editing to avoid MutationObserver re-render loops).
+
+### CSP
+
+`electron-main.js` `connect-src` includes `http://localhost:* http://127.0.0.1:*`. Wildcard ports are required because each LLM runtime uses a different default (Ollama 11434, LM Studio 1234, LocalAI 8080, Jan 1337) and users may run on custom ports.
+
+## Sharing
+
+See [SHARING.md](./SHARING.md) for the full data flow. Brief summary:
+
+- **Encrypted share links** — payload encrypted client-side with a passphrase-derived AES-GCM-256 key, embedded in the URL fragment (`#`) so the server never sees content. Optional 30-day server-stored blob via the relay for shorter links.
+- **Decryption page** — `pages/share.js` runs purely client-side at `dash-share.vercel.app`.
+
+> **Live sessions** (real-time collaboration over `wss://dash-relay.efesop.deno.net`) are implemented in the codebase (`lib/liveSession.js`, `components/LiveSessionModal.js`, `components/LiveSessionBar.js`, `components/LiveNotificationsPanel.js`, `store/liveNotesStore.js`) but **disabled in the UI** — gated on `LIVE_SESSIONS_ENABLED = false` in `RichTextEditor.js`. Code is kept for future re-enable. All UI entry points (word-count click, bell-edit-requests path, modal/chip/panel renders, sidebar live indicators, deep-link auto-join) are gated; persisted `live-*` pages from prior versions render the "Session ended — Keep as My Page" banner so users can adopt them as normal pages.
 
 ## Auto-Updates (Desktop)
 
