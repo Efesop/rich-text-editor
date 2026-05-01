@@ -1509,5 +1509,8 @@ export function usePagesManager() {
     reEncryptAppLockPages,
     removeAppLockEncryption,
     getLatestPages,
+    // Phase 2.4 sync — exposed so RichTextEditor can pass the live duress
+    // flag into useSyncQueue's canPush gate.
+    isDuressModeRef,
   }
 }

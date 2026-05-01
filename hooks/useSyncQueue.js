@@ -364,6 +364,27 @@ export function useSyncQueue ({
     }
   }, [duressActive, updateStatus])
 
+  /**
+   * Build a vault packet suitable for QR-pair onboarding. Encapsulates raw
+   * vault-key access — caller never sees the bytes directly. Returns null if
+   * the vault is locked or sync isn't enabled.
+   *
+   * @returns {object|null} { vaultId, vaultKey: number[], relayUrl, pairedDevices }
+   */
+  const getVaultPacketForPairing = useCallback(() => {
+    const store = vaultStoreRef.current
+    const meta = metadataRef.current
+    if (!store || !store.isUnlocked() || !meta?.syncEnabled) return null
+    const raw = store.getVaultKey()
+    if (!(raw instanceof Uint8Array) || raw.length !== 32) return null
+    return {
+      vaultId: meta.vaultId,
+      vaultKey: Array.from(raw),
+      relayUrl: meta.relayUrl,
+      pairedDevices: meta.pairedDevices || []
+    }
+  }, [])
+
   return {
     status,
     enqueueChangedPages,
@@ -373,6 +394,7 @@ export function useSyncQueue ({
     disableSync,
     unlockVault,
     lockVault,
+    getVaultPacketForPairing,
     metadata: metadataRef.current,
     isUnlocked: () => vaultStoreRef.current?.isUnlocked() ?? false
   }

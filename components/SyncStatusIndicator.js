@@ -19,8 +19,6 @@ const formatTimestamp = (ts) => {
 }
 
 export default function SyncStatusIndicator ({ status, onClick, theme }) {
-  if (!status?.enabled) return null
-
   const isFallout = theme === 'fallout'
   const isDarkBlue = theme === 'darkblue'
   const isDark = theme === 'dark'
@@ -35,6 +33,20 @@ export default function SyncStatusIndicator ({ status, onClick, theme }) {
     : isDarkBlue ? 'hover:bg-[#1c2438]'
       : isDark ? 'hover:bg-[#2a2a2a]'
         : 'hover:bg-neutral-100'
+
+  // Sync disabled — show subtle CTA so user can find settings.
+  if (!status?.enabled) {
+    return (
+      <button
+        onClick={onClick}
+        className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md transition-colors text-xs ${baseColor} ${hoverBg}`}
+        title="Set up sync across devices"
+      >
+        <Cloud className="w-3 h-3 pointer-events-none" />
+        <span className="pointer-events-none whitespace-nowrap">Sync</span>
+      </button>
+    )
+  }
 
   let Icon, iconClass, label
 

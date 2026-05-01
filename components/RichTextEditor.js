@@ -79,6 +79,13 @@ import DecoyVaultSetupModal from './DecoyVaultSetupModal'
 import { readDecoyPages } from '@/lib/storage'
 import { decryptJsonWithPassphrase } from '@/utils/cryptoUtils'
 import { usePageLinkInterceptor, PageLinkDropdown, PageLinkInlineTool } from './editor-tools/PageLink'
+// Sync feature (phase 2.0a–2.4). All gated behind SYNC_ENABLED — these imports
+// are tree-shaken out of the bundle when the flag stays false.
+import { useSyncQueue } from '../hooks/useSyncQueue'
+import SyncSettingsPanel from './SyncSettingsPanel'
+import PairDeviceModal from './PairDeviceModal'
+import AcceptPairModal from './AcceptPairModal'
+import SyncStatusIndicator from './SyncStatusIndicator'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
 
@@ -86,6 +93,22 @@ const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false 
 // All entry points (UI triggers, deep links, auto-join, modal/chip/notifications render)
 // are gated on this flag.
 const LIVE_SESSIONS_ENABLED = false
+
+// Multi-device sync (phase 2.0a–2.4). Default OFF for v1.3.165 — all the
+// sync code paths are wired but no UI is exposed unless this flips to true.
+// Flip to true for alpha testing; expose in user-facing settings later
+// (phase 2.10). When false: zero behavior change vs. pre-sync builds.
+const SYNC_ENABLED = false
+
+// Default relay URL for sync. Mirrors LIVE_SESSIONS NEXT_PUBLIC_RELAY_URL
+// resolution. Sync uses the same Deno relay as live sessions + share blobs.
+const SYNC_RELAY_URL = (() => {
+  const env = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_RELAY_URL) || ''
+  if (env && (env.startsWith('wss://') || env.startsWith('ws://localhost') || env.startsWith('ws://127.0.0.1'))) {
+    return env
+  }
+  return 'wss://dash-relay.efesop.deno.net'
+})()
 
 const AVATAR_COLORS = ['#1e40af', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#1d4ed8', '#0284c7', '#0ea5e9']
 const ADJECTIVES = ['Red', 'Blue', 'Green', 'Gold', 'Silver', 'Purple', 'Amber', 'Coral']
@@ -461,6 +484,7 @@ export default function RichTextEditor() {
     removeAppLockEncryption,
     setPages,
     getLatestPages,
+    isDuressModeRef,
   } = usePagesManager()
 
   const {
@@ -1001,6 +1025,37 @@ export default function RichTextEditor() {
   const [isLockDropdownOpen, setIsLockDropdownOpen] = useState(false)
   const lockDropdownRef = useRef(null)
 
+  // ── Sync (phase 2.0a–2.4) — gated behind SYNC_ENABLED ──────────────────
+  const [isSyncSettingsOpen, setIsSyncSettingsOpen] = useState(false)
+  const [isPairDeviceOpen, setIsPairDeviceOpen] = useState(false)
+  const [isAcceptPairOpen, setIsAcceptPairOpen] = useState(false)
+  const [pendingPairPacket, setPendingPairPacket] = useState(null)
+  // Stable ref to the latest pages array — read by useSyncQueue without
+  // re-creating the hook on every render.
+  const syncPagesRef = useRef([])
+  const syncCurrentPageRef = useRef(null)
+  // The hook is always called (React rules of hooks) but its callbacks
+  // no-op when SYNC_ENABLED is false because the hook's internal state
+  // never gets initialized (we feed it a memory backend only when enabled).
+  const sync = useSyncQueue(SYNC_ENABLED ? {
+    pagesRef: syncPagesRef,
+    relayUrl: SYNC_RELAY_URL,
+    isAppLocked: () => appLock.isLocked,
+    duressActive: () => isDuressModeRef.current === true,
+    hasInFlightEdit: (pageId) => syncCurrentPageRef.current?.id === pageId,
+    applyRemoteChanges: (newPages /*, manifest */) => {
+      // Update pagesRef-equivalent by emitting through the existing setter.
+      // Note: this re-runs the editor render through the normal path,
+      // which is intentional — sync updates ARE legitimate state changes.
+      // Pre-set window.__syncLastSnapshot so the immediately-following save
+      // (if any) doesn't re-push the same envelopes back to the server.
+      if (typeof window !== 'undefined') {
+        window.__syncLastSnapshot = newPages
+      }
+      setPages(newPages)
+    }
+  } : { /* sync disabled — hook still mounts but no-ops */ })
+
   // Load app lock data on mount
   useEffect(() => {
     appLock.loadData()
@@ -1336,6 +1391,15 @@ export default function RichTextEditor() {
   // Keep currentPageRef in sync for live session callbacks
   useEffect(() => {
     currentPageRef.current = currentPage
+  }, [currentPage])
+
+  // Keep sync hook's refs in sync (Phase 2.4). Read by useSyncQueue's
+  // hasInFlightEdit / change-detection callbacks.
+  useEffect(() => {
+    syncPagesRef.current = pages
+  }, [pages])
+  useEffect(() => {
+    syncCurrentPageRef.current = currentPage
   }, [currentPage])
 
   // Show toast when participants join/leave during live session
@@ -3890,6 +3954,13 @@ export default function RichTextEditor() {
         {saveStatus === 'saved' && <span className={theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-[#6b6b6b]' : theme === 'darkblue' ? 'text-[#445068]' : 'text-neutral-400'}>Saved</span>}
         {saveStatus === 'error' && <span className="text-red-500">Error saving</span>}
       </span>
+      {SYNC_ENABLED && (
+        <SyncStatusIndicator
+          status={sync?.status}
+          onClick={() => setIsSyncSettingsOpen(true)}
+          theme={theme}
+        />
+      )}
     </div>
   </div>
         </>
@@ -4318,6 +4389,72 @@ export default function RichTextEditor() {
         onManageDecoy={() => setIsDecoySetupOpen(true)}
         theme={theme}
       />
+
+      {/* Sync UI (phase 2.4) — gated behind SYNC_ENABLED. When false, none
+          of these render and the user-facing surface is unchanged. */}
+      {SYNC_ENABLED && (
+        <>
+          <SyncSettingsPanel
+            isOpen={isSyncSettingsOpen}
+            onClose={() => setIsSyncSettingsOpen(false)}
+            status={sync?.status}
+            onEnableSync={async () => {
+              try {
+                // Pick wrap method: Electron prefers safe-storage (OS keychain),
+                // PWA falls back to passphrase-derived wrapping. App-lock-derived
+                // wrapping wires up later when app lock is fully integrated.
+                const isElectron = typeof window !== 'undefined' && !!window.electron?.invoke
+                if (isElectron) {
+                  await sync.enableSync({
+                    deviceName: window.electronPlatform?.isMac ? 'Mac' : 'Computer',
+                    wrapMethod: 'safe-storage'
+                  })
+                } else {
+                  // For PWA we'd need to prompt for a passphrase. For alpha we
+                  // use a hard-coded development passphrase so testing works.
+                  // Production will prompt via a dedicated modal.
+                  await sync.enableSync({
+                    deviceName: 'This device',
+                    wrapMethod: 'passphrase',
+                    passphrase: 'dev-passphrase-placeholder-replace-in-2.10'
+                  })
+                }
+              } catch (e) {
+                console.error('enableSync failed', e)
+              }
+            }}
+            onDisableSync={() => sync?.disableSync?.()}
+            onUnlock={() => {/* TODO 2.10: prompt for credential per keyWrapMethod */}}
+            onLock={() => sync?.lockVault?.()}
+            onPairNewDevice={() => setIsPairDeviceOpen(true)}
+            onAcceptPair={() => setIsAcceptPairOpen(true)}
+            onSyncNow={() => { sync?.flushNow?.(); sync?.pull?.() }}
+            onPurgeCloud={() => {/* TODO 2.10: implement /sync/vault/purge call */}}
+            onRevokeDevice={(deviceId) => {/* TODO 2.10: revoke call */ console.log('revoke', deviceId) }}
+            theme={theme}
+          />
+
+          <PairDeviceModal
+            isOpen={isPairDeviceOpen}
+            onClose={() => setIsPairDeviceOpen(false)}
+            vaultPacket={isPairDeviceOpen ? sync?.getVaultPacketForPairing?.() : null}
+            theme={theme}
+          />
+
+          <AcceptPairModal
+            isOpen={isAcceptPairOpen}
+            onClose={() => setIsAcceptPairOpen(false)}
+            onPaired={({ vaultPacket }) => {
+              setPendingPairPacket(vaultPacket)
+              setIsAcceptPairOpen(false)
+              // TODO 2.10: persist new vault metadata + register device
+              //           with relay + initial pull.
+              console.log('Paired packet ready', vaultPacket)
+            }}
+            theme={theme}
+          />
+        </>
+      )}
 
       <SearchModal
         isOpen={isSearchModalOpen}
