@@ -277,6 +277,7 @@ export function detectCorruption(data) {
 
   if (!Array.isArray(data)) {
     issues.push('Data is not an array')
+    return { isCorrupt: true, issues }
   }
 
   data.forEach((page, index) => {

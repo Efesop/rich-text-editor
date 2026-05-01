@@ -114,4 +114,108 @@ export async function decryptJsonWithPassphrase (payload, passphrase) {
   }
 }
 
+// =============================================================================
+// HKDF + HMAC helpers — used by sync system (lib/syncCrypto.js, lib/syncAuth.js)
+// =============================================================================
 
+/**
+ * HKDF-SHA256 sub-key derivation. Deterministic — same inputs always produce
+ * the same output. Used to derive sub-keys (e.g. tag-hash key, version-list key)
+ * from the master vault key without weakening the master key.
+ *
+ * @param {Uint8Array} masterBytes - the input keying material (e.g. vault key, 32 bytes)
+ * @param {string} info - context/label string ("tag-hash-v1", "version-key-v1", etc.)
+ * @param {number} lengthBytes - desired output length in bytes
+ * @returns {Promise<Uint8Array>} - derived bytes
+ */
+export async function hkdfDeriveBytes (masterBytes, info, lengthBytes) {
+  if (!(masterBytes instanceof Uint8Array)) {
+    throw new Error('hkdfDeriveBytes: masterBytes must be Uint8Array')
+  }
+  if (typeof info !== 'string' || info.length === 0) {
+    throw new Error('hkdfDeriveBytes: info must be a non-empty string')
+  }
+  if (!Number.isInteger(lengthBytes) || lengthBytes < 1 || lengthBytes > 255 * 32) {
+    throw new Error('hkdfDeriveBytes: lengthBytes must be 1..8160')
+  }
+  const baseKey = await crypto.subtle.importKey(
+    'raw',
+    masterBytes,
+    'HKDF',
+    false,
+    ['deriveBits']
+  )
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: new Uint8Array(0), // empty salt — vault key is already random
+      info: textEncoder.encode(info)
+    },
+    baseKey,
+    lengthBytes * 8
+  )
+  return new Uint8Array(bits)
+}
+
+/**
+ * HMAC-SHA256 — used for auth proofs (lib/syncAuth.js) and tag-name hashing.
+ *
+ * @param {Uint8Array} keyBytes - HMAC key (any length, 32 bytes recommended)
+ * @param {string|Uint8Array} message - data to authenticate
+ * @returns {Promise<Uint8Array>} - 32-byte HMAC tag
+ */
+export async function hmacSha256 (keyBytes, message) {
+  if (!(keyBytes instanceof Uint8Array)) {
+    throw new Error('hmacSha256: keyBytes must be Uint8Array')
+  }
+  const key = await crypto.subtle.importKey(
+    'raw',
+    keyBytes,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+  const data = typeof message === 'string' ? textEncoder.encode(message) : message
+  const sig = await crypto.subtle.sign('HMAC', key, data)
+  return new Uint8Array(sig)
+}
+
+/**
+ * Convert Uint8Array to lowercase hex string. Used for ID encoding (tag hashes,
+ * auth proofs) on the wire.
+ */
+export function bytesToHex (bytes) {
+  if (!(bytes instanceof Uint8Array)) {
+    throw new Error('bytesToHex: input must be Uint8Array')
+  }
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
+}
+
+/**
+ * Convert hex string back to Uint8Array.
+ */
+export function hexToBytes (hex) {
+  if (typeof hex !== 'string' || hex.length % 2 !== 0) {
+    throw new Error('hexToBytes: input must be even-length hex string')
+  }
+  const out = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < out.length; i++) {
+    out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16)
+  }
+  return out
+}
+
+/**
+ * Constant-time byte-array comparison. Returns true iff a and b have the same
+ * length and bytes. Avoids timing side channels in HMAC verification.
+ */
+export function constantTimeEqual (a, b) {
+  if (!(a instanceof Uint8Array) || !(b instanceof Uint8Array)) return false
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) {
+    diff |= a[i] ^ b[i]
+  }
+  return diff === 0
+}

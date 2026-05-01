@@ -11,9 +11,16 @@
  *   POST /request/:docId   — Submit an edit request
  *   GET /request/:docId    — Poll for pending edit requests
  *   DELETE /request/:docId/:requestId — Dismiss an edit request
+ *
+ * Multi-device sync (Phase 2.1) — see ./sync.ts:
+ *   /sync/vault/register, /sync/push, /sync/pull, /sync/note/:id/...,
+ *   /sync/attachment/:id, /sync/ws/:vaultId, /sync/vault/purge[-token],
+ *   /sync/vault/index
  */
 
-const kv = await Deno.openKv()
+import { routeSyncRequest } from './sync.ts'
+
+export const kv = await Deno.openKv()
 
 // In-memory room state (ephemeral — lost on restart, which is fine)
 const rooms = new Map<string, Set<WebSocket>>()
@@ -32,9 +39,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
-Deno.serve({ port: 8000 }, async (req: Request) => {
+export async function handleRequest(req: Request): Promise<Response> {
   const url = new URL(req.url)
   const path = url.pathname
+
+  // Multi-device sync routes (delegated to ./sync.ts)
+  if (path.startsWith('/sync/')) {
+    const synced = await routeSyncRequest(kv, req)
+    if (synced) return synced
+  }
 
   // CORS preflight
   if (req.method === 'OPTIONS') {
@@ -239,7 +252,12 @@ Deno.serve({ port: 8000 }, async (req: Request) => {
     status: 404,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
-})
+}
+
+// Only start the server if this file is run directly (not imported by tests)
+if (import.meta.main) {
+  Deno.serve({ port: 8000 }, handleRequest)
+}
 
 /** Broadcast metadata (participant count) to all clients in a room */
 function broadcastMeta(roomId: string) {

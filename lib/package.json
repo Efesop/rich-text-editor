@@ -1,0 +1,4 @@
+{
+  "//": "Tells Node to load .js files in this directory as ESM. Next.js webpack bundler ignores this; it uses its own resolver. This is purely for the Node test runner so it can statically import lib/* across module boundaries.",
+  "type": "module"
+}
