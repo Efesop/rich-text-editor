@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { History, X, RotateCcw, Clock, FileText } from 'lucide-react'
+import { History, X, RotateCcw, Clock, FileText, Cloud, Laptop } from 'lucide-react'
 import { readVersions } from '@/lib/versionStorage'
 import DOMPurify from 'isomorphic-dompurify'
 
@@ -55,10 +55,28 @@ function renderBlockPreview (block) {
   }
 }
 
-export default function VersionHistoryModal ({ isOpen, onClose, page, onRestore, theme }) {
+export default function VersionHistoryModal ({
+  isOpen,
+  onClose,
+  page,
+  onRestore,
+  theme,
+  // Phase 2.10c — sync integration
+  syncEnabled = false,
+  onLoadCloudVersions,    // (noteId) => Promise<{ ok, versions, errorCode? }>
+  onFetchCloudVersion     // (noteId, version) => Promise<{ ok, payload, errorCode? }>
+}) {
   const [versions, setVersions] = useState([])
   const [selectedIndex, setSelectedIndex] = useState(null)
   const [loading, setLoading] = useState(false)
+  // Tabs (Phase 2.10c): local snapshots vs server-stored versions.
+  const [tab, setTab] = useState('local')
+  const [cloudVersions, setCloudVersions] = useState([])
+  const [loadingCloud, setLoadingCloud] = useState(false)
+  const [cloudError, setCloudError] = useState(null)
+  const [selectedCloudIndex, setSelectedCloudIndex] = useState(null)
+  const [cloudPreview, setCloudPreview] = useState(null) // { version, payload }
+  const [loadingCloudPreview, setLoadingCloudPreview] = useState(false)
 
   const isFallout = theme === 'fallout'
   const isDark = theme === 'dark'
@@ -66,7 +84,11 @@ export default function VersionHistoryModal ({ isOpen, onClose, page, onRestore,
 
   useEffect(() => {
     if (!isOpen || !page) return
+    setTab('local')
     setSelectedIndex(null)
+    setSelectedCloudIndex(null)
+    setCloudPreview(null)
+    setCloudError(null)
     setLoading(true)
     readVersions(page.id).then(v => {
       setVersions(v || [])
@@ -75,11 +97,60 @@ export default function VersionHistoryModal ({ isOpen, onClose, page, onRestore,
       setVersions([])
       setLoading(false)
     })
+    // Reset cloud cache for this page (different page = different versions)
+    setCloudVersions([])
   }, [isOpen, page?.id])
+
+  // Lazy-load cloud versions when user switches to the cloud tab
+  useEffect(() => {
+    if (tab !== 'cloud') return
+    if (!syncEnabled || !onLoadCloudVersions || !page) return
+    if (cloudVersions.length > 0 || loadingCloud) return
+    setLoadingCloud(true)
+    setCloudError(null)
+    onLoadCloudVersions(page.id).then(result => {
+      if (result?.ok) {
+        // Server returns versions sorted newest-first; preserve that order.
+        setCloudVersions(result.versions || [])
+      } else {
+        setCloudError(result?.errorCode || 'Failed to fetch')
+      }
+      setLoadingCloud(false)
+    }).catch(err => {
+      setCloudError(err.message || 'Network error')
+      setLoadingCloud(false)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, syncEnabled, page?.id])
+
+  // Fetch full cloud version payload when user selects one
+  useEffect(() => {
+    if (selectedCloudIndex === null) {
+      setCloudPreview(null)
+      return
+    }
+    const v = cloudVersions[selectedCloudIndex]
+    if (!v || !page || !onFetchCloudVersion) return
+    setLoadingCloudPreview(true)
+    onFetchCloudVersion(page.id, v.version).then(result => {
+      if (result?.ok) {
+        setCloudPreview({ version: v, payload: result.payload, uploadedAt: result.uploadedAt, authorDeviceId: result.authorDeviceId })
+      } else {
+        setCloudPreview(null)
+        setCloudError(result?.errorCode || 'Failed to fetch')
+      }
+      setLoadingCloudPreview(false)
+    }).catch(err => {
+      setCloudError(err.message || 'Network error')
+      setLoadingCloudPreview(false)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCloudIndex])
 
   if (!isOpen) return null
 
   const selectedVersion = selectedIndex !== null ? versions[selectedIndex] : null
+  const cloudBlocks = cloudPreview?.payload?.content?.blocks || null
 
   return (
     <div
@@ -160,6 +231,44 @@ export default function VersionHistoryModal ({ isOpen, onClose, page, onRestore,
           </div>
         </div>
 
+        {/* Tab strip — only when sync is enabled (otherwise no point in
+            showing a tab for an unavailable feature) */}
+        {syncEnabled && (
+          <div className={`
+            flex border-b
+            ${isFallout ? 'border-green-500/30' : isDarkBlue ? 'border-[#1c2438]' : isDark ? 'border-[#3a3a3a]' : 'border-gray-100'}
+          `}>
+            {[
+              { id: 'local', label: 'On this device', count: versions.length, Icon: Laptop },
+              { id: 'cloud', label: 'All devices', count: cloudVersions.length, Icon: Cloud }
+            ].map(t => {
+              const active = tab === t.id
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`
+                    flex-1 px-4 py-2.5 flex items-center justify-center gap-2 text-xs font-medium transition-colors
+                    ${active
+                      ? isFallout ? 'text-green-400 border-b-2 border-green-500'
+                        : isDarkBlue ? 'text-[#e0e6f0] border-b-2 border-blue-500'
+                          : isDark ? 'text-white border-b-2 border-blue-500'
+                            : 'text-gray-900 border-b-2 border-blue-500'
+                      : isFallout ? 'text-green-600/60 hover:text-green-500 border-b-2 border-transparent'
+                        : isDarkBlue ? 'text-[#5d6b88] hover:text-[#8b99b5] border-b-2 border-transparent'
+                          : isDark ? 'text-[#6b6b6b] hover:text-[#c0c0c0] border-b-2 border-transparent'
+                            : 'text-gray-400 hover:text-gray-600 border-b-2 border-transparent'
+                    }
+                  `}
+                >
+                  <t.Icon className="w-3.5 h-3.5 pointer-events-none" />
+                  <span className="pointer-events-none">{t.label}{t.count > 0 ? ` · ${t.count}` : ''}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
         {/* Content */}
         <div className="flex" style={{ height: '400px' }}>
           {/* Version list (left) */}
@@ -167,7 +276,60 @@ export default function VersionHistoryModal ({ isOpen, onClose, page, onRestore,
             w-56 flex-shrink-0 overflow-y-auto border-r
             ${isFallout ? 'border-green-500/30' : isDarkBlue ? 'border-[#1c2438]' : isDark ? 'border-[#3a3a3a]' : 'border-gray-100'}
           `}>
-            {loading ? (
+            {tab === 'cloud' ? (
+              loadingCloud ? (
+                <div className={`p-6 text-center text-sm ${isFallout ? 'text-green-500/70 font-mono' : isDarkBlue ? 'text-[#8b99b5]' : isDark ? 'text-[#8e8e8e]' : 'text-gray-500'}`}>
+                  Loading…
+                </div>
+              ) : cloudError ? (
+                <div className="p-6 text-center">
+                  <p className="text-sm text-red-400">{cloudError}</p>
+                </div>
+              ) : cloudVersions.length === 0 ? (
+                <div className="p-6 text-center">
+                  <Cloud className={`w-6 h-6 mx-auto mb-2 ${isFallout ? 'text-green-500/50' : 'text-gray-400'}`} />
+                  <p className={`text-sm ${isFallout ? 'text-green-500/70 font-mono' : isDarkBlue ? 'text-[#8b99b5]' : isDark ? 'text-[#8e8e8e]' : 'text-gray-500'}`}>No cloud versions</p>
+                  <p className={`text-xs mt-1 ${isFallout ? 'text-green-600/50 font-mono' : 'text-gray-400'}`}>Edits sync as you save</p>
+                </div>
+              ) : (
+                <div className="py-1">
+                  {cloudVersions.map((v, index) => {
+                    const ts = new Date(v.uploadedAt).toISOString()
+                    const { relative, detail } = formatTimestamp(ts)
+                    const isSelected = selectedCloudIndex === index
+                    return (
+                      <button
+                        key={v.version}
+                        onClick={() => setSelectedCloudIndex(index)}
+                        className={`
+                          w-full text-left px-4 py-3 transition-colors
+                          ${isSelected
+                            ? isFallout ? 'bg-green-500/20 border-l-2 border-green-500'
+                              : isDarkBlue ? 'bg-blue-500/10 border-l-2 border-blue-500'
+                                : isDark ? 'bg-blue-500/10 border-l-2 border-blue-500'
+                                  : 'bg-blue-50 border-l-2 border-blue-500'
+                            : isFallout ? 'hover:bg-green-500/10 border-l-2 border-transparent'
+                              : isDarkBlue ? 'hover:bg-[#1a2035] border-l-2 border-transparent'
+                                : isDark ? 'hover:bg-[#2f2f2f] border-l-2 border-transparent'
+                                  : 'hover:bg-gray-50 border-l-2 border-transparent'
+                          }
+                        `}
+                      >
+                        <div className={`text-sm font-medium ${isFallout ? 'text-green-400 font-mono' : isDarkBlue ? 'text-[#e0e6f0]' : isDark ? 'text-[#ececec]' : 'text-gray-900'}`}>
+                          v{v.version} · {relative}
+                        </div>
+                        <div className={`text-xs mt-0.5 ${isFallout ? 'text-green-600/60 font-mono' : isDarkBlue ? 'text-[#5d6b88]' : isDark ? 'text-[#6b6b6b]' : 'text-gray-400'}`}>
+                          {detail}
+                        </div>
+                        <div className={`text-xs mt-0.5 ${isFallout ? 'text-green-600/40 font-mono' : isDarkBlue ? 'text-[#4a5670]' : isDark ? 'text-[#555]' : 'text-gray-400'}`}>
+                          {(v.size / 1024).toFixed(1)} KB
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            ) : loading ? (
               <div className={`p-6 text-center text-sm ${isFallout ? 'text-green-500/70 font-mono' : isDarkBlue ? 'text-[#8b99b5]' : isDark ? 'text-[#8e8e8e]' : 'text-gray-500'}`}>
                 Loading...
               </div>
@@ -241,7 +403,23 @@ export default function VersionHistoryModal ({ isOpen, onClose, page, onRestore,
 
           {/* Preview (right) */}
           <div className={`flex-1 overflow-y-auto p-6 ${isFallout ? 'font-mono' : ''}`}>
-            {selectedVersion ? (
+            {tab === 'cloud' ? (
+              loadingCloudPreview ? (
+                <div className={`text-sm ${isFallout ? 'text-green-500/70 font-mono' : 'text-gray-500'}`}>Decrypting…</div>
+              ) : cloudPreview && cloudBlocks ? (
+                <div className={`text-sm leading-relaxed ${isFallout ? 'text-green-300' : isDarkBlue ? 'text-[#c8d0e0]' : isDark ? 'text-[#d0d0d0]' : 'text-gray-700'}`}>
+                  {cloudBlocks.map((block, i) => <div key={i}>{renderBlockPreview(block)}</div>)}
+                  {cloudBlocks.length === 0 && <p className="opacity-50 italic">Empty page</p>}
+                </div>
+              ) : (
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-center">
+                    <Cloud className={`w-10 h-10 mx-auto mb-2 ${isFallout ? 'text-green-500/30' : 'text-gray-200'}`} />
+                    <p className={`text-sm ${isFallout ? 'text-green-600/40 font-mono' : 'text-gray-400'}`}>Select a cloud version to preview</p>
+                  </div>
+                </div>
+              )
+            ) : selectedVersion ? (
               <div className={`text-sm leading-relaxed ${isFallout ? 'text-green-300' : isDarkBlue ? 'text-[#c8d0e0]' : isDark ? 'text-[#d0d0d0]' : 'text-gray-700'}`}>
                 {selectedVersion.blocks?.map((block, i) => (
                   <div key={i}>{renderBlockPreview(block)}</div>
@@ -287,9 +465,12 @@ export default function VersionHistoryModal ({ isOpen, onClose, page, onRestore,
           </button>
           <button
             type="button"
-            disabled={selectedIndex === null}
+            disabled={tab === 'cloud' ? !cloudBlocks : selectedIndex === null}
             onClick={() => {
-              if (selectedVersion) {
+              if (tab === 'cloud' && cloudBlocks) {
+                onRestore(cloudBlocks)
+                onClose()
+              } else if (tab === 'local' && selectedVersion) {
                 onRestore(selectedVersion.blocks)
                 onClose()
               }

@@ -4194,6 +4194,11 @@ export default function RichTextEditor() {
         page={versionHistoryPage}
         onRestore={handleRestoreVersion}
         theme={theme}
+        // Phase 2.10c: cloud version tab. Only enabled when sync is on
+        // AND vault is unlocked.
+        syncEnabled={SYNC_ENABLED && Boolean(sync?.status?.enabled && sync?.status?.unlocked)}
+        onLoadCloudVersions={(noteId) => sync?.fetchSyncedVersionList?.(noteId)}
+        onFetchCloudVersion={(noteId, version) => sync?.fetchSyncedVersion?.(noteId, version)}
       />
 
   {
