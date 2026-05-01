@@ -4584,8 +4584,14 @@ export default function RichTextEditor() {
             onPairNewDevice={() => setIsPairDeviceOpen(true)}
             onAcceptPair={() => setIsAcceptPairOpen(true)}
             onSyncNow={() => { sync?.flushNow?.(); sync?.pull?.() }}
-            onPurgeCloud={() => {/* TODO 2.10: implement /sync/vault/purge call */}}
-            onRevokeDevice={(deviceId) => {/* TODO 2.10: revoke call */ console.log('revoke', deviceId) }}
+            onPurgeCloud={async () => {
+              const result = await sync?.purgeCloud?.()
+              if (!result?.ok) console.warn('purgeCloud failed', result?.error)
+            }}
+            onRevokeDevice={async (deviceId) => {
+              const result = await sync?.revokeDevice?.(deviceId)
+              if (!result?.ok) console.warn('revokeDevice failed', result?.error)
+            }}
             theme={theme}
           />
 

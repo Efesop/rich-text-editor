@@ -17,6 +17,7 @@
  *   WS     /sync/ws/:vaultId
  *   POST   /sync/vault/purge
  *   GET    /sync/vault/purge-token
+ *   DELETE /sync/vault/devices/:deviceId
  *   GET    /sync/vault/index
  *
  * Auth: HMAC-style session token via headers
@@ -463,6 +464,53 @@ export async function handleVaultRegister(
 
   return errorResponse('invalid-request', 500, {
     message: 'Could not register device after retries',
+  })
+}
+
+/** DELETE /sync/vault/devices/:deviceId — revoke device (Phase 2.10b) */
+export async function handleRevokeDevice(
+  kv: Deno.Kv,
+  req: Request,
+  pathDeviceId: string,
+): Promise<Response> {
+  const auth = await authenticate(kv, req)
+  if (!auth.ok) return auth.response
+  const rl = checkRateLimit(auth.vaultId, auth.deviceId, 'other')
+  if (!rl.ok) return rateLimitedResponse(rl.retryAfter)
+
+  if (typeof pathDeviceId !== 'string' || !pathDeviceId) {
+    return errorResponse('invalid-request', 400, { message: 'deviceId required' })
+  }
+
+  // Disallow self-revocation via this endpoint — must use disable-sync
+  // locally (which clears the device's own state) to avoid lockout where
+  // the only paired device removes itself accidentally.
+  if (pathDeviceId === auth.deviceId) {
+    return errorResponse('invalid-request', 400, {
+      message: 'Use disableSync locally to remove this device from its own vault',
+    })
+  }
+
+  const devicesKey = ['vault', auth.vaultId, 'devices']
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const cur = await kv.get<DevicesMap>(devicesKey)
+    const devices: DevicesMap = cur.value || {}
+    if (!devices[pathDeviceId]) {
+      // Idempotent — already gone
+      return jsonResponse({ ok: true, alreadyRevoked: true })
+    }
+    const next: DevicesMap = { ...devices }
+    delete next[pathDeviceId]
+    const result = await kv.atomic()
+      .check(cur)
+      .set(devicesKey, next)
+      .commit()
+    if (result.ok) {
+      return jsonResponse({ ok: true, revokedDeviceId: pathDeviceId })
+    }
+  }
+  return errorResponse('invalid-request', 500, {
+    message: 'Could not revoke device after retries',
   })
 }
 
@@ -1306,6 +1354,12 @@ export async function routeSyncRequest(
   }
   if (path === '/sync/vault/purge' && req.method === 'POST') {
     return handleVaultPurge(kv, req)
+  }
+
+  // Device revocation (phase 2.10b) — DELETE /sync/vault/devices/:deviceId
+  const revokeMatch = path.match(/^\/sync\/vault\/devices\/([a-zA-Z0-9_-]+)$/)
+  if (revokeMatch && req.method === 'DELETE') {
+    return handleRevokeDevice(kv, req, revokeMatch[1])
   }
 
   // Push / pull

@@ -35,6 +35,7 @@ import {
   extractAttachmentIds,
   newAttachmentIds
 } from '../lib/syncAttachments.js'
+import { buildSyncHeaders } from '../lib/syncAuth.js'
 
 // Persist backend for the queue itself (separate from vault metadata).
 function createQueuePersistBackend () {
@@ -460,6 +461,84 @@ export function useSyncQueue ({
     updateStatus({ unlocked: false, stage: 'paused' })
   }, [updateStatus])
 
+  // Helper: do an authenticated request to the relay. Used by the
+  // less-common ops that don't go through the queue (purge, revoke).
+  const authenticatedRequest = useCallback(async (method, path, body = null) => {
+    const creds = await getCredentials()
+    const httpUrl = creds.relayUrl.replace(/^wss?:\/\//, m => m === 'wss://' ? 'https://' : 'http://')
+    const headers = await buildSyncHeaders(creds.vaultKeyBytes, {
+      vaultId: creds.vaultId,
+      deviceId: creds.deviceId,
+      timestamp: Date.now(),
+      method,
+      path,
+      contentType: body ? 'application/json' : undefined
+    })
+    const init = { method, headers }
+    if (body) init.body = JSON.stringify(body)
+    const response = await fetch(httpUrl + path, init)
+    let parsed = null
+    try { parsed = await response.json() } catch { /* not JSON */ }
+    if (!response.ok) {
+      const code = parsed?.error || `http-${response.status}`
+      const err = new Error(parsed?.message || code)
+      err.code = code
+      err.status = response.status
+      throw err
+    }
+    return parsed
+  }, [getCredentials])
+
+  // Phase 2.10b: server-side vault purge. Two-step (token issue + use).
+  const purgeCloud = useCallback(async () => {
+    try {
+      const tokenResponse = await authenticatedRequest('GET', '/sync/vault/purge-token')
+      if (!tokenResponse?.token) throw new Error('No token in response')
+      const result = await authenticatedRequest('POST', '/sync/vault/purge', { confirmToken: tokenResponse.token })
+      // Reset cursor + per-resource versions; vault stays paired locally
+      // (user can re-push to populate the cloud copy again on next save).
+      const meta = metadataRef.current
+      if (meta) {
+        const next = { ...meta, cursorVersion: 0, lastSyncedVersion: {} }
+        metadataRef.current = next
+        await vaultStoreRef.current?.save(next)
+      }
+      pushedAttachmentsRef.current = new Set()
+      pulledAttachmentsRef.current = new Set()
+      lastSyncedSnapshotRef.current = []
+      updateStatus({ stage: 'idle', lastError: null })
+      return { ok: true, purgedBytes: result?.purgedBytes }
+    } catch (err) {
+      updateStatus({ stage: 'error', lastError: `purge failed: ${err.message}` })
+      return { ok: false, error: err.message }
+    }
+  }, [authenticatedRequest, updateStatus])
+
+  // Phase 2.10b: server-side device revoke. Removes deviceId from the
+  // vault's devices map. The revoked device's auth proofs stop validating
+  // (server's authenticate() checks devices map).
+  const revokeDevice = useCallback(async (deviceId) => {
+    if (!deviceId) throw new Error('revokeDevice: deviceId required')
+    try {
+      const result = await authenticatedRequest('DELETE', `/sync/vault/devices/${encodeURIComponent(deviceId)}`)
+      // Update local pairedDevices list
+      const meta = metadataRef.current
+      if (meta) {
+        const next = {
+          ...meta,
+          pairedDevices: (meta.pairedDevices || []).filter(d => d.deviceId !== deviceId)
+        }
+        metadataRef.current = next
+        await vaultStoreRef.current?.save(next)
+        updateStatus({ pairedDevices: next.pairedDevices })
+      }
+      return { ok: true, alreadyRevoked: result?.alreadyRevoked === true }
+    } catch (err) {
+      updateStatus({ lastError: `revoke failed: ${err.message}` })
+      return { ok: false, error: err.message }
+    }
+  }, [authenticatedRequest, updateStatus])
+
   // ── Hook into duress entry — clear queue + lock ────────────────────────
 
   useEffect(() => {
@@ -501,6 +580,8 @@ export function useSyncQueue ({
     disableSync,
     unlockVault,
     lockVault,
+    purgeCloud,
+    revokeDevice,
     getVaultPacketForPairing,
     metadata: metadataRef.current,
     isUnlocked: () => vaultStoreRef.current?.isUnlocked() ?? false
