@@ -40,7 +40,16 @@ contextBridge.exposeInMainWorld('electron', {
       'open-attachment',
       'read-versions',
       'save-versions',
-      'delete-versions'
+      'delete-versions',
+      'read-vault',
+      'save-vault',
+      'clear-vault',
+      'read-sync-queue',
+      'save-sync-queue',
+      'clear-sync-queue',
+      'vault-key-store',
+      'vault-key-retrieve',
+      'vault-key-delete'
     ];
 
     if (validChannels.includes(channel)) {

@@ -159,6 +159,24 @@ export function usePagesManager() {
         // which triggers EditorJS MutationObserver feedback loops.
         setPages(pagesRef.current)
         setSaveStatus('saved')
+
+        // Phase 2.4: notify the sync layer (if active) that local save
+        // succeeded so it can diff and enqueue changed envelopes. Wired
+        // via a global callback so usePagesManager doesn't take a hard
+        // dependency on the sync hook. If the callback isn't set, sync
+        // is gated off and this is a no-op.
+        if (typeof window !== 'undefined' && typeof window.__syncEnqueueChangedPages === 'function') {
+          try {
+            window.__syncEnqueueChangedPages(
+              window.__syncLastSnapshot || [],
+              pagesRef.current
+            )
+            window.__syncLastSnapshot = pagesRef.current
+          } catch (e) {
+            // Sync MUST NOT break local save flow.
+            console.error('sync enqueue callback threw', e)
+          }
+        }
       }
     } catch (error) {
       console.error('Error saving pages:', error)
