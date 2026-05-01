@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Archive, X, Folder, Download, AlertCircle, Check } from 'lucide-react'
+import { Archive, X, Folder, Download, AlertCircle, Check, KeyRound, Eye, EyeOff } from 'lucide-react'
 import {
   SCHEDULE_OFF, SCHEDULE_DAILY, SCHEDULE_WEEKLY, SCHEDULE_MONTHLY,
   formatBackupAge,
@@ -38,9 +38,12 @@ export default function BackupSettingsModal ({
   settings,
   isExporting,
   lastError,
+  hasPassphrase,
   onUpdateSettings,
   onExportNow,
   onPickFolder,
+  onSetPassphrase,    // (passphrase: string) => Promise<void>
+  onClearPassphrase,  // () => Promise<void>
   defaultFolder,
   theme
 }) {
@@ -49,9 +52,23 @@ export default function BackupSettingsModal ({
   const isDarkBlue = theme === 'darkblue'
 
   const [exportSuccess, setExportSuccess] = useState(false)
+  const [passphraseInput, setPassphraseInput] = useState('')
+  const [passphraseConfirm, setPassphraseConfirm] = useState('')
+  const [passphraseError, setPassphraseError] = useState(null)
+  const [savingPassphrase, setSavingPassphrase] = useState(false)
+  const [showPassphrase, setShowPassphrase] = useState(false)
+  const [editingPassphrase, setEditingPassphrase] = useState(false)
 
   useEffect(() => {
-    if (isOpen) setExportSuccess(false)
+    if (isOpen) {
+      setExportSuccess(false)
+      setPassphraseInput('')
+      setPassphraseConfirm('')
+      setPassphraseError(null)
+      setSavingPassphrase(false)
+      setShowPassphrase(false)
+      setEditingPassphrase(false)
+    }
   }, [isOpen])
 
   if (!isOpen) return null
@@ -117,6 +134,38 @@ export default function BackupSettingsModal ({
     }
   }
 
+  const handleSavePassphrase = async () => {
+    setPassphraseError(null)
+    if (passphraseInput.length < 8) {
+      setPassphraseError('Pick a passphrase at least 8 characters long.')
+      return
+    }
+    if (passphraseInput !== passphraseConfirm) {
+      setPassphraseError('Passphrases don\'t match.')
+      return
+    }
+    setSavingPassphrase(true)
+    try {
+      await onSetPassphrase?.(passphraseInput)
+      setPassphraseInput('')
+      setPassphraseConfirm('')
+      setEditingPassphrase(false)
+    } catch (err) {
+      setPassphraseError(err.message || 'Couldn\'t save passphrase.')
+    } finally {
+      setSavingPassphrase(false)
+    }
+  }
+
+  const inputClasses = isFallout
+    ? 'bg-gray-900 border border-green-500/40 text-green-400 placeholder-green-700 font-mono focus:ring-green-500/50'
+    : isDarkBlue ? 'bg-[#0c1017] border border-[#1c2438] text-[#e0e6f0] placeholder-[#5d6b88] focus:ring-blue-500/50'
+      : isDark ? 'bg-[#1a1a1a] border border-[#3a3a3a] text-white placeholder-[#6b6b6b] focus:ring-blue-500/50'
+        : 'bg-white border border-gray-200 text-gray-900 placeholder-gray-400 focus:ring-blue-500/30'
+
+  const dangerBtn = isFallout ? 'bg-red-900/40 border border-red-500/40 text-red-400 hover:bg-red-900/60 font-mono'
+    : 'bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20'
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
@@ -148,34 +197,108 @@ export default function BackupSettingsModal ({
 
         {/* Body */}
         <div className="px-6 py-5 space-y-4">
-          {lastError && (
+          {lastError && hasPassphrase && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30">
               <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5 pointer-events-none" />
               <p className="text-xs text-red-400 leading-relaxed">{lastError}</p>
             </div>
           )}
 
-          {/* Status card */}
-          <div className={`p-4 rounded-xl ${cardClasses}`}>
-            <div className="flex items-center justify-between gap-3 mb-2">
-              <div>
-                <p className={`text-sm font-medium ${titleClasses}`}>Last backup</p>
-                <p className={subtitleClasses}>{formatBackupAge(s.lastBackupAt)}</p>
+          {/* Passphrase setup — required before any export */}
+          {(!hasPassphrase || editingPassphrase) && (
+            <div className={`p-4 rounded-xl ${cardClasses} space-y-3`}>
+              <div className="flex items-center gap-2.5">
+                <KeyRound className={`w-4 h-4 pointer-events-none ${subtitleClasses}`} />
+                <p className={`text-sm font-medium ${titleClasses}`}>
+                  {hasPassphrase ? 'Update backup passphrase' : 'Set a backup passphrase'}
+                </p>
               </div>
-              <div className="text-right">
-                <p className={`text-sm font-medium ${titleClasses}`}>Next</p>
-                <p className={subtitleClasses}>{formatNextBackup(s)}</p>
+              <p className={`text-xs leading-relaxed ${subtitleClasses}`}>
+                Backups are encrypted with this passphrase. <strong>Write it down somewhere safe.</strong> Without it, the backup file is unreadable.
+              </p>
+              {passphraseError && (
+                <p className="text-xs text-red-400">{passphraseError}</p>
+              )}
+              <div className="space-y-2">
+                <div className="relative">
+                  <input
+                    type={showPassphrase ? 'text' : 'password'}
+                    value={passphraseInput}
+                    onChange={(e) => setPassphraseInput(e.target.value)}
+                    placeholder="Passphrase (8+ characters)"
+                    className={`w-full px-4 py-2.5 pr-10 text-sm rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 ${inputClasses}`}
+                    autoComplete="off"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassphrase(s => !s)}
+                    className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md ${closeBtn}`}
+                    aria-label={showPassphrase ? 'Hide passphrase' : 'Show passphrase'}
+                  >
+                    {showPassphrase
+                      ? <EyeOff className="w-4 h-4 pointer-events-none" />
+                      : <Eye className="w-4 h-4 pointer-events-none" />}
+                  </button>
+                </div>
+                <input
+                  type={showPassphrase ? 'text' : 'password'}
+                  value={passphraseConfirm}
+                  onChange={(e) => setPassphraseConfirm(e.target.value)}
+                  placeholder="Confirm passphrase"
+                  className={`w-full px-4 py-2.5 text-sm rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 ${inputClasses}`}
+                  autoComplete="off"
+                />
+              </div>
+              <div className="flex gap-2">
+                {hasPassphrase && (
+                  <button
+                    onClick={() => { setEditingPassphrase(false); setPassphraseInput(''); setPassphraseConfirm(''); setPassphraseError(null) }}
+                    disabled={savingPassphrase}
+                    className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium ${secondaryBtn}`}
+                  >
+                    Cancel
+                  </button>
+                )}
+                <button
+                  onClick={handleSavePassphrase}
+                  disabled={savingPassphrase || passphraseInput.length === 0}
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium disabled:opacity-50 ${primaryBtn}`}
+                >
+                  {savingPassphrase ? 'Saving…' : (hasPassphrase ? 'Update' : 'Save passphrase')}
+                </button>
               </div>
             </div>
-            <button
-              onClick={handleExport}
-              disabled={isExporting}
-              className={`w-full mt-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 ${exportSuccess ? secondaryBtn : primaryBtn}`}
-            >
-              {exportSuccess ? <Check className="w-4 h-4 pointer-events-none" /> : <Download className="w-4 h-4 pointer-events-none" />}
-              {isExporting ? 'Exporting…' : exportSuccess ? 'Backup saved' : 'Export now'}
-            </button>
-          </div>
+          )}
+
+          {/* Status card — only fully active when passphrase is set */}
+          {hasPassphrase && !editingPassphrase && (
+            <div className={`p-4 rounded-xl ${cardClasses}`}>
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div>
+                  <p className={`text-sm font-medium ${titleClasses}`}>Last backup</p>
+                  <p className={subtitleClasses}>{formatBackupAge(s.lastBackupAt)}</p>
+                </div>
+                <div className="text-right">
+                  <p className={`text-sm font-medium ${titleClasses}`}>Next</p>
+                  <p className={subtitleClasses}>{formatNextBackup(s)}</p>
+                </div>
+              </div>
+              <button
+                onClick={handleExport}
+                disabled={isExporting}
+                className={`w-full mt-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 ${exportSuccess ? secondaryBtn : primaryBtn}`}
+              >
+                {exportSuccess ? <Check className="w-4 h-4 pointer-events-none" /> : <Download className="w-4 h-4 pointer-events-none" />}
+                {isExporting ? 'Exporting…' : exportSuccess ? 'Backup saved' : 'Export now'}
+              </button>
+              <button
+                onClick={() => setEditingPassphrase(true)}
+                className={`w-full mt-2 px-3 py-1.5 rounded-md text-xs ${subtitleClasses} hover:underline`}
+              >
+                Change passphrase
+              </button>
+            </div>
+          )}
 
           {/* Schedule */}
           <div>

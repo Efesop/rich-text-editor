@@ -1035,23 +1035,44 @@ export default function RichTextEditor() {
   const [isLockDropdownOpen, setIsLockDropdownOpen] = useState(false)
   const lockDropdownRef = useRef(null)
 
-  // ── Backup auto-export (phase 2.9) ─────────────────────────────────────
+  // ── Backup auto-export (phase 2.9 + 2.10a) ─────────────────────────────
   const [isBackupSettingsOpen, setIsBackupSettingsOpen] = useState(false)
   const [defaultBackupFolder, setDefaultBackupFolder] = useState(null)
-  // The hook runs the schedule sweep but only fires auto-export when
-  // getBackupPassphrase returns a non-null value. v1: this returns null
-  // unless app-lock is unlocked AND a backup passphrase has been
-  // explicitly set. Result: schedule + manual export work; auto-export
-  // is wired but inert until phase 2.10 adds passphrase storage.
+  const [hasBackupPassphrase, setHasBackupPassphrase] = useState(false)
+  // Refresh-passphrase-flag trigger so child components see latest state
+  const refreshHasBackupPassphrase = useCallback(async () => {
+    try {
+      const m = await import('../lib/backupPassphrase.js')
+      const has = await m.hasBackupPassphrase()
+      setHasBackupPassphrase(has)
+    } catch (err) {
+      console.error('refreshHasBackupPassphrase failed', err)
+    }
+  }, [])
+  useEffect(() => { refreshHasBackupPassphrase() }, [refreshHasBackupPassphrase])
+
   const backup = useAutoBackup({
     getPages: () => (Array.isArray(pages) ? pages : []),
     getTags: () => (Array.isArray(tags) ? tags : []),
     getBackupPassphrase: async () => {
-      // TODO 2.10: retrieve via safe-storage 'backup-passphrase' key,
-      // prompt user if not set when auto-export tries to fire.
-      return null
+      const m = await import('../lib/backupPassphrase.js')
+      return m.retrieveBackupPassphrase()
     }
   })
+
+  const handleSetBackupPassphrase = useCallback(async (passphrase) => {
+    const m = await import('../lib/backupPassphrase.js')
+    const ok = await m.storeBackupPassphrase(passphrase)
+    if (!ok) throw new Error('Could not save passphrase. Try again or contact support.')
+    await refreshHasBackupPassphrase()
+  }, [refreshHasBackupPassphrase])
+
+  const handleClearBackupPassphrase = useCallback(async () => {
+    const m = await import('../lib/backupPassphrase.js')
+    await m.clearBackupPassphrase()
+    await refreshHasBackupPassphrase()
+  }, [refreshHasBackupPassphrase])
+
   // Resolve the platform default folder (Electron only) so the settings
   // modal can show "~/Documents/Dash Backups" as a placeholder.
   useEffect(() => {
@@ -4484,15 +4505,18 @@ export default function RichTextEditor() {
         theme={theme}
       />
 
-      {/* Backup settings modal (phase 2.9) — always-on safety net. */}
+      {/* Backup settings modal (phase 2.9 + 2.10a) — always-on safety net. */}
       <BackupSettingsModal
         isOpen={isBackupSettingsOpen}
         onClose={() => setIsBackupSettingsOpen(false)}
         settings={backup.settings}
         isExporting={backup.isExporting}
         lastError={backup.lastError}
+        hasPassphrase={hasBackupPassphrase}
         onUpdateSettings={(next) => backup.persistSettings(next).catch(err => console.error('persist backup settings failed', err))}
         onExportNow={() => backup.exportBackupNow()}
+        onSetPassphrase={handleSetBackupPassphrase}
+        onClearPassphrase={handleClearBackupPassphrase}
         onPickFolder={
           (typeof window !== 'undefined' && window.electron?.invoke)
             ? () => window.electron.invoke('pick-backup-folder')
