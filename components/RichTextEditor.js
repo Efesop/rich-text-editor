@@ -86,6 +86,7 @@ import SyncSettingsPanel from './SyncSettingsPanel'
 import PairDeviceModal from './PairDeviceModal'
 import AcceptPairModal from './AcceptPairModal'
 import SyncStatusIndicator from './SyncStatusIndicator'
+import SyncPassphraseModal from './SyncPassphraseModal'
 // Trash (phase 2.5) — always-on UX improvement. Soft-delete by default,
 // recoverable for 30 days. Independent of sync.
 import TrashModal from './TrashModal'
@@ -1095,6 +1096,10 @@ export default function RichTextEditor() {
   const [isPairDeviceOpen, setIsPairDeviceOpen] = useState(false)
   const [isAcceptPairOpen, setIsAcceptPairOpen] = useState(false)
   const [pendingPairPacket, setPendingPairPacket] = useState(null)
+  // Phase 2.10c: passphrase modal — used for both setup (PWA) and unlock
+  // (when keyWrapMethod === 'passphrase'). Caller sets `passphraseModal`
+  // to { mode, title?, subtitle?, onSubmit } to show it; null hides it.
+  const [passphraseModal, setPassphraseModal] = useState(null)
   // Stable ref to the latest pages array — read by useSyncQueue without
   // re-creating the hook on every render.
   const syncPagesRef = useRef([])
@@ -4554,32 +4559,72 @@ export default function RichTextEditor() {
             onClose={() => setIsSyncSettingsOpen(false)}
             status={sync?.status}
             onEnableSync={async () => {
-              try {
-                // Pick wrap method: Electron prefers safe-storage (OS keychain),
-                // PWA falls back to passphrase-derived wrapping. App-lock-derived
-                // wrapping wires up later when app lock is fully integrated.
-                const isElectron = typeof window !== 'undefined' && !!window.electron?.invoke
-                if (isElectron) {
+              const isElectron = typeof window !== 'undefined' && !!window.electron?.invoke
+              if (isElectron) {
+                // Electron path: use OS keychain via safe-storage. No prompt.
+                try {
                   await sync.enableSync({
                     deviceName: window.electronPlatform?.isMac ? 'Mac' : 'Computer',
                     wrapMethod: 'safe-storage'
                   })
-                } else {
-                  // For PWA we'd need to prompt for a passphrase. For alpha we
-                  // use a hard-coded development passphrase so testing works.
-                  // Production will prompt via a dedicated modal.
-                  await sync.enableSync({
-                    deviceName: 'This device',
-                    wrapMethod: 'passphrase',
-                    passphrase: 'dev-passphrase-placeholder-replace-in-2.10'
-                  })
+                } catch (e) {
+                  console.error('enableSync failed', e)
                 }
-              } catch (e) {
-                console.error('enableSync failed', e)
+              } else {
+                // PWA / browser path: prompt for a passphrase that wraps
+                // the vault key at rest. Phase 2.10c flow.
+                setPassphraseModal({
+                  mode: 'setup',
+                  title: 'Set a sync passphrase',
+                  subtitle: 'Encrypts your sync key on this device.',
+                  onSubmit: async (passphrase) => {
+                    try {
+                      await sync.enableSync({
+                        deviceName: 'This device',
+                        wrapMethod: 'passphrase',
+                        passphrase
+                      })
+                      setPassphraseModal(null)
+                      return { ok: true }
+                    } catch (e) {
+                      return { ok: false, error: e.message || 'Setup failed' }
+                    }
+                  }
+                })
               }
             }}
             onDisableSync={() => sync?.disableSync?.()}
-            onUnlock={() => {/* TODO 2.10: prompt for credential per keyWrapMethod */}}
+            onUnlock={() => {
+              const meta = sync?.metadata
+              if (!meta) return
+              if (meta.keyWrapMethod === 'safe-storage') {
+                // Electron: unwrap directly from OS keychain.
+                sync.unlockVault({}).catch(err => console.error('unlock failed', err))
+                return
+              }
+              if (meta.keyWrapMethod === 'app-lock') {
+                // App-lock-derived: caller would need the app-lock cryptokey.
+                // TODO: wire to existing app-lock flow when both are tested
+                // together in Phase 2.11.
+                console.warn('app-lock vault unlock: TODO 2.11')
+                return
+              }
+              // Passphrase mode: prompt the user.
+              setPassphraseModal({
+                mode: 'unlock',
+                title: 'Unlock vault',
+                subtitle: 'Enter your sync passphrase.',
+                onSubmit: async (passphrase) => {
+                  try {
+                    await sync.unlockVault({ passphrase })
+                    setPassphraseModal(null)
+                    return { ok: true }
+                  } catch (e) {
+                    return { ok: false, error: 'Wrong passphrase' }
+                  }
+                }
+              })
+            }}
             onLock={() => sync?.lockVault?.()}
             onPairNewDevice={() => setIsPairDeviceOpen(true)}
             onAcceptPair={() => setIsAcceptPairOpen(true)}
@@ -4605,13 +4650,55 @@ export default function RichTextEditor() {
           <AcceptPairModal
             isOpen={isAcceptPairOpen}
             onClose={() => setIsAcceptPairOpen(false)}
-            onPaired={({ vaultPacket }) => {
+            onPaired={async ({ vaultPacket }) => {
               setPendingPairPacket(vaultPacket)
               setIsAcceptPairOpen(false)
-              // TODO 2.10: persist new vault metadata + register device
-              //           with relay + initial pull.
-              console.log('Paired packet ready', vaultPacket)
+              // Phase 2.10c: complete the pair. The packet contains the
+              // existing vault's vaultId + vaultKey + relayUrl + paired
+              // devices. We need to:
+              //   1. Build local vault metadata using this packet
+              //   2. Decide a wrap method for the vault key on THIS device
+              //   3. Save metadata, register device with relay, pull
+              const isElectron = typeof window !== 'undefined' && !!window.electron?.invoke
+              const adoptPairPacket = async (wrapOpts) => {
+                try {
+                  await sync.adoptVault({
+                    packet: vaultPacket,
+                    deviceName: isElectron
+                      ? (window.electronPlatform?.isMac ? 'Mac' : 'Computer')
+                      : 'This device',
+                    ...wrapOpts
+                  })
+                  setPendingPairPacket(null)
+                } catch (err) {
+                  console.error('adoptPairPacket failed', err)
+                }
+              }
+              if (isElectron) {
+                adoptPairPacket({ wrapMethod: 'safe-storage' })
+              } else {
+                setPassphraseModal({
+                  mode: 'setup',
+                  title: 'Set a passphrase on this device',
+                  subtitle: 'Encrypts the synced vault key locally.',
+                  onSubmit: async (passphrase) => {
+                    setPassphraseModal(null)
+                    await adoptPairPacket({ wrapMethod: 'passphrase', passphrase })
+                    return { ok: true }
+                  }
+                })
+              }
             }}
+            theme={theme}
+          />
+
+          <SyncPassphraseModal
+            isOpen={!!passphraseModal}
+            onClose={() => setPassphraseModal(null)}
+            mode={passphraseModal?.mode || 'setup'}
+            title={passphraseModal?.title}
+            subtitle={passphraseModal?.subtitle}
+            onSubmit={passphraseModal?.onSubmit}
             theme={theme}
           />
         </>

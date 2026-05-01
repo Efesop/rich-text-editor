@@ -87,6 +87,11 @@ export function useSyncQueue ({
   // this is just a cost optimization, not a correctness requirement.
   const pushedAttachmentsRef = useRef(new Set())
   const pulledAttachmentsRef = useRef(new Set())
+  // Phase 2.10c: refs to functions defined later in the hook body — used
+  // by adoptVault (declared earlier) without taking them as deps (which
+  // would TDZ at the useCallback site). Same render → same closure.
+  const initialPullRef = useRef(null)
+  const authenticatedRequestRef = useRef(null)
 
   const [status, setStatus] = useState({
     enabled: false,
@@ -396,7 +401,13 @@ export function useSyncQueue ({
     }
   }, [getCredentials, hasInFlightEdit, applyRemoteChanges, pagesRef, updateStatus])
 
+  // Keep the ref aligned so adoptVault (defined earlier) can call pull()
+  // after registration without taking it as a dep (which would TDZ).
+  initialPullRef.current = pull
+
   // ── Settings actions (called from SyncSettingsPanel) ───────────────────
+
+  // (Functions below — keep refs in sync for ones referenced earlier.)
 
   const enableSync = useCallback(async ({ deviceName, wrapMethod, appLockKey, passphrase }) => {
     const store = vaultStoreRef.current
@@ -422,6 +433,57 @@ export function useSyncQueue ({
     })
     return metadata
   }, [relayUrl, updateStatus])
+
+  // Phase 2.10c: adopt an existing vault from a QR-pair packet (guest
+  // device flow). Persists metadata, registers the new device with the
+  // relay, and triggers an initial pull so the user has all existing
+  // notes from the vault.
+  const adoptVault = useCallback(async ({ packet, deviceName, wrapMethod, appLockKey, passphrase }) => {
+    const store = vaultStoreRef.current
+    if (!store) throw new Error('store not initialized')
+    const isElectron = typeof window !== 'undefined' && !!window.electron?.invoke
+    const opts = { packet, deviceName, wrapMethod }
+    if (wrapMethod === 'app-lock') opts.appLockKey = appLockKey
+    if (wrapMethod === 'passphrase') opts.passphrase = passphrase
+    if (wrapMethod === 'safe-storage') {
+      if (!isElectron) throw new Error("'safe-storage' wrap method requires Electron")
+      opts.safeStorageStore = safeStorageStoreVaultKey
+    }
+    const { metadata } = await store.adoptVault(opts)
+    await store.save(metadata)
+    metadataRef.current = metadata
+    updateStatus({
+      enabled: true,
+      unlocked: true,
+      vaultId: metadata.vaultId,
+      deviceId: metadata.deviceId,
+      deviceName: metadata.deviceName,
+      pairedDevices: metadata.pairedDevices || []
+    })
+    // Register the new device with the relay so its auth proofs validate.
+    try {
+      const ar = authenticatedRequestRef.current
+      if (ar) {
+        await ar('POST', '/sync/vault/register', {
+          vaultId: metadata.vaultId,
+          deviceId: metadata.deviceId,
+          deviceName: metadata.deviceName
+        })
+      }
+    } catch (err) {
+      console.error('adoptVault: device register failed', err)
+      // Non-fatal — local metadata is still saved; user can retry later.
+    }
+    // Initial pull — get all existing notes from the vault. Deferred via
+    // setTimeout so this useCallback doesn't need `pull` in its deps
+    // (which would create a TDZ issue since pull is defined later in
+    // the hook body).
+    setTimeout(() => {
+      const fn = initialPullRef.current
+      if (typeof fn === 'function') fn().catch(err => console.error('adoptVault: initial pull failed', err))
+    }, 0)
+    return metadata
+  }, [updateStatus])
 
   const disableSync = useCallback(async () => {
     const store = vaultStoreRef.current
@@ -463,7 +525,8 @@ export function useSyncQueue ({
   }, [updateStatus])
 
   // Helper: do an authenticated request to the relay. Used by the
-  // less-common ops that don't go through the queue (purge, revoke).
+  // less-common ops that don't go through the queue (purge, revoke,
+  // initial-register on adoptVault).
   const authenticatedRequest = useCallback(async (method, path, body = null) => {
     const creds = await getCredentials()
     const httpUrl = creds.relayUrl.replace(/^wss?:\/\//, m => m === 'wss://' ? 'https://' : 'http://')
@@ -489,6 +552,10 @@ export function useSyncQueue ({
     }
     return parsed
   }, [getCredentials])
+
+  // Keep the ref in sync so adoptVault (defined earlier) can call this
+  // without taking it as a useCallback dep (which would TDZ).
+  authenticatedRequestRef.current = authenticatedRequest
 
   // Phase 2.10b: server-side vault purge. Two-step (token issue + use).
   const purgeCloud = useCallback(async () => {
@@ -610,6 +677,7 @@ export function useSyncQueue ({
     flushNow,
     pull,
     enableSync,
+    adoptVault,
     disableSync,
     unlockVault,
     lockVault,
