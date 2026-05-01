@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, Share2, List, Users, Shield, Copy, Check, Trash2 } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, Share2, List, Users, Shield, Copy, Check, Trash2, Archive } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
@@ -89,6 +89,10 @@ import SyncStatusIndicator from './SyncStatusIndicator'
 // Trash (phase 2.5) — always-on UX improvement. Soft-delete by default,
 // recoverable for 30 days. Independent of sync.
 import TrashModal from './TrashModal'
+// Backup (phase 2.9) — encrypted .dashpack auto-export. Independent of sync;
+// always-on safety net for users who lose all paired devices.
+import BackupSettingsModal from './BackupSettingsModal'
+import { useAutoBackup } from '../hooks/useAutoBackup'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
 
@@ -1030,6 +1034,31 @@ export default function RichTextEditor() {
   const [biometricAvailable, setBiometricAvailable] = useState(false)
   const [isLockDropdownOpen, setIsLockDropdownOpen] = useState(false)
   const lockDropdownRef = useRef(null)
+
+  // ── Backup auto-export (phase 2.9) ─────────────────────────────────────
+  const [isBackupSettingsOpen, setIsBackupSettingsOpen] = useState(false)
+  const [defaultBackupFolder, setDefaultBackupFolder] = useState(null)
+  // The hook runs the schedule sweep but only fires auto-export when
+  // getBackupPassphrase returns a non-null value. v1: this returns null
+  // unless app-lock is unlocked AND a backup passphrase has been
+  // explicitly set. Result: schedule + manual export work; auto-export
+  // is wired but inert until phase 2.10 adds passphrase storage.
+  const backup = useAutoBackup({
+    getPages: () => (Array.isArray(pages) ? pages : []),
+    getTags: () => (Array.isArray(tags) ? tags : []),
+    getBackupPassphrase: async () => {
+      // TODO 2.10: retrieve via safe-storage 'backup-passphrase' key,
+      // prompt user if not set when auto-export tries to fire.
+      return null
+    }
+  })
+  // Resolve the platform default folder (Electron only) so the settings
+  // modal can show "~/Documents/Dash Backups" as a placeholder.
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.electron?.invoke) {
+      window.electron.invoke('get-default-backup-folder').then(setDefaultBackupFolder).catch(() => {})
+    }
+  }, [])
 
   // ── Trash (phase 2.5) ──────────────────────────────────────────────────
   const [isTrashModalOpen, setIsTrashModalOpen] = useState(false)
@@ -4013,6 +4042,19 @@ export default function RichTextEditor() {
           <span className="pointer-events-none">Trash · {trashedPages.length}</span>
         </button>
       )}
+      <button
+        onClick={() => setIsBackupSettingsOpen(true)}
+        className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-colors text-xs ${
+          theme === 'fallout' ? 'text-green-600 hover:text-green-400 hover:bg-green-900/30'
+            : theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5] hover:bg-[#1c2438]'
+              : theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0] hover:bg-[#2a2a2a]'
+                : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100'
+        }`}
+        title="Backup settings"
+      >
+        <Archive className="w-3 h-3 pointer-events-none" />
+        <span className="pointer-events-none">Backup</span>
+      </button>
     </div>
   </div>
         </>
@@ -4439,6 +4481,24 @@ export default function RichTextEditor() {
         onClearDuress={appLock.clearDuress}
         checkIsRealPassword={appLock.checkPassword}
         onManageDecoy={() => setIsDecoySetupOpen(true)}
+        theme={theme}
+      />
+
+      {/* Backup settings modal (phase 2.9) — always-on safety net. */}
+      <BackupSettingsModal
+        isOpen={isBackupSettingsOpen}
+        onClose={() => setIsBackupSettingsOpen(false)}
+        settings={backup.settings}
+        isExporting={backup.isExporting}
+        lastError={backup.lastError}
+        onUpdateSettings={(next) => backup.persistSettings(next).catch(err => console.error('persist backup settings failed', err))}
+        onExportNow={() => backup.exportBackupNow()}
+        onPickFolder={
+          (typeof window !== 'undefined' && window.electron?.invoke)
+            ? () => window.electron.invoke('pick-backup-folder')
+            : null
+        }
+        defaultFolder={defaultBackupFolder}
         theme={theme}
       />
 

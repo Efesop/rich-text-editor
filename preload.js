@@ -49,7 +49,14 @@ contextBridge.exposeInMainWorld('electron', {
       'clear-sync-queue',
       'vault-key-store',
       'vault-key-retrieve',
-      'vault-key-delete'
+      'vault-key-delete',
+      'read-backup-settings',
+      'save-backup-settings',
+      'pick-backup-folder',
+      'write-backup-file',
+      'list-backup-files',
+      'delete-backup-file',
+      'get-default-backup-folder'
     ];
 
     if (validChannels.includes(channel)) {

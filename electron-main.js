@@ -460,6 +460,91 @@ ipcMain.handle('vault-key-delete', async () => {
   return true;
 });
 
+// --- Backup auto-export (phase 2.9) ---
+// Settings file holds schedule/lastBackupAt/folderPath/etc.
+// Actual backup files (encrypted .dashpack blobs) written to user-chosen folder
+// (default: ~/Documents/Dash Backups/).
+const backupSettingsPath = path.join(app.getPath('userData'), 'backup-settings.json');
+
+ipcMain.handle('read-backup-settings', async () => {
+  try {
+    const data = await fs.readFile(backupSettingsPath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    log.error('read-backup-settings failed', error);
+    return null;
+  }
+});
+
+ipcMain.handle('save-backup-settings', async (event, settings) => {
+  if (!settings || typeof settings !== 'object') {
+    throw new Error('save-backup-settings: settings must be an object');
+  }
+  const settingsTempPath = backupSettingsPath + '.tmp';
+  await fs.writeFile(settingsTempPath, JSON.stringify(settings, null, 2));
+  await fs.rename(settingsTempPath, backupSettingsPath);
+  return { success: true };
+});
+
+ipcMain.handle('pick-backup-folder', async () => {
+  try {
+    const { dialog } = require('electron');
+    const result = await dialog.showOpenDialog({
+      title: 'Choose backup folder',
+      properties: ['openDirectory', 'createDirectory'],
+      defaultPath: path.join(app.getPath('home'), 'Documents')
+    });
+    if (result.canceled || !result.filePaths || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+  } catch (e) {
+    log.error('pick-backup-folder failed', e);
+    return null;
+  }
+});
+
+const defaultBackupFolder = () => path.join(app.getPath('home'), 'Documents', 'Dash Backups');
+
+ipcMain.handle('write-backup-file', async (event, { filename, content, folderPath }) => {
+  if (typeof filename !== 'string' || !filename.endsWith('.dashpack')) {
+    throw new Error('write-backup-file: filename must end with .dashpack');
+  }
+  if (!/^[a-zA-Z0-9._-]+$/.test(filename)) {
+    throw new Error('write-backup-file: invalid filename characters');
+  }
+  if (typeof content !== 'string') {
+    throw new Error('write-backup-file: content must be string (encrypted JSON)');
+  }
+  const folder = folderPath && typeof folderPath === 'string' ? folderPath : defaultBackupFolder();
+  await fs.mkdir(folder, { recursive: true });
+  const fullPath = path.join(folder, filename);
+  await fs.writeFile(fullPath, content);
+  return { success: true, path: fullPath };
+});
+
+ipcMain.handle('list-backup-files', async (event, folderPath) => {
+  const folder = folderPath && typeof folderPath === 'string' ? folderPath : defaultBackupFolder();
+  try {
+    const entries = await fs.readdir(folder);
+    return entries.filter(name => /^dash-backup-\d{4}-\d{2}-\d{2}\.dashpack$/.test(name));
+  } catch (error) {
+    if (error.code === 'ENOENT') return [];
+    log.error('list-backup-files failed', error);
+    return [];
+  }
+});
+
+ipcMain.handle('delete-backup-file', async (event, { filename, folderPath }) => {
+  if (typeof filename !== 'string' || !/^dash-backup-\d{4}-\d{2}-\d{2}\.dashpack$/.test(filename)) {
+    throw new Error('delete-backup-file: invalid filename');
+  }
+  const folder = folderPath && typeof folderPath === 'string' ? folderPath : defaultBackupFolder();
+  try { await fs.unlink(path.join(folder, filename)); } catch { /* already gone */ }
+  return { success: true };
+});
+
+ipcMain.handle('get-default-backup-folder', () => defaultBackupFolder());
+
 // --- Attachment storage ---
 const attachmentsDir = path.join(app.getPath('userData'), 'attachments');
 
