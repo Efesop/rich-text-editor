@@ -408,8 +408,56 @@ export function usePagesManager() {
     }
   }, [savePagesToStorage])
 
-  const deletePage = useCallback(async (pageToDelete) => {
-    dbg('pages', 'deleting:', pageToDelete.title || pageToDelete.id, pageToDelete.type === 'folder' ? '(folder)' : '')
+  // ── Trash (Phase 2.5) ───────────────────────────────────────────────────
+  // Soft-delete: marks the page as trashed (hidden from sidebar, visible in
+  // Trash modal). Survives ~30 days then auto-purges. Folders cannot be
+  // trashed — deleting a folder is structural and goes straight to permanent
+  // delete (the pages inside are independently in trash if so trashed).
+  const trashPage = useCallback(async (pageToTrash) => {
+    if (!pageToTrash || pageToTrash.type === 'folder') {
+      return permanentlyDeletePage(pageToTrash)
+    }
+    dbg('pages', 'trashing:', pageToTrash.title || pageToTrash.id)
+    const latestPage = pagesRef.current.find(p => p.id === pageToTrash.id)
+    if (!latestPage) return
+    const trashedPage = {
+      ...latestPage,
+      trashed: true,
+      trashedAt: Date.now()
+    }
+    const newPages = pagesRef.current.map(p =>
+      p.id === pageToTrash.id ? trashedPage : p
+    )
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
+    // Move user off the trashed page if they're viewing it
+    if (currentPageRef.current?.id === pageToTrash.id) {
+      const remaining = newPages.filter(p => p.type !== 'folder' && !p.trashed)
+      setCurrentPage(remaining[0] || null)
+    }
+  }, [])
+
+  const restorePage = useCallback(async (pageToRestore) => {
+    if (!pageToRestore) return
+    const latestPage = pagesRef.current.find(p => p.id === pageToRestore.id)
+    if (!latestPage || latestPage.trashed !== true) return
+    dbg('pages', 'restoring:', latestPage.title || latestPage.id)
+    const { trashed: _t, trashedAt: _ta, ...rest } = latestPage
+    const restored = rest
+    const newPages = pagesRef.current.map(p =>
+      p.id === pageToRestore.id ? restored : p
+    )
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
+  }, [])
+
+  // Hard delete — removes from pagesRef + cleans up versions/attachments.
+  // Pushes a tombstone envelope via the sync hook (when sync is enabled +
+  // unlocked, which is checked in useSyncQueue's enqueueChangedPages).
+  const permanentlyDeletePage = useCallback(async (pageToDelete) => {
+    dbg('pages', 'permanently deleting:', pageToDelete.title || pageToDelete.id, pageToDelete.type === 'folder' ? '(folder)' : '')
     // Get latest page content from pagesRef BEFORE filtering (for attachment cleanup below)
     const latestPage = pagesRef.current.find(p => p.id === pageToDelete.id) || pageToDelete
     // Clean up cached encryption key for this page
@@ -468,10 +516,27 @@ export function usePagesManager() {
 
     // Handle current page cleanup
     if (currentPageRef.current?.id === pageToDelete.id) {
-      const remainingPages = (Array.isArray(pagesRef.current) ? pagesRef.current : []).filter(p => p.type !== 'folder')
+      const remainingPages = (Array.isArray(pagesRef.current) ? pagesRef.current : []).filter(p => p.type !== 'folder' && !p.trashed)
       setCurrentPage(remainingPages[0] || null)
     }
   }, [savePagesToStorage])
+
+  // Default delete = soft-trash for notes (recoverable from Trash),
+  // permanent for folders (folders bypass trash since they're structural).
+  // Existing call sites that imported `deletePage` keep working — the visible
+  // change is that the page now appears in the Trash modal instead of
+  // disappearing immediately.
+  const deletePage = useCallback(async (pageToDelete) => {
+    if (!pageToDelete) return
+    if (pageToDelete.type === 'folder') {
+      return permanentlyDeletePage(pageToDelete)
+    }
+    // If already trashed, this is a "delete forever" gesture
+    if (pageToDelete.trashed === true) {
+      return permanentlyDeletePage(pageToDelete)
+    }
+    return trashPage(pageToDelete)
+  }, [permanentlyDeletePage, trashPage])
 
   const renamePage = useCallback(async (pageToRename, newTitle) => {
     if (!pageToRename || !newTitle || newTitle === pageToRename.title) return
@@ -1403,8 +1468,10 @@ export function usePagesManager() {
           const elapsed = now - page.selfDestructAt
           if (elapsed < 2000) return
 
-          // Delete from storage IMMEDIATELY so force-quit can't preserve the page
-          deletePage(page)
+          // Delete from storage IMMEDIATELY so force-quit can't preserve the page.
+          // Self-destruct bypasses Trash — the whole point of the feature is
+          // unrecoverable destruction.
+          permanentlyDeletePage(page)
           // Delete backup so content can't be recovered from .bak
           if (typeof window !== 'undefined' && window.electron?.invoke) {
             setTimeout(() => window.electron.invoke('delete-pages-backup').catch(() => {}), 500)
@@ -1435,7 +1502,7 @@ export function usePagesManager() {
 
     const interval = setInterval(checkExpired, 1000)
     return () => clearInterval(interval)
-  }, [deletePage])
+  }, [permanentlyDeletePage])
 
   // Initialize on mount
   useEffect(() => {
@@ -1512,5 +1579,9 @@ export function usePagesManager() {
     // Phase 2.4 sync — exposed so RichTextEditor can pass the live duress
     // flag into useSyncQueue's canPush gate.
     isDuressModeRef,
+    // Phase 2.5 trash — soft-delete (recoverable) and explicit permanent.
+    trashPage,
+    restorePage,
+    permanentlyDeletePage,
   }
 }

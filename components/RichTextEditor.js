@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, Share2, List, Users, Shield, Copy, Check } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, Share2, List, Users, Shield, Copy, Check, Trash2 } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
@@ -86,6 +86,9 @@ import SyncSettingsPanel from './SyncSettingsPanel'
 import PairDeviceModal from './PairDeviceModal'
 import AcceptPairModal from './AcceptPairModal'
 import SyncStatusIndicator from './SyncStatusIndicator'
+// Trash (phase 2.5) — always-on UX improvement. Soft-delete by default,
+// recoverable for 30 days. Independent of sync.
+import TrashModal from './TrashModal'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
 
@@ -485,6 +488,9 @@ export default function RichTextEditor() {
     setPages,
     getLatestPages,
     isDuressModeRef,
+    trashPage,
+    restorePage,
+    permanentlyDeletePage,
   } = usePagesManager()
 
   const {
@@ -1025,6 +1031,15 @@ export default function RichTextEditor() {
   const [isLockDropdownOpen, setIsLockDropdownOpen] = useState(false)
   const lockDropdownRef = useRef(null)
 
+  // ── Trash (phase 2.5) ──────────────────────────────────────────────────
+  const [isTrashModalOpen, setIsTrashModalOpen] = useState(false)
+  // Derived: pages currently in Trash. Memoized off `pages` so re-renders
+  // are cheap.
+  const trashedPages = React.useMemo(
+    () => (Array.isArray(pages) ? pages : []).filter(p => p.trashed === true && p.type !== 'folder'),
+    [pages]
+  )
+
   // ── Sync (phase 2.0a–2.4) — gated behind SYNC_ENABLED ──────────────────
   const [isSyncSettingsOpen, setIsSyncSettingsOpen] = useState(false)
   const [isPairDeviceOpen, setIsPairDeviceOpen] = useState(false)
@@ -1401,6 +1416,23 @@ export default function RichTextEditor() {
   useEffect(() => {
     syncCurrentPageRef.current = currentPage
   }, [currentPage])
+
+  // ── Trash auto-purge sweep (Phase 2.5) ─────────────────────────────────
+  // Runs once a minute. Permanently deletes any item that's been in Trash
+  // for more than 30 days. Cheap (only runs over already-trashed items).
+  useEffect(() => {
+    const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
+    const sweep = () => {
+      const now = Date.now()
+      const expired = (Array.isArray(pages) ? pages : []).filter(
+        p => p.trashed === true && typeof p.trashedAt === 'number' && (now - p.trashedAt) > TRASH_RETENTION_MS
+      )
+      expired.forEach(p => permanentlyDeletePage(p))
+    }
+    sweep() // run once on mount
+    const interval = setInterval(sweep, 60 * 1000)
+    return () => clearInterval(interval)
+  }, [pages, permanentlyDeletePage])
 
   // Show toast when participants join/leave during live session
   useEffect(() => {
@@ -2586,6 +2618,11 @@ export default function RichTextEditor() {
 
   const filteredPages = useCallback(() => {
     return pages.filter(page => {
+      // Trashed pages are hidden from sidebar/search/quick switcher.
+      // They remain in `pages` so version history + sync flows work,
+      // but the user only sees them in the Trash modal (Phase 2.5).
+      if (page.trashed === true) return false
+
       if (page.type === 'folder') {
         return page.title.toLowerCase().includes(searchTerm.toLowerCase())
       }
@@ -3961,6 +3998,21 @@ export default function RichTextEditor() {
           theme={theme}
         />
       )}
+      {trashedPages.length > 0 && (
+        <button
+          onClick={() => setIsTrashModalOpen(true)}
+          className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-colors text-xs ${
+            theme === 'fallout' ? 'text-green-600 hover:text-green-400 hover:bg-green-900/30'
+              : theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5] hover:bg-[#1c2438]'
+                : theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0] hover:bg-[#2a2a2a]'
+                  : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100'
+          }`}
+          title={`Trash (${trashedPages.length} item${trashedPages.length === 1 ? '' : 's'})`}
+        >
+          <Trash2 className="w-3 h-3 pointer-events-none" />
+          <span className="pointer-events-none">Trash · {trashedPages.length}</span>
+        </button>
+      )}
     </div>
   </div>
         </>
@@ -4387,6 +4439,25 @@ export default function RichTextEditor() {
         onClearDuress={appLock.clearDuress}
         checkIsRealPassword={appLock.checkPassword}
         onManageDecoy={() => setIsDecoySetupOpen(true)}
+        theme={theme}
+      />
+
+      {/* Trash modal (phase 2.5) — always-on, independent of sync. */}
+      <TrashModal
+        isOpen={isTrashModalOpen}
+        onClose={() => setIsTrashModalOpen(false)}
+        trashedPages={trashedPages}
+        onRestore={(p) => restorePage(p)}
+        onPermanentlyDelete={(p) => permanentlyDeletePage(p)}
+        onEmptyTrash={() => {
+          // Permanent-delete each trashed page in sequence. Since each call
+          // reads pagesRef.current and modifies it, we snapshot the IDs first.
+          const ids = trashedPages.map(p => p.id)
+          ids.forEach(id => {
+            const target = pages.find(pp => pp.id === id)
+            if (target) permanentlyDeletePage(target)
+          })
+        }}
         theme={theme}
       />
 
