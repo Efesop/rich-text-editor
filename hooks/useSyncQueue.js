@@ -29,6 +29,12 @@ import { createSyncQueue } from '../lib/syncQueue.js'
 import { diffPages, snapshotPages, buildManifestPayload } from '../lib/syncDiff.js'
 import { pullSince, applyPulledChanges, PullError } from '../lib/syncPull.js'
 import { captureVersion } from '../lib/versionStorage.js'
+import {
+  pushAttachment as syncPushAttachment,
+  pullAttachment as syncPullAttachment,
+  extractAttachmentIds,
+  newAttachmentIds
+} from '../lib/syncAttachments.js'
 
 // Persist backend for the queue itself (separate from vault metadata).
 function createQueuePersistBackend () {
@@ -73,6 +79,12 @@ export function useSyncQueue ({
   const metadataRef = useRef(null) // reactive copy: { vaultId, deviceId, deviceName, syncEnabled, ... }
   const lastSyncedSnapshotRef = useRef([]) // pages array as last seen by sync
   const pullingRef = useRef(false)
+  // Phase 2.6: track attachments we've pushed/pulled in this session to
+  // avoid redundant network calls for attachments we know are already at
+  // the server / already cached locally. Server is content-addressed so
+  // this is just a cost optimization, not a correctness requirement.
+  const pushedAttachmentsRef = useRef(new Set())
+  const pulledAttachmentsRef = useRef(new Set())
 
   const [status, setStatus] = useState({
     enabled: false,
@@ -182,7 +194,9 @@ export function useSyncQueue ({
     const queue = queueRef.current
     const meta = metadataRef.current
     if (!queue || !store || !meta?.syncEnabled || !store.isUnlocked()) return
-    const changes = diffPages(prev || lastSyncedSnapshotRef.current, next || pagesRef?.current || [])
+    const baseline = prev || lastSyncedSnapshotRef.current
+    const target = next || pagesRef?.current || []
+    const changes = diffPages(baseline, target)
     for (const [pageId, page] of changes.notesUpserted) {
       queue.enqueue({
         resourceType: 'note',
@@ -190,6 +204,24 @@ export function useSyncQueue ({
         payload: page,
         parentVersion: meta.lastSyncedVersion?.[pageId] ?? null
       })
+      // Phase 2.6: push any attachments newly referenced by this page.
+      // Fire-and-forget background tasks — note envelope can land before
+      // attachments arrive at server; recipient devices lazy-pull on
+      // first view.
+      try {
+        const baselinePage = (baseline || []).find(p => p.id === pageId) || null
+        const newIds = newAttachmentIds(baselinePage, page)
+        for (const attId of newIds) {
+          if (pushedAttachmentsRef.current.has(attId)) continue
+          pushedAttachmentsRef.current.add(attId) // optimistic mark
+          pushAttachmentInBackground(attId).catch(() => {
+            // On failure, allow retry on next save
+            pushedAttachmentsRef.current.delete(attId)
+          })
+        }
+      } catch (err) {
+        console.error('useSyncQueue: attachment scan failed', err)
+      }
     }
     for (const pageId of changes.notesDeleted) {
       queue.enqueue({
@@ -210,11 +242,78 @@ export function useSyncQueue ({
       queue.enqueue({
         resourceType: 'meta',
         resourceId: 'manifest',
-        payload: buildManifestPayload(next || pagesRef?.current || [], tags || [])
+        payload: buildManifestPayload(target, tags || [])
       })
     }
-    lastSyncedSnapshotRef.current = snapshotPages(next || pagesRef?.current || [])
+    lastSyncedSnapshotRef.current = snapshotPages(target)
   }, [pagesRef])
+
+  // ── Attachment push (Phase 2.6) — fire-and-forget background helper ──
+  // Reads bytes from the local attachment store, pushes to relay. No retry
+  // here (server is idempotent — if it fails we'll re-attempt on the next
+  // save that touches the page).
+  const pushAttachmentInBackground = useCallback(async (attachmentId) => {
+    const meta = metadataRef.current
+    const store = vaultStoreRef.current
+    if (!meta?.syncEnabled || !store?.isUnlocked()) return
+    const creds = await getCredentials().catch(() => null)
+    if (!creds) return
+    const { loadAttachment } = await import('../lib/attachmentStorage.js')
+    const data = await loadAttachment(attachmentId)
+    if (!data) {
+      console.warn('useSyncQueue: attachment not found locally', attachmentId)
+      return
+    }
+    const bytes = data instanceof ArrayBuffer ? new Uint8Array(data)
+      : (data instanceof Uint8Array ? data : new Uint8Array(data))
+    const result = await syncPushAttachment({
+      attachmentId,
+      bytes,
+      credentials: creds
+    })
+    if (!result.ok) {
+      console.warn('useSyncQueue: pushAttachment failed', attachmentId, result.errorCode)
+      throw new Error(result.errorCode || 'push failed')
+    }
+  }, [getCredentials])
+
+  // Pull missing attachments after applying pulled note envelopes.
+  const pullMissingAttachments = useCallback(async (appliedPages) => {
+    if (!appliedPages || appliedPages.length === 0) return
+    const meta = metadataRef.current
+    const store = vaultStoreRef.current
+    if (!meta?.syncEnabled || !store?.isUnlocked()) return
+    const creds = await getCredentials().catch(() => null)
+    if (!creds) return
+    const { loadAttachment, saveAttachment } = await import('../lib/attachmentStorage.js')
+    const seen = new Set()
+    for (const page of appliedPages) {
+      const ids = extractAttachmentIds(page)
+      for (const attId of ids) {
+        if (seen.has(attId)) continue
+        seen.add(attId)
+        if (pulledAttachmentsRef.current.has(attId)) continue
+        // Check local cache first
+        const local = await loadAttachment(attId).catch(() => null)
+        if (local) {
+          pulledAttachmentsRef.current.add(attId)
+          continue
+        }
+        // Fetch from server
+        const result = await syncPullAttachment({ attachmentId: attId, credentials: creds })
+        if (result.ok && result.bytes) {
+          try {
+            await saveAttachment(attId, result.bytes.buffer.slice(result.bytes.byteOffset, result.bytes.byteOffset + result.bytes.byteLength))
+            pulledAttachmentsRef.current.add(attId)
+          } catch (err) {
+            console.error('useSyncQueue: failed to write pulled attachment', attId, err)
+          }
+        } else {
+          console.warn('useSyncQueue: pullAttachment failed', attId, result.errorCode)
+        }
+      }
+    }
+  }, [getCredentials])
 
   // Wire the global callback so usePagesManager can hand off changes without
   // taking a hard import dependency on this hook.
@@ -260,6 +359,14 @@ export function useSyncQueue ({
           }
         )
         applyRemoteChanges?.(apply.newPages, apply.manifest)
+        // Phase 2.6: lazy-pull attachments referenced by newly-applied
+        // pages but missing from local store. Fire-and-forget.
+        const appliedPagesData = apply.applied
+          .map(id => apply.newPages.find(p => p.id === id))
+          .filter(Boolean)
+        pullMissingAttachments(appliedPagesData).catch(err => {
+          console.error('useSyncQueue: pullMissingAttachments failed', err)
+        })
       }
       // Persist new cursor + per-page versions
       const newMeta = {
