@@ -35,6 +35,7 @@ import {
   extractAttachmentIds,
   newAttachmentIds
 } from '../lib/syncAttachments.js'
+import { fetchVersionList, fetchVersion } from '../lib/syncVersions.js'
 import { buildSyncHeaders } from '../lib/syncAuth.js'
 
 // Persist backend for the queue itself (separate from vault metadata).
@@ -514,6 +515,38 @@ export function useSyncQueue ({
     }
   }, [authenticatedRequest, updateStatus])
 
+  // Phase 2.8: synced version history — fetch the list of server-stored
+  // versions for a note. Returns { ok, versions } or { ok:false, errorCode }.
+  const fetchSyncedVersionList = useCallback(async (noteId) => {
+    const meta = metadataRef.current
+    const store = vaultStoreRef.current
+    if (!meta?.syncEnabled || !store?.isUnlocked()) {
+      return { ok: false, errorCode: 'sync-not-ready' }
+    }
+    try {
+      const creds = await getCredentials()
+      return fetchVersionList({ noteId, credentials: creds })
+    } catch (err) {
+      return { ok: false, errorCode: 'unexpected', message: err.message }
+    }
+  }, [getCredentials])
+
+  // Fetch a specific server version's decrypted payload. Caller can show
+  // it in a Compare view or call setPages-equivalent to restore.
+  const fetchSyncedVersion = useCallback(async (noteId, version) => {
+    const meta = metadataRef.current
+    const store = vaultStoreRef.current
+    if (!meta?.syncEnabled || !store?.isUnlocked()) {
+      return { ok: false, errorCode: 'sync-not-ready' }
+    }
+    try {
+      const creds = await getCredentials()
+      return fetchVersion({ noteId, version, credentials: creds })
+    } catch (err) {
+      return { ok: false, errorCode: 'unexpected', message: err.message }
+    }
+  }, [getCredentials])
+
   // Phase 2.10b: server-side device revoke. Removes deviceId from the
   // vault's devices map. The revoked device's auth proofs stop validating
   // (server's authenticate() checks devices map).
@@ -582,6 +615,8 @@ export function useSyncQueue ({
     lockVault,
     purgeCloud,
     revokeDevice,
+    fetchSyncedVersionList,
+    fetchSyncedVersion,
     getVaultPacketForPairing,
     metadata: metadataRef.current,
     isUnlocked: () => vaultStoreRef.current?.isUnlocked() ?? false
