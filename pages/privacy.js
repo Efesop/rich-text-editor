@@ -26,7 +26,7 @@ export default function PrivacyPolicy () {
         <ul style={{ paddingLeft: 24 }}>
           <li><strong>iOS / iPadOS</strong>: in the app sandbox via WKWebView IndexedDB.</li>
           <li><strong>macOS / Windows / Linux</strong>: in the user data directory (atomic-write JSON files protected by macOS Data Protection / OS-level file permissions).</li>
-          <li><strong>Browser / PWA</strong>: in the browser&rsquo;s IndexedDB for the dashnotes domain.</li>
+          <li><strong>Browser / PWA</strong>: in the browser&rsquo;s IndexedDB for the dashnote.io domain.</li>
         </ul>
         <p>Per-page encryption (passphrase-based) and app-level lock (passphrase + biometric) are performed entirely on-device using WebCrypto (PBKDF2 + AES-GCM). Decryption keys never leave the device.</p>
 
