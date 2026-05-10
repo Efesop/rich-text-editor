@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   Cloud,
   CloudOff,
@@ -10,9 +10,10 @@ import {
   Smartphone,
   Laptop,
   Monitor,
-  Trash2,
-  ChevronRight
+  Trash2
 } from 'lucide-react'
+import { useEntitlement } from '@/hooks/useEntitlement'
+import PaywallModal from './PaywallModal'
 
 /**
  * Sync settings panel — opens from main Settings, controls all sync behavior.
@@ -63,30 +64,85 @@ export default function SyncSettingsPanel ({
   isOpen,
   onClose,
   status,
+  relayConfigured = true, // false = open-source build, no relay URL baked in
   onEnableSync,
   onDisableSync,
   onUnlock,
-  onLock,
+  onLock, // kept for back-compat — Lock vault button removed from UI; auto-pause via app-lock still works
   onPairNewDevice,    // → opens PairDeviceModal (host side)
   onAcceptPair,       // → opens AcceptPairModal (guest side)
   onSyncNow,
   onPurgeCloud,       // requires confirm
   onRevokeDevice,
+  fetchVaultUsage,    // returns { totalBytes, deviceCount, ... }
+  fetchQuota,         // returns { lifetimeUsed, lifetimeLimit, ... }
   theme
 }) {
   const isFallout = theme === 'fallout'
   const isDark = theme === 'dark'
   const isDarkBlue = theme === 'darkblue'
 
-  const [confirmDisable, setConfirmDisable] = useState(false)
-  const [confirmPurge, setConfirmPurge] = useState(false)
+  const [confirmStop, setConfirmStop] = useState(false) // unified stop flow
+  const [usage, setUsage] = useState(null)
+  const [quota, setQuota] = useState(null)
+  const [showPaywall, setShowPaywall] = useState(false)
+  const { hasSync } = useEntitlement()
+
+  // Gate sync-creation actions on the 'sync' entitlement. On non-iOS the SDK
+  // returns hasSync=false (server-side check will replace this on Mac path);
+  // until that's wired we don't gate non-iOS so existing dev/Electron flows
+  // continue to work.
+  const isNativeIOS = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.() && window.Capacitor?.getPlatform?.() === 'ios'
+  const gate = useCallback((fn) => () => {
+    if (isNativeIOS && !hasSync) {
+      setShowPaywall(true)
+      return
+    }
+    fn?.()
+  }, [hasSync, isNativeIOS])
+  const gatedEnableSync = useCallback(gate(onEnableSync), [gate, onEnableSync])
+  const gatedAcceptPair = useCallback(gate(onAcceptPair), [gate, onAcceptPair])
+  const gatedPairNewDevice = useCallback(gate(onPairNewDevice), [gate, onPairNewDevice])
 
   useEffect(() => {
-    if (isOpen) {
-      setConfirmDisable(false)
-      setConfirmPurge(false)
-    }
+    if (!isOpen) return
+    setConfirmStop(false)
+    setUsage(null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
+
+  // Fetch quota whenever the panel opens (one-shot; cheap, no auth needed).
+  // Used by DisabledState to show "X of N sync setups used today" so users
+  // get warned before hitting the per-IP lifetime limit.
+  useEffect(() => {
+    if (!isOpen || typeof fetchQuota !== 'function') return
+    let cancelled = false
+    fetchQuota().then(q => { if (!cancelled) setQuota(q) }).catch(() => {})
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen])
+
+  // Poll vault usage while sync is enabled + unlocked. Bound to enabled +
+  // unlocked deps so the interval shuts down the moment the user disables
+  // sync — without that, the closed-over fetchVaultUsage keeps hitting
+  // the (now-no-credentials) endpoint and spams the console.
+  useEffect(() => {
+    if (!isOpen) return
+    if (!(status?.enabled && status?.unlocked && typeof fetchVaultUsage === 'function')) {
+      // Clear stale usage (e.g. paired-devices list) when sync flips off so
+      // the modal doesn't show an old device list after Stop sync.
+      setUsage(null)
+      return
+    }
+    let cancelled = false
+    const refresh = () => {
+      fetchVaultUsage().then(u => { if (!cancelled) setUsage(u) }).catch(() => {})
+    }
+    refresh()
+    const interval = setInterval(refresh, 5000)
+    return () => { cancelled = true; clearInterval(interval) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, status?.enabled, status?.unlocked])
 
   if (!isOpen) return null
 
@@ -185,14 +241,21 @@ export default function SyncSettingsPanel ({
   })()
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <>
+    <PaywallModal
+      isOpen={showPaywall}
+      onClose={() => setShowPaywall(false)}
+      onPurchased={() => setShowPaywall(false)}
+      isDarkMode={isDark || isDarkBlue || isFallout}
+    />
+    <div className="dash-mobile-bottom-sheet fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
         style={{ animation: 'dash-backdrop-in 150ms ease-out forwards' }}
       />
       <div
-        className={`relative w-full max-w-lg rounded-2xl overflow-hidden ${bgContainer}`}
+        className={`transform relative w-full max-w-lg rounded-2xl overflow-hidden ${bgContainer}`}
         style={{ animation: 'dash-modal-in 150ms ease-out forwards' }}
       >
         {/* Header */}
@@ -215,7 +278,16 @@ export default function SyncSettingsPanel ({
 
         {/* Body */}
         <div className="px-6 py-5 max-h-[60vh] overflow-y-auto">
-          {!status?.enabled && (
+          {!relayConfigured && (
+            <RelayMissingState
+              titleClasses={titleClasses}
+              subtitleClasses={subtitleClasses}
+              cardClasses={cardClasses}
+              primaryBtn={primaryBtn}
+              secondaryBtn={secondaryBtn}
+            />
+          )}
+          {relayConfigured && !status?.enabled && (
             <DisabledState
               isFallout={isFallout}
               titleClasses={titleClasses}
@@ -223,12 +295,13 @@ export default function SyncSettingsPanel ({
               cardClasses={cardClasses}
               primaryBtn={primaryBtn}
               secondaryBtn={secondaryBtn}
-              onEnableSync={onEnableSync}
-              onAcceptPair={onAcceptPair}
+              onEnableSync={gatedEnableSync}
+              onAcceptPair={gatedAcceptPair}
+              quota={quota}
             />
           )}
 
-          {status?.enabled && !status?.unlocked && (
+          {relayConfigured && status?.enabled && !status?.unlocked && (
             <LockedState
               isFallout={isFallout}
               titleClasses={titleClasses}
@@ -239,9 +312,10 @@ export default function SyncSettingsPanel ({
             />
           )}
 
-          {status?.enabled && status?.unlocked && (
+          {relayConfigured && status?.enabled && status?.unlocked && (
             <UnlockedState
               status={status}
+              usage={usage}
               StageIcon={StageIcon}
               stageColor={stageColor}
               titleClasses={titleClasses}
@@ -253,20 +327,17 @@ export default function SyncSettingsPanel ({
               dangerBtn={dangerBtn}
               isFallout={isFallout}
               onSyncNow={onSyncNow}
-              onPairNewDevice={onPairNewDevice}
-              onLock={onLock}
+              onPairNewDevice={gatedPairNewDevice}
               onRevokeDevice={onRevokeDevice}
               onDisableSync={onDisableSync}
-              onPurgeCloud={onPurgeCloud}
-              confirmDisable={confirmDisable}
-              setConfirmDisable={setConfirmDisable}
-              confirmPurge={confirmPurge}
-              setConfirmPurge={setConfirmPurge}
+              confirmStop={confirmStop}
+              setConfirmStop={setConfirmStop}
             />
           )}
         </div>
       </div>
     </div>
+    </>
   )
 }
 
@@ -274,7 +345,7 @@ export default function SyncSettingsPanel ({
 // Sub-components — one per stage to keep the main render clean
 // ────────────────────────────────────────────────────────────────────────────
 
-function DisabledState ({ isFallout, titleClasses, subtitleClasses, cardClasses, primaryBtn, secondaryBtn, onEnableSync, onAcceptPair }) {
+function DisabledState ({ isFallout, titleClasses, subtitleClasses, cardClasses, primaryBtn, secondaryBtn, onEnableSync, onAcceptPair, quota }) {
   return (
     <div className="space-y-5">
       <div className={`p-4 rounded-xl ${cardClasses}`}>
@@ -292,19 +363,49 @@ function DisabledState ({ isFallout, titleClasses, subtitleClasses, cardClasses,
           onClick={onEnableSync}
           className={`w-full px-4 py-3 rounded-xl font-medium transition-all duration-200 ${primaryBtn}`}
         >
-          {isFallout ? 'INITIALIZE VAULT' : 'Set up sync on this device'}
+          {isFallout ? 'INITIALIZE VAULT' : 'Sync your notes'}
         </button>
         <button
           onClick={onAcceptPair}
           className={`w-full px-4 py-3 rounded-xl font-medium transition-all duration-200 ${secondaryBtn}`}
         >
-          {isFallout ? 'JOIN EXISTING VAULT' : 'I have another device — pair to it'}
+          {isFallout ? 'JOIN EXISTING VAULT' : 'Enter a sync code'}
         </button>
+        <p className={`text-[11px] text-center ${subtitleClasses}`}>
+          Already have Dash on another device? Use the code from there.
+        </p>
       </div>
+
+      <QuotaBadge quota={quota} subtitleClasses={subtitleClasses} cardClasses={cardClasses} titleClasses={titleClasses} />
 
       <p className={`text-[11px] leading-relaxed ${subtitleClasses}`}>
         Sync is opt-in. Your existing notes never leave this device until you turn it on. If you lose all your devices, you can restore from a local backup file (see Backup settings).
       </p>
+    </div>
+  )
+}
+
+// IP-bucketed quota indicator. Hidden if quota fetch failed (older relay
+// deploy without the /sync/vault/quota endpoint) or limits aren't approached.
+function QuotaBadge ({ quota, subtitleClasses, cardClasses, titleClasses }) {
+  if (!quota || typeof quota.lifetimeUsed !== 'number' || typeof quota.lifetimeLimit !== 'number') return null
+  const used = quota.lifetimeUsed
+  const max = quota.lifetimeLimit
+  const remaining = Math.max(0, max - used)
+  const warn = used >= Math.max(1, Math.floor(max * 0.8))
+  const reached = remaining === 0
+  const tone = reached
+    ? 'border-red-500/40 text-red-400'
+    : warn
+      ? 'border-yellow-500/40 text-yellow-400'
+      : ''
+  return (
+    <div className={`px-3 py-2 rounded-lg border text-[11px] ${cardClasses} ${tone}`}>
+      <span className={!reached && !warn ? subtitleClasses : ''}>
+        {reached
+          ? `Sync setup limit reached (${used} of ${max} used). Try again later.`
+          : `${used} of ${max} sync setups used on this network${warn ? ' — running low' : ''}.`}
+      </span>
     </div>
   )
 }
@@ -327,44 +428,95 @@ function LockedState ({ isFallout, titleClasses, subtitleClasses, cardClasses, p
 }
 
 function UnlockedState ({
-  status, StageIcon, stageColor, titleClasses, subtitleClasses, sectionLabelClasses,
+  status, usage, StageIcon, stageColor, titleClasses, subtitleClasses, sectionLabelClasses,
   cardClasses, primaryBtn, secondaryBtn, dangerBtn, isFallout,
-  onSyncNow, onPairNewDevice, onLock, onRevokeDevice, onDisableSync, onPurgeCloud,
-  confirmDisable, setConfirmDisable, confirmPurge, setConfirmPurge
+  onSyncNow, onPairNewDevice, onRevokeDevice, onDisableSync,
+  confirmStop, setConfirmStop
 }) {
-  const stageLabel = STAGE_LABELS[status.stage] || 'Idle'
   const isAnimating = status.stage === 'flushing' || status.stage === 'pulling' || status.stage === 'queued'
+  const hasError = status.stage === 'error' || status.stage === 'rate-limited'
+  const stageLabel = hasError ? 'Couldn\'t sync'
+    : isAnimating ? 'Syncing…'
+    : status.lastSuccessAt ? `Synced ${formatRelativeTime(status.lastSuccessAt)}`
+    : 'Ready to sync'
+
+  // Format vault usage as e.g. "12 MB used of 500 MB" (only if we have a number)
+  const usageText = (() => {
+    if (!usage || typeof usage.totalBytes !== 'number') return null
+    const mb = usage.totalBytes / (1024 * 1024)
+    const display = mb < 0.1 ? '0 MB' : mb < 10 ? `${mb.toFixed(1)} MB` : `${Math.round(mb)} MB`
+    return `${display} used of 500 MB`
+  })()
 
   return (
     <div className="space-y-5">
-      {/* Status card */}
-      <div className={`p-4 rounded-xl ${cardClasses}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <StageIcon className={`w-4 h-4 pointer-events-none ${stageColor} ${isAnimating ? 'animate-spin' : ''}`} />
-            <div>
-              <p className={`text-sm font-medium ${titleClasses}`}>{stageLabel}</p>
-              <p className={subtitleClasses}>
-                {status.lastSuccessAt ? `Last sync ${formatRelativeTime(status.lastSuccessAt)}` : 'Never synced'}
-                {status.pendingCount > 0 && ` · ${status.pendingCount} pending`}
+      {/* Status pill — auto-sync runs in background. Stop sync sits inline so
+          the destructive action is one tap from the visible status, not buried
+          in an Advanced section. Pending count has a tooltip-style title attr. */}
+      <div className={`px-4 py-3 rounded-xl flex items-center justify-between gap-3 ${cardClasses}`}>
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <StageIcon className={`w-4 h-4 pointer-events-none flex-shrink-0 ${stageColor} ${isAnimating ? 'animate-spin' : ''}`} />
+          <div className="min-w-0">
+            <p className={`text-sm font-medium truncate ${titleClasses}`}>{stageLabel}</p>
+            {usageText && (
+              <p className={`${subtitleClasses} truncate`}>{usageText}</p>
+            )}
+            {status.pendingCount > 0 && (
+              <p className={subtitleClasses} title="Edits queued to upload — clears once they reach the server">
+                {status.pendingCount} pending
               </p>
-            </div>
+            )}
           </div>
-          <button
-            onClick={onSyncNow}
-            disabled={isAnimating}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${secondaryBtn} ${isAnimating ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            Sync now
-          </button>
         </div>
-        {status.lastError && (
-          <div className="mt-3 pt-3 border-t border-red-500/20 flex items-start gap-2">
-            <AlertCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5 pointer-events-none" />
-            <p className="text-xs text-red-400 leading-relaxed">{status.lastError}</p>
-          </div>
-        )}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {hasError && (
+            <button
+              onClick={onSyncNow}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${secondaryBtn}`}
+            >
+              Retry
+            </button>
+          )}
+          {!confirmStop && (
+            <button
+              onClick={() => setConfirmStop(true)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
+              aria-label="Stop sync"
+            >
+              Stop sync
+            </button>
+          )}
+        </div>
       </div>
+
+      {confirmStop && (
+        <div className={`p-3 rounded-lg space-y-3 ${cardClasses} border border-red-500/20`}>
+          <p className={`text-xs ${subtitleClasses}`}>
+            <strong className={titleClasses}>Stop sync on this device?</strong> Local notes stay on every device. If this is the last device paired with the cloud vault, the cloud copy is deleted automatically.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setConfirmStop(false)}
+              className={`px-3 py-2 rounded-md text-xs font-medium ${secondaryBtn}`}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => { setConfirmStop(false); onDisableSync?.() }}
+              className={`px-3 py-2 rounded-md text-xs font-medium ${dangerBtn}`}
+            >
+              Stop sync
+            </button>
+          </div>
+        </div>
+      )}
+
+      {hasError && status.lastError && (
+        <div className="px-4 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20 flex items-start gap-2">
+          <AlertCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5 pointer-events-none" />
+          <p className="text-xs text-red-400 leading-relaxed">{status.lastError}</p>
+        </div>
+      )}
 
       {/* Devices */}
       <div className="space-y-2">
@@ -389,91 +541,41 @@ function UnlockedState ({
             subtitleClasses={subtitleClasses}
             isSelf
           />
-          {(status.pairedDevices || []).map(d => (
-            <DeviceRow
-              key={d.deviceId}
-              label={d.deviceName || 'Untitled device'}
-              sublabel={d.lastSeenAt ? `Last seen ${formatRelativeTime(new Date(d.lastSeenAt).getTime())}` : 'Not yet synced'}
-              icon={Smartphone}
-              cardClasses={cardClasses}
-              titleClasses={titleClasses}
-              subtitleClasses={subtitleClasses}
-              onRevoke={() => onRevokeDevice?.(d.deviceId)}
-              dangerBtn={dangerBtn}
-            />
-          ))}
-          {(!status.pairedDevices || status.pairedDevices.length === 0) && (
-            <p className={`text-xs italic ${subtitleClasses}`}>No other devices yet. Tap "Add device" to pair your phone, tablet, or another computer.</p>
-          )}
+          {(() => {
+            // Server is the source of truth for the device list — `usage`
+            // comes from GET /sync/vault/index. Local `status.pairedDevices`
+            // only updates when this device generated/joined a pair, so it
+            // stays empty on the host side until a refresh. Prefer server
+            // list when available; fall back to local. Drop self.
+            const selfId = status.deviceId
+            const fromServer = Array.isArray(usage?.pairedDevices) ? usage.pairedDevices : null
+            const list = (fromServer || status.pairedDevices || [])
+              .filter(d => d.deviceId !== selfId)
+            return list.map(d => (
+              <DeviceRow
+                key={d.deviceId}
+                label={d.deviceName || 'Untitled device'}
+                sublabel={d.lastSeenAt ? `Last seen ${formatRelativeTime(new Date(d.lastSeenAt).getTime())}` : 'Not yet synced'}
+                icon={Smartphone}
+                cardClasses={cardClasses}
+                titleClasses={titleClasses}
+                subtitleClasses={subtitleClasses}
+                onRevoke={() => onRevokeDevice?.(d.deviceId)}
+                dangerBtn={dangerBtn}
+              />
+            ))
+          })()}
+          {(() => {
+            const selfId = status.deviceId
+            const fromServer = Array.isArray(usage?.pairedDevices) ? usage.pairedDevices : null
+            const list = (fromServer || status.pairedDevices || [])
+              .filter(d => d.deviceId !== selfId)
+            if (list.length > 0) return null
+            return (
+              <p className={`text-xs italic ${subtitleClasses}`}>No other devices yet. Tap "Add device" to pair your phone, tablet, or another computer.</p>
+            )
+          })()}
         </div>
-      </div>
-
-      {/* Advanced */}
-      <div className="space-y-2 pt-2">
-        <span className={sectionLabelClasses}>Advanced</span>
-        <button
-          onClick={onLock}
-          className={`w-full text-left px-4 py-2.5 rounded-lg text-sm transition-all flex items-center justify-between ${cardClasses} hover:opacity-90`}
-        >
-          <span className={titleClasses}>Lock vault now</span>
-          <ChevronRight className={`w-4 h-4 pointer-events-none ${subtitleClasses}`} />
-        </button>
-
-        {!confirmPurge ? (
-          <button
-            onClick={() => setConfirmPurge(true)}
-            className={`w-full text-left px-4 py-2.5 rounded-lg text-sm transition-all flex items-center justify-between ${cardClasses} hover:opacity-90`}
-          >
-            <span className={titleClasses}>Purge cloud copy</span>
-            <ChevronRight className={`w-4 h-4 pointer-events-none ${subtitleClasses}`} />
-          </button>
-        ) : (
-          <div className={`p-3 rounded-lg ${cardClasses}`}>
-            <p className={`text-xs mb-2 ${subtitleClasses}`}>This will delete the cloud copy from the relay. Other devices will lose sync until they re-pair. Local notes are unaffected.</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setConfirmPurge(false)}
-                className={`flex-1 px-3 py-2 rounded-md text-xs font-medium ${secondaryBtn}`}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => { setConfirmPurge(false); onPurgeCloud?.() }}
-                className={`flex-1 px-3 py-2 rounded-md text-xs font-medium ${dangerBtn}`}
-              >
-                Purge
-              </button>
-            </div>
-          </div>
-        )}
-
-        {!confirmDisable ? (
-          <button
-            onClick={() => setConfirmDisable(true)}
-            className={`w-full text-left px-4 py-2.5 rounded-lg text-sm transition-all flex items-center justify-between ${cardClasses} hover:opacity-90`}
-          >
-            <span className="text-red-400">Disable sync on this device</span>
-            <ChevronRight className="w-4 h-4 pointer-events-none text-red-400" />
-          </button>
-        ) : (
-          <div className={`p-3 rounded-lg ${cardClasses}`}>
-            <p className={`text-xs mb-2 ${subtitleClasses}`}>This device will stop syncing. Local notes are kept. Other paired devices continue normally.</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setConfirmDisable(false)}
-                className={`flex-1 px-3 py-2 rounded-md text-xs font-medium ${secondaryBtn}`}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => { setConfirmDisable(false); onDisableSync?.() }}
-                className={`flex-1 px-3 py-2 rounded-md text-xs font-medium ${dangerBtn}`}
-              >
-                Disable
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
@@ -499,6 +601,45 @@ function DeviceRow ({ label, sublabel, icon: Icon, cardClasses, titleClasses, su
           <Trash2 className="w-3 h-3 pointer-events-none" />
         </button>
       )}
+    </div>
+  )
+}
+
+// Open-source build with no relay URL configured at build time. Sync
+// requires a relay; we don't ship one for free to avoid funding random
+// forks. Two paths: self-host (free) or buy a Dash subscription.
+function RelayMissingState ({ titleClasses, subtitleClasses, cardClasses, primaryBtn, secondaryBtn }) {
+  return (
+    <div className="space-y-5">
+      <div className={`p-4 rounded-xl ${cardClasses}`}>
+        <h3 className={`text-sm font-semibold mb-2 ${titleClasses}`}>Sync needs a relay server</h3>
+        <p className={`text-xs leading-relaxed ${subtitleClasses}`}>
+          The relay is the encrypted dropbox your devices push to. We don't bundle one with the open-source build — you can self-host one for free, or get a Dash subscription that includes a managed relay.
+        </p>
+      </div>
+
+      <div className="space-y-2.5">
+        <a
+          href="https://dashnote.io/?utm_source=sync-cta"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`block w-full px-4 py-3 rounded-xl font-medium transition-all duration-200 text-center ${primaryBtn}`}
+        >
+          Get a Dash subscription
+        </a>
+        <a
+          href="https://github.com/Efesop/rich-text-editor/blob/main/SYNC.md#self-hosting"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`block w-full px-4 py-3 rounded-xl font-medium transition-all duration-200 text-center ${secondaryBtn}`}
+        >
+          Self-host instructions
+        </a>
+      </div>
+
+      <p className={`text-[11px] leading-relaxed ${subtitleClasses}`}>
+        Your notes always stay on your device — sync just lets multiple devices share the same encrypted vault. Local backups in Settings → Backup work without any of this.
+      </p>
     </div>
   )
 }
