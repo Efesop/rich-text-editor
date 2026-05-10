@@ -40,6 +40,7 @@ import {
   newAttachmentIds
 } from '../lib/syncAttachments.js'
 import { fetchVersionList, fetchVersion } from '../lib/syncVersions.js'
+import { getEntitlementIds } from '../lib/entitlementId.js'
 import { buildSyncHeaders, generateAuthProof } from '../lib/syncAuth.js'
 import useTagStore from '../store/tagStore'
 
@@ -759,10 +760,12 @@ export function useSyncQueue ({
     try {
       const ar = authenticatedRequestRef.current
       if (!ar) throw new Error('authenticated request unavailable')
+      const entIds = await getEntitlementIds()
       await ar('POST', '/sync/vault/register', {
         vaultId: metadata.vaultId,
         deviceId: metadata.deviceId,
-        deviceName: metadata.deviceName
+        deviceName: metadata.deviceName,
+        ...entIds
       })
     } catch (err) {
       console.error('enableSync: vault register failed', err)
@@ -845,10 +848,12 @@ export function useSyncQueue ({
     try {
       const ar = authenticatedRequestRef.current
       if (!ar) throw new Error('authenticated request unavailable')
+      const entIds = await getEntitlementIds()
       await ar('POST', '/sync/vault/register', {
         vaultId: metadata.vaultId,
         deviceId: metadata.deviceId,
-        deviceName: metadata.deviceName
+        deviceName: metadata.deviceName,
+        ...entIds
       })
     } catch (err) {
       try { await store.disableSync() } catch { /* */ }
