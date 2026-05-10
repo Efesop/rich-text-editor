@@ -145,10 +145,19 @@ Every push to the relay is an envelope:
 }
 ```
 
+Compressed with **gzip** (`CompressionStream`) before encryption — Editor.js
+block JSON is highly redundant (repeated keys, whitespace, span markers)
+and compresses 5–10×. Required to fit large notes under Deno KV's hard
+**64 KB per-value cap**: each envelope is one KV entry, so larger notes
+would otherwise be rejected with 413. Compression-then-encryption is the
+correct order; encrypted bytes are high-entropy and don't compress.
+
 Encrypted with `AES-GCM-256` directly under the vault key (no PBKDF2 —
-the key is already random). Wire format: `{ v: 1, cipher: 'AES-GCM-256',
+the key is already random). Wire format: `{ v: 2, cipher: 'AES-GCM-256',
 iv: [12 bytes], data: [ciphertext + GCM tag] }` JSON-serialized then
-base64'd into the HTTP body.
+base64'd into the HTTP body. `v: 1` envelopes (no gzip layer) are still
+decryptable for backwards compatibility — the decrypt path branches on
+`payload.v`.
 
 ### Auth proofs
 
@@ -239,8 +248,20 @@ WebSocket broadcast to other devices in this vault: {type:'new-version', resourc
 
 ## Pull pipeline
 
-Triggers: app focus, app unlock, WebSocket "new-version" doorbell, 60s
-poll while idle (10s while app active), manual "Sync now".
+Triggers (in priority order):
+1. **App focus / `visibilitychange`** — `useSyncQueue` listens on
+   `window.focus` and `document.visibilitychange` and pulls when the tab
+   comes back to foreground.
+2. **10s poll while sync is unlocked** — interval timer in `useSyncQueue`
+   fires `pull()` every 10 seconds. Skipped if vault is locked or sync
+   disabled.
+3. **App unlock** — pull is also re-triggered after unlock, since the
+   vault key only becomes available then.
+4. **Manual "Sync now"** — user tap from settings panel.
+5. *(planned)* **WebSocket "new-version" doorbell** — instant push from
+   server when peers commit new versions. Implementation deferred —
+   `/sync/ws/:vaultId` endpoint exists server-side but the client
+   subscriber isn't wired yet. The 10s poll is the current substitute.
 
 ```
 GET /sync/pull?since=cursorVersion&limit=100
@@ -366,7 +387,100 @@ Nice-to-haves not blocking alpha:
 - Toast notifications for failed purge/revoke (currently `console.warn`).
 - Re-key vault after device revoke (Phase 2.5+ enhancement per plan).
 - App-lock keyWrapMethod unlock flow (joint test with app-lock).
-- Real-device pair test on actual hardware (Mac ↔ iPhone).
+- **iOS Keychain + biometric for vault key**, replacing the passphrase
+  wrap method on iPhone. Today the user retypes their passphrase on
+  every cold launch; ideal UX is Keychain-backed unwrap gated by Face
+  ID / Touch ID, mirroring the Electron `safeStorage` flow. Needs a
+  Capacitor Keychain plugin (e.g. `capacitor-secure-storage-plugin`).
+- **WebSocket doorbell** to replace the 10s polling pull — instant
+  cross-device updates. Server endpoint exists; client subscriber
+  deferred.
+
+## Phase 2.13 — pair-flow regressions caught in second test session
+
+Hunted under live Mac↔iPhone Simulator iteration. All fixed:
+
+- **iOS adoption now works end-to-end.** Required `keyWrapMethod: 'ios-keychain'`
+  to be added to `validateMetadata`'s allowlist (was rejecting saves
+  with `"vault metadata: invalid keyWrapMethod ios-keychain"` after
+  `store.adoptVault` succeeded).
+- **Static ESM imports for Capacitor plugins** — `await import(...)`
+  chunks 404 on Capacitor iOS where the WebView serves from
+  `http://localhost`. `import { SecureStoragePlugin } from 'capacitor-secure-storage-plugin'`
+  at the top of `lib/vaultStorage.js` puts the binding in the main bundle.
+- **`pagesRef.current` typo** in RichTextEditor's `onPaired` (correct
+  name is `syncPagesRef.current`) — silently threw a ReferenceError
+  inside the async handler, so the merge prompt and `adoptVault` never
+  ran. Merge prompt now opens and `[adoptVault] start` reaches the relay
+  log.
+- **ConfirmModal hidden behind SyncSettingsPanel** — both sat at `z-50`,
+  ConfirmModal earlier in JSX so source order put it under. Bumped to
+  `z-[200]`. User now sees the "Add your local notes to this vault?"
+  prompt instead of being snapped back to disabled state.
+- **Initial-pull / initial-push race**: parallel `setTimeout(0)` for
+  pull and merge-push meant the push's manifest envelope went out with
+  ONLY the guest's 2 local pages (pull hadn't returned yet). Host's
+  next pull obeyed that manifest and silently truncated 28 pages to 2.
+  Fix: a single async `setTimeout` that `await`s the initial pull
+  before kicking off the merge push.
+- **Biometric Face ID gate reverted** — `@aparajita/capacitor-biometric-auth`
+  introduced pair-flow stalls on Simulator. Plugin install + Podfile
+  changes left in (deferred feature), but the runtime path no longer
+  prompts. Reintroduce after sync is stable across devices.
+
+## Phase 2.12 — fixes that landed during first end-to-end test
+
+Surfaced while running Mac (Electron) ↔ iPhone Simulator (Capacitor)
+against the local Deno relay:
+
+- **Capacitor `iosScheme: 'http'`**: WKWebView serves the bundle from
+  `capacitor://localhost` by default — a secure origin that blocks
+  `ws://localhost:8000` as mixed content. Switching iOS to the `http`
+  scheme makes the WebSocket same-scheme. (`capacitor.config.ts`.)
+- **Auto-unlock on init for `safe-storage` wrap**: vault key is in OS
+  keychain on Electron, so we unwrap silently at hook init instead of
+  prompting. Without this, the queue's `enqueueChangedPages` early-
+  exited on `unlocked: false` after every restart / Fast Refresh.
+- **Stable queue effect**: gate callbacks (`isAppLocked`,
+  `duressActive`) are now read through refs so the queue useEffect
+  doesn't tear down + rebuild on every parent render — the rebuild
+  cleared the 2 s flush debounce timer before it could fire.
+- **Initial-push on enable / adopt**: `enableSync` and `adoptVault` now
+  enqueue `pagesRef.current` against an empty baseline so existing
+  notes flow to the new vault immediately, without requiring the user
+  to type a character to trigger a save.
+- **Periodic pull**: 10 s interval + focus listener in `useSyncQueue` —
+  the docs already promised this; now actually wired.
+- **Diff baseline reset on enable / adopt / disable**: clears
+  `lastSyncedSnapshotRef` AND `window.__syncLastSnapshot`. Stale
+  baseline from a prior vault was making subsequent enables see "no
+  changes" and silently skip the push.
+- **Persist write serialization**: 21 concurrent enqueues raced into
+  the Electron `save-sync-queue` IPC's atomic `.tmp → .json` rename;
+  second rename failed with ENOENT. Now writes chain through a single
+  promise with coalesced "pending" flag.
+- **gzip envelope payloads**: see Crypto section. Required for notes
+  bigger than ~50 KB plaintext.
+- **`detectDeviceName()` helper**: deviceName was hardcoded to "This
+  device" on PWA / Capacitor — peers showed the literal string instead
+  of "iPhone" / "iPad". Now detects via `Capacitor.getPlatform()` →
+  Electron platform flags → user-agent.
+- **PairDeviceModal stability**: `vaultPacket` was recreated on every
+  parent render (the accessor returns a fresh object); useEffect dep
+  on it was regenerating the pair code many times per second. Captured
+  once at modal open.
+- **PairDeviceModal pair-completion state**: when the guest registers,
+  the host modal now polls `/sync/vault/index` every 2 s and flips to
+  a "[deviceName] paired ✓" state instead of silently expiring.
+- **Editor.js popover bottom-sheet on mobile**: `.ce-popover--opened`
+  + `.ce-inline-toolbar--showed` styled as ActionSheet-shaped sheets
+  with backdrop rendered via `box-shadow: 0 0 0 100vmax …` (lives in
+  the popover's own stacking context, immune to ancestor transforms
+  that broke the prior `body::after` backdrop pattern).
+- **Folder expand on iOS**: `toggleExpand` now guards
+  `e?.stopPropagation?.()` — `useLongPress` invokes its onClick
+  callback without an event argument on touch end, which crashed the
+  prior `e.stopPropagation()` call and silently swallowed every tap.
 
 ## Future phases (not in scope)
 

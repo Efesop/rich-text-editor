@@ -1,10 +1,12 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useTheme } from 'next-themes'
 import { X } from 'lucide-react'
+import { isSmallScreen as detectSmallScreen } from '@/utils/deviceUtils'
 
 /**
- * Mobile-friendly centered modal for actions.
- * Styled to match RenameModal/FolderModal for consistency.
+ * Action sheet — bottom sheet on mobile (full width, drag handle, taller),
+ * centered modal on desktop. Matches native iOS look on mobile.
  */
 export function ActionSheet({
   isOpen,
@@ -15,10 +17,21 @@ export function ActionSheet({
 }) {
   const { theme } = useTheme()
   const modalRef = useRef(null)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const update = () => setIsMobile(detectSmallScreen(768))
+    update()
+    if (typeof window !== 'undefined') {
+      const mq = window.matchMedia('(max-width: 768px)')
+      const handler = () => update()
+      mq.addEventListener('change', handler)
+      return () => mq.removeEventListener('change', handler)
+    }
+  }, [])
 
   useEffect(() => {
     if (isOpen) {
-      // Prevent body scroll when modal is open
       document.body.style.overflow = 'hidden'
     }
     return () => {
@@ -48,9 +61,17 @@ export function ActionSheet({
     }
   }
 
-  return (
+  const containerThemeClasses = isFallout
+    ? 'bg-gray-900 border-2 border-green-500/60 shadow-[0_0_40px_rgba(34,197,94,0.15)]'
+    : isDarkBlue
+      ? 'bg-[#141825] border border-[#1c2438] shadow-2xl'
+      : isDark
+        ? 'bg-[#1a1a1a] border border-[#3a3a3a]/50 shadow-2xl'
+        : 'bg-white border border-gray-200 shadow-2xl'
+
+  const sheet = (
     <div
-      className="fixed inset-0 z-[10000] flex items-center justify-center p-4 overflow-y-auto"
+      className={`fixed inset-0 z-[10000] flex ${isMobile ? 'items-end justify-center' : 'items-center justify-center p-4 overflow-y-auto'}`}
       onClick={handleOverlayClick}
       role="dialog"
       aria-modal="true"
@@ -63,35 +84,55 @@ export function ActionSheet({
         style={{ animation: 'dash-backdrop-in 150ms ease-out forwards' }}
       />
 
-      {/* Modal - centered like RenameModal/FolderModal */}
+      {/* Sheet */}
       <div
         ref={modalRef}
-        style={{ animation: 'dash-modal-in 150ms ease-out forwards' }}
+        style={{
+          animation: isMobile
+            ? 'dash-sheet-up 220ms cubic-bezier(0.32, 0.72, 0, 1) forwards'
+            : 'dash-modal-in 150ms ease-out forwards',
+          paddingBottom: isMobile ? 'env(safe-area-inset-bottom)' : undefined
+        }}
         className={`
-          relative w-full max-w-sm transform transition-all duration-200
-          ${isFallout
-            ? 'bg-gray-900 border-2 border-green-500/60 shadow-[0_0_40px_rgba(34,197,94,0.15)]'
-            : isDarkBlue
-              ? 'bg-[#141825] border border-[#1c2438] shadow-2xl'
-              : isDark
-                ? 'bg-[#1a1a1a] border border-[#3a3a3a]/50 shadow-2xl'
-                : 'bg-white border border-gray-200 shadow-2xl'
+          relative transform
+          ${isMobile
+            ? 'w-full rounded-t-3xl max-h-[88vh] flex flex-col'
+            : 'w-full max-w-sm rounded-2xl overflow-hidden'
           }
-          rounded-2xl overflow-hidden
+          ${containerThemeClasses}
         `}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Drag handle (mobile only) */}
+        {isMobile && (
+          <div className="pt-2 pb-1 flex items-center justify-center flex-shrink-0">
+            <div
+              className={`
+                h-1 w-9 rounded-full
+                ${isFallout
+                  ? 'bg-green-500/40'
+                  : isDarkBlue
+                    ? 'bg-[#2a3452]'
+                    : isDark
+                      ? 'bg-[#4a4a4a]'
+                      : 'bg-gray-300'
+                }
+              `}
+            />
+          </div>
+        )}
+
         {/* Header */}
         {title && (
           <div className={`
-            px-6 pt-6 pb-4
+            px-5 ${isMobile ? 'pt-3' : 'pt-6'} pb-4 flex-shrink-0
             ${isFallout ? 'border-b border-green-500/30' : isDarkBlue ? 'border-b border-[#1c2438]' : isDark ? 'border-b border-[#2a2a2a]' : 'border-b border-gray-100'}
           `}>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 {Icon && (
                   <div className={`
-                    p-2.5 rounded-xl
+                    p-2.5 rounded-xl flex-shrink-0
                     ${isFallout
                       ? 'bg-green-500/20 text-green-400'
                       : isDarkBlue
@@ -105,7 +146,7 @@ export function ActionSheet({
                   </div>
                 )}
                 <h2 className={`
-                  text-lg font-semibold
+                  text-lg font-semibold truncate
                   ${isFallout ? 'text-green-400 font-mono' : isDarkBlue ? 'text-[#e0e6f0]' : isDark ? 'text-white' : 'text-gray-900'}
                 `}>
                   {title}
@@ -114,7 +155,7 @@ export function ActionSheet({
               <button
                 onClick={onClose}
                 className={`
-                  p-2 rounded-lg transition-colors
+                  p-2 rounded-lg transition-colors flex-shrink-0
                   ${isFallout
                     ? 'text-green-500 hover:bg-green-500/20'
                     : isDarkBlue
@@ -132,13 +173,23 @@ export function ActionSheet({
           </div>
         )}
 
-        {/* Content - action items */}
-        <div className="py-2 max-h-[60vh] overflow-y-auto">
+        {/* Content - action items (scrollable) */}
+        <div
+          className={`
+            ${isMobile ? 'flex-1 overflow-y-auto py-2' : 'py-2 max-h-[60vh] overflow-y-auto'}
+          `}
+          style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
+        >
           {children}
         </div>
       </div>
     </div>
   )
+
+  // Portal to body so the sheet escapes any transformed ancestor
+  // (e.g. the sidebar nav, which uses translate-x).
+  if (typeof document === 'undefined') return sheet
+  return createPortal(sheet, document.body)
 }
 
 /**
@@ -149,7 +200,10 @@ export function ActionSheetItem({
   label,
   onClick,
   variant = 'default', // 'default' | 'danger'
-  disabled = false
+  disabled = false,
+  // Optional trailing slot — renders to the right of the label, useful
+  // for status dots / chips (e.g. green when sync is active).
+  trailing = null
 }) {
   const { theme } = useTheme()
   const isFallout = theme === 'fallout'
@@ -191,14 +245,15 @@ export function ActionSheetItem({
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
       className={`
-        w-full flex items-center gap-3 px-6 py-3.5 text-left
+        w-full flex items-center gap-3 px-5 py-3.5 text-left
         transition-colors duration-150
         ${getItemClasses()}
         ${isFallout ? 'font-mono' : ''}
       `}
     >
       {Icon && <Icon className="w-5 h-5 flex-shrink-0" />}
-      <span className="text-base">{label}</span>
+      <span className="text-base flex-1">{label}</span>
+      {trailing && <span className="flex-shrink-0">{trailing}</span>}
     </button>
   )
 }
@@ -215,7 +270,7 @@ export function ActionSheetSeparator() {
   return (
     <div
       className={`
-        my-1 mx-6 h-px
+        my-1 mx-5 h-px
         ${isFallout ? 'bg-green-500/30' : isDarkBlue ? 'bg-[#1c2438]' : isDark ? 'bg-[#2f2f2f]' : 'bg-gray-100'}
       `}
     />

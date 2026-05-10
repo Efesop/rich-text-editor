@@ -167,7 +167,7 @@ export default function BackupSettingsModal ({
     : 'bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="dash-mobile-bottom-sheet fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}

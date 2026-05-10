@@ -5,6 +5,74 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-05-08
+
+Major release: multi-device sync, Trash bin, encrypted auto-backup, iOS
+native app via Capacitor.
+
+### Added
+- **Multi-device sync (opt-in, E2E encrypted)** — pair devices via QR +
+  6-digit code, push/pull notes through a relay that only ever sees
+  ciphertext. Vault key never leaves your devices. Supports
+  attachments, version history, manifest of folders + tag colors.
+  Wrap methods: macOS Keychain (Electron `safeStorage`), iOS Keychain
+  (Capacitor secure storage), passphrase, app-lock-derived. Toggle in
+  footer Sync chip → Sync settings. Stop on this device propagates a
+  device revocation to the relay so peers see the dropout.
+- **Trash bin** — soft-delete with 30-day recovery. Restore or permanent
+  delete from the Trash modal. Independent of sync.
+- **Encrypted auto-backup** — schedule `.dashpack` exports (encrypted
+  bundle of all notes + attachments + versions) to a chosen folder.
+  Passphrase-protected. Independent of sync.
+- **iOS native app** — Capacitor 6 wrap, app ID `io.dashnote.app`,
+  available via TestFlight. Includes mobile UI: bottom-sheet modals,
+  vertical labeled inline toolbar, consolidated `MoreVertical` page
+  actions menu, sync status dot, biometric page unlock via Face ID.
+
+### Fixed
+- **Manifest application on receive** — folder emojis, root-order, and
+  tag colors now propagate cross-device on first pair + every pull.
+- **Pull-before-push race on adopt** — guest joining a populated vault
+  no longer overwrites the host's manifest with its smaller local
+  set. Pull serializes before initial push.
+- **Stop sync revocation** — `disableSync` revokes the device on the
+  relay before clearing local state, so peers see paired-devices list
+  shrink within one poll cycle.
+
+### Security
+- **Privacy manifest** (`PrivacyInfo.xcprivacy`) — declares no
+  tracking, no collected data types, required-reasons API usage for
+  UserDefaults + file timestamp. Required by Apple iOS 17+.
+- **Debug endpoints** (`/debug/log`, `/debug/wipe`) gated on
+  `!DENO_DEPLOYMENT_ID` — only mount on developer machines, never on
+  Deno Deploy.
+
+### TestFlight build 2 fixes
+- **Editor `+` / `:::` popover items now register taps** — earlier we
+  MutationObserver-portaled the popover to `<body>` to escape any
+  transformed ancestor breaking `position: fixed`, but iOS WebKit
+  drops click events on elements that get reparented mid-touch. CSS
+  alone is sufficient since no popover ancestor has
+  transform/filter/perspective.
+- **Deleted synced pages stay deleted** — `applyPulledChanges`
+  resurrect-on-edit branch now requires `incomingTs > existing.trashedAt`
+  before un-trashing. Without the check, the first pull after a local
+  delete pulled back the still-alive server copy (push hadn't landed
+  yet) and resurrected the page.
+- **Password modal won't dismiss on backdrop tap (mobile)** — iOS
+  users tap above the keyboard to dismiss it; that landed on the
+  modal backdrop and cancelled password entry mid-flow. X button or
+  Cancel button still close.
+- **Sidebar auto-closes on page select / new-page (mobile)** — was
+  staying open, hiding the page user just navigated to.
+- **Per-page biometric button hidden** — bypassed password check via
+  Face ID/Touch ID but never derived the AES-GCM key from a stored
+  password, so encrypted content stayed encrypted and the editor
+  rendered blank. Will reintroduce in v1.4.1 backed by per-page
+  Keychain storage (`dash-page-pwd-${pageId}`). App-lock biometric
+  (whole-app unlock) still works on macOS.
+- **App icon set to Dash logo** — was Capacitor placeholder grid.
+
 ## [1.3.164] - 2026-04-07
 
 ### Security

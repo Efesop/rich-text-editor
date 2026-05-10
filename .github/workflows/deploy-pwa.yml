@@ -36,6 +36,8 @@ jobs:
         run: npm run build:pwa
         env:
           DEPLOY_TARGET: github
+          # Sync relay URL — see build-and-release.yml comment.
+          NEXT_PUBLIC_RELAY_URL: wss://dash-relay.efesop.deno.net
           
       - name: Prepare PWA files
         run: |

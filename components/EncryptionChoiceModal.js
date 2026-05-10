@@ -25,7 +25,7 @@ export default function EncryptionChoiceModal ({ isOpen, onClose, onLockPage, on
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+      className="dash-mobile-bottom-sheet fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
       onClick={handleOverlayClick}
       role="dialog"
       aria-modal="true"

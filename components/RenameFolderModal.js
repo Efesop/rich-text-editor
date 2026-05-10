@@ -12,10 +12,14 @@ export function RenameFolderModal({ isOpen, onClose, onConfirm, title, onTitleCh
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
-      setTimeout(() => {
-        inputRef.current?.focus()
-        inputRef.current?.select()
-      }, 100)
+      // Mobile: skip autofocus — see RenameModal.js for rationale.
+      const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
+      if (!isMobile) {
+        setTimeout(() => {
+          inputRef.current?.focus()
+          inputRef.current?.select()
+        }, 100)
+      }
     }
     if (!isOpen) setShowEmojiPicker(false)
   }, [isOpen])
@@ -37,7 +41,7 @@ export function RenameFolderModal({ isOpen, onClose, onConfirm, title, onTitleCh
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+      className="dash-mobile-bottom-sheet fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} style={{ animation: 'dash-backdrop-in 150ms ease-out forwards' }} />

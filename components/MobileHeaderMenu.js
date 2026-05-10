@@ -1,31 +1,45 @@
 import React, { useState } from 'react'
 import { useTheme } from 'next-themes'
 import {
-  Menu,
   FileText,
   FileDown,
   Smartphone,
   Import,
-  Bug,
-  Sun,
-  Moon,
-  Skull,
-  Lock
+  Lock,
+  LockKeyhole,
+  Unlock,
+  Share2,
+  Cloud,
+  Timer,
+  TimerOff,
+  MoreVertical
 } from 'lucide-react'
 import { ActionSheet, ActionSheetItem, ActionSheetSeparator } from './ActionSheet'
 import { shouldShowMobileInstall } from '@/utils/deviceUtils'
 
 /**
- * Consolidated header menu for mobile.
- * Combines Export, Theme, Import, and other options into a single menu.
+ * Mobile top-bar consolidated menu — single Sliders icon opens an
+ * ActionSheet with every per-page action. Replaces the row of icons
+ * (Lock, Timer, Share, Cloud, Export-dropdown) that didn't fit on small
+ * screens. Theme toggle stays a separate icon on the bar so it's
+ * one-tap.
  */
-export function MobileHeaderMenu({
+export function MobileHeaderMenu ({
+  onLockPage,
+  onTimer,
+  onShare,
+  onSyncSettings,
   onExport,
   onImportBundle,
   onPhoneSetup,
+  currentPageLocked = false,
+  currentPageHasTimer = false,
+  syncAvailable = false,
+  syncStatus = null, // { enabled, unlocked, stage, lastError } from useSyncQueue
+  pageActionsAvailable = true, // false on live-session pages or no current page
   isImporting = false
 }) {
-  const { theme, setTheme } = useTheme()
+  const { theme } = useTheme()
   const [isOpen, setIsOpen] = useState(false)
   const [showExportOptions, setShowExportOptions] = useState(false)
 
@@ -41,30 +55,8 @@ export function MobileHeaderMenu({
     { label: 'Word Document', value: 'docx', icon: FileText },
     { label: 'CSV', value: 'csv', icon: FileText },
     { label: 'JSON', value: 'json', icon: FileText },
-    { label: 'XML', value: 'xml', icon: FileText },
+    { label: 'XML', value: 'xml', icon: FileText }
   ]
-
-  const cycleTheme = () => {
-    if (theme === 'light') setTheme('dark')
-    else if (theme === 'dark') setTheme('darkblue')
-    else if (theme === 'darkblue') setTheme('fallout')
-    else setTheme('light')
-    setIsOpen(false)
-  }
-
-  const getThemeIcon = () => {
-    if (isFallout) return Skull
-    if (isDarkBlue) return Moon
-    if (isDark) return Moon
-    return Sun
-  }
-
-  const getThemeLabel = () => {
-    if (isFallout) return 'Theme: Fallout'
-    if (isDarkBlue) return 'Theme: Dark Blue'
-    if (isDark) return 'Theme: Dark'
-    return 'Theme: Light'
-  }
 
   const handleExport = (format) => {
     onExport(format)
@@ -72,7 +64,8 @@ export function MobileHeaderMenu({
     setIsOpen(false)
   }
 
-  const ThemeIcon = getThemeIcon()
+  const close = () => setIsOpen(false)
+  const closeAndRun = (fn) => () => { close(); fn?.() }
 
   return (
     <>
@@ -89,73 +82,109 @@ export function MobileHeaderMenu({
                 : 'text-gray-600 hover:bg-gray-100'
           }
         `}
-        aria-label="Menu"
+        aria-label="Page actions"
       >
-        <Menu className="h-5 w-5" />
+        <MoreVertical className="h-5 w-5" />
       </button>
 
-      {/* Main Menu */}
       <ActionSheet
         isOpen={isOpen && !showExportOptions}
         onClose={() => setIsOpen(false)}
-        title="Menu"
-        icon={Menu}
+        title="Page actions"
+        icon={MoreVertical}
       >
-        <ActionSheetItem
-          icon={FileDown}
-          label="Export Current Page"
-          onClick={() => setShowExportOptions(true)}
-        />
-        <ActionSheetItem
-          icon={Lock}
-          label="Export All (Encrypted)"
-          onClick={() => handleExport('dashpack')}
-        />
-        <ActionSheetSeparator />
-        <ActionSheetItem
-          icon={Import}
-          label={isImporting ? 'Importing...' : 'Import Encrypted Bundle'}
-          onClick={() => {
-            onImportBundle()
-            setIsOpen(false)
-          }}
-          disabled={isImporting}
-        />
-        <ActionSheetSeparator />
-        <ActionSheetItem
-          icon={ThemeIcon}
-          label={getThemeLabel()}
-          onClick={cycleTheme}
-        />
-        {shouldShowMobileInstall() && (
+        {pageActionsAvailable && onLockPage && (
+          <ActionSheetItem
+            icon={currentPageLocked ? LockKeyhole : Unlock}
+            label={currentPageLocked ? 'Unlock page' : 'Lock page'}
+            onClick={closeAndRun(onLockPage)}
+          />
+        )}
+        {pageActionsAvailable && onTimer && (
+          <ActionSheetItem
+            icon={currentPageHasTimer ? TimerOff : Timer}
+            label={currentPageHasTimer ? 'Cancel self-destruct' : 'Self-destruct'}
+            onClick={closeAndRun(onTimer)}
+          />
+        )}
+        {pageActionsAvailable && onShare && (
+          <ActionSheetItem
+            icon={Share2}
+            label="Share encrypted note"
+            onClick={closeAndRun(onShare)}
+          />
+        )}
+
+        {/* Sync settings — sits above the divider so the page-action
+            block (lock/timer/share/sync) is one logical group, and the
+            export/import block is on the other side of the line. */}
+        {syncAvailable && onSyncSettings && (() => {
+          const enabled = !!syncStatus?.enabled
+          const unlocked = !!syncStatus?.unlocked
+          const errored = syncStatus?.stage === 'error' || syncStatus?.stage === 'rate-limited' || !!syncStatus?.lastError
+          let dotClass = 'bg-gray-400'
+          let dotTitle = 'Sync off'
+          if (enabled && unlocked && !errored) { dotClass = 'bg-green-500'; dotTitle = 'Synced' }
+          else if (enabled && errored) { dotClass = 'bg-red-500'; dotTitle = 'Sync error' }
+          else if (enabled && !unlocked) { dotClass = 'bg-yellow-400'; dotTitle = 'Vault locked' }
+          return (
+            <ActionSheetItem
+              icon={Cloud}
+              label="Sync settings"
+              onClick={closeAndRun(onSyncSettings)}
+              trailing={
+                <span
+                  title={dotTitle}
+                  className={`inline-block w-2.5 h-2.5 rounded-full ${dotClass}`}
+                />
+              }
+            />
+          )
+        })()}
+
+        {((pageActionsAvailable && (onLockPage || onTimer || onShare)) || (syncAvailable && onSyncSettings)) && (onExport || onImportBundle) && (
+          <ActionSheetSeparator />
+        )}
+
+        {onExport && (
+          <ActionSheetItem
+            icon={FileDown}
+            label="Export current page"
+            onClick={() => setShowExportOptions(true)}
+          />
+        )}
+        {onExport && (
+          <ActionSheetItem
+            icon={Lock}
+            label="Export all (encrypted)"
+            onClick={closeAndRun(() => onExport('dashpack'))}
+          />
+        )}
+        {onImportBundle && (
+          <ActionSheetItem
+            icon={Import}
+            label={isImporting ? 'Importing…' : 'Import encrypted bundle'}
+            onClick={closeAndRun(onImportBundle)}
+            disabled={isImporting}
+          />
+        )}
+
+        {shouldShowMobileInstall() && onPhoneSetup && (
           <>
             <ActionSheetSeparator />
             <ActionSheetItem
               icon={Smartphone}
-              label="Use on Your Phone"
-              onClick={() => {
-                onPhoneSetup()
-                setIsOpen(false)
-              }}
+              label="Use on your phone"
+              onClick={closeAndRun(onPhoneSetup)}
             />
           </>
         )}
-        <ActionSheetSeparator />
-        <ActionSheetItem
-          icon={Bug}
-          label="Report a Bug"
-          onClick={() => {
-            window.open('https://github.com/Efesop/rich-text-editor/issues/new', '_blank', 'noopener,noreferrer')
-            setIsOpen(false)
-          }}
-        />
       </ActionSheet>
 
-      {/* Export Options Sub-menu */}
       <ActionSheet
         isOpen={showExportOptions}
         onClose={() => setShowExportOptions(false)}
-        title="Export Format"
+        title="Export format"
         icon={FileDown}
       >
         {exportOptions.map((option) => (

@@ -226,11 +226,14 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
   }, [readOnly])
 
   // Memoize editor configuration to prevent unnecessary re-initializations
+  const isMobileViewport = typeof window !== 'undefined'
+    && window.matchMedia('(max-width: 768px)').matches
   const editorConfig = useMemo(() => ({
     holder: holder,
     placeholder: "Start typing or press '/'",
     minHeight: 100,
-    autofocus: true,
+    // iOS blocks autofocus without user gesture; also distracting on mobile.
+    autofocus: !isMobileViewport,
     defaultBlock: 'paragraph',
     tunes: ['aiTune'],
     sanitizer: {
@@ -510,9 +513,15 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
           config: {
             uploader: {
               async uploadByFile (file) {
-                const MAX_SIZE = 5 * 1024 * 1024 // 5MB
-                if (file.size > MAX_SIZE) {
-                  throw new Error('Image too large. Maximum size is 5MB.')
+                // Pre-shrink check used to be a hard reject at 5 MB
+                // (typical iPhone photo is 6-8 MB → blocked).
+                // stripImageMetadata now auto-shrinks to <=2048 px on
+                // longest edge → re-encoded JPEG usually 0.5-2 MB.
+                // Keep a generous 25 MB pre-shrink ceiling so a user
+                // dropping a 4K screenshot or RAW file still works.
+                const MAX_INPUT_BYTES = 25 * 1024 * 1024
+                if (file.size > MAX_INPUT_BYTES) {
+                  throw new Error('Image too large. Maximum size is 25MB.')
                 }
                 const url = await stripImageMetadata(file)
                 return { success: 1, file: { url } }
@@ -1187,6 +1196,108 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
     return () => {
       clearTimeout(timer)
       observer.disconnect()
+    }
+  }, [])
+
+  // Editor.js block popover + inline-toolbar are sized via CSS in
+  // `globals.css` (`@media (max-width: 768px)` rules near
+  // `.ce-popover--opened > .ce-popover__container`). Earlier we
+  // MutationObserver-portaled the popover to `<body>` to escape any
+  // transformed ancestor that broke `position: fixed`, but iOS WebKit
+  // drops click events on elements that get reparented mid-touch — taps
+  // on toolbox items closed the sheet without inserting a block. CSS
+  // alone is sufficient: in this codebase no popover ancestor has
+  // transform/filter/perspective (verified), so `position: fixed`
+  // anchors to the viewport correctly.
+
+  // Mobile only — position the inline-selection popover (`.ce-popover--inline`)
+  // near the current text selection. Pairs with the `position: fixed`
+  // wrapper rule in `globals.css` — we compute viewport coordinates from
+  // `selection.getBoundingClientRect()` and write them to inline
+  // `top`/`left`. Anchored below the selection by default (iOS native
+  // Cut/Copy/Paste callout sits above), flips above if the keyboard /
+  // bottom-edge would clip it. Pill chrome (background, radius, icon
+  // spacing) is all CSS.
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return
+    if (!window.matchMedia('(max-width: 768px)').matches) return
+
+    const reposition = (popover) => {
+      const sel = window.getSelection()
+      if (!sel || sel.rangeCount === 0) return
+      const range = sel.getRangeAt(0)
+      const rect = range.getBoundingClientRect()
+      if (!rect || (rect.top === 0 && rect.bottom === 0 && rect.width === 0)) return
+      // Measure the pill itself (post-CSS, post-content). Use the inner
+      // container rect — wrapper may be auto-sized by `width: max-content`.
+      const container = popover.querySelector(':scope > .ce-popover__container')
+      const pRect = (container || popover).getBoundingClientRect()
+      const pillW = pRect.width || 240
+      const pillH = pRect.height || 46
+      const gap = 10
+      const margin = 8
+      const vw = window.innerWidth
+      const vh = (window.visualViewport?.height ?? window.innerHeight)
+      // Default: below selection, horizontally centered on it.
+      let top = rect.bottom + gap
+      let left = rect.left + (rect.width / 2) - (pillW / 2)
+      // Flip above if below would clip the visible viewport (keyboard up).
+      if (top + pillH + margin > vh) {
+        top = rect.top - pillH - gap
+      }
+      // Final vertical clamp so the pill is never off-screen.
+      if (top < margin) top = margin
+      if (top + pillH + margin > vh) top = vh - pillH - margin
+      // Horizontal clamp.
+      if (left < margin) left = margin
+      if (left + pillW + margin > vw) left = vw - pillW - margin
+      popover.style.top = `${Math.round(top)}px`
+      popover.style.left = `${Math.round(left)}px`
+    }
+
+    let active = null
+    let rafId = null
+    const queueReposition = () => {
+      if (!active) return
+      if (rafId) return
+      rafId = requestAnimationFrame(() => {
+        rafId = null
+        if (active && active.classList.contains('ce-popover--opened')) reposition(active)
+      })
+    }
+    document.addEventListener('selectionchange', queueReposition)
+    window.visualViewport?.addEventListener('resize', queueReposition)
+
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === 'attributes' && m.attributeName === 'class') {
+          const t = m.target
+          if (!(t instanceof HTMLElement)) continue
+          if (!t.classList.contains('ce-popover--inline')) continue
+          if (t.classList.contains('ce-popover--opened')) {
+            active = t
+            // Two RAFs: first lets Editor.js write its own top/left, second
+            // measures the post-layout rect and overrides.
+            requestAnimationFrame(() => requestAnimationFrame(() => reposition(t)))
+          } else if (active === t) {
+            active = null
+          }
+        }
+      }
+    })
+
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['class']
+    })
+
+    return () => {
+      observer.disconnect()
+      document.removeEventListener('selectionchange', queueReposition)
+      window.visualViewport?.removeEventListener('resize', queueReposition)
+      if (rafId) cancelAnimationFrame(rafId)
     }
   }, [])
 

@@ -175,7 +175,7 @@ export default function ShareModal ({ isOpen, onClose, noteContent, noteTitle, t
   const ready = !loading && !error && !tooLarge && shareLink
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="dash-mobile-bottom-sheet fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} style={{ animation: 'dash-backdrop-in 150ms ease-out forwards' }} />
 
       <div style={{ animation: 'dash-modal-in 150ms ease-out forwards' }} className={`relative w-full max-w-md rounded-2xl p-6 max-h-[85vh] overflow-y-auto ${containerClass}`}>

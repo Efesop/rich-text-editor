@@ -1,23 +1,18 @@
 import React from 'react'
-import { Cloud, CloudOff, RefreshCw, AlertCircle, Check } from 'lucide-react'
+import { Cloud, CloudOff, RefreshCw, AlertCircle } from 'lucide-react'
 
 /**
- * Compact sync status chip for the editor footer. Sits next to "Saved"
- * indicator. Only renders when sync is enabled.
+ * Compact sync status chip for the desktop editor footer. Sits next to
+ * the "Saved" indicator. Matches the mobile MobileHeaderMenu pattern:
+ * cloud icon + colored status dot + short label ("Sync" or "Synced").
+ *
+ * Detail (last sync timestamp, pending envelope count, error message) is
+ * intentionally NOT shown here — it lives inside SyncSettingsPanel which
+ * opens on click. This footer chip is a status glance, not a status
+ * dump.
  *
  * Click → opens the SyncSettingsPanel.
  */
-
-const formatTimestamp = (ts) => {
-  if (!ts) return null
-  const ms = Date.now() - ts
-  if (ms < 5000) return 'Just synced'
-  if (ms < 60000) return `Synced ${Math.floor(ms / 1000)}s ago`
-  if (ms < 3600000) return `Synced ${Math.floor(ms / 60000)}m ago`
-  if (ms < 86400000) return `Synced ${Math.floor(ms / 3600000)}h ago`
-  return `Synced ${Math.floor(ms / 86400000)}d ago`
-}
-
 export default function SyncStatusIndicator ({ status, onClick, theme }) {
   const isFallout = theme === 'fallout'
   const isDarkBlue = theme === 'darkblue'
@@ -34,58 +29,74 @@ export default function SyncStatusIndicator ({ status, onClick, theme }) {
       : isDark ? 'hover:bg-[#2a2a2a]'
         : 'hover:bg-neutral-100'
 
-  // Sync disabled — show subtle CTA so user can find settings.
-  if (!status?.enabled) {
-    return (
-      <button
-        onClick={onClick}
-        className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md transition-colors text-xs ${baseColor} ${hoverBg}`}
-        title="Set up sync across devices"
-      >
-        <Cloud className="w-3 h-3 pointer-events-none" />
-        <span className="pointer-events-none whitespace-nowrap">Sync</span>
-      </button>
-    )
-  }
+  // Resolve label + dot color + spinning-icon state from sync status.
+  // `lastError` is INFORMATIONAL only — surfaced via tooltip detail.
+  // The chip itself flips to error red ONLY when the queue stage is
+  // actively errored. Pre-fix the chip lit red on any stale lastError
+  // (left over from a transient 401 that auto-recovered) → user saw
+  // "Sync error" with green dot tooltip — confusing and wrong.
+  const enabled = !!status?.enabled
+  const unlocked = !!status?.unlocked
+  const stage = status?.stage
+  const errored = stage === 'error' || stage === 'rate-limited'
 
-  let Icon, iconClass, label
+  let label = 'Sync'
+  let dotClass = isDark || isDarkBlue ? 'bg-gray-600' : 'bg-gray-400'
+  let Icon = Cloud
+  let isAnimating = false
 
-  if (!status.unlocked) {
-    Icon = CloudOff
-    iconClass = baseColor
-    label = 'Vault locked'
-  } else if (status.stage === 'flushing' || status.stage === 'pulling' || status.stage === 'queued') {
-    Icon = RefreshCw
-    iconClass = isFallout ? 'text-green-400' : 'text-blue-400'
-    label = status.stage === 'pulling' ? 'Receiving…' : 'Syncing…'
-  } else if (status.stage === 'error' || status.stage === 'rate-limited') {
+  if (!enabled) {
+    label = 'Sync'
+    dotClass = isDark || isDarkBlue ? 'bg-gray-600' : 'bg-gray-400'
+    Icon = Cloud
+  } else if (errored) {
+    label = stage === 'rate-limited' ? 'Rate limited' : 'Sync error'
+    dotClass = 'bg-red-500'
     Icon = AlertCircle
-    iconClass = 'text-red-400'
-    label = status.stage === 'rate-limited' ? 'Rate limited' : (status.lastError || 'Error')
-  } else if (status.stage === 'paused') {
+  } else if (!unlocked) {
+    label = 'Vault locked'
+    dotClass = 'bg-yellow-400'
     Icon = CloudOff
-    iconClass = 'text-yellow-400'
+  } else if (stage === 'flushing' || stage === 'pulling' || stage === 'queued') {
+    label = stage === 'pulling' ? 'Receiving' : 'Syncing'
+    dotClass = isFallout ? 'bg-green-400' : 'bg-blue-400'
+    Icon = RefreshCw
+    isAnimating = true
+  } else if (stage === 'paused') {
     label = 'Sync paused'
+    dotClass = 'bg-yellow-400'
+    Icon = CloudOff
   } else {
-    // idle
-    Icon = status.lastSuccessAt ? Check : Cloud
-    iconClass = isFallout ? 'text-green-500' : 'text-emerald-500'
-    label = status.lastSuccessAt ? formatTimestamp(status.lastSuccessAt) : 'Ready to sync'
+    // idle + enabled + unlocked + no error.
+    // Differentiate "actively synced with at least one peer" (green)
+    // from "sync enabled but only this device paired" (gray). Pre-fix
+    // the chip said "Synced" even after a peer hit Stop sync from
+    // their device — implies data was syncing somewhere when in fact
+    // there was no peer to sync TO. `pairedDevices` includes this
+    // device, so length <= 1 means we're alone.
+    const paired = Array.isArray(status?.pairedDevices) ? status.pairedDevices : []
+    if (paired.length <= 1) {
+      label = 'Sync'
+      dotClass = isDark || isDarkBlue ? 'bg-gray-600' : 'bg-gray-400'
+      Icon = Cloud
+    } else {
+      label = 'Synced'
+      dotClass = 'bg-green-500'
+      Icon = Cloud
+    }
   }
-
-  const isAnimating = status.stage === 'flushing' || status.stage === 'pulling' || status.stage === 'queued'
 
   return (
     <button
       onClick={onClick}
       className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md transition-colors text-xs ${baseColor} ${hoverBg}`}
-      title={label + (status.pendingCount > 0 ? ` · ${status.pendingCount} pending` : '')}
     >
-      <Icon className={`w-3 h-3 pointer-events-none ${iconClass} ${isAnimating ? 'animate-spin' : ''}`} />
-      <span className="pointer-events-none whitespace-nowrap">
-        {label}
-        {status.pendingCount > 0 && ` (${status.pendingCount})`}
-      </span>
+      <Icon className={`w-3 h-3 pointer-events-none ${isAnimating ? 'animate-spin' : ''}`} />
+      <span className="pointer-events-none whitespace-nowrap">{label}</span>
+      <span
+        aria-hidden="true"
+        className={`inline-block w-1.5 h-1.5 rounded-full pointer-events-none ${dotClass}`}
+      />
     </button>
   )
 }

@@ -11,8 +11,13 @@ export function ConfirmModal({
   message = 'Are you sure you want to proceed?',
   confirmText = 'Confirm',
   cancelText = 'Cancel',
-  variant = 'danger', // 'danger' | 'warning' | 'info'
-  showCancel = true // Set to false for info-only modals that just need "OK"
+  variant = 'danger', // 'danger' | 'danger-outline' | 'warning' | 'info'
+  showCancel = true, // Set to false for info-only modals that just need "OK"
+  // Optional 3rd button rendered between Cancel and Confirm. Used by the
+  // delete flow to offer "Delete Forever" alongside "Move to Trash" /
+  // "Cancel". Stacked vertically on small screens for tap-target safety.
+  // Shape: { text, onClick, variant: 'danger' | 'warning' | 'info' }
+  secondaryAction = null
 }) {
   const { theme } = useTheme()
   const confirmButtonRef = useRef(null)
@@ -55,6 +60,21 @@ export function ConfirmModal({
                 ? 'bg-red-600 text-white hover:bg-red-500'
                 : 'bg-red-600 text-white hover:bg-red-700'
         }
+      case 'danger-outline':
+        // Red border + subtle red bg + red text — for intermediate
+        // destructive actions (e.g. soft-delete to Trash where the
+        // primary danger button is "Delete forever").
+        return {
+          icon: isFallout ? 'text-red-400' : isDarkBlue ? 'text-red-400' : isDark ? 'text-red-400' : 'text-red-500',
+          iconBg: isFallout ? 'bg-red-500/15' : isDarkBlue ? 'bg-red-500/15' : isDark ? 'bg-red-500/15' : 'bg-red-100',
+          confirmBtn: isFallout
+            ? 'bg-red-500/10 border border-red-500/40 text-red-400 hover:bg-red-500/20 font-mono'
+            : isDarkBlue
+              ? 'bg-red-500/10 border border-red-500/40 text-red-300 hover:bg-red-500/20'
+              : isDark
+                ? 'bg-red-500/10 border border-red-500/40 text-red-300 hover:bg-red-500/20'
+                : 'bg-red-50 border border-red-300 text-red-700 hover:bg-red-100'
+        }
       case 'warning':
         return {
           icon: isFallout ? 'text-amber-400' : isDarkBlue ? 'text-amber-400' : isDark ? 'text-amber-400' : 'text-amber-500',
@@ -84,6 +104,56 @@ export function ConfirmModal({
 
   const styles = getVariantStyles()
 
+  // Compute styles for the secondary button independently — it can have
+  // a different variant from the confirm button (e.g. confirm = warning,
+  // secondary = danger for the delete flow).
+  const secondaryStyles = secondaryAction
+    ? (() => {
+        const saved = variant
+        // Reuse the existing helper by temporarily swapping variant via
+        // closure; it only reads from the closed-over `variant` param,
+        // so capture by inlining a small clone here.
+        const v = secondaryAction.variant || 'danger'
+        const isFalloutS = isFallout, isDarkS = isDark, isDarkBlueS = isDarkBlue
+        if (v === 'danger') return {
+          confirmBtn: isFalloutS
+            ? 'bg-red-600 text-white hover:bg-red-500'
+            : isDarkBlueS
+              ? 'bg-red-600 text-white hover:bg-red-500'
+              : isDarkS
+                ? 'bg-red-600 text-white hover:bg-red-500'
+                : 'bg-red-600 text-white hover:bg-red-700'
+        }
+        if (v === 'danger-outline') return {
+          confirmBtn: isFalloutS
+            ? 'bg-red-500/10 border border-red-500/40 text-red-400 hover:bg-red-500/20 font-mono'
+            : isDarkBlueS
+              ? 'bg-red-500/10 border border-red-500/40 text-red-300 hover:bg-red-500/20'
+              : isDarkS
+                ? 'bg-red-500/10 border border-red-500/40 text-red-300 hover:bg-red-500/20'
+                : 'bg-red-50 border border-red-300 text-red-700 hover:bg-red-100'
+        }
+        if (v === 'warning') return {
+          confirmBtn: isFalloutS
+            ? 'bg-amber-600 text-white hover:bg-amber-500'
+            : isDarkBlueS
+              ? 'bg-amber-600 text-white hover:bg-amber-500'
+              : isDarkS
+                ? 'bg-amber-600 text-white hover:bg-amber-500'
+                : 'bg-amber-600 text-white hover:bg-amber-700'
+        }
+        return {
+          confirmBtn: isFalloutS
+            ? 'bg-green-500 text-gray-900 hover:bg-green-400'
+            : isDarkBlueS
+              ? 'bg-blue-500 text-white hover:bg-blue-400'
+              : isDarkS
+                ? 'bg-blue-600 text-white hover:bg-blue-500'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+        }
+      })()
+    : null
+
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) {
       onClose()
@@ -95,9 +165,14 @@ export function ConfirmModal({
     onClose()
   }
 
+  const handleSecondary = () => {
+    secondaryAction?.onClick?.()
+    onClose()
+  }
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+      className="dash-mobile-bottom-sheet fixed inset-0 z-[200] flex items-center justify-center p-4 overflow-y-auto"
       onClick={handleOverlayClick}
       role="dialog"
       aria-modal="true"
@@ -176,8 +251,39 @@ export function ConfirmModal({
             {message}
           </p>
 
-          {/* Actions */}
-          <div className="flex gap-3">
+          {/* Actions — when `secondaryAction` is set, stack vertically
+              (delete-confirmation pattern: 3 buttons + bigger tap targets).
+              Otherwise keep the existing two-button row. */}
+          <div className={`flex ${secondaryAction ? 'flex-col' : 'flex-row'} gap-3`}>
+            {/* Primary confirm button shown FIRST in stacked layout so
+                the safe action sits at the top (closest to the user's
+                thumb on mobile). In side-by-side layout it stays last
+                to preserve existing visual order. */}
+            {secondaryAction && (
+              <button
+                ref={confirmButtonRef}
+                onClick={handleConfirm}
+                className={`
+                  w-full px-4 py-3 rounded-xl font-medium transition-all duration-200
+                  ${styles.confirmBtn}
+                  ${isFallout ? 'font-mono' : ''}
+                `}
+              >
+                {confirmText}
+              </button>
+            )}
+            {secondaryAction && (
+              <button
+                onClick={handleSecondary}
+                className={`
+                  w-full px-4 py-3 rounded-xl font-medium transition-all duration-200
+                  ${secondaryStyles.confirmBtn}
+                  ${isFallout ? 'font-mono' : ''}
+                `}
+              >
+                {secondaryAction.text}
+              </button>
+            )}
             {showCancel && (
               <button
                 onClick={() => {
@@ -189,7 +295,7 @@ export function ConfirmModal({
                   }
                 }}
                 className={`
-                  flex-1 px-4 py-3 rounded-xl font-medium transition-all duration-200
+                  ${secondaryAction ? 'w-full' : 'flex-1'} px-4 py-3 rounded-xl font-medium transition-all duration-200
                   ${isFallout
                     ? 'bg-gray-800 border border-green-500/40 text-green-400 hover:bg-gray-700 font-mono'
                     : isDarkBlue
@@ -203,17 +309,19 @@ export function ConfirmModal({
                 {cancelText}
               </button>
             )}
-            <button
-              ref={confirmButtonRef}
-              onClick={handleConfirm}
-              className={`
-                flex-1 px-4 py-3 rounded-xl font-medium transition-all duration-200
-                ${styles.confirmBtn}
-                ${isFallout ? 'font-mono' : ''}
-              `}
-            >
-              {confirmText}
-            </button>
+            {!secondaryAction && (
+              <button
+                ref={confirmButtonRef}
+                onClick={handleConfirm}
+                className={`
+                  flex-1 px-4 py-3 rounded-xl font-medium transition-all duration-200
+                  ${styles.confirmBtn}
+                  ${isFallout ? 'font-mono' : ''}
+                `}
+              >
+                {confirmText}
+              </button>
+            )}
           </div>
         </div>
       </div>

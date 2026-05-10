@@ -6,6 +6,7 @@ import Tooltip from './Tooltip'
 import { RenameFolderModal } from './RenameFolderModal'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { isMobileDevice, isSmallScreen } from '@/utils/deviceUtils'
+import { useLongPress } from '@/utils/useLongPress'
 import { ActionSheet, ActionSheetItem, ActionSheetSeparator } from './ActionSheet'
 
 export function FolderItem({
@@ -82,7 +83,10 @@ export function FolderItem({
   }, [isDropdownOpen])
 
   const toggleExpand = (e) => {
-    e.stopPropagation()
+    // useLongPress invokes onClick without an event argument on touch end,
+    // so guard the stopPropagation call. Caller from desktop click DOES
+    // pass the event.
+    e?.stopPropagation?.()
     setIsExpanded(!isExpanded)
   }
 
@@ -211,14 +215,24 @@ export function FolderItem({
   }
 
 
+  // On mobile: long-press reserved for dnd-kit drag activation. Action
+  // sheet still accessible via the folder's 3-dots / MoreVertical button.
+  // Pre-fix this raced + won against drag — see PageItem comment.
+  const folderLongPressHandlers = useLongPress({
+    onLongPress: () => { /* no-op on mobile — drag owns long-press */ },
+    onClick: () => { toggleExpand() },
+    delay: 450
+  })
+
   return (
     <div className={`my-1 transition-all duration-150 ${isDropTarget && !isDraggingFolder ? `rounded-lg mx-1 ${theme === 'fallout' ? 'bg-green-500/10 border border-dashed border-green-500/40' : theme === 'dark' ? 'bg-blue-500/10 border border-dashed border-blue-400/30' : theme === 'darkblue' ? 'bg-blue-500/10 border border-dashed border-blue-400/30' : 'bg-blue-50 border border-dashed border-blue-300/60'}` : ''}`} ref={folderRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} data-theme={theme}>
       <div
-        className={`flex items-center ${sidebarOpen ? 'justify-between px-3 py-2' : 'justify-center px-0 py-1'} cursor-pointer text-sm rounded-lg mx-1 transition-colors duration-150 overflow-hidden ${getFolderHoverClasses()}`}
-        onClick={toggleExpand}
+        className={`flex items-center ${sidebarOpen ? (isMobile ? 'justify-between px-3 py-2 text-[15px] min-h-[40px]' : 'justify-between px-3 py-2 text-sm') : 'justify-center px-0 py-1 text-sm'} cursor-pointer rounded-lg mx-1 transition-colors duration-150 overflow-hidden ${getFolderHoverClasses()}`}
+        onClick={isMobile ? undefined : toggleExpand}
+        {...(isMobile ? folderLongPressHandlers : {})}
       >
         {sidebarOpen ? (
-        <div className="flex items-center flex-grow min-w-0" style={{ marginRight: isHovered ? 0 : -24, transition: 'margin-right 150ms' }}>
+        <div className="flex items-center flex-grow min-w-0" style={{ marginRight: isMobile ? 0 : (isHovered ? 0 : -24), transition: 'margin-right 150ms' }}>
           {folder.emoji ? (
             <span className="h-4 w-4 mr-1.5 flex-shrink-0 text-sm leading-4 text-center">{folder.emoji}</span>
           ) : isExpanded ? (
@@ -226,7 +240,7 @@ export function FolderItem({
           ) : (
             <Folder className={`h-4 w-4 mr-1.5 flex-shrink-0 ${getFolderIconClasses()}`} strokeWidth={1.5} />
           )}
-          <span className="truncate text-sm font-medium flex-1 min-w-0" title={folder.title}>
+          <span className="truncate font-medium flex-1 min-w-0" title={folder.title}>
             {folder.title}
           </span>
           {pagesCount > 0 && (
@@ -253,13 +267,10 @@ export function FolderItem({
             ref={buttonRef}
             onClick={(e) => {
               e.stopPropagation()
-              if (isMobile) {
-                setIsActionSheetOpen(true)
-              } else {
-                setIsDropdownOpen(!isDropdownOpen)
-              }
+              if (isMobile) setIsActionSheetOpen(true)
+              else setIsDropdownOpen(!isDropdownOpen)
             }}
-            className="h-6 w-6 p-0 inline-flex items-center justify-center rounded-md flex-shrink-0"
+            className={`${isMobile ? 'h-9 w-9' : 'h-6 w-6'} p-0 inline-flex items-center justify-center rounded-md flex-shrink-0`}
             style={{ opacity: isMobile || isHovered ? 1 : 0, transition: 'opacity 150ms' }}
             aria-haspopup="menu"
             aria-expanded={isDropdownOpen || isActionSheetOpen}

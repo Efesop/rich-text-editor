@@ -58,6 +58,10 @@ jobs:
 
       - name: Build and release Electron app (macOS only)
         env:
+          # Sync relay URL — without this baked into the production
+          # bundle, every desktop user that enables sync hits a dead
+          # endpoint. Memory called this out as a pre-ship gap.
+          NEXT_PUBLIC_RELAY_URL: wss://dash-relay.efesop.deno.net
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_KEYCHAIN: build.keychain
           CSC_NAME: 'Filmshape Ltd (9888FL2CQ6)'

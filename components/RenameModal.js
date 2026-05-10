@@ -9,15 +9,22 @@ export function RenameModal({ isOpen, onClose, onConfirm, title, onTitleChange, 
   const maxLength = 50
 
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      setTimeout(() => {
-        inputRef.current?.focus()
-        inputRef.current?.select()
-      }, 100)
-    }
+    if (!isOpen || !inputRef.current) return
+    // On mobile we DON'T autofocus — focusing immediately pops up the
+    // iOS keyboard mid-animation, which fights the bottom-sheet slide-up
+    // and looks like a visual stutter. The user can tap the input when
+    // they're ready. On desktop we autofocus + select for fast renames.
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches) return
+    setTimeout(() => {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }, 100)
   }, [isOpen])
 
   const handleOverlayClick = (e) => {
+    // Mobile: ignore backdrop tap (matches PasswordModal — keyboard
+    // dismiss tap shouldn't cancel the rename mid-typing).
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches) return
     if (e.target === e.currentTarget) {
       onClose()
     }
@@ -39,7 +46,7 @@ export function RenameModal({ isOpen, onClose, onConfirm, title, onTitleChange, 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+      className="dash-mobile-bottom-sheet fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
       onClick={handleOverlayClick}
     >
       {/* Backdrop with blur */}

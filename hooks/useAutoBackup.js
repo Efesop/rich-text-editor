@@ -54,6 +54,7 @@ export function useAutoBackup ({
   settingsRef.current = settings
 
   const isElectron = typeof window !== 'undefined' && !!window.electron?.invoke
+  const isCapacitorNative = typeof window !== 'undefined' && !!window.Capacitor?.isNativePlatform?.()
 
   // ── Load settings on mount ──
   useEffect(() => {
@@ -95,6 +96,18 @@ export function useAutoBackup ({
       console.error('useAutoBackup: getPages and getBackupPassphrase required')
       return null
     }
+    // iOS Capacitor: WKWebView ignores synthetic `<a download>` clicks,
+    // so the previous PWA branch silently no-op'd while updating
+    // lastBackupAt — the user thought they had backups, they didn't.
+    // Surface an honest error and DO NOT advance lastBackupAt. A real
+    // native backup needs @capacitor/filesystem (deferred to a future
+    // build); for now Settings → Export should integrate the iOS share
+    // sheet via navigator.share under user gesture.
+    if (isCapacitorNative && !isElectron) {
+      const message = 'Auto-backup is not yet available on iOS — use Settings → Export to share manually.'
+      setLastError(message)
+      return { success: false, skipped: 'ios-not-supported', error: message }
+    }
     setIsExporting(true)
     setLastError(null)
     try {
@@ -102,7 +115,10 @@ export function useAutoBackup ({
       const tags = getTags ? getTags() : []
       const passphrase = await getBackupPassphrase()
       if (!passphrase || typeof passphrase !== 'string') {
-        throw new Error('No backup passphrase available')
+        // No passphrase configured — silent skip. Expected on first run
+        // (PWA / Capacitor) and any time the user has not yet set a
+        // backup passphrase. Sweep will retry next interval.
+        return { success: false, skipped: true, reason: 'no-passphrase' }
       }
 
       // Bundle attachments same as manual dashpack export
@@ -169,7 +185,7 @@ export function useAutoBackup ({
     } finally {
       setIsExporting(false)
     }
-  }, [isExporting, getPages, getTags, getBackupPassphrase, collectAttachmentsForExport, isElectron, persistSettings])
+  }, [isExporting, getPages, getTags, getBackupPassphrase, collectAttachmentsForExport, isElectron, isCapacitorNative, persistSettings])
 
   // ── Schedule sweep ──
   useEffect(() => {

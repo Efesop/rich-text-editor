@@ -6,7 +6,9 @@ import useTagStore from '../store/tagStore'
 import { readPages, savePages as savePagesToFallback, saveDecoyPages } from '@/lib/storage'
 import { deleteMultipleAttachments } from '@/lib/attachmentStorage'
 import { captureVersion, deleteVersions } from '@/lib/versionStorage'
+import { recordHardDelete } from '@/lib/hardDeletes'
 import { encryptJsonWithPassphrase } from '@/utils/cryptoUtils'
+import { DEMO_PAGES, DEMO_TAGS, isDemoMode } from '@/lib/demoSeed'
 
 // Debug logger: enable in browser console with window.__DASH_DEBUG = true
 const dbg = (category, ...args) => {
@@ -167,9 +169,15 @@ export function usePagesManager() {
         // is gated off and this is a no-op.
         if (typeof window !== 'undefined' && typeof window.__syncEnqueueChangedPages === 'function') {
           try {
+            // Pass current tags as the third arg so the manifest payload
+            // ships their colors. Without this, peers receive an empty
+            // tagMap and fall back to the hashed-palette color in
+            // StackedTags.js (visible mismatch on mobile vs desktop).
+            const currentTags = useTagStore.getState().tags || []
             window.__syncEnqueueChangedPages(
               window.__syncLastSnapshot || [],
-              pagesRef.current
+              pagesRef.current,
+              currentTags
             )
             window.__syncLastSnapshot = pagesRef.current
           } catch (e) {
@@ -215,9 +223,58 @@ export function usePagesManager() {
     }
   }, [executeSave])
 
-  // Debounced save function to prevent excessive saves
-  // Note: updatedPages param kept for API compatibility but we always use pagesRef.current
-  const savePagesToStorage = useCallback(async (_updatedPages) => {
+  // Bypass the 150 ms `savePagesToStorage` debounce + write to disk
+  // immediately. Required when the app is about to suspend (iOS Capacitor
+  // background) — without this, a destructive op (trash, rename, reorder)
+  // performed within 150 ms of the user backgrounding the app loses its
+  // disk write entirely. Returns the executeSave promise so callers can
+  // await it where they have an awaitable boundary.
+  // Defined here (early in the hook body) so callbacks defined later in
+  // this file — permanentlyDeletePage, the self-destruct sweep, the
+  // trash sweep — can list it as a useCallback / useEffect dep without
+  // a TDZ ReferenceError at render time.
+  const flushSavesNow = useCallback(async () => {
+    if (!isInitializedRef.current) return
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+      saveTimeoutRef.current = null
+    }
+    saveVersionRef.current += 1
+    const version = saveVersionRef.current
+    const pagesToSave = pagesRef.current.filter(p => !p.id?.startsWith('live-'))
+    pendingSaveRef.current = { pages: pagesToSave, version }
+    await processSaveQueue()
+  }, [processSaveQueue])
+
+  // Debounced save function to prevent excessive saves.
+  // `updatedPages` (when provided) takes precedence over pagesRef.current.
+  // This matters because sync's applyRemoteChanges → setPages(pagesToSet) →
+  // savePagesToStorage(pagesToSet) needs to use the freshly-pulled list, but
+  // pagesRef is updated lazily via a useEffect[pages] one render later.
+  // Passing the array explicitly skips that race.
+  const savePagesToStorage = useCallback(async (updatedPages) => {
+    // CRITICAL data-safety guard: refuse to fire a save BEFORE fetchPages
+    // has populated the in-memory store IF the caller didn't supply pages.
+    // Pre-init React state is `pages = []` and `pagesRef.current = []`. Any
+    // save call during the bootstrap window that reads pagesRef.current
+    // would write an empty array → data loss.
+    //
+    // Exception: if the caller passes a non-empty `updatedPages` array
+    // (e.g. sync's applyRemoteChanges with freshly-pulled data), let it
+    // through. We have authoritative data; persisting it is safe even
+    // before fetchPages has run.
+    const hasExplicitData = Array.isArray(updatedPages) && updatedPages.length > 0
+    if (!isInitializedRef.current && !hasExplicitData) {
+      dbg('save', 'BLOCKED — fetchPages has not completed yet (pre-init guard)')
+      return
+    }
+
+    // If caller passed an explicit array, also seed pagesRef so subsequent
+    // ops (debounced flush, ref-readers) see the fresh data immediately.
+    if (Array.isArray(updatedPages)) {
+      pagesRef.current = updatedPages
+    }
+
     // Clear any pending debounce timer
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current)
@@ -287,13 +344,39 @@ export function usePagesManager() {
       pagesRef.current = mergedPages
 
       if (validPages.length > 0 && !currentPageRef.current) {
-        const firstPage = validPages[0]
-        dbg('pages', 'selecting first page:', firstPage.title || firstPage.id)
-        setCurrentPage(firstPage)
+        // Filter trashed pages + folders before picking the initial
+        // page. Pre-fix `validPages[0]` could be a trashed item that
+        // the sidebar hides but the editor would still open on launch
+        // — symptom: "the app opens a page I already deleted." Same
+        // for folders (selectable items must be notes).
+        const firstSelectable = validPages.find(p => p.type !== 'folder' && !p.trashed)
+        if (firstSelectable) {
+          dbg('pages', 'selecting first page:', firstSelectable.title || firstSelectable.id)
+          setCurrentPage(firstSelectable)
+        } else {
+          dbg('pages', 'no selectable pages found, creating initial page')
+          const newPage = await createNewPage()
+          setCurrentPage(newPage)
+        }
       } else if (validPages.length === 0) {
-        dbg('pages', 'no pages found, creating initial page')
-        const newPage = await createNewPage()
-        setCurrentPage(newPage)
+        if (isDemoMode()) {
+          dbg('pages', 'demo seed mode — populating sample data')
+          // Seed demo dataset for App Store screenshots
+          try {
+            for (const tag of DEMO_TAGS) {
+              try { addTag(tag.name, tag.color) } catch {}
+            }
+          } catch {}
+          setPages(DEMO_PAGES)
+          pagesRef.current = DEMO_PAGES
+          await savePagesToStorage(DEMO_PAGES)
+          const firstSelectable = DEMO_PAGES.find(p => p.type !== 'folder' && !p.trashed)
+          if (firstSelectable) setCurrentPage(firstSelectable)
+        } else {
+          dbg('pages', 'no pages found, creating initial page')
+          const newPage = await createNewPage()
+          setCurrentPage(newPage)
+        }
       }
 
       isInitializedRef.current = true
@@ -398,7 +481,11 @@ export function usePagesManager() {
       // Capture version snapshot (fire-and-forget, never blocks save)
       // Skip for password-locked pages — versions would store plaintext on disk
       if (!validation.sanitized.password?.hash) {
-        captureVersion(validation.sanitized.id, sanitizedContent.blocks).catch(() => {})
+        captureVersion(validation.sanitized.id, sanitizedContent.blocks).catch(err => {
+          // captureVersion logs internally too, but the call-site swallow
+          // erased the trail — we want to spot IDB-quota silent stops.
+          console.warn('captureVersion failed (call site)', err)
+        })
       }
     } catch (error) {
       console.error('Error saving page:', error)
@@ -420,10 +507,18 @@ export function usePagesManager() {
     dbg('pages', 'trashing:', pageToTrash.title || pageToTrash.id)
     const latestPage = pagesRef.current.find(p => p.id === pageToTrash.id)
     if (!latestPage) return
+    // Bump lastEdited so the trash envelope wins on receivers' latest-wins
+    // tiebreak. Without this, payload's lastEdited equals the previous
+    // edit's value → receivers' existing.lastEdited matches → trash gets
+    // dropped by `incomingTs <= existingTs` → trash never propagates.
+    // Also clear any prior `restoredAt` so a future restore is unambiguous.
+    const now = Date.now()
+    const { restoredAt: _ra, ...latestRest } = latestPage
     const trashedPage = {
-      ...latestPage,
+      ...latestRest,
       trashed: true,
-      trashedAt: Date.now()
+      trashedAt: now,
+      lastEdited: now
     }
     const newPages = pagesRef.current.map(p =>
       p.id === pageToTrash.id ? trashedPage : p
@@ -444,7 +539,14 @@ export function usePagesManager() {
     if (!latestPage || latestPage.trashed !== true) return
     dbg('pages', 'restoring:', latestPage.title || latestPage.id)
     const { trashed: _t, trashedAt: _ta, ...rest } = latestPage
-    const restored = rest
+    // `restoredAt` is the EXPLICIT-restore signal that syncPull checks
+    // before resurrecting a page that's trashed on a peer. Without it,
+    // any subsequent edit envelope from this device would look like a
+    // stale-edit-on-trashed-page to the peer (correctly dropped) and
+    // the restore would never propagate. Also bump lastEdited so the
+    // restore wins normal latest-wins on peers that aren't trashed.
+    const now = Date.now()
+    const restored = { ...rest, restoredAt: now, lastEdited: now }
     const newPages = pagesRef.current.map(p =>
       p.id === pageToRestore.id ? restored : p
     )
@@ -479,38 +581,54 @@ export function usePagesManager() {
       })
     }
 
-    // Ensure we always have at least one page
-    if (updatedPages.filter(p => p.type !== 'folder').length === 0) {
-      const defaultPage = {
-        id: crypto.randomUUID(),
-        title: 'New Page',
-        content: { time: Date.now(), blocks: [], version: '2.30.6' },
-        tags: [],
-        tagNames: [],
-        createdAt: new Date().toISOString(),
-        password: null
-      }
-      updatedPages.push(defaultPage)
-    }
+    // No auto-create-New-Page on empty.
+    // Pre-fix: if the last note got deleted, this branch pushed a fresh
+    // "New Page" so the editor never sat blank. With sync enabled,
+    // EACH device ran this independently → both auto-creates persisted
+    // through sync as two distinct New Pages → duplicates accumulated
+    // every time a user emptied + cleaned trash. Empty-state is the
+    // honest UX: the user can tap "+" to create when they want one.
+    // The empty-state branch in fetchPages still creates a New Page on
+    // FIRST RUN (validPages.length === 0 with NO existing data), which
+    // is the intended onboarding behavior.
 
     pagesRef.current = updatedPages
     savePagesToStorage(updatedPages)
     setPages(updatedPages)
 
-    // Clean up version history for this page
-    deleteVersions(pageToDelete.id).catch(err =>
-      console.error('Failed to clean up versions:', err)
-    )
+    // Record the hard-delete in the local tombstone store. Sync pulls
+    // check this set before inserting brand-new pages — protects
+    // against the peer-resurrect race (e.g. another device autosaved
+    // the same page right after our tombstone push, server stores its
+    // alive envelope with a higher version, our next pull would
+    // otherwise re-insert it).
+    try {
+      recordHardDelete(pageToDelete.id)
+    } catch (err) {
+      console.warn('permanentlyDeletePage: recordHardDelete failed', err)
+    }
 
-    // Clean up any file attachments using latest content (grabbed before filter above)
+    // Clean up version history + attachments. AWAIT both — pre-fix
+    // these were fire-and-forget, so iOS suspending mid-cleanup left
+    // orphaned versions/attachments in IndexedDB → slow quota leak
+    // over many delete cycles. Wrapped individually so a failure of
+    // one cleanup doesn't block the other; the page itself is already
+    // off the live list either way.
+    try {
+      await deleteVersions(pageToDelete.id)
+    } catch (err) {
+      console.error('permanentlyDeletePage: deleteVersions failed for', pageToDelete.id, err)
+    }
     if (latestPage.content?.blocks) {
       const attachmentIds = latestPage.content.blocks
         .filter(b => b.type === 'attachment' && b.data?.attachmentId)
         .map(b => b.data.attachmentId)
       if (attachmentIds.length > 0) {
-        deleteMultipleAttachments(attachmentIds).catch(err =>
-          console.error('Failed to clean up attachments:', err)
-        )
+        try {
+          await deleteMultipleAttachments(attachmentIds)
+        } catch (err) {
+          console.error('permanentlyDeletePage: deleteMultipleAttachments failed', err)
+        }
       }
     }
 
@@ -575,7 +693,19 @@ export function usePagesManager() {
       // Use pagesRef to get latest content (savePage updates ref before React state)
       const latestPage = pagesRef.current.find(p => p.id === page.id) || page
       const updatedPage = { ...latestPage, password: { hash: hashedPassword } }
-      setTempUnlockedPages(prev => new Set(prev).add(page.id))
+      // Update ref SYNCHRONOUSLY alongside the React state update.
+      // `tempUnlockedPagesRef` is normally synced via the useEffect at
+      // line 71 (after React commits), but if `flushSavesNow` runs
+      // between the setState here and the useEffect tick (e.g. iOS
+      // visibility-hidden in that window), `preparePagesForStorage`
+      // reads a stale ref → page treated as not-temp-unlocked → falls
+      // through to "fallback: save as-is" → PLAINTEXT WRITTEN TO DISK
+      // for a page that should be locked. Updating the ref first
+      // closes the race.
+      const nextTempUnlocked = new Set(tempUnlockedPagesRef.current)
+      nextTempUnlocked.add(page.id)
+      tempUnlockedPagesRef.current = nextTempUnlocked
+      setTempUnlockedPages(nextTempUnlocked)
 
       const newPages = pagesRef.current.map(p =>
         p.id === updatedPage.id ? updatedPage : p
@@ -626,8 +756,12 @@ export function usePagesManager() {
       }
 
       if (temporary) {
-        // Temp unlock: update in-memory state with decrypted content, don't save to storage
-        setTempUnlockedPages(prev => new Set(prev).add(page.id))
+        // Temp unlock: update in-memory state with decrypted content, don't save to storage.
+        // Sync ref synchronously alongside the React state update — see lockPage for rationale.
+        const nextTempUnlocked = new Set(tempUnlockedPagesRef.current)
+        nextTempUnlocked.add(page.id)
+        tempUnlockedPagesRef.current = nextTempUnlocked
+        setTempUnlockedPages(nextTempUnlocked)
         const updatedPage = { ...page, content: decryptedContent }
         const newPages = pagesRef.current.map(p =>
           p.id === updatedPage.id ? updatedPage : p
@@ -1355,6 +1489,27 @@ export function usePagesManager() {
     dbg('applock', 'decrypted', decrypted.filter(p => p.content).length, 'pages successfully')
     setPages(decrypted)
     pagesRef.current = decrypted
+    // Re-fire sync diff with the freshly-decrypted state. Sync queue
+    // skipped any earlier push attempts that found app-lock ciphertext
+    // (peers can't decrypt that). Now that pagesRef holds plaintext,
+    // diff against the last-synced snapshot will surface the pages as
+    // upserts → push goes out with plaintext → peers receive readable
+    // content. Without this, sync would never refresh after unlock
+    // until the user manually edited each page, leading to "iPhone
+    // shows synced pages but content is empty" (build-39 user report).
+    try {
+      if (typeof window !== 'undefined' && typeof window.__syncEnqueueChangedPages === 'function') {
+        const currentTags = useTagStore.getState().tags || []
+        window.__syncEnqueueChangedPages(
+          window.__syncLastSnapshot || [],
+          pagesRef.current,
+          currentTags
+        )
+        window.__syncLastSnapshot = pagesRef.current
+      }
+    } catch (err) {
+      console.warn('decryptAllAppLockPages: post-unlock sync push failed', err)
+    }
     // Update currentPage with decrypted content and bump editorReloadKey
     // to force editor remount (same page ID won't remount via key alone)
     if (currentPageRef.current) {
@@ -1457,22 +1612,32 @@ export function usePagesManager() {
 
   // Self-destruct: check for expired pages every 5 seconds
   useEffect(() => {
-    const checkExpired = () => {
+    const checkExpired = async () => {
       const now = Date.now()
       const expired = pagesRef.current.filter(
         p => p.selfDestructAt && p.selfDestructAt <= now && p.type !== 'folder'
       )
-      expired.forEach(page => {
+      for (const page of expired) {
         if (!selfDestructingPagesRef.current.has(page.id)) {
           // Wait 2s after expiry so "Expired" badge is visible, then delete + animate
           const elapsed = now - page.selfDestructAt
-          if (elapsed < 2000) return
+          if (elapsed < 2000) continue
 
-          // Delete from storage IMMEDIATELY so force-quit can't preserve the page.
-          // Self-destruct bypasses Trash — the whole point of the feature is
-          // unrecoverable destruction.
-          permanentlyDeletePage(page)
+          // Delete from storage IMMEDIATELY so force-quit can't preserve
+          // the page. Self-destruct bypasses Trash — the whole point of
+          // the feature is unrecoverable destruction. AWAIT both the
+          // delete and the disk flush so iOS suspend mid-window can't
+          // race the destruct timer (the 150ms `savePagesToStorage`
+          // debounce would otherwise lose the write entirely).
+          try {
+            await permanentlyDeletePage(page)
+            await flushSavesNow()
+          } catch (err) {
+            console.error('self-destruct: delete/flush failed', err)
+          }
           // Delete backup so content can't be recovered from .bak
+          // (Electron only — iOS has no .bak file; durability of the
+          // IDB delete is guaranteed by the build-19 transaction.oncomplete fix).
           if (typeof window !== 'undefined' && window.electron?.invoke) {
             setTimeout(() => window.electron.invoke('delete-pages-backup').catch(() => {}), 500)
           }
@@ -1497,12 +1662,12 @@ export function usePagesManager() {
             }, 900)
           }
         }
-      })
+      }
     }
 
-    const interval = setInterval(checkExpired, 1000)
+    const interval = setInterval(() => { checkExpired().catch(err => console.error('self-destruct sweep threw', err)) }, 1000)
     return () => clearInterval(interval)
-  }, [permanentlyDeletePage])
+  }, [permanentlyDeletePage, flushSavesNow])
 
   // Initialize on mount
   useEffect(() => {
@@ -1576,6 +1741,7 @@ export function usePagesManager() {
     reEncryptAppLockPages,
     removeAppLockEncryption,
     getLatestPages,
+    flushSavesNow,
     // Phase 2.4 sync — exposed so RichTextEditor can pass the live duress
     // flag into useSyncQueue's canPush gate.
     isDuressModeRef,
@@ -1583,5 +1749,9 @@ export function usePagesManager() {
     trashPage,
     restorePage,
     permanentlyDeletePage,
+    // Sync needs to persist pulled pages to local storage. Without this,
+    // applyRemoteChanges only updates React state — pages live in memory
+    // and vanish on app restart.
+    savePagesToStorage,
   }
 }

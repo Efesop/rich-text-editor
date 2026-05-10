@@ -584,28 +584,32 @@ export default function AIPanel ({ isOpen, onClose, theme, currentPage, contextT
 
       <div
         className={`
-          fixed top-0 right-0 bottom-0 z-50 w-[440px] max-w-[90vw]
+          fixed top-0 right-0 bottom-0 z-50 w-[440px] max-w-full md:max-w-[90vw]
           flex flex-col shadow-2xl
           transition-transform duration-300 ease-out
           ${animateIn ? 'translate-x-0' : 'translate-x-full'}
           ${panelBg}
         `}
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        {/* Header */}
-        <div className={`
-          flex items-center justify-between px-6 pt-6 pb-4 flex-shrink-0
+        {/* Header — pad for iOS Dynamic Island / notch */}
+        <div
+          className={`
+          flex items-center justify-between px-5 pb-4 flex-shrink-0
           ${isFallout ? 'border-b border-green-500/30' : isDarkBlue ? 'border-b border-[#1c2438]' : isDark ? 'border-b border-[#3a3a3a]' : 'border-b border-gray-100'}
-        `}>
-          <div className="flex items-center gap-3">
-            <div className="transition-all duration-500 ease-out" style={{ transform: isStreaming ? 'scale(0.55)' : 'scale(1)', marginRight: isStreaming ? -10 : 0 }}>
+        `}
+          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1rem)' }}
+        >
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="transition-all duration-500 ease-out flex-shrink-0" style={{ transform: isStreaming ? 'scale(0.55)' : 'scale(1)', marginRight: isStreaming ? -10 : 0 }}>
               <AIOrb state={isStreaming ? 'generating' : 'idle'} size={44} theme={theme} />
             </div>
-            <div>
-              <h2 className={`text-lg font-semibold ${titleColor}`}>Local AI</h2>
-              <p className={`text-xs ${descColor}`}>Runs on your machine, stays private</p>
+            <div className="min-w-0">
+              <h2 className={`text-lg font-semibold truncate ${titleColor}`}>Local AI</h2>
+              <p className={`text-xs truncate ${descColor}`}>Runs on your machine, stays private</p>
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-shrink-0">
             {(isDone || chatHistory.length > 0) && (
               <button
                 onClick={() => { setIsDone(false); setStreamingText(''); fullTextRef.current = ''; setCustomPrompt(''); setChatHistory([]); setChatDisplay([]); sentMessagesRef.current = []; setSelectedResponseIdx(-1); setExpandedMsgIdx(null) }}

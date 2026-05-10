@@ -29,6 +29,9 @@ export default function SortableFolderItem({ id, disabled, theme, isDndEnabled, 
     zIndex: isDragging ? 50 : undefined,
     cursor: disabled ? undefined : 'grab',
     position: 'relative',
+    // See SortablePageItem — `touch-action: pan-y` lets iOS native vertical
+    // scroll through dnd-kit's touch listeners.
+    touchAction: 'pan-y',
   }
 
   // Show drop target highlight if dnd-kit says isOver OR if this folder is the active drag target

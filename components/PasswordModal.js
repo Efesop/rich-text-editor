@@ -8,9 +8,12 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
   const inputRef = useRef(null)
 
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 100)
-    }
+    if (!isOpen || !inputRef.current) return
+    // Mobile: defer + skip — autofocus on a locked-page bottom sheet
+    // pops the keyboard during the slide-up animation; the sheet
+    // visibly jumps. User taps input when ready.
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches) return
+    setTimeout(() => inputRef.current?.focus(), 100)
   }, [isOpen])
 
   const handleKeyDown = (e) => {
@@ -26,6 +29,12 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
   }
 
   const handleOverlayClick = (e) => {
+    // Mobile: ignore taps on the backdrop. iOS users tap above the
+    // keyboard to dismiss it, which lands on this overlay and closed
+    // the modal mid-typing — losing whatever password they'd entered
+    // and surfacing as "the modal closed and locked my page". Require
+    // explicit X-button or Cancel-button close instead.
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches) return
     if (e.target === e.currentTarget) {
       onClose()
     }
@@ -40,14 +49,23 @@ const PasswordModal = ({ isOpen, onClose, onConfirm, action, error, onPasswordCh
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+      className="dash-mobile-bottom-sheet fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
       onClick={handleOverlayClick}
       role="dialog"
       aria-modal="true"
       aria-labelledby="password-modal-title"
     >
-      {/* Backdrop with blur */}
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} style={{ animation: 'dash-backdrop-in 150ms ease-out forwards' }} />
+      {/* Backdrop with blur. On mobile we drop the click-to-close
+          handler — iOS keyboard-dismissal taps land here and cancel
+          the password entry mid-flow. */}
+      <div
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={(e) => {
+          if (typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches) return
+          onClose()
+        }}
+        style={{ animation: 'dash-backdrop-in 150ms ease-out forwards' }}
+      />
 
       {/* Modal */}
       <div

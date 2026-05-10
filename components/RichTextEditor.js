@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, Share2, List, Users, Shield, Copy, Check, Trash2, Archive } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, Share2, List, Users, Shield, Copy, Check, Trash2, Archive, Cloud, AlertCircle } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
@@ -55,6 +55,9 @@ import { getTagChipStyle } from '@/utils/colorUtils'
 import { ConfirmModal } from './ConfirmModal'
 import { shouldShowMobileInstall } from '@/utils/deviceUtils'
 import { MobileHeaderMenu } from './MobileHeaderMenu'
+import MobileFooter from './MobileFooter'
+import { ActionSheet, ActionSheetItem } from './ActionSheet'
+import { initNative, applyStatusBarTheme, hapticLight, hapticSuccess, hapticWarning, isNativePlatform, onKeyboardWillShow, onKeyboardWillHide } from '@/utils/nativeBridge'
 import WhatsNewModal from './WhatsNewModal'
 import QuickSwitcher from './QuickSwitcher'
 import SelfDestructModal from './SelfDestructModal'
@@ -106,21 +109,62 @@ const LIVE_SESSIONS_ENABLED = false
 // sync code paths are wired but no UI is exposed unless this flips to true.
 // Flip to true for alpha testing; expose in user-facing settings later
 // (phase 2.10). When false: zero behavior change vs. pre-sync builds.
-const SYNC_ENABLED = false
+const SYNC_ENABLED = true
 
-// Default relay URL for sync. Mirrors LIVE_SESSIONS NEXT_PUBLIC_RELAY_URL
-// resolution. Sync uses the same Deno relay as live sessions + share blobs.
+// Sync relay URL — resolved ONLY from NEXT_PUBLIC_RELAY_URL at build time.
+// No hardcoded fallback: open-source forks must self-host or buy a Dash
+// subscription that ships with the URL pre-configured. When null, the
+// Sync UI shows a self-host CTA instead of pretending to work.
 const SYNC_RELAY_URL = (() => {
   const env = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_RELAY_URL) || ''
   if (env && (env.startsWith('wss://') || env.startsWith('ws://localhost') || env.startsWith('ws://127.0.0.1'))) {
     return env
   }
-  return 'wss://dash-relay.efesop.deno.net'
+  return null
 })()
+// Sync is only usable when a relay URL is configured at build time. Open-
+// source builds without one will show the self-host CTA.
+const SYNC_AVAILABLE = SYNC_ENABLED && !!SYNC_RELAY_URL
 
 const AVATAR_COLORS = ['#1e40af', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#1d4ed8', '#0284c7', '#0ea5e9']
 const ADJECTIVES = ['Red', 'Blue', 'Green', 'Gold', 'Silver', 'Purple', 'Amber', 'Coral']
 const ANIMALS = ['Fox', 'Owl', 'Bear', 'Wolf', 'Hawk', 'Lynx', 'Deer', 'Crane']
+// Pick a human-readable name for THIS device, used as the label other
+// paired devices show in their sync settings panel. Order: Capacitor
+// platform → Electron platform → user-agent fallback. Returns a short
+// noun like "iPhone", "iPad", "Mac" — not "This device" (which would
+// confusingly appear as the literal label on every peer).
+function detectDeviceName () {
+  if (typeof window === 'undefined') return 'Unknown device'
+  // Capacitor native — most reliable signal on iOS/Android.
+  const cap = window.Capacitor
+  if (cap?.isNativePlatform?.()) {
+    const platform = cap.getPlatform?.()
+    if (platform === 'ios') {
+      const ua = navigator.userAgent || ''
+      if (/iPad/i.test(ua)) return 'iPad'
+      return 'iPhone'
+    }
+    if (platform === 'android') return 'Android'
+  }
+  // Electron — use the platform info exposed by preload.
+  if (window.electron?.invoke) {
+    if (window.electronPlatform?.isMac) return 'Mac'
+    if (window.electronPlatform?.isWindows) return 'Windows PC'
+    if (window.electronPlatform?.isLinux) return 'Linux PC'
+    return 'Computer'
+  }
+  // Browser PWA fallback.
+  const ua = navigator.userAgent || ''
+  if (/iPhone/i.test(ua)) return 'iPhone'
+  if (/iPad/i.test(ua)) return 'iPad'
+  if (/Android/i.test(ua)) return 'Android'
+  if (/Mac/i.test(ua)) return 'Mac'
+  if (/Windows/i.test(ua)) return 'Windows PC'
+  if (/Linux/i.test(ua)) return 'Linux PC'
+  return 'Browser'
+}
+
 function peerAlias (peerId) {
   const hash = peerId.split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0)
   return ADJECTIVES[Math.abs(hash) % ADJECTIVES.length] + ' ' + ANIMALS[Math.abs(hash >> 4) % ANIMALS.length]
@@ -496,6 +540,8 @@ export default function RichTextEditor() {
     trashPage,
     restorePage,
     permanentlyDeletePage,
+    savePagesToStorage,
+    flushSavesNow,
   } = usePagesManager()
 
   const {
@@ -520,6 +566,7 @@ export default function RichTextEditor() {
   useSkipNavigation()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isSmallScreen, setIsSmallScreen] = useState(false)
+  const [keyboardOpen, setKeyboardOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [isTagModalOpen, setIsTagModalOpen] = useState(false)
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false)
@@ -546,6 +593,7 @@ export default function RichTextEditor() {
   }
   const [isClient, setIsClient] = useState(false)
   const [isMacElectron, setIsMacElectron] = useState(false)
+  const [titleCompact, setTitleCompact] = useState(false)
   const [wordCount, setWordCount] = useState(0)
   const [outlineHeadings, setOutlineHeadings] = useState([])
   const [showMiniOutline, setShowMiniOutline] = useState(() => {
@@ -602,6 +650,20 @@ export default function RichTextEditor() {
   const lastRemoteBlocksRef = useRef(null)
   const currentPageRef = useRef(currentPage)
   const [liveToast, setLiveToast] = useState(null)
+  const [syncErrorToast, _setSyncErrorToast] = useState(null) // { message }
+  const syncErrorToastTimerRef = useRef(null)
+  // Wrap setter so every toast auto-dismisses after 6s — sync errors are
+  // info, not blockers (queue retries internally), no need to nag.
+  const setSyncErrorToast = useCallback((toast) => {
+    if (syncErrorToastTimerRef.current) {
+      clearTimeout(syncErrorToastTimerRef.current)
+      syncErrorToastTimerRef.current = null
+    }
+    _setSyncErrorToast(toast)
+    if (toast) {
+      syncErrorToastTimerRef.current = setTimeout(() => _setSyncErrorToast(null), 6000)
+    }
+  }, [])
   const [liveUpdateKey, setLiveUpdateKey] = useState(0)
   const prevParticipantsRef = useRef(0)
   const liveToastTimerRef = useRef(null)
@@ -627,7 +689,15 @@ export default function RichTextEditor() {
   const folderHoverRef = useRef({ folderId: null, timer: null, ready: false })
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
+    // TouchSensor: 250 ms hold to activate drag. Tolerance loosened
+    // 5 → 15 px because finger-jitter at the start of a hold (resting
+    // pressure changes, capacitive noise) routinely exceeds 5 px and
+    // CANCELS the activation — symptom on iOS: hold to drag does
+    // nothing or briefly grabs then drops the item. 15 px still
+    // distinguishes a hold-to-drag from a swipe-to-scroll because the
+    // SortablePageItem sets `touch-action: pan-y`, which routes large
+    // vertical motions to the scroller before reaching the sensor.
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 15 } })
   )
   const isDndEnabled = sortOption === 'custom' && !searchTerm && selectedTagsFilter.length === 0
 
@@ -645,7 +715,13 @@ export default function RichTextEditor() {
       pointerCoordinates.x >= rect.left && pointerCoordinates.x <= rect.right &&
       pointerCoordinates.y >= rect.top && pointerCoordinates.y <= rect.bottom
 
-    // Find closest droppable by Y-distance to center, also track above/below
+    // Find closest droppable by Y-distance to center, also track above/below.
+    // Side-effect setState calls are DEFERRED via queueMicrotask because
+    // dnd-kit invokes collisionDetection during DndContext render — a
+    // synchronous setState there triggers React's "Cannot update a
+    // component (`RichTextEditor`) while rendering a different component
+    // (`DndContext`)" warning. Microtask defers the update until after
+    // the current render commits.
     const findClosest = (filter) => {
       let closest = null, closestDist = Infinity, closestRect = null
       for (const container of droppableContainers) {
@@ -658,7 +734,8 @@ export default function RichTextEditor() {
       }
       if (closest && closestRect) {
         const mid = closestRect.top + closestRect.height / 2
-        setDropPosition(pointerCoordinates.y > mid ? 'below' : 'above')
+        const next = pointerCoordinates.y > mid ? 'below' : 'above'
+        queueMicrotask(() => setDropPosition(next))
       }
       return closest ? [{ id: closest }] : []
     }
@@ -684,7 +761,8 @@ export default function RichTextEditor() {
       }
     }
 
-    // Manage folder hover delay — require 600ms hover before accepting as drop target
+    // Manage folder hover delay — require 600ms hover before accepting as drop target.
+    // setState calls deferred via queueMicrotask — see findClosest comment.
     if (hoveredFolder) {
       if (folderHoverRef.current.folderId !== hoveredFolder) {
         // Started hovering a new folder — begin timer
@@ -692,11 +770,12 @@ export default function RichTextEditor() {
         folderHoverRef.current = { folderId: hoveredFolder, ready: false, timer: null }
         folderHoverRef.current.timer = setTimeout(() => {
           folderHoverRef.current.ready = true
+          // setTimeout already async — direct setState fine here.
           setDragTargetFolderId(hoveredFolder)
         }, 600)
       }
       if (folderHoverRef.current.ready) {
-        setDragTargetFolderId(hoveredFolder)
+        queueMicrotask(() => setDragTargetFolderId(hoveredFolder))
         // Folder is ready — target individual pages inside it for precise positioning
         const folderObj = (pages || []).find(p => p.id === hoveredFolder && p.type === 'folder')
         const folderPageIds = new Set(folderObj?.pages || [])
@@ -712,7 +791,7 @@ export default function RichTextEditor() {
       // Not hovering any folder — clear timer
       if (folderHoverRef.current.timer) clearTimeout(folderHoverRef.current.timer)
       folderHoverRef.current = { folderId: null, timer: null, ready: false }
-      setDragTargetFolderId(null)
+      queueMicrotask(() => setDragTargetFolderId(null))
     }
 
     if (activeContainer !== 'root') {
@@ -812,6 +891,23 @@ export default function RichTextEditor() {
   const getIconClasses = () => themeClasses.icon
   const getFolderBadgeClasses = () => themeClasses.folderBadge
 
+  // Expose flushSavesNow on window so the sync hook's background-lifecycle
+  // listener can invoke it without taking a hard dep on usePagesManager
+  // (mirrors the existing `window.__syncEnqueueChangedPages` pattern).
+  // Without this, a destructive op (trash, reorder, rename) within the
+  // 150 ms `savePagesToStorage` debounce loses its disk write entirely
+  // when iOS suspends the WebView — symptom: deletes / reorders revert
+  // on next launch.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.__dashFlushSaves = flushSavesNow
+    return () => {
+      if (window.__dashFlushSaves === flushSavesNow) {
+        window.__dashFlushSaves = null
+      }
+    }
+  }, [flushSavesNow])
+
   // Essential useEffects
   useEffect(() => {
     setIsClient(true)
@@ -819,7 +915,65 @@ export default function RichTextEditor() {
     if (typeof window !== 'undefined' && window.electronPlatform?.isMac && window.electron?.invoke) {
       setIsMacElectron(true)
     }
+    // Capacitor native bridge — status bar / keyboard / splash. No-op on web/Electron.
+    initNative(theme)
+    // iOS keyboard show/hide — hide MobileFooter while keyboard is open so it
+    // doesn't shove up above the keyboard. Capacitor's `resize: native` shrinks
+    // the WebView on keyboardWillShow; our `position: fixed` footer would
+    // otherwise sit just above the keyboard, eating screen real estate.
+    const offShow = onKeyboardWillShow(() => setKeyboardOpen(true))
+    const offHide = onKeyboardWillHide(() => setKeyboardOpen(false))
+    return () => { offShow?.(); offHide?.() }
   }, [])
+
+  // Re-apply status bar tinting when theme changes (mobile native only).
+  useEffect(() => {
+    if (typeof theme === 'string') applyStatusBarTheme(theme)
+  }, [theme])
+
+  // Re-apply status bar tinting on app resume — iOS resets bar chrome
+  // to default on background → foreground transitions (especially after
+  // a long suspension), leaving a light bar over a dark theme. Listen
+  // for `App.appStateChange:isActive` and re-tint.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!window.Capacitor?.isNativePlatform?.()) return
+    let appListenerHandle = null
+    ;(async () => {
+      try {
+        const { App } = await import('@capacitor/app')
+        appListenerHandle = await App.addListener('appStateChange', (state) => {
+          if (state.isActive && typeof theme === 'string') {
+            applyStatusBarTheme(theme)
+          }
+        })
+      } catch (err) {
+        console.warn('[statusbar] @capacitor/app appStateChange listener failed', err)
+      }
+    })()
+    return () => {
+      if (appListenerHandle) {
+        try { appListenerHandle.remove() } catch { /* */ }
+      }
+    }
+  }, [theme])
+
+  // Mobile only: large nav title shrinks on scroll (iOS 13+ pattern).
+  useEffect(() => {
+    if (!isSmallScreen) return
+    const el = editorScrollRef.current
+    if (!el) return
+    let lastTop = 0
+    const onScroll = () => {
+      const top = el.scrollTop
+      // Hysteresis to avoid flicker near the threshold.
+      if (top > 24 && !titleCompact) setTitleCompact(true)
+      else if (top < 8 && titleCompact) setTitleCompact(false)
+      lastTop = top
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [isSmallScreen, titleCompact, currentPage?.id])
 
   // Responsive: detect small screens and default to collapsed sidebar
   useEffect(() => {
@@ -1113,32 +1267,226 @@ export default function RichTextEditor() {
     isAppLocked: () => appLock.isLocked,
     duressActive: () => isDuressModeRef.current === true,
     hasInFlightEdit: (pageId) => syncCurrentPageRef.current?.id === pageId,
-    applyRemoteChanges: (newPages /*, manifest */) => {
-      // Update pagesRef-equivalent by emitting through the existing setter.
-      // Note: this re-runs the editor render through the normal path,
-      // which is intentional — sync updates ARE legitimate state changes.
-      // Pre-set window.__syncLastSnapshot so the immediately-following save
-      // (if any) doesn't re-push the same envelopes back to the server.
-      if (typeof window !== 'undefined') {
-        window.__syncLastSnapshot = newPages
+    applyRemoteChanges: (newPages, manifest) => {
+      // Apply the manifest's structural payload (folder titles/emoji,
+      // root order, tag colors). Without this, mobile sees folders
+      // missing emojis and tag chips falling back to the hashed-palette
+      // colors because no folder/tag *envelope* was emitted on the
+      // host's initial push — the manifest is the authoritative source
+      // for that metadata.
+      let pagesToSet = newPages
+      if (manifest && typeof manifest === 'object') {
+        try {
+          // 1) Merge folder title + emoji + pages list. Locally-created
+          //    folders not in the manifest stay as-is.
+          if (Array.isArray(manifest.folders)) {
+            const byId = new Map(manifest.folders.map(f => [f.id, f]))
+            pagesToSet = pagesToSet.map(p => {
+              if (p.type !== 'folder') return p
+              const m = byId.get(p.id)
+              if (!m) return p
+              return {
+                ...p,
+                title: m.title ?? p.title,
+                emoji: m.emoji ?? p.emoji ?? null,
+                pages: Array.isArray(m.pages) ? [...m.pages] : (p.pages || [])
+              }
+            })
+          }
+          // 2) Re-order the top-level page list per manifest.rootOrder.
+          //    Apply rootOrder for items the manifest knows about, and
+          //    append any local-only items (e.g. a page just created on
+          //    this device that hasn't been pushed yet) at the END,
+          //    preserving their existing relative order.
+          //
+          //    Earlier (build-22) we had a "skip apply if local has any
+          //    items not in manifest" guard, intended to protect against
+          //    a stale-manifest pull clobbering a local-only reorder.
+          //    That was way too conservative — almost every iPhone has
+          //    at least one draft it created locally that hasn't synced,
+          //    so the guard silently dropped EVERY rootOrder update.
+          //    Symptom: "I reorder on Mac, sync happens, mobile shows
+          //    correct order, but on quit + reopen mobile reverts" — the
+          //    re-pull on reopen would skip-apply, leaving the local IDB
+          //    pageOrder (build-22 fix) untouched and stale.
+          //
+          //    The race I was protecting against (iPhone reordered, push
+          //    pending, pulls stale → reverts) is fully mitigated by the
+          //    build-17 flushSavesNow on visibility-hidden / appStateChange:
+          //    iPhone's reorder push lands at the server BEFORE the next
+          //    pull arrives, so the manifest we receive is never stale.
+          if (Array.isArray(manifest.rootOrder) && manifest.rootOrder.length > 0) {
+            const indexOf = new Map(manifest.rootOrder.map((id, i) => [id, i]))
+            pagesToSet = [...pagesToSet].sort((a, b) => {
+              const ai = indexOf.has(a.id) ? indexOf.get(a.id) : Number.MAX_SAFE_INTEGER
+              const bi = indexOf.has(b.id) ? indexOf.get(b.id) : Number.MAX_SAFE_INTEGER
+              return ai - bi
+            })
+          }
+          // 3) Merge tag colors into the local tag store. Locally-created
+          //    tags survive; remote color overrides for shared names.
+          if (Array.isArray(manifest.tagMap)) {
+            const tagState = useTagStore.getState()
+            const localByName = new Map((tagState.tags || []).map(t => [t.name, t]))
+            for (const incoming of manifest.tagMap) {
+              if (!incoming || !incoming.name) continue
+              const existing = localByName.get(incoming.name)
+              localByName.set(incoming.name, {
+                ...(existing || {}),
+                name: incoming.name,
+                color: incoming.color ?? existing?.color ?? null
+              })
+            }
+            const merged = Array.from(localByName.values())
+            useTagStore.setState({ tags: merged, isLoaded: true })
+            // Persist via the store's existing save path (Electron IPC /
+            // mobileStorage / localStorage fallback).
+            useTagStore.getState().saveTags(merged)
+          }
+        } catch (err) {
+          console.warn('applyRemoteChanges: manifest apply failed', err)
+        }
       }
-      setPages(newPages)
+      // Pre-set window.__syncLastSnapshot so the immediately-following save
+      // doesn't re-push the same envelopes back to the server.
+      if (typeof window !== 'undefined') {
+        window.__syncLastSnapshot = pagesToSet
+      }
+      setPages(pagesToSet)
+      // CRITICAL: persist pulled pages to local storage. Without this,
+      // sync-pulled pages live only in React state and vanish on app
+      // restart — symptom users hit: "I synced from desktop, restarted
+      // iPhone, all pages are gone." Calls savePagesToStorage so they
+      // make it into IndexedDB / Electron JSON / localStorage.
+      // Skip the save if pagesToSet is empty — guard against accidentally
+      // wiping local pages if the pull arrives before fetchPages on Capacitor.
+      if (pagesToSet && pagesToSet.length > 0) {
+        try { savePagesToStorage(pagesToSet) } catch (err) { console.warn('applyRemoteChanges: savePagesToStorage failed', err) }
+      }
+      // Refresh the currently-viewed page if it was updated by this pull.
+      // Without this, the editor keeps the stale `currentPage` object → no
+      // data prop change → no editor.render — users had to navigate away
+      // and back to see synced edits land. Compare by id, swap to the
+      // freshly-pulled object if found.
+      try {
+        const cur = currentPageRef.current
+        if (cur && cur.id) {
+          const fresh = pagesToSet.find(p => p && p.id === cur.id)
+          // Peer trashed or hard-deleted the page we're viewing.
+          // Pre-fix the editor kept the stale page open even after the
+          // sidebar hid it — user saw a phantom page they couldn't
+          // close. Navigate to the first non-trashed note instead.
+          const peerDeleted = !fresh || fresh.trashed === true
+          if (peerDeleted) {
+            const next = pagesToSet.find(p => p && p.type !== 'folder' && !p.trashed)
+            setCurrentPage(next || null)
+          } else if (fresh !== cur) {
+            // Content refresh, not navigation.
+            setCurrentPage(fresh)
+          }
+        }
+      } catch (err) {
+        console.warn('applyRemoteChanges: currentPage refresh failed', err)
+      }
     }
   } : { /* sync disabled — hook still mounts but no-ops */ })
 
   // Load app lock data on mount
   useEffect(() => {
     appLock.loadData()
-    // Check biometric availability
+    // Check biometric availability — Electron via IPC, Capacitor via the
+    // biometric plugin. The plugin is already installed (see Podfile);
+    // this is the only path on iOS / Android since `window.electron` is
+    // undefined.
     if (typeof window !== 'undefined' && window.electron?.invoke) {
       window.electron.invoke('check-biometric-available').then(available => {
         setBiometricAvailable(available || false)
       }).catch(() => {})
+    } else if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()) {
+      ;(async () => {
+        try {
+          const { BiometricAuth } = await import('@aparajita/capacitor-biometric-auth')
+          const ci = await BiometricAuth.checkBiometry()
+          setBiometricAvailable(!!ci?.isAvailable)
+        } catch (err) {
+          console.warn('biometric checkBiometry failed', err)
+        }
+      })()
     }
   }, [])
 
   // Deep link handler — dash:// protocol opens shared notes
   const pendingDeepLinkRef = useRef(null)
+  // Extracted as a stable callback so BOTH the Electron `deep-link-share`
+  // listener AND the iOS Capacitor `App.appUrlOpen` listener can dispatch
+  // through it. Pre-fix this body lived inside the Electron-only effect,
+  // so iOS users tapping a `dashnotes://share/...` link from Mail / iMessage
+  // landed in the app and saw nothing happen.
+  const handleSharedDeepLink = useCallback(async (hash) => {
+    if (!hash) return
+    // If app is locked, buffer for after unlock
+    if (useAppLockStore.getState().isLocked) {
+      pendingDeepLinkRef.current = hash
+      return
+    }
+    try {
+      const { decryptSharePayload, bytesToBase64Url } = await import('@/utils/shareDecrypt')
+      const RELAY = (process.env.NEXT_PUBLIC_RELAY_URL || 'https://dash-relay.efesop.deno.net').replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://')
+      let json
+      if (hash.startsWith('s:')) {
+        const rest = hash.slice(2)
+        const dotIdx = rest.indexOf('.')
+        let id, pw
+        if (dotIdx === -1) {
+          id = rest
+          pw = window.prompt('Enter the password for this shared note:')
+          if (!pw) return
+        } else {
+          id = rest.slice(0, dotIdx)
+          pw = decodeURIComponent(rest.slice(dotIdx + 1))
+        }
+        const res = await fetch(`${RELAY}/share/${id}`)
+        if (!res.ok) throw new Error('Share not found or expired')
+        const bytes = new Uint8Array(await res.arrayBuffer())
+        json = await decryptSharePayload(pw.trim(), bytesToBase64Url(bytes))
+      } else {
+        const dotIdx = hash.indexOf('.')
+        if (dotIdx === -1) {
+          const pw = window.prompt('Enter the password for this shared note:')
+          if (!pw) return
+          json = await decryptSharePayload(pw.trim(), hash)
+        } else {
+          const pw = decodeURIComponent(hash.slice(0, dotIdx))
+          json = await decryptSharePayload(pw, hash.slice(dotIdx + 1))
+        }
+      }
+      const newPage = {
+        id: crypto.randomUUID(),
+        title: json.title || 'Imported Note',
+        content: json.content,
+        tags: [],
+        tagNames: [],
+        createdAt: new Date().toISOString(),
+        password: null
+      }
+      importPages([newPage])
+      setTimeout(() => navigateToPage(newPage), 100)
+    } catch (err) {
+      console.error('Deep link import failed:', err)
+    }
+  }, [importPages, navigateToPage])
+
+  // Live-session join handler (mirrors handleSharedDeepLink — see comment).
+  const handleLiveDeepLink = useCallback((hash) => {
+    if (!hash) return
+    const dotIdx = hash.indexOf('.')
+    if (dotIdx === -1) return
+    const roomId = hash.slice(0, dotIdx)
+    const key = hash.slice(dotIdx + 1)
+    if (!roomId || !key) return
+    joinLiveSessionAsGuest(roomId, key)
+  }, [])
+
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron?.on) return
 
@@ -1217,6 +1565,52 @@ export default function RichTextEditor() {
     window.electron.on('deep-link-live', handler)
     return () => window.electron.removeListener('deep-link-live', handler)
   }, [])
+
+  // iOS Capacitor: parity with Electron's `dashnotes://` deep-link
+  // handlers. Pre-fix tap on a `dashnotes://share/...` link from Mail /
+  // iMessage opened the app and did NOTHING (no listener). Now we wire
+  // `App.appUrlOpen` to the same shared handlers used above.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!window.Capacitor?.isNativePlatform?.()) return
+    let urlListener = null
+    ;(async () => {
+      try {
+        const { App } = await import('@capacitor/app')
+        const dispatchUrl = (urlString) => {
+          if (!urlString || !urlString.startsWith('dashnotes://')) return
+          // Same parse rule as electron-main.js handleDeepLink: payload
+          // is everything AFTER the `#`. Path before `#` distinguishes
+          // share vs live.
+          const hashIdx = urlString.indexOf('#')
+          if (hashIdx === -1) return
+          const hash = urlString.slice(hashIdx + 1)
+          if (!hash || !/^[a-zA-Z0-9_.\-=+/]+$/.test(hash)) return
+          if (urlString.includes('dashnotes://live')) {
+            handleLiveDeepLink(hash)
+          } else {
+            handleSharedDeepLink(hash)
+          }
+        }
+        urlListener = await App.addListener('appUrlOpen', (event) => {
+          dispatchUrl(event?.url)
+        })
+        // Also handle the cold-launch case: getLaunchUrl returns the URL
+        // that opened the app from a fresh start.
+        try {
+          const initial = await App.getLaunchUrl()
+          if (initial?.url) dispatchUrl(initial.url)
+        } catch { /* not all Capacitor versions implement this */ }
+      } catch (err) {
+        console.warn('[deep-link] Capacitor appUrlOpen listener failed', err)
+      }
+    })()
+    return () => {
+      if (urlListener) {
+        try { urlListener.remove() } catch { /* */ }
+      }
+    }
+  }, [handleSharedDeepLink, handleLiveDeepLink])
 
   // Close lock dropdown on click outside
   useEffect(() => {
@@ -1355,6 +1749,26 @@ export default function RichTextEditor() {
         return 'needs-password'
       }
     }
+    if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()) {
+      // Capacitor / iOS path. The app-lock password isn't stored in
+      // iOS Keychain yet (Phase B2 follow-up), so a biometric pass on
+      // mobile still falls through to the password prompt. Surface
+      // 'needs-password' so the lock screen knows to ask for text.
+      try {
+        const { BiometricAuth } = await import('@aparajita/capacitor-biometric-auth')
+        await BiometricAuth.authenticate({
+          reason: 'Unlock Dash',
+          cancelTitle: 'Cancel',
+          iosFallbackTitle: 'Use passcode',
+          androidTitle: 'Unlock',
+          androidSubtitle: 'Authenticate to open Dash',
+          allowDeviceCredential: true
+        })
+        return 'needs-password'
+      } catch {
+        return false
+      }
+    }
     return false
   }, [handleAppLockUnlock])
 
@@ -1444,18 +1858,97 @@ export default function RichTextEditor() {
     }
   }, [appLock])
 
-  // Encrypt pages before window closes
+  // Encrypt pages before window closes / app suspends.
+  //
+  // iOS WKWebView rarely fires `beforeunload` (and never on swipe-up to
+  // quit). Without listening to visibilitychange + pagehide + Capacitor
+  // App.appStateChange, plaintext pages can stay in IndexedDB after iOS
+  // freezes the runtime — the next launch reads them back as plaintext
+  // even though the app is "locked". Mirror the sync hook's lifecycle
+  // pattern (useSyncQueue.js:485) so all four signals trigger encrypt.
   useEffect(() => {
-    const handleBeforeUnload = () => {
+    if (typeof window === 'undefined') return
+    // Track when we entered background. iOS app-switcher snapshots leak
+    // plaintext UI if we don't lock immediately on suspend, BUT calling
+    // appLock.lock() on every visibility-hidden churn (alt-tab on Mac,
+    // notification-center pulldown on iPhone) creates a re-decrypt
+    // prompt storm. Strategy:
+    //  - Always encrypt on suspend (durable disk-state safety).
+    //  - Lock the app ONLY if it stays backgrounded > LOCK_BG_MS (30s)
+    //    OR was force-quit (beforeunload/pagehide fires). Quick context
+    //    switches don't trigger lock.
+    const LOCK_BG_MS = 30 * 1000
+    let backgroundedAt = null
+    const fireEncrypt = (opts = {}) => {
+      const { force = false } = opts
       if (appLock.isEnabled && !appLock.isLocked && appLock.getEncryptionKey()) {
-        // Best effort — flush editor debounce then encrypt
-        // beforeunload cannot await async, but triggering the chain gives it a chance
-        if (window.__editorFlush) window.__editorFlush()
-        encryptAndClearAppLockPages()
+        // Fire-and-forget — we can't await across iOS's suspend boundary.
+        // Trigger flush + encrypt synchronously so the IDB write has the
+        // best chance of committing before the WebView freezes.
+        try { if (window.__editorFlush) window.__editorFlush() } catch { /* */ }
+        try { encryptAndClearAppLockPages() } catch { /* */ }
+        // Lock ONLY on hard exits (beforeunload / pagehide) so the
+        // app-switcher snapshot of a force-quit can't show plaintext.
+        // Background-but-resumed flows lock later in the resume handler
+        // if elapsed > LOCK_BG_MS.
+        if (force) {
+          try { appLock.lock?.() } catch { /* */ }
+        }
       }
     }
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        backgroundedAt = Date.now()
+        fireEncrypt()
+      } else {
+        // Resumed. If we were backgrounded long enough, lock now so the
+        // user's unattended-app snapshot leak window stays bounded.
+        if (
+          appLock.isEnabled &&
+          !appLock.isLocked &&
+          backgroundedAt &&
+          Date.now() - backgroundedAt > LOCK_BG_MS
+        ) {
+          try { appLock.lock?.() } catch { /* */ }
+        }
+        backgroundedAt = null
+      }
+    }
+    const fireEncryptForce = () => fireEncrypt({ force: true })
+    window.addEventListener('beforeunload', fireEncryptForce)
+    window.addEventListener('pagehide', fireEncryptForce)
+    document.addEventListener('visibilitychange', onVisibility)
+
+    let appListenerHandle = null
+    if (window.Capacitor?.isNativePlatform?.()) {
+      ;(async () => {
+        try {
+          const { App } = await import('@capacitor/app')
+          appListenerHandle = await App.addListener('appStateChange', (state) => {
+            if (!state.isActive) {
+              backgroundedAt = Date.now()
+              // iOS suspends fast — force-lock here to guarantee the
+              // app-switcher snapshot can't show plaintext. The
+              // subsequent foreground arms biometric auth which
+              // re-unlocks on Face ID without typing the passphrase.
+              fireEncrypt({ force: true })
+            } else {
+              backgroundedAt = null
+            }
+          })
+        } catch (err) {
+          console.warn('[applock] @capacitor/app appStateChange listener failed', err)
+        }
+      })()
+    }
+    return () => {
+      window.removeEventListener('beforeunload', fireEncryptForce)
+      window.removeEventListener('pagehide', fireEncryptForce)
+      document.removeEventListener('visibilitychange', onVisibility)
+      if (appListenerHandle) {
+        try { appListenerHandle.remove() } catch { /* */ }
+      }
+    }
   }, [appLock.isEnabled, appLock.isLocked, encryptAndClearAppLockPages])
 
   // Keep currentPageRef in sync for live session callbacks
@@ -1476,18 +1969,31 @@ export default function RichTextEditor() {
   // Runs once a minute. Permanently deletes any item that's been in Trash
   // for more than 30 days. Cheap (only runs over already-trashed items).
   useEffect(() => {
+    // Read from `getLatestPages()` (pagesRef.current) rather than the
+    // React `pages` state — `pages` is updated lazily after disk write,
+    // so a freshly-trashed item won't be visible to the sweep until the
+    // next render lands. Reading the ref avoids that tick of staleness
+    // AND lets us drop `pages` from the deps array, so the interval
+    // doesn't tear down + rebuild on every keystroke (which previously
+    // could miss the next sweep tick if state churn was high).
     const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
-    const sweep = () => {
+    const sweep = async () => {
       const now = Date.now()
-      const expired = (Array.isArray(pages) ? pages : []).filter(
+      const expired = (getLatestPages() || []).filter(
         p => p.trashed === true && typeof p.trashedAt === 'number' && (now - p.trashedAt) > TRASH_RETENTION_MS
       )
-      expired.forEach(p => permanentlyDeletePage(p))
+      for (const p of expired) {
+        try {
+          await permanentlyDeletePage(p)
+        } catch (err) {
+          console.error('trash sweep: delete failed for', p.id, err)
+        }
+      }
     }
-    sweep() // run once on mount
-    const interval = setInterval(sweep, 60 * 1000)
+    sweep().catch(err => console.error('trash sweep threw', err))
+    const interval = setInterval(() => { sweep().catch(err => console.error('trash sweep threw', err)) }, 60 * 1000)
     return () => clearInterval(interval)
-  }, [pages, permanentlyDeletePage])
+  }, [getLatestPages, permanentlyDeletePage])
 
   // Show toast when participants join/leave during live session
   useEffect(() => {
@@ -2258,6 +2764,10 @@ export default function RichTextEditor() {
     if (editorContainer) {
       editorContainer.scrollTop = 0
     }
+
+    // Mobile: auto-close sidebar so the user lands on the new page
+    // immediately. Desktop sidebar is permanent — leave alone.
+    if (isSmallScreen) setSidebarOpen(false)
   }
 
   const calculateWordCount = useCallback((content) => {
@@ -2503,9 +3013,12 @@ export default function RichTextEditor() {
       setNewPageTitle('')
       setIsNewPageRename(true)
       setIsRenameModalOpen(true)
+      // Mobile: collapse sidebar so the rename modal + new editor are
+      // visible without manual nav.
+      if (isSmallScreen) setSidebarOpen(false)
     }
     return newPage
-  }, [handleNewPage])
+  }, [handleNewPage, isSmallScreen])
 
   const confirmRename = useCallback(async () => {
     if (pageToRename && newPageTitle && newPageTitle !== pageToRename.title) {
@@ -2518,6 +3031,7 @@ export default function RichTextEditor() {
   }, [pageToRename, newPageTitle, renamePage])
 
   const handleToggleLock = useCallback((page) => {
+    hapticLight()
     // If page is temp-unlocked, show confirm modal with Re-lock / Remove Lock options
     if (page.password && page.password.hash && tempUnlockedPages.has(page.id)) {
       setConfirmModal({
@@ -2660,16 +3174,40 @@ export default function RichTextEditor() {
       }
       return
     }
+    // Already trashed → user is invoking delete from inside the Trash
+    // modal, treat as permanent delete with a single-button confirm.
+    if (page.trashed === true) {
+      setConfirmModal({
+        isOpen: true,
+        title: 'Delete forever',
+        message: `Permanently delete "${page.title}"? This cannot be undone.`,
+        onConfirm: () => { hapticWarning(); permanentlyDeletePage(page) },
+        variant: 'danger',
+        confirmText: 'Delete forever',
+        showCancel: true
+      })
+      return
+    }
+    // Live page (not trashed) — offer both: move to Trash (recoverable
+    // 30 days) OR delete forever (immediate, unrecoverable). Three-
+    // button modal — confirm = safe action (Trash), secondary = danger
+    // (Delete Forever), cancel last.
     setConfirmModal({
       isOpen: true,
-      title: 'Delete Page',
-      message: `Are you sure you want to delete "${page.title}"? This action cannot be undone.`,
-      onConfirm: () => deletePage(page),
-      variant: 'danger',
-      confirmText: 'Delete',
-      showCancel: true
+      title: 'Delete page',
+      message: `"${page.title}" can be moved to Trash and recovered for 30 days, or deleted forever.`,
+      onConfirm: () => { hapticWarning(); trashPage(page) },
+      variant: 'danger-outline', // red border + subtle red bg + red text
+      confirmText: 'Move to Trash',
+      secondaryAction: {
+        text: 'Delete forever',
+        variant: 'danger',
+        onClick: () => { hapticWarning(); permanentlyDeletePage(page) }
+      },
+      showCancel: true,
+      cancelText: 'Cancel'
     })
-  }, [deletePage, currentPage, pages, setPages, setCurrentPage])
+  }, [trashPage, permanentlyDeletePage, currentPage, pages, setPages, setCurrentPage])
 
   const filteredPages = useCallback(() => {
     return pages.filter(page => {
@@ -3250,6 +3788,33 @@ export default function RichTextEditor() {
         </div>
       )}
 
+      {/* Sync error toast */}
+      {syncErrorToast && (
+        <div
+          className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[60] flex items-start gap-2 px-5 py-3 rounded-2xl text-sm font-medium shadow-2xl max-w-md ${
+            theme === 'fallout' ? 'text-red-300 bg-red-900/90 border border-red-500/40 font-mono' :
+            theme === 'dark' ? 'text-red-200 bg-[#2a1a1a] border border-red-500/40' :
+            theme === 'darkblue' ? 'text-red-200 bg-[#2a1525] border border-red-500/40' :
+            'text-red-700 bg-red-50 border border-red-200'
+          }`}
+          style={{ animation: 'dash-modal-in 200ms ease-out' }}
+          role="alert"
+        >
+          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 pointer-events-none" />
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold">Sync error</p>
+            <p className="text-xs opacity-90 leading-relaxed mt-0.5">{syncErrorToast.message}</p>
+          </div>
+          <button
+            onClick={() => setSyncErrorToast(null)}
+            className="text-xs opacity-70 hover:opacity-100 ml-2"
+            aria-label="Dismiss"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Live session toast */}
       {liveToast && (
         <div
@@ -3269,7 +3834,7 @@ export default function RichTextEditor() {
       {/* Mobile overlay */}
       {isSmallScreen && sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-40 md:hidden safe-area-top"
+          className="fixed inset-0 bg-black/40 z-[55] md:hidden safe-area-top"
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
         />
@@ -3281,7 +3846,7 @@ export default function RichTextEditor() {
           className={`${getSidebarClasses()} ${focusMode
             ? 'w-0 overflow-hidden opacity-0 pointer-events-none absolute transition-all duration-300'
             : isSmallScreen
-            ? `fixed z-50 inset-y-0 left-0 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-200 w-3/4 max-w-xs safe-area-top safe-area-bottom`
+            ? `fixed z-[60] inset-y-0 left-0 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-200 w-[88%] max-w-[380px] safe-area-top safe-area-bottom`
             : sidebarOpen
               ? 'w-64 relative transition-all duration-300'
               : 'w-16 relative transition-all duration-200'
@@ -3289,8 +3854,9 @@ export default function RichTextEditor() {
           role="navigation"
           aria-label="Page navigation"
           aria-expanded={sidebarOpen}
+          style={isSmallScreen ? { touchAction: 'pan-y' } : undefined}
         >
-          <header className={`${sidebarOpen ? 'px-3' : 'px-1'} ${isMacElectron ? 'pt-10' : 'pt-4'} pb-2 flex ${sidebarOpen ? 'justify-between' : 'flex-col items-center gap-1'} items-center`}>
+          <header className={`${sidebarOpen ? 'px-3' : 'px-1'} ${isMacElectron ? 'pt-10' : isSmallScreen ? 'pt-2' : 'pt-4'} pb-2 flex ${sidebarOpen ? 'justify-between' : 'flex-col items-center gap-1'} items-center`}>
             {sidebarOpen ? (
               <div className="flex items-center space-x-2">
                 <img src="./icons/dash-logo.png" alt="Dash" className="h-7 w-7 rounded-md" />
@@ -3320,7 +3886,36 @@ export default function RichTextEditor() {
                       </svg>
                     </span>
                   )}
-                  {isLockDropdownOpen && lockDropdownRef.current && (() => {
+                  {isSmallScreen ? (
+                    <ActionSheet
+                      isOpen={isLockDropdownOpen}
+                      onClose={() => setIsLockDropdownOpen(false)}
+                      title="App lock"
+                      icon={Lock}
+                    >
+                      <ActionSheetItem
+                        icon={Lock}
+                        label="Lock App Now"
+                        onClick={() => {
+                          if (appLock.isEnabled) {
+                            handleInstantLock()
+                            setIsLockDropdownOpen(false)
+                          }
+                        }}
+                        disabled={!appLock.isEnabled}
+                      />
+                      <ActionSheetItem
+                        icon={Shield}
+                        label={appLock.isEnabled ? 'Lock App Settings' : 'Set Up App Lock'}
+                        onClick={() => {
+                          setIsLockDropdownOpen(false)
+                          setSidebarOpen(false)
+                          if (appLock.isEnabled) setIsAppLockSettingsOpen(true)
+                          else setIsAppLockSetupOpen(true)
+                        }}
+                      />
+                    </ActionSheet>
+                  ) : isLockDropdownOpen && lockDropdownRef.current && (() => {
                     const rect = lockDropdownRef.current.getBoundingClientRect()
                     return (
                     <div
@@ -3404,7 +3999,13 @@ export default function RichTextEditor() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setIsFolderModalOpen(true)}
+                  onClick={() => {
+                    // On mobile, close the sidebar before opening the folder
+                    // modal so the modal isn't visually hidden behind the
+                    // sidebar (z-index race + sidebar takes the viewport).
+                    if (isSmallScreen) setSidebarOpen(false)
+                    setIsFolderModalOpen(true)
+                  }}
                   className={`h-8 w-8 p-0 ${getButtonHoverClasses()}`}
                   title="New folder"
                 >
@@ -3427,7 +4028,11 @@ export default function RichTextEditor() {
               <SearchTrigger
                 searchTerm={searchTerm}
                 selectedTags={selectedTagsFilter}
-                onClick={() => setIsSearchModalOpen(true)}
+                onClick={() => {
+                  // Close mobile sidebar so SearchModal isn't hidden behind it.
+                  if (isSmallScreen) setSidebarOpen(false)
+                  setIsSearchModalOpen(true)
+                }}
                 onClear={() => {
                   setSearchTerm('')
                   setSelectedTagsFilter([])
@@ -3593,42 +4198,26 @@ export default function RichTextEditor() {
         <>
         {/* Header */}
         <div className={`flex flex-col px-6 ${isMacElectron ? 'pt-8 pb-3' : 'py-3'} ${theme === 'fallout' ? 'border-b border-green-600/20' : theme === 'dark' ? 'border-b border-[#2e2e2e]' : theme === 'darkblue' ? 'border-b border-[#1c2438]' : 'border-b border-neutral-100'} ${getHeaderClasses()} safe-area-top ${focusMode ? 'hidden' : ''}`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center min-w-0 flex-1">
               {isSmallScreen && (
-                <Button
-                  variant="ghost"
-                  size="sm"
+                <button
                   onClick={() => setSidebarOpen(true)}
-                  className="mr-2 h-8 w-8 p-0"
+                  className="mr-1 p-0.5 flex items-center justify-center flex-shrink-0"
+                  aria-label="Open sidebar"
                 >
-                  <Menu className="h-5 w-5" />
-                </Button>
+                  <img src="./icons/dash-logo.png" alt="Dash" className="h-9 w-9 rounded-lg" />
+                </button>
               )}
               <Tooltip text="Rename page">
               <h1
-                className={`text-lg font-semibold cursor-pointer truncate py-1 px-1.5 -my-1 rounded-lg transition-colors ${theme === 'fallout' ? 'text-green-400 hover:bg-gray-800/50' : theme === 'dark' ? 'text-[#ececec] hover:bg-[#2f2f2f]/50' : theme === 'darkblue' ? 'text-[#e0e6f0] hover:bg-[#232b42]/50' : 'text-neutral-900 hover:bg-neutral-100'}`}
+                className={`${isSmallScreen ? 'text-xl' : 'text-lg'} font-semibold cursor-pointer truncate min-w-0 flex-1 py-1 px-1.5 -my-1 rounded-lg transition-colors ${theme === 'fallout' ? 'text-green-400 hover:bg-gray-800/50' : theme === 'dark' ? 'text-[#ececec] hover:bg-[#2f2f2f]/50' : theme === 'darkblue' ? 'text-[#e0e6f0] hover:bg-[#232b42]/50' : 'text-neutral-900 hover:bg-neutral-100'}`}
                 onClick={() => handleRenamePage(currentPage)}
               >
                 {currentPage?.title}
               </h1>
               </Tooltip>
-              {(() => {
-                const folder = currentPage?.folderId
-                  ? (pages || []).find(item => item.id === currentPage.folderId && item.type === 'folder')
-                  : (pages || []).find(item => item.type === 'folder' && Array.isArray(item.pages) && item.pages.includes(currentPage?.id))
-                return folder ? (
-                  <span className={`ml-2 px-1.5 py-0.5 text-xs font-medium rounded-md flex-shrink-0 ${getFolderBadgeClasses()}`}>
-                    {folder.emoji ? (
-                      <span className="inline-block mr-1 text-xs">{folder.emoji}</span>
-                    ) : (
-                      <FolderIcon className="w-3 h-3 inline-block mr-1" />
-                    )}
-                    {truncateFolderName(folder.title || '')}
-                  </span>
-                ) : null
-              })()}
-              {currentPage && !currentPage.id?.startsWith('live-') && (
+              {currentPage && !currentPage.id?.startsWith('live-') && !isSmallScreen && (
                 <div className="flex items-center ml-2 space-x-1 flex-shrink-0">
                   <Tooltip text={currentPage.password?.hash && !tempUnlockedPages.has(currentPage.id) ? 'Unlock page' : 'Lock page'}>
                   <button
@@ -3670,14 +4259,51 @@ export default function RichTextEditor() {
                 </div>
               )}
             </div>
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center space-x-1 flex-shrink-0">
               {isSmallScreen ? (
-                <MobileHeaderMenu
-                  onExport={handleExport}
-                  onImportBundle={handleImportBundleClick}
-                  onPhoneSetup={() => setIsInstallModalOpen(true)}
-                  isImporting={isImporting}
-                />
+                <>
+                  <ThemeToggle className={`cursor-pointer ${getButtonHoverClasses()}`} />
+                  <MobileHeaderMenu
+                    onLockPage={currentPage && !currentPage.id?.startsWith('live-')
+                      ? () => handleEncryptBadgeClick(currentPage)
+                      : undefined}
+                    onTimer={currentPage && !currentPage.id?.startsWith('live-')
+                      ? () => {
+                          if (currentPage.selfDestructAt) {
+                            setConfirmModal({
+                              isOpen: true,
+                              title: 'Remove Self-Destruct',
+                              message: `Remove the self-destruct timer from "${currentPage.title}"? The page will no longer be automatically deleted.`,
+                              onConfirm: () => cancelSelfDestruct(currentPage.id),
+                              variant: 'danger',
+                              confirmText: 'Remove Timer',
+                              cancelText: 'Keep Timer',
+                              showCancel: true
+                            })
+                          } else {
+                            handleSelfDestruct(currentPage)
+                          }
+                        }
+                      : undefined}
+                    onShare={currentPage && !currentPage.id?.startsWith('live-')
+                      ? async () => {
+                          const flushed = window.__editorFlush ? await window.__editorFlush() : null
+                          setShareNoteContent(flushed || currentPage?.content)
+                          setIsShareModalOpen(true)
+                        }
+                      : undefined}
+                    onSyncSettings={SYNC_AVAILABLE ? () => setIsSyncSettingsOpen(true) : undefined}
+                    onExport={handleExport}
+                    onImportBundle={handleImportBundleClick}
+                    onPhoneSetup={() => setIsInstallModalOpen(true)}
+                    currentPageLocked={!!(currentPage?.password?.hash && !tempUnlockedPages.has(currentPage?.id))}
+                    currentPageHasTimer={!!currentPage?.selfDestructAt}
+                    syncAvailable={SYNC_AVAILABLE}
+                    syncStatus={sync?.status}
+                    pageActionsAvailable={!!currentPage && !currentPage.id?.startsWith('live-')}
+                    isImporting={isImporting}
+                  />
+                </>
               ) : (
                 <>
                   <ExportDropdown onExport={handleExport} className={`cursor-pointer ${getButtonHoverClasses()}`} />
@@ -3737,6 +4363,11 @@ export default function RichTextEditor() {
                     <Bug className="h-4 w-4 pointer-events-none" />
                   </button>
                   </Tooltip>
+                  {/* Bell / update badge — desktop only. iOS / Android
+                      builds rely on the App Store / Play Store for update
+                      delivery, so there's no equivalent surface to render
+                      here. (This branch is already gated behind
+                      !isSmallScreen by the parent ternary.) */}
                   <Tooltip text={LIVE_SESSIONS_ENABLED && editRequests.length > 0 ? `${editRequests.length} edit request${editRequests.length > 1 ? 's' : ''}` : 'Check for updates'}>
                   <button
                     onClick={LIVE_SESSIONS_ENABLED && editRequests.length > 0 ? () => setIsLiveNotificationsOpen(!isLiveNotificationsOpen) : handleBellClick}
@@ -3754,69 +4385,85 @@ export default function RichTextEditor() {
               )}
             </div>
         </div>
-        {currentPage.tagNames && currentPage.tagNames.length > 0 && !currentPage.id?.startsWith('live-') && (
-          <div className="flex items-center flex-wrap gap-1.5 mt-2">
-            {currentPage.tagNames.map((tagName, index) => {
-              const tag = (tags || []).find(t => t.name === tagName)
-              if (!tag) return null
-              return (
-                <span
-                  key={index}
-                  className="inline-flex items-center rounded-md font-medium border px-2 py-0.5 text-xs"
-                  style={getTagChipStyle(tag.color, theme)}
-                >
-                  <span
-                    className="cursor-pointer"
-                    onClick={() => {
-                      setTagToEdit(tag)
-                      setIsTagModalOpen(true)
-                    }}
-                  >
-                    {tag.name}
+        {!currentPage.id?.startsWith('live-') && (() => {
+          const folder = currentPage?.folderId
+            ? (pages || []).find(item => item.id === currentPage.folderId && item.type === 'folder')
+            : (pages || []).find(item => item.type === 'folder' && Array.isArray(item.pages) && item.pages.includes(currentPage?.id))
+          const hasTags = currentPage.tagNames && currentPage.tagNames.length > 0
+          const dividerClass = theme === 'fallout' ? 'bg-green-500/25' : theme === 'dark' ? 'bg-white/10' : theme === 'darkblue' ? 'bg-white/10' : 'bg-neutral-200'
+          return (
+            <div
+              className={`flex items-center gap-1.5 mt-2 ${isSmallScreen ? 'overflow-x-auto flex-nowrap -mx-1 px-1 dash-no-scrollbar' : 'flex-wrap'}`}
+              style={isSmallScreen ? { WebkitOverflowScrolling: 'touch' } : undefined}
+            >
+              {folder && (
+                <>
+                  <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md flex-shrink-0 ${getFolderBadgeClasses()}`}>
+                    {folder.emoji ? (
+                      <span className="inline-block mr-1 text-xs">{folder.emoji}</span>
+                    ) : (
+                      <FolderIcon className="w-3 h-3 inline-block mr-1" />
+                    )}
+                    {truncateFolderName(folder.title || '')}
                   </span>
-                  <button
-                    className="ml-1 focus:outline-none"
-                    onClick={() => handleRemoveTag(tag.name)}
+                  {(hasTags) && (
+                    <span className={`inline-block w-px h-4 mx-1 flex-shrink-0 ${dividerClass}`} aria-hidden="true" />
+                  )}
+                </>
+              )}
+              {hasTags && currentPage.tagNames.map((tagName, index) => {
+                const tag = (tags || []).find(t => t.name === tagName)
+                if (!tag) return null
+                return (
+                  <span
+                    key={index}
+                    className="inline-flex items-center rounded-md font-medium border px-2 py-0.5 text-xs flex-shrink-0"
+                    style={getTagChipStyle(tag.color, theme)}
                   >
-                    <X
-                      className="h-3 w-3 transition-opacity hover:opacity-75"
-                      style={{
-                        color: getTagChipStyle(tag.color, theme).color
+                    <span
+                      className="cursor-pointer"
+                      onClick={() => {
+                        setTagToEdit(tag)
+                        setIsTagModalOpen(true)
                       }}
-                    />
-                  </button>
-                </span>
-              )
-            })}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-5 w-5"
-              onClick={() => {
-                setTagToEdit(null)
-                setIsTagModalOpen(true)
-              }}
-            >
-              <Plus className={`h-3.5 w-3.5 ${getIconClasses()}`} />
-            </Button>
-          </div>
-        )}
-        {(!currentPage.tagNames || currentPage.tagNames.length === 0) && !currentPage.id?.startsWith('live-') && (
-          <div className="flex items-center mt-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`h-6 px-2 text-xs ${theme === 'fallout' ? 'text-green-600 hover:text-green-400' : theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0]' : theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5]' : 'text-neutral-400 hover:text-neutral-600'}`}
-              onClick={() => {
-                setTagToEdit(null)
-                setIsTagModalOpen(true)
-              }}
-            >
-              <Plus className="h-3 w-3 mr-1" />
-              Add tag
-            </Button>
-          </div>
-        )}
+                    >
+                      {tag.name}
+                    </span>
+                    <button
+                      className="ml-1 focus:outline-none"
+                      onClick={() => handleRemoveTag(tag.name)}
+                    >
+                      <X
+                        className="h-3 w-3 transition-opacity hover:opacity-75"
+                        style={{ color: getTagChipStyle(tag.color, theme).color }}
+                      />
+                    </button>
+                  </span>
+                )
+              })}
+              {hasTags ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 flex-shrink-0"
+                  onClick={() => { setTagToEdit(null); setIsTagModalOpen(true) }}
+                >
+                  <Plus className={`h-3.5 w-3.5 ${getIconClasses()}`} />
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`h-6 px-2 text-xs flex-shrink-0 ${theme === 'fallout' ? 'text-green-600 hover:text-green-400' : theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0]' : theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5]' : 'text-neutral-400 hover:text-neutral-600'}`}
+                  onClick={() => { setTagToEdit(null); setIsTagModalOpen(true) }}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add tag
+                </Button>
+              )}
+            </div>
+          )
+        })()}
     </div>
 
         {/* Live Session Bar */}
@@ -3858,7 +4505,9 @@ export default function RichTextEditor() {
                       // Convert to a normal page
                       const newId = crypto.randomUUID()
                       const adoptedPage = { ...currentPage, id: newId, tags: [], lastEdited: Date.now() }
-                      setPages(prev => [adoptedPage, ...prev.filter(p => p.id !== currentPage.id)])
+                      const newPages = [adoptedPage, ...pages.filter(p => p.id !== currentPage.id)]
+                      setPages(newPages)
+                      savePagesToStorage(newPages) // persist; otherwise lost on restart
                       navigateToPage(adoptedPage)
                       try { localStorage.removeItem('dash-live-page-' + roomId) } catch { /* ignore */ }
                     }}
@@ -3918,7 +4567,7 @@ export default function RichTextEditor() {
       )}
     </div>
   </div>
-  {currentPage && (
+  {currentPage && !isSmallScreen && (
     <MiniOutline
       headings={outlineHeadings}
       isVisible={showMiniOutline && !focusMode && outlineHeadings.length > 0}
@@ -3929,6 +4578,42 @@ export default function RichTextEditor() {
   </div>
 
   {/* Footer */}
+  {isSmallScreen && !focusMode && !keyboardOpen ? (
+    <MobileFooter
+      currentPage={currentPage}
+      appLockEnabled={appLock.isEnabled}
+      wordCount={wordCount}
+      saveStatus={saveStatus}
+      onEncryptPage={() => handleEncryptBadgeClick(currentPage)}
+      onCancelSelfDestruct={() => {
+        setConfirmModal({
+          isOpen: true,
+          title: 'Remove Self-Destruct',
+          message: `Remove the self-destruct timer from "${currentPage.title}"? The page will no longer be automatically deleted.`,
+          onConfirm: () => cancelSelfDestruct(currentPage.id),
+          variant: 'danger',
+          confirmText: 'Remove Timer',
+          cancelText: 'Keep Timer',
+          showCancel: true
+        })
+      }}
+      onToggleOutline={toggleMiniOutline}
+      showOutline={showMiniOutline}
+      onOpenAi={() => { setAiContextText(null); setIsAIPanelOpen(true) }}
+      onOpenFeatures={() => {
+        setIsFeaturesOpen(true)
+        if (showFeaturesTooltip) dismissFeaturesTooltip()
+      }}
+      onOpenShortcuts={() => setIsShortcutsModalOpen(true)}
+      onOpenTrash={() => setIsTrashModalOpen(true)}
+      trashCount={trashedPages.length}
+      onOpenBackup={() => setIsBackupSettingsOpen(true)}
+      onOpenSync={() => setIsSyncSettingsOpen(true)}
+      syncEnabled={SYNC_AVAILABLE}
+      syncStatusText={sync?.status?.statusText || 'Sync settings'}
+      syncStatus={sync?.status}
+    />
+  ) : (
   <div className={`footer-fixed flex justify-between items-center px-6 py-2 text-xs ${getFooterClasses()} safe-area-bottom ${focusMode ? 'hidden' : ''}`}>
     <div className="flex items-center space-x-3">
       {currentPage.createdAt && (
@@ -4041,48 +4726,85 @@ export default function RichTextEditor() {
         <Keyboard size={12} className="pointer-events-none" />
       </button>
       </Tooltip>
-      <span aria-live="polite" aria-atomic="true">
-        {saveStatus === 'saving' && <span className={theme === 'fallout' ? 'text-yellow-400' : 'text-yellow-500'}>Saving...</span>}
-        {saveStatus === 'saved' && <span className={theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-[#6b6b6b]' : theme === 'darkblue' ? 'text-[#445068]' : 'text-neutral-400'}>Saved</span>}
-        {saveStatus === 'error' && <span className="text-red-500">Error saving</span>}
-      </span>
-      {SYNC_ENABLED && (
-        <SyncStatusIndicator
-          status={sync?.status}
-          onClick={() => setIsSyncSettingsOpen(true)}
-          theme={theme}
-        />
-      )}
+      {/* Saved / Saving / Error — wrapped in tooltip with detail. */}
+      <Tooltip text={
+        saveStatus === 'saving' ? 'Saving to disk…'
+          : saveStatus === 'saved' ? 'All changes saved locally'
+            : saveStatus === 'error' ? 'Save failed — check console for details'
+              : 'Save status'
+      }>
+        <span aria-live="polite" aria-atomic="true">
+          {saveStatus === 'saving' && <span className={theme === 'fallout' ? 'text-yellow-400' : 'text-yellow-500'}>Saving...</span>}
+          {saveStatus === 'saved' && <span className={theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-[#6b6b6b]' : theme === 'darkblue' ? 'text-[#445068]' : 'text-neutral-400'}>Saved</span>}
+          {saveStatus === 'error' && <span className="text-red-500">Error saving</span>}
+        </span>
+      </Tooltip>
+      {SYNC_AVAILABLE && (() => {
+        // Build a tooltip with the same detail (timestamp / pendingCount /
+        // error) that used to live inline in the button — keeps the chip
+        // itself uncluttered while still letting hover surface specifics.
+        const s = sync?.status
+        const tip = (() => {
+          if (!s?.enabled) return 'Set up sync across devices'
+          if (s.stage === 'error' || s.stage === 'rate-limited') return s.lastError || 'Sync error'
+          if (!s.unlocked) return 'Vault locked — unlock in Sync settings'
+          if (s.stage === 'flushing' || s.stage === 'queued') return s.pendingCount > 0 ? `Sending ${s.pendingCount} change${s.pendingCount === 1 ? '' : 's'}` : 'Sending…'
+          if (s.stage === 'pulling') return 'Receiving from peer'
+          if (s.stage === 'paused') return 'Sync paused'
+          if (s.lastSuccessAt) {
+            const ms = Date.now() - s.lastSuccessAt
+            if (ms < 5000) return 'Just synced'
+            if (ms < 60000) return `Synced ${Math.floor(ms / 1000)}s ago`
+            if (ms < 3600000) return `Synced ${Math.floor(ms / 60000)}m ago`
+            if (ms < 86400000) return `Synced ${Math.floor(ms / 3600000)}h ago`
+            return `Synced ${Math.floor(ms / 86400000)}d ago`
+          }
+          return 'Ready to sync'
+        })()
+        return (
+          <Tooltip text={tip}>
+            <SyncStatusIndicator
+              status={s}
+              onClick={() => setIsSyncSettingsOpen(true)}
+              theme={theme}
+            />
+          </Tooltip>
+        )
+      })()}
       {trashedPages.length > 0 && (
+        <Tooltip text={`Trash · ${trashedPages.length} item${trashedPages.length === 1 ? '' : 's'} (auto-purges after 30 days)`}>
+          <button
+            onClick={() => setIsTrashModalOpen(true)}
+            className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-colors text-xs ${
+              theme === 'fallout' ? 'text-green-600 hover:text-green-400 hover:bg-green-900/30'
+                : theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5] hover:bg-[#1c2438]'
+                  : theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0] hover:bg-[#2a2a2a]'
+                    : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100'
+            }`}
+            aria-label={`Trash, ${trashedPages.length} items`}
+          >
+            <Trash2 className="w-3 h-3 pointer-events-none" />
+            <span className="pointer-events-none tabular-nums">{trashedPages.length}</span>
+          </button>
+        </Tooltip>
+      )}
+      <Tooltip text="Backup settings">
         <button
-          onClick={() => setIsTrashModalOpen(true)}
+          onClick={() => setIsBackupSettingsOpen(true)}
           className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-colors text-xs ${
             theme === 'fallout' ? 'text-green-600 hover:text-green-400 hover:bg-green-900/30'
               : theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5] hover:bg-[#1c2438]'
                 : theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0] hover:bg-[#2a2a2a]'
                   : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100'
           }`}
-          title={`Trash (${trashedPages.length} item${trashedPages.length === 1 ? '' : 's'})`}
+          aria-label="Backup settings"
         >
-          <Trash2 className="w-3 h-3 pointer-events-none" />
-          <span className="pointer-events-none">Trash · {trashedPages.length}</span>
+          <Archive className="w-3 h-3 pointer-events-none" />
         </button>
-      )}
-      <button
-        onClick={() => setIsBackupSettingsOpen(true)}
-        className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-colors text-xs ${
-          theme === 'fallout' ? 'text-green-600 hover:text-green-400 hover:bg-green-900/30'
-            : theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5] hover:bg-[#1c2438]'
-              : theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0] hover:bg-[#2a2a2a]'
-                : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100'
-        }`}
-        title="Backup settings"
-      >
-        <Archive className="w-3 h-3 pointer-events-none" />
-        <span className="pointer-events-none">Backup</span>
-      </button>
+      </Tooltip>
     </div>
   </div>
+  )}
         </>
         )}
       </main >
@@ -4132,18 +4854,42 @@ export default function RichTextEditor() {
         onPasswordChange={setPasswordInput}
         error={passwordError}
         biometricAvailable={biometricAvailable}
-        biometricEnabled={appLock.biometricEnabled}
+        // Per-page biometric is intentionally disabled — it bypasses
+        // the password check but never derives the AES-GCM key from
+        // the password, so content stays encrypted and the editor
+        // renders blank. Wiring the per-page password into iOS
+        // Keychain (or macOS safeStorage) keyed by `dash-page-pwd-${id}`
+        // is a Phase B2 follow-up. AppLock biometric (whole-app
+        // unlock) DOES store the password and works correctly — that
+        // path uses its own modal, not this one.
+        biometricEnabled={false}
         onBiometricUnlock={passwordAction !== 'lock' ? async () => {
           try {
+            let success = false
             if (typeof window !== 'undefined' && window.electron?.invoke) {
-              const success = await window.electron.invoke('prompt-touch-id')
-              if (success && pageToAccess) {
-                setTempUnlockedPages(prev => new Set(prev).add(pageToAccess.id))
-                navigateToPage(pageToAccess)
-                setIsPasswordModalOpen(false)
-                setPasswordInput('')
-                setPageToAccess(null)
+              success = await window.electron.invoke('prompt-touch-id')
+            } else if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()) {
+              const { BiometricAuth } = await import('@aparajita/capacitor-biometric-auth')
+              try {
+                await BiometricAuth.authenticate({
+                  reason: 'Unlock this page',
+                  cancelTitle: 'Cancel',
+                  iosFallbackTitle: 'Use passcode',
+                  androidTitle: 'Unlock',
+                  androidSubtitle: 'Authenticate to unlock the page',
+                  allowDeviceCredential: true
+                })
+                success = true
+              } catch {
+                success = false
               }
+            }
+            if (success && pageToAccess) {
+              setTempUnlockedPages(prev => new Set(prev).add(pageToAccess.id))
+              navigateToPage(pageToAccess)
+              setIsPasswordModalOpen(false)
+              setPasswordInput('')
+              setPageToAccess(null)
             }
           } catch {
             setPasswordError('Biometric authentication failed')
@@ -4196,7 +4942,7 @@ export default function RichTextEditor() {
         theme={theme}
         // Phase 2.10c: cloud version tab. Only enabled when sync is on
         // AND vault is unlocked.
-        syncEnabled={SYNC_ENABLED && Boolean(sync?.status?.enabled && sync?.status?.unlocked)}
+        syncEnabled={SYNC_AVAILABLE && Boolean(sync?.status?.enabled && sync?.status?.unlocked)}
         onLoadCloudVersions={(noteId) => sync?.fetchSyncedVersionList?.(noteId)}
         onFetchCloudVersion={(noteId, version) => sync?.fetchSyncedVersion?.(noteId, version)}
       />
@@ -4394,7 +5140,16 @@ export default function RichTextEditor() {
 
       <ConfirmModal
         isOpen={confirmModal.isOpen}
-        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onClose={() => {
+          // If the caller registered a dismiss handler (e.g. pair-merge
+          // prompt that needs to fall through to adoptVault even on
+          // backdrop tap / X / Escape), invoke it before closing.
+          if (typeof confirmModal.__onDismiss === 'function') {
+            confirmModal.__onDismiss()
+            return
+          }
+          setConfirmModal(prev => ({ ...prev, isOpen: false }))
+        }}
         onConfirm={confirmModal.onConfirm}
         onCancel={confirmModal.onCancel}
         title={confirmModal.title}
@@ -4403,6 +5158,7 @@ export default function RichTextEditor() {
         confirmText={confirmModal.confirmText}
         cancelText={confirmModal.cancelText}
         showCancel={confirmModal.showCancel}
+        secondaryAction={confirmModal.secondaryAction}
       />
 
       <KeyboardShortcutsModal
@@ -4543,37 +5299,64 @@ export default function RichTextEditor() {
         trashedPages={trashedPages}
         onRestore={(p) => restorePage(p)}
         onPermanentlyDelete={(p) => permanentlyDeletePage(p)}
-        onEmptyTrash={() => {
-          // Permanent-delete each trashed page in sequence. Since each call
-          // reads pagesRef.current and modifies it, we snapshot the IDs first.
+        onEmptyTrash={async () => {
+          // Permanent-delete each trashed page in sequence. AWAIT each
+          // (orphan cleanup + IDB transaction commit) so iOS suspending
+          // mid-empty doesn't leave half the trash on disk. Snapshot
+          // IDs first because each call reads pagesRef.current and
+          // modifies it.
           const ids = trashedPages.map(p => p.id)
-          ids.forEach(id => {
-            const target = pages.find(pp => pp.id === id)
-            if (target) permanentlyDeletePage(target)
-          })
+          for (const id of ids) {
+            const target = (getLatestPages() || []).find(pp => pp.id === id)
+            if (!target) continue
+            try {
+              await permanentlyDeletePage(target)
+            } catch (err) {
+              console.error('emptyTrash: delete failed for', id, err)
+            }
+          }
+          // Flush the in-memory save debounce so the final empty state
+          // hits IDB before any background transition can cancel it.
+          try { await flushSavesNow() } catch { /* */ }
         }}
         theme={theme}
       />
 
-      {/* Sync UI (phase 2.4) — gated behind SYNC_ENABLED. When false, none
-          of these render and the user-facing surface is unchanged. */}
+      {/* Sync UI — gated on SYNC_ENABLED. Panel itself shows self-host CTA
+          when SYNC_AVAILABLE is false (open-source build with no relay URL). */}
       {SYNC_ENABLED && (
         <>
           <SyncSettingsPanel
             isOpen={isSyncSettingsOpen}
             onClose={() => setIsSyncSettingsOpen(false)}
+            relayConfigured={SYNC_AVAILABLE}
             status={sync?.status}
             onEnableSync={async () => {
               const isElectron = typeof window !== 'undefined' && !!window.electron?.invoke
+              const isCapacitor = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()
               if (isElectron) {
                 // Electron path: use OS keychain via safe-storage. No prompt.
                 try {
                   await sync.enableSync({
-                    deviceName: window.electronPlatform?.isMac ? 'Mac' : 'Computer',
+                    deviceName: detectDeviceName(),
                     wrapMethod: 'safe-storage'
                   })
                 } catch (e) {
                   console.error('enableSync failed', e)
+                  setSyncErrorToast({ message: `Couldn't enable sync: ${e.message || 'unknown error'}` })
+                }
+              } else if (isCapacitor) {
+                // iOS / Android Capacitor: store vault key in iOS Keychain
+                // (or Android Keystore via the same plugin). No passphrase
+                // prompt on cold launch — key auto-unwraps.
+                try {
+                  await sync.enableSync({
+                    deviceName: detectDeviceName(),
+                    wrapMethod: 'ios-keychain'
+                  })
+                } catch (e) {
+                  console.error('enableSync failed', e)
+                  setSyncErrorToast({ message: `Couldn't enable sync: ${e.message || 'Keychain unavailable'}` })
                 }
               } else {
                 // PWA / browser path: prompt for a passphrase that wraps
@@ -4585,7 +5368,7 @@ export default function RichTextEditor() {
                   onSubmit: async (passphrase) => {
                     try {
                       await sync.enableSync({
-                        deviceName: 'This device',
+                        deviceName: detectDeviceName(),
                         wrapMethod: 'passphrase',
                         passphrase
                       })
@@ -4630,17 +5413,17 @@ export default function RichTextEditor() {
                 }
               })
             }}
-            onLock={() => sync?.lockVault?.()}
             onPairNewDevice={() => setIsPairDeviceOpen(true)}
             onAcceptPair={() => setIsAcceptPairOpen(true)}
             onSyncNow={() => { sync?.flushNow?.(); sync?.pull?.() }}
-            onPurgeCloud={async () => {
-              const result = await sync?.purgeCloud?.()
-              if (!result?.ok) console.warn('purgeCloud failed', result?.error)
-            }}
+            fetchVaultUsage={() => sync?.fetchVaultUsage?.()}
+            fetchQuota={() => sync?.fetchQuota?.()}
             onRevokeDevice={async (deviceId) => {
               const result = await sync?.revokeDevice?.(deviceId)
-              if (!result?.ok) console.warn('revokeDevice failed', result?.error)
+              if (!result?.ok) {
+                console.warn('revokeDevice failed', result?.error)
+                setSyncErrorToast({ message: `Couldn't revoke device: ${result?.error || 'unknown error'}` })
+              }
             }}
             theme={theme}
           />
@@ -4649,6 +5432,9 @@ export default function RichTextEditor() {
             isOpen={isPairDeviceOpen}
             onClose={() => setIsPairDeviceOpen(false)}
             vaultPacket={isPairDeviceOpen ? sync?.getVaultPacketForPairing?.() : null}
+            fetchVaultUsage={() => sync?.fetchVaultUsage?.()}
+            selfDeviceId={sync?.status?.deviceId || null}
+            initialPeerCount={(sync?.status?.pairedDevices || []).filter(d => d?.deviceId && d.deviceId !== sync?.status?.deviceId).length}
             theme={theme}
           />
 
@@ -4658,39 +5444,69 @@ export default function RichTextEditor() {
             onPaired={async ({ vaultPacket }) => {
               setPendingPairPacket(vaultPacket)
               setIsAcceptPairOpen(false)
-              // Phase 2.10c: complete the pair. The packet contains the
-              // existing vault's vaultId + vaultKey + relayUrl + paired
-              // devices. We need to:
-              //   1. Build local vault metadata using this packet
-              //   2. Decide a wrap method for the vault key on THIS device
-              //   3. Save metadata, register device with relay, pull
               const isElectron = typeof window !== 'undefined' && !!window.electron?.invoke
-              const adoptPairPacket = async (wrapOpts) => {
+              const isCapacitor = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()
+              const adoptPairPacket = async (wrapOpts, mergeLocalPages) => {
                 try {
                   await sync.adoptVault({
                     packet: vaultPacket,
-                    deviceName: isElectron
-                      ? (window.electronPlatform?.isMac ? 'Mac' : 'Computer')
-                      : 'This device',
+                    deviceName: detectDeviceName(),
+                    mergeLocalPages,
                     ...wrapOpts
                   })
                   setPendingPairPacket(null)
                 } catch (err) {
                   console.error('adoptPairPacket failed', err)
+                  setSyncErrorToast({ message: err.message || 'Pair failed' })
                 }
               }
-              if (isElectron) {
-                adoptPairPacket({ wrapMethod: 'safe-storage' })
+              // Step 1: ask whether to merge local notes into the joined
+              // vault. Pre-existing local notes (drafts, journals) might
+              // not belong in a shared vault, so this is opt-in.
+              const localPageCount = (syncPagesRef.current || []).filter(p => p.type !== 'folder').length
+              const proceed = (mergeLocalPages) => {
+                if (isElectron) {
+                  adoptPairPacket({ wrapMethod: 'safe-storage' }, mergeLocalPages)
+                } else if (isCapacitor) {
+                  adoptPairPacket({ wrapMethod: 'ios-keychain' }, mergeLocalPages)
+                } else {
+                  setPassphraseModal({
+                    mode: 'setup',
+                    title: 'Set a passphrase on this device',
+                    subtitle: 'Encrypts the synced vault key locally.',
+                    onSubmit: async (passphrase) => {
+                      setPassphraseModal(null)
+                      await adoptPairPacket({ wrapMethod: 'passphrase', passphrase }, mergeLocalPages)
+                      return { ok: true }
+                    }
+                  })
+                }
+              }
+              if (localPageCount === 0) {
+                proceed(false)
               } else {
-                setPassphraseModal({
-                  mode: 'setup',
-                  title: 'Set a passphrase on this device',
-                  subtitle: 'Encrypts the synced vault key locally.',
-                  onSubmit: async (passphrase) => {
-                    setPassphraseModal(null)
-                    await adoptPairPacket({ wrapMethod: 'passphrase', passphrase })
-                    return { ok: true }
-                  }
+                // Track whether the user has resolved the prompt (Confirm
+                // OR Cancel). If they dismiss (X / backdrop tap / Escape),
+                // we still need to finish pairing — default to "Keep
+                // local only" so adoptVault always runs.
+                let resolved = false
+                const resolve = (source, mergeLocalPages) => {
+                  if (resolved) return
+                  resolved = true
+                  setConfirmModal(prev => ({ ...prev, isOpen: false }))
+                  proceed(mergeLocalPages)
+                }
+                setConfirmModal({
+                  isOpen: true,
+                  title: 'Add your local notes to this vault?',
+                  message: `You have ${localPageCount} local note${localPageCount === 1 ? '' : 's'} on this device. Adding them uploads them to the vault so they sync across paired devices. If they're private to this device, choose "Keep local only" — they'll stay here, untouched.`,
+                  variant: 'info',
+                  confirmText: 'Upload to vault',
+                  cancelText: 'Keep local only',
+                  showCancel: true,
+                  onConfirm: () => resolve('confirm', true),
+                  onCancel: () => resolve('cancel', false),
+                  __onDismiss: () => resolve('dismiss', false)
                 })
               }
             }}

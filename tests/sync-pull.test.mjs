@@ -380,14 +380,43 @@ describe('applyPulledChanges — tombstones', () => {
     assert.equal(captures[0].blocks[0].data.text, 'recoverable')
   })
 
-  it('resurrect-on-edit: incoming edit after local tombstone restores', async () => {
-    const before = [{ id: 'p1', trashed: true, title: 'Trashed', lastEdited: 100 }]
+  it('plain edit on locally-trashed page does NOT resurrect (peer\'s stale edit kept dropped)', async () => {
+    // Old behavior treated any newer-timestamped live envelope as a
+    // restore. That broke the common case: a peer with the page open
+    // in their editor autosaves on every keystroke, and each push
+    // looked newer than our local trashedAt so the page un-trashed
+    // itself on every pull. Now resurrection requires an explicit
+    // `restoredAt` field — see syncPull.js:332 + restorePage.
+    const before = [{ id: 'p1', trashed: true, trashedAt: 100, title: 'Trashed', lastEdited: 100 }]
     const result = await applyPulledChanges(before, [
       { envelopeType: 'note', resourceType: 'note', resourceId: 'p1', payload: { id: 'p1', title: 'Resurrected', lastEdited: 200 }, version: 6, payloadTimestamp: 200, uploadedAt: 200, authorDeviceId: 'r' }
     ])
-    assert.equal(result.newPages[0].title, 'Resurrected')
+    assert.equal(result.newPages[0].title, 'Trashed')
+    assert.equal(result.newPages[0].trashed, true)
+    assert.deepEqual(result.applied, [])
+  })
+
+  it('explicit restore (incoming.restoredAt > local.trashedAt) resurrects', async () => {
+    const before = [{ id: 'p1', trashed: true, trashedAt: 100, title: 'Trashed' }]
+    const result = await applyPulledChanges(before, [
+      { envelopeType: 'note', resourceType: 'note', resourceId: 'p1', payload: { id: 'p1', title: 'Restored', restoredAt: 200, lastEdited: 200 }, version: 6, payloadTimestamp: 200, uploadedAt: 200, authorDeviceId: 'r' }
+    ])
+    assert.equal(result.newPages[0].title, 'Restored')
     assert.equal(result.newPages[0].trashed, undefined)
     assert.deepEqual(result.applied, ['p1'])
+  })
+
+  it('peer trash on locally-alive page always wins (deliberate delete beats stale local edit)', async () => {
+    const before = [{ id: 'p1', title: 'Alive', lastEdited: 500, content: { blocks: [{ type: 'paragraph', data: { text: 'local' } }] } }]
+    let captured = null
+    const result = await applyPulledChanges(before, [
+      { envelopeType: 'note', resourceType: 'note', resourceId: 'p1', payload: { id: 'p1', title: 'Trashed by peer', trashed: true, trashedAt: 200, lastEdited: 200 }, version: 6, payloadTimestamp: 200, uploadedAt: 200, authorDeviceId: 'r' }
+    ], { captureVersion: async (id, blocks) => { captured = { id, blocks } } })
+    assert.equal(result.newPages[0].trashed, true)
+    assert.equal(result.newPages[0].title, 'Trashed by peer')
+    assert.deepEqual(result.applied, ['p1'])
+    // Loser (local content) preserved in version history
+    assert.equal(captured?.id, 'p1')
   })
 })
 
@@ -450,5 +479,21 @@ describe('applyPulledChanges — edge cases', () => {
     assert.equal(result.newPages[0].type, 'folder')
     assert.equal(result.newPages[0].title, 'Work')
     assert.deepEqual(result.applied, ['f1'])
+  })
+
+  it('folder envelope merges pages[] — local-only ids preserved (build-23 fix)', async () => {
+    // Pre-fix: folder envelope blindly overwrote folder.pages[]. If peer
+    // renamed folder while local user added a page to it, local addition
+    // was silently dropped on pull. Now appended to incoming list.
+    const before = [
+      { id: 'f1', type: 'folder', title: 'Work', pages: ['peer-page', 'local-only-page'] }
+    ]
+    const result = await applyPulledChanges(before, [
+      { envelopeType: 'folder', resourceType: 'folder', resourceId: 'f1', payload: { id: 'f1', type: 'folder', title: 'Work renamed', pages: ['peer-page'] }, version: 2, payloadTimestamp: 200, uploadedAt: 200, authorDeviceId: 'r' }
+    ])
+    const merged = result.newPages.find(p => p.id === 'f1')
+    assert.equal(merged.title, 'Work renamed')
+    assert.ok(merged.pages.includes('peer-page'), 'peer-page kept')
+    assert.ok(merged.pages.includes('local-only-page'), 'local-only-page preserved (was the bug)')
   })
 })

@@ -3047,6 +3047,425 @@ button:focus {
   padding-bottom: calc(env(safe-area-inset-bottom) + 0.75rem);
 }
 
+/* Hide horizontal scrollbar on mobile chip rows */
+.dash-no-scrollbar::-webkit-scrollbar { display: none; }
+.dash-no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+
+/* Bottom-sheet slide-up animation */
+@keyframes dash-sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* Floating pill fade-in (mobile inline toolbar) */
+@keyframes dash-pill-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Mobile bottom-sheet conversion for centered modals.
+   Applies to any modal root tagged `dash-mobile-bottom-sheet` — turns the
+   centered `max-w-md` container into a full-width bottom-anchored sheet
+   with rounded top corners and slide-up. Desktop ignores it.
+
+   Two DOM shapes exist in the codebase:
+     A) outer > visibleCard           (RenameModal, EncryptionChoiceModal, …)
+     B) outer > wrapper > visibleCard (TagModal)
+   The visible card is the one with the Tailwind `transform` class — every
+   modal applies it for the scale-in animation, so we use it as a marker.
+   All the bottom-sheet chrome (top radius, drag handle, safe-area pad,
+   slide-up) lives on the visible card so it actually paints (the wrapper's
+   chrome is hidden behind the card's bg). */
+@media (max-width: 768px) {
+  .dash-mobile-bottom-sheet {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  /* Visible card chrome — applies whether the card is at depth 1 (shape A)
+     or depth 2 (shape B). */
+  .dash-mobile-bottom-sheet > [class~="transform"]:not([class*="inset-0"]),
+  .dash-mobile-bottom-sheet > div:not([class~="transform"]):not([class*="inset-0"]):not([aria-hidden="true"]) > [class~="transform"] {
+    position: relative !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    border-top-left-radius: 1.5rem !important;
+    border-top-right-radius: 1.5rem !important;
+    border-bottom: 0 !important;
+    max-height: 92vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding-top: 22px !important;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 8px) !important;
+    /* Override per-modal `dash-modal-in` (scale) with the sheet slide-up. */
+    animation: dash-sheet-up 220ms cubic-bezier(0.32, 0.72, 0, 1) forwards !important;
+  }
+
+  /* Wrapper (shape B only) — strip width/margin so the card hits the
+     screen edges. */
+  .dash-mobile-bottom-sheet > div:not([class~="transform"]):not([class*="inset-0"]):not([aria-hidden="true"]) {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    background: transparent !important;
+  }
+
+  /* Drag handle on the visible card. */
+  .dash-mobile-bottom-sheet > [class~="transform"]:not([class*="inset-0"])::before,
+  .dash-mobile-bottom-sheet > div:not([class~="transform"]):not([class*="inset-0"]):not([aria-hidden="true"]) > [class~="transform"]::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 5px;
+    border-radius: 9999px;
+    background: rgb(209, 213, 219);
+    z-index: 1;
+    pointer-events: none;
+  }
+  .dark .dash-mobile-bottom-sheet > [class~="transform"]:not([class*="inset-0"])::before,
+  .dark .dash-mobile-bottom-sheet > div:not([class~="transform"]):not([class*="inset-0"]):not([aria-hidden="true"]) > [class~="transform"]::before { background: rgb(74, 74, 74); }
+  .darkblue .dash-mobile-bottom-sheet > [class~="transform"]:not([class*="inset-0"])::before,
+  .darkblue .dash-mobile-bottom-sheet > div:not([class~="transform"]):not([class*="inset-0"]):not([aria-hidden="true"]) > [class~="transform"]::before { background: rgb(42, 52, 82); }
+  .fallout .dash-mobile-bottom-sheet > [class~="transform"]:not([class*="inset-0"])::before,
+  .fallout .dash-mobile-bottom-sheet > div:not([class~="transform"]):not([class*="inset-0"]):not([aria-hidden="true"]) > [class~="transform"]::before { background: rgba(34, 197, 94, 0.4); }
+}
+
+/* Editor.js block popover ("+" toolbox + ":::" block-tunes settings) on
+   mobile — Editor.js itself ships a `@media (max-width: 650px)` rule that
+   makes `.ce-popover__container` (the VISIBLE card, not the outer
+   wrapper) `position: fixed` near the bottom with a 5px gutter and a
+   tiny 10px border-radius. We override that container — NOT the
+   `.ce-popover` wrapper — so the chrome (rounded top, drag handle,
+   safe-area padding, slide-up) actually paints. */
+@media (max-width: 768px) {
+  /* Outer wrapper — let Editor.js position it however; we don't paint here.
+     `:not(.ce-popover--inline)` keeps the inline selection toolbar out of
+     this bottom-sheet treatment — it gets its own pill style further down. */
+  .ce-popover--opened:not(.ce-popover--inline) {
+    z-index: 11000 !important;
+  }
+
+  /* Visible card — full-bleed bottom sheet matching the React ActionSheet.
+     `box-sizing: border-box` so the 22px top + safe-area-bottom paddings
+     are subtracted from the 75vh max-height instead of overflowing past
+     it. Without that, the last 1-2 items in long popovers (slash menu,
+     block-tunes) sat below the visible card and looked clipped.
+     Excludes `.ce-popover--inline` (selection toolbar) — see pill rule. */
+  .ce-popover--opened:not(.ce-popover--inline) > .ce-popover__container {
+    position: fixed !important;
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: 75vh !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    border-top-left-radius: 1.25rem !important;
+    border-top-right-radius: 1.25rem !important;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    border: 0 !important;
+    z-index: 11000 !important;
+    padding: 22px 0 calc(env(safe-area-inset-bottom) + 8px) 0 !important;
+    box-sizing: border-box !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    /* Dim backdrop via 100vmax box-shadow — immune to ancestor transforms. */
+    box-shadow:
+      0 -8px 32px rgba(0, 0, 0, 0.18),
+      0 0 0 100vmax rgba(0, 0, 0, 0.55) !important;
+    clip-path: none !important;
+    animation: dash-sheet-up 220ms cubic-bezier(0.32, 0.72, 0, 1) forwards !important;
+  }
+  /* Theme overrides for the card body */
+  .dark .ce-popover--opened:not(.ce-popover--inline) > .ce-popover__container { background: #1a1a1a !important; }
+  .darkblue .ce-popover--opened:not(.ce-popover--inline) > .ce-popover__container { background: #141825 !important; }
+  .fallout .ce-popover--opened:not(.ce-popover--inline) > .ce-popover__container { background: #0d0d0d !important; }
+
+  /* Drag handle — pseudo-element on the visible card. */
+  .ce-popover--opened:not(.ce-popover--inline) > .ce-popover__container::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 5px;
+    border-radius: 9999px;
+    background: rgb(209, 213, 219);
+    z-index: 2;
+    pointer-events: none;
+  }
+  .dark .ce-popover--opened:not(.ce-popover--inline) > .ce-popover__container::before { background: rgb(74, 74, 74); }
+  .darkblue .ce-popover--opened:not(.ce-popover--inline) > .ce-popover__container::before { background: rgb(42, 52, 82); }
+  .fallout .ce-popover--opened:not(.ce-popover--inline) > .ce-popover__container::before { background: rgba(34, 197, 94, 0.4); }
+
+  /* Items list inside the card. Editor.js uses `__items` (double-
+     underscore BEM) and ships its own `overflow-y: auto`. We disable
+     that nested scroll so the OUTER container scrolls — single touch
+     surface, last items reachable.
+     Inline toolbar excluded — its items stay in a horizontal row. */
+  .ce-popover--opened:not(.ce-popover--inline) .ce-popover__items,
+  .ce-popover--opened:not(.ce-popover--inline) .ce-popover-items {
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 4px 0 8px 0 !important;
+  }
+  .ce-popover--opened:not(.ce-popover--inline) .ce-popover-item {
+    padding: 12px 16px !important;
+    min-height: 44px;
+  }
+
+  /* MobileFooter must NOT cover the popover. */
+  .footer-fixed { z-index: 50; }
+}
+
+/* Hide the desktop block-toolbar `+` / `:::` buttons in the editor
+   margin on mobile — they overlap the editor area and add visual noise.
+   The user can still open the same menus via the slash command or
+   long-press on a block. */
+@media (max-width: 768px) {
+  .ce-toolbar__plus,
+  .ce-toolbar__settings-btn {
+    /* Keep them but make sure the popovers they open render correctly */
+  }
+}
+
+/* Mobile editor padding tweak — avoid the fat 72px desktop left padding
+   that wastes phone width. */
+@media (max-width: 768px) {
+  #editorjs.codex-editor,
+  .codex-editor__redactor {
+    padding-bottom: 4rem !important;
+  }
+
+  /* Editor.js inline selection toolbar (bold/italic/link/convert) — on
+     mobile, render as a Notion-style floating pill near the selection.
+     v2.30 renders this as `.ce-popover.ce-popover--inline.ce-popover--opened`
+     with a `.ce-popover__container` inside; Editor.js sets inline
+     `top`/`left` on the wrapper from the selection rect, container is
+     position:absolute relative to wrapper. We just paint pill chrome —
+     no full-bleed, no backdrop. iOS Cut/Copy/Paste callout still appears
+     above the selection; the pill coexists below it. */
+  /* Wrapper — pin to the viewport. We position via JS-computed viewport
+     coords (see components/Editor.js, the inline-popover MutationObserver).
+     Using `position: fixed` decouples the pill from Editor.js's own
+     normal-flow `top`/`left` math, which on iOS WebKit was placing the
+     wrapper at the wrong containing block (a `.codex-editor`-relative
+     value rendered as full-screen offsets). Inline `top`/`left` from JS
+     win because Editor.js writes the same properties — we listen to the
+     `--opened` mutation and overwrite them on the next two RAFs. */
+  .ce-popover--inline.ce-popover--opened {
+    position: fixed !important;
+    z-index: 11500 !important;
+    /* JS sets top/left; defaults below keep it off-screen until JS runs. */
+    top: -9999px !important;
+    left: -9999px !important;
+    bottom: auto !important;
+    right: auto !important;
+    width: max-content !important;
+    min-width: 0 !important;
+    max-width: 92vw !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+  }
+  .ce-popover--inline.ce-popover--opened > .ce-popover__container {
+    /* Container stacks INSIDE the wrapper at top:0 — wrapper carries the
+       viewport position, container only paints chrome. */
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    bottom: auto !important;
+    right: auto !important;
+    width: max-content !important;
+    min-width: 0 !important;
+    max-width: 92vw !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 4px !important;
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.06) !important;
+    border-radius: 10px !important;
+    box-shadow:
+      0 6px 20px rgba(0, 0, 0, 0.18),
+      0 2px 6px rgba(0, 0, 0, 0.08) !important;
+    clip-path: none !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    box-sizing: border-box !important;
+    animation: dash-pill-in 140ms cubic-bezier(0.32, 0.72, 0, 1) forwards !important;
+  }
+  /* Suppress the drag-handle pseudo-element from the bottom-sheet rule. */
+  .ce-popover--inline.ce-popover--opened > .ce-popover__container::before {
+    content: none !important;
+    display: none !important;
+  }
+  .dark .ce-popover--inline.ce-popover--opened > .ce-popover__container { background: #1f1f1f !important; border-color: rgba(255,255,255,0.08) !important; box-shadow: 0 6px 20px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.25) !important; }
+  .darkblue .ce-popover--inline.ce-popover--opened > .ce-popover__container { background: #1a2236 !important; border-color: rgba(255,255,255,0.08) !important; box-shadow: 0 6px 20px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.25) !important; }
+  .fallout .ce-popover--inline.ce-popover--opened > .ce-popover__container { background: #0d0d0d !important; border-color: rgba(34,197,94,0.25) !important; box-shadow: 0 6px 20px rgba(0,0,0,0.5), 0 0 0 1px rgba(34,197,94,0.1) !important; }
+
+  /* Items row — horizontal flex, tight spacing, no per-item padding bloat. */
+  .ce-popover--inline.ce-popover--opened .ce-popover__items {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 2px !important;
+    width: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+  .ce-popover--inline.ce-popover--opened .ce-popover-item {
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 6px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+  }
+  /* Hide labels in the pill — icon-only, like the desktop toolbar. */
+  .ce-popover--inline.ce-popover--opened .ce-popover-item__title,
+  .ce-popover--inline.ce-popover--opened .ce-popover-item__secondary-title {
+    display: none !important;
+  }
+  /* Editor.js mobile default sets icon container to 28px and `width: auto`
+     on .ce-popover-item__icon — the auto causes Bold/Underline (whose SVG
+     paths fill less of their viewBox) to render visually smaller than
+     link/code/AI which fill more. Pin both to 28px so all icons share the
+     same optical box. SVG inside scales to that. */
+  .ce-popover--inline.ce-popover--opened .ce-popover-item__icon {
+    width: 28px !important;
+    height: 28px !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .ce-popover--inline.ce-popover--opened .ce-popover-item__icon svg {
+    width: 22px !important;
+    height: 22px !important;
+  }
+  /* Vertical separators between groups — match desktop toolbar look. */
+  .ce-popover--inline.ce-popover--opened .ce-popover-item-separator {
+    padding: 0 4px !important;
+  }
+  .ce-popover--inline.ce-popover--opened .ce-popover-item-separator__line {
+    width: 1px !important;
+    height: 20px !important;
+    background: rgba(127, 127, 127, 0.18) !important;
+  }
+  /* Nested popovers (e.g. Convert-to submenu): vertical list, drop the
+     pill chrome and let the bottom-sheet rule above NOT apply (we kept
+     `--inline` in the exclusion). They're a small floating column. */
+  .ce-popover--inline.ce-popover--opened .ce-popover--nested .ce-popover__container {
+    position: absolute !important;
+    bottom: auto !important;
+    width: max-content !important;
+    min-width: 200px !important;
+    max-width: 80vw !important;
+    max-height: 50vh !important;
+    flex-direction: column !important;
+    border-radius: 10px !important;
+    padding: 6px !important;
+    overflow-y: auto !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
+  }
+  .ce-popover--inline.ce-popover--opened .ce-popover--nested .ce-popover__items {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100% !important;
+  }
+  .ce-popover--inline.ce-popover--opened .ce-popover--nested .ce-popover-item {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 40px !important;
+    padding: 8px 10px !important;
+    justify-content: flex-start !important;
+    border-radius: 6px !important;
+  }
+  .ce-popover--inline.ce-popover--opened .ce-popover--nested .ce-popover-item__title {
+    display: block !important;
+  }
+
+  /* Suppress iOS long-press callout INSIDE the pill so taps on tools
+     don't summon the system Edit menu. Selection on editor text itself
+     stays untouched (user can still long-press to copy). */
+  .ce-popover--inline.ce-popover--opened,
+  .ce-popover--inline.ce-popover--opened * {
+    -webkit-touch-callout: none;
+  }
+
+  /* Slash/+ popover (toolbox) attaches inside `.ce-toolbar`, which has
+     `will-change: opacity, top` from Editor.js — that creates a CSS
+     containing block, breaking `position: fixed` on our popover-as-sheet
+     override (the popover ends up positioned relative to .ce-toolbar
+     instead of the viewport, rendering as plain inline list near caret).
+     Killing will-change on mobile lets `position: fixed` anchor to the
+     viewport and the bottom-sheet rule above (~line 3152) takes effect. */
+  .ce-toolbar {
+    will-change: auto !important;
+  }
+
+  /* Editor.js conversion toolbar (block-type swap) — same clamp */
+  .ce-conversion-toolbar {
+    max-width: 95vw !important;
+  }
+
+  /* Multi-block popover (custom) — center on small screens */
+  .multi-block-popover {
+    max-width: 95vw !important;
+    max-height: 50vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Bigger tap targets in sidebar header / footer chips on iOS HIG */
+  .codex-editor .ce-toolbar__plus,
+  .codex-editor .ce-toolbar__settings-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* iOS HIG minimum tap target = 44pt. Apply to all interactive elements
+     in the sidebar nav + header to guarantee comfortable tap. */
+  nav button:not(.ce-block button):not(.cdx-button),
+  nav [role="button"]:not(.ce-block [role="button"]) {
+    min-width: 40px;
+    min-height: 40px;
+  }
+  nav .h-6, nav .h-7 { min-height: 40px; }
+  nav .w-6, nav .w-7 { min-width: 40px; }
+
+  /* Footer chips on mobile already use MobileFooter (built with 32px
+     touch padding); kept lower since they're status-only, not primary
+     navigation. */
+}
+
 /* ===== Editor.js Popover Theming (v2.30+ CSS Variable Overrides) ===== */
 
 /* DARK THEME: Override Editor.js CSS custom properties */

@@ -133,18 +133,26 @@ function createWindow() {
     slashes: true
   });
 
-  // Security: Set CSP headers
+  // Security: Set CSP headers. Dev mode (ELECTRON_START_URL is set when
+  // launching via electron-dev → next dev) needs 'unsafe-eval' for the
+  // webpack/react-refresh runtime, and ws://localhost:* for the local
+  // sync relay WebSocket. Production builds keep the strict policy.
+  const isDev = !!process.env.ELECTRON_START_URL
+  const scriptSrc = isDev
+    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+    : "script-src 'self' 'unsafe-inline'"
+  const connectExtras = isDev ? ' ws://localhost:* ws://127.0.0.1:*' : ''
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
           "default-src 'self'; " +
-          "script-src 'self' 'unsafe-inline'; " +
+          scriptSrc + '; ' +
           "style-src 'self' 'unsafe-inline'; " +
           "img-src 'self' data:; " +
           "font-src 'self' data:; " +
-          "connect-src 'self' https://dash-relay.efesop.deno.net wss://dash-relay.efesop.deno.net http://localhost:* http://127.0.0.1:*; " +
+          "connect-src 'self' https://dash-relay.efesop.deno.net wss://dash-relay.efesop.deno.net http://localhost:* http://127.0.0.1:*" + connectExtras + '; ' +
           "frame-src 'none'; " +
           "object-src 'none';"
         ]
@@ -158,6 +166,18 @@ function createWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindow.show()
   })
+
+  // Dev only: mirror renderer console messages to stdout so they show up
+  // in the electron-dev terminal alongside Next/main logs. Lets us tail
+  // a single log file for the whole flow during sync diagnostics.
+  if (isDev) {
+    mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+      const tag = ['LOG', 'INFO', 'WARN', 'ERROR'][level] || 'LOG'
+      const src = sourceId ? sourceId.split('/').pop() : ''
+      process.stdout.write(`[renderer:${tag}] ${message}${src ? ` (${src}:${line})` : ''}\n`)
+    })
+  }
+
 
   // Open DevTools for debugging
   //mainWindow.webContents.openDevTools();
@@ -215,7 +235,11 @@ ipcMain.handle('save-tags', async (event, tags) => {
     if (tags.length > 1000) throw new Error('Too many tags');
     const data = JSON.stringify(tags, null, 2);
     if (data.length > 1024 * 1024) throw new Error('Tags data too large');
-    await fs.writeFile(tagsPath, data);
+    // Atomic write: temp + rename. Without this a crash mid-write
+    // corrupts the tags file → user loses tag colors / structure.
+    const tmpPath = tagsPath + '.tmp';
+    await fs.writeFile(tmpPath, data);
+    await fs.rename(tmpPath, tagsPath);
   } catch (error) {
     throw error;
   }
@@ -270,7 +294,9 @@ ipcMain.handle('read-whats-new', async () => {
 
 ipcMain.handle('save-whats-new', async (event, data) => {
   try {
-    await fs.writeFile(whatsNewPath, JSON.stringify(data, null, 2));
+    const tmpPath = whatsNewPath + '.tmp';
+    await fs.writeFile(tmpPath, JSON.stringify(data, null, 2));
+    await fs.rename(tmpPath, whatsNewPath);
   } catch (error) {
     throw error;
   }
@@ -291,7 +317,10 @@ ipcMain.handle('read-app-lock', async () => {
 
 ipcMain.handle('save-app-lock', async (event, data) => {
   try {
-    await fs.writeFile(appLockPath, JSON.stringify(data, null, 2));
+    // Atomic write: corruption mid-write = user can't unlock the app.
+    const tmpPath = appLockPath + '.tmp';
+    await fs.writeFile(tmpPath, JSON.stringify(data, null, 2));
+    await fs.rename(tmpPath, appLockPath);
   } catch (error) {
     throw error;
   }
@@ -330,7 +359,9 @@ ipcMain.handle('safe-storage-store', async (event, key, plaintext) => {
     if (!safeStorage.isEncryptionAvailable()) return false;
     const encrypted = safeStorage.encryptString(plaintext);
     const filePath = path.join(app.getPath('userData'), `safe-${key}.enc`);
-    await fs.writeFile(filePath, encrypted);
+    const tmpPath = filePath + '.tmp';
+    await fs.writeFile(tmpPath, encrypted);
+    await fs.rename(tmpPath, filePath);
     return true;
   } catch {
     return false;
@@ -435,7 +466,11 @@ ipcMain.handle('vault-key-store', async (event, base64Key) => {
   try {
     const encrypted = safeStorage.encryptString(base64Key);
     const filePath = path.join(app.getPath('userData'), 'safe-vault-key.enc');
-    await fs.writeFile(filePath, encrypted);
+    // Atomic write: corruption mid-write = lost sync (next launch
+    // can't decrypt the wrap, vault appears reset).
+    const tmpPath = filePath + '.tmp';
+    await fs.writeFile(tmpPath, encrypted);
+    await fs.rename(tmpPath, filePath);
     return true;
   } catch (e) {
     log.error('vault-key-store failed', e);
@@ -518,7 +553,11 @@ ipcMain.handle('write-backup-file', async (event, { filename, content, folderPat
   const folder = folderPath && typeof folderPath === 'string' ? folderPath : defaultBackupFolder();
   await fs.mkdir(folder, { recursive: true });
   const fullPath = path.join(folder, filename);
-  await fs.writeFile(fullPath, content);
+  // Atomic write within the same dir (rename within volume is atomic
+  // on macOS) — partial backup files are worse than missing ones.
+  const tmpPath = fullPath + '.tmp';
+  await fs.writeFile(tmpPath, content);
+  await fs.rename(tmpPath, fullPath);
   return { success: true, path: fullPath };
 });
 
@@ -733,7 +772,13 @@ ipcMain.handle('save-pages', async (event, pages) => {
     });
 
     const pagesPath = path.join(app.getPath('userData'), 'pages.json');
-    const tempPath = pagesPath + '.tmp';
+    // Unique temp suffix per call. Concurrent save-pages invocations
+    // (sync hook + sidebar reorder + applyRemoteChanges all hit the
+    // same handler) racing on the same `pages.json.tmp` path produced
+    // ENOENT errors: first call's rename moved the temp away, second
+    // call's rename then failed because the path was gone. Per-call
+    // unique tmp = no collision.
+    const tempPath = `${pagesPath}.tmp.${process.pid}.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
     const backupPath = pagesPath + '.bak';
     const data = JSON.stringify(sanitizedPages, null, 2);
 
@@ -753,7 +798,9 @@ ipcMain.handle('save-pages', async (event, pages) => {
 const lockAttemptsPath = path.join(app.getPath('userData'), 'lock-attempts.json');
 ipcMain.handle('lock-record-attempt', async (event, data) => {
   try {
-    await fs.writeFile(lockAttemptsPath, JSON.stringify(data));
+    const tmpPath = lockAttemptsPath + '.tmp';
+    await fs.writeFile(tmpPath, JSON.stringify(data));
+    await fs.rename(tmpPath, lockAttemptsPath);
     return true;
   } catch { return false; }
 });

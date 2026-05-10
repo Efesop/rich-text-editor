@@ -24,7 +24,19 @@ export default function PairDeviceModal ({
   isOpen,
   onClose,
   vaultPacket,    // { vaultId, vaultKey: number[], relayUrl, pairedDevices, ... }
-  theme
+  theme,
+  // Optional: provider that fetches the current vault.devices map from
+  // the relay. Used to detect when the guest has registered, so the
+  // modal flips from "Pair window" to "Paired ✓" without the host
+  // having to poke around in the settings panel.
+  fetchVaultUsage,
+  // This device's own deviceId — used to filter SELF out of the
+  // server-returned device list when detecting "guest joined".
+  selfDeviceId,
+  // Initial peer count (excluding self) at the moment the modal opens.
+  // Modal flips to "paired" when the server reports MORE non-self
+  // devices than this baseline.
+  initialPeerCount = 0
 }) {
   const isFallout = theme === 'fallout'
   const isDark = theme === 'dark'
@@ -35,7 +47,11 @@ export default function PairDeviceModal ({
   const [encryptedPacketB64, setEncryptedPacketB64] = useState(null)
   const [error, setError] = useState(null)
   const [secondsLeft, setSecondsLeft] = useState(PAIR_WINDOW_MS / 1000)
+  // Default to link view on every device — most users prefer copy-paste.
+  // QR is the second option, accessed via the visible toggle.
+  const [showQR, setShowQR] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
+  const [joinedDevice, setJoinedDevice] = useState(null) // { deviceName }
   const generatedAtRef = useRef(0)
 
   const generate = async () => {
@@ -56,11 +72,19 @@ export default function PairDeviceModal ({
 
       // Generate QR with the encrypted packet
       const QRCode = (await import('qrcode')).default
+      // Quiet zone (`margin`) bumped 1 → 4 — that's the QR spec
+      // minimum. ML Kit + native iOS scanners need a clear ≥4-module
+      // border to lock the finder pattern. With margin=1 the scanner
+      // saw the dense interior but couldn't establish boundary, so
+      // `BarcodeScanner.scan` resolved with empty `barcodes` array
+      // even though the camera view rendered fine. errorCorrectionLevel
+      // dropped 'M' → 'L' so the encoded payload fits in fewer modules
+      // (larger physical squares at the same 280px width = easier read).
       const dataUrl = await QRCode.toDataURL(`dash-pair:${b64}`, {
         width: 280,
-        margin: 1,
+        margin: 4,
         color: { dark: '#000000', light: '#ffffff' },
-        errorCorrectionLevel: 'M'
+        errorCorrectionLevel: 'L'
       })
       setQrDataUrl(dataUrl)
     } catch (err) {
@@ -70,16 +94,26 @@ export default function PairDeviceModal ({
   }
 
   useEffect(() => {
-    if (isOpen) {
-      generate()
-    } else {
+    if (!isOpen) {
       setPairCode(null)
       setQrDataUrl(null)
       setEncryptedPacketB64(null)
       setError(null)
+      return
     }
+    // Track vaultPacket by its IDENTITY (vaultId) rather than reference.
+    // The caller `getVaultPacketForPairing()` returns a new object each
+    // call, which previously meant either we re-ran on every parent
+    // render (generating a new pair code each time = noise) OR — as in
+    // the prior `[isOpen]`-only deps version — we skipped generation
+    // entirely when the vault store hadn't unlocked yet at modal-open
+    // time, leaving a permanently empty body. Keying by vaultId fires
+    // once when the packet first becomes available, then never again
+    // until the vault changes.
+    if (!vaultPacket) return
+    generate()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, vaultPacket])
+  }, [isOpen, vaultPacket?.vaultId])
 
   // Tick down secondsLeft, regenerate when window expires
   useEffect(() => {
@@ -92,6 +126,52 @@ export default function PairDeviceModal ({
     }, 250)
     return () => clearInterval(interval)
   }, [isOpen, pairCode])
+
+  // Poll for new devices joining while pair window is open. When the
+  // server-side device count grows past the baseline the host had at
+  // modal open, a guest has paired — flip to a success state so the
+  // host gets clear "Paired ✓" feedback instead of a countdown that
+  // silently expires.
+  //
+  // Read fetchVaultUsage + initialPeerCount through refs so callers can
+  // pass inline arrows / fresh values without re-running the effect on
+  // every parent render. Without this guard, multiple intervals stacked
+  // up → 429 rate-limit + occasional "replayed auth token" because two
+  // polls within the same millisecond produced identical auth proofs.
+  const fetchVaultUsageRef = useRef(fetchVaultUsage)
+  const initialPeerCountRef = useRef(initialPeerCount)
+  const selfDeviceIdRef = useRef(selfDeviceId)
+  useEffect(() => { fetchVaultUsageRef.current = fetchVaultUsage }, [fetchVaultUsage])
+  useEffect(() => { initialPeerCountRef.current = initialPeerCount }, [initialPeerCount])
+  useEffect(() => { selfDeviceIdRef.current = selfDeviceId }, [selfDeviceId])
+  useEffect(() => {
+    if (!isOpen || joinedDevice) return
+    let cancelled = false
+    const poll = async () => {
+      const fn = fetchVaultUsageRef.current
+      if (typeof fn !== 'function') return
+      const usage = await fn().catch(() => null)
+      if (cancelled || !usage) return
+      // Filter out this device — server returns ALL devices in the vault
+      // including self. Without this, a freshly-enabled host vault with
+      // only the host registered would already report 1 "peer" and the
+      // modal would falsely flip to "Paired ✓" the moment it opens.
+      const selfId = selfDeviceIdRef.current
+      const peers = (usage.pairedDevices || []).filter(d => d && d.deviceId && d.deviceId !== selfId)
+      if (peers.length > (initialPeerCountRef.current || 0)) {
+        const newest = peers.reduce((acc, d) => {
+          if (!acc) return d
+          const a = new Date(acc.lastSeenAt || 0).getTime()
+          const b = new Date(d.lastSeenAt || 0).getTime()
+          return b > a ? d : acc
+        }, null)
+        setJoinedDevice({ deviceName: newest?.deviceName || 'New device' })
+      }
+    }
+    poll()
+    const interval = setInterval(poll, 2000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [isOpen, joinedDevice])
 
   if (!isOpen) return null
 
@@ -192,26 +272,64 @@ export default function PairDeviceModal ({
 
         {/* Body */}
         <div className="px-6 py-6 space-y-5">
-          {error && (
+          {joinedDevice && (
+            <div className="flex flex-col items-center gap-3 py-4">
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center ${iconContainerClasses}`}>
+                <Check className="w-7 h-7 pointer-events-none" />
+              </div>
+              <p className={`text-base font-semibold ${titleClasses}`}>{joinedDevice.deviceName} paired</p>
+              <p className={`text-xs text-center ${subtitleClasses}`}>
+                Notes will sync between this device and {joinedDevice.deviceName} automatically.
+              </p>
+              <p className={`text-xs text-center mt-1 ${subtitleClasses}`}>
+                First sync can take a few minutes for large vaults — sync runs
+                in the background.
+              </p>
+              <button
+                onClick={onClose}
+                className={`mt-2 px-4 py-2 rounded-xl text-sm font-medium ${secondaryBtn}`}
+              >
+                Done
+              </button>
+            </div>
+          )}
+
+          {!joinedDevice && error && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30">
               <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5 pointer-events-none" />
               <p className="text-xs text-red-400 leading-relaxed">{error}</p>
             </div>
           )}
 
-          {/* QR */}
+          {/* Pair body — link copy by default, QR behind a toggle */}
+          {!joinedDevice && (
           <div className="flex flex-col items-center gap-4">
-            {qrDataUrl ? (
-              <div className={`p-3 rounded-xl bg-white ${expired ? 'opacity-30' : ''}`}>
-                <img src={qrDataUrl} alt="Pair QR code" width={240} height={240} draggable={false} />
-              </div>
+            {showQR ? (
+              qrDataUrl ? (
+                <div className={`p-3 rounded-xl bg-white ${expired ? 'opacity-30' : ''}`}>
+                  <img src={qrDataUrl} alt="Pair QR code" width={240} height={240} draggable={false} />
+                </div>
+              ) : (
+                <div className="w-[264px] h-[264px] flex items-center justify-center">
+                  <RefreshCw className={`w-6 h-6 animate-spin pointer-events-none ${subtitleClasses}`} />
+                </div>
+              )
             ) : (
-              <div className="w-[264px] h-[264px] flex items-center justify-center">
-                <RefreshCw className={`w-6 h-6 animate-spin pointer-events-none ${subtitleClasses}`} />
-              </div>
+              encryptedPacketB64 && !expired && (
+                <button
+                  onClick={handleCopyLink}
+                  className={`w-full px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 ${expired ? 'opacity-30 pointer-events-none' : ''} ${linkCopied
+                    ? (isFallout ? 'bg-green-500/20 border border-green-500/40 text-green-400 font-mono' : 'bg-blue-100 border border-blue-300 text-blue-700')
+                    : (isFallout ? 'bg-green-500 text-gray-900 hover:bg-green-400 font-mono' : 'bg-blue-600 text-white hover:bg-blue-500')
+                  }`}
+                >
+                  {linkCopied ? <Check className="w-4 h-4 pointer-events-none" /> : <Copy className="w-4 h-4 pointer-events-none" />}
+                  {linkCopied ? 'Pair link copied — paste it on your other device' : 'Copy pair link'}
+                </button>
+              )
             )}
 
-            {/* Pair code */}
+            {/* Pair code — always shown */}
             {pairCode && !expired && (
               <div className="text-center">
                 <p className={`text-[10px] uppercase tracking-wider ${subtitleClasses}`}>Pair code</p>
@@ -235,27 +353,29 @@ export default function PairDeviceModal ({
                 </button>
               </div>
             )}
+
+            {/* Toggle between link view and QR view */}
+            {!expired && (
+              <button
+                onClick={() => setShowQR(!showQR)}
+                className={`text-xs underline-offset-2 hover:underline ${subtitleClasses}`}
+              >
+                {showQR ? 'Or copy a pair link instead' : 'Or scan a QR code instead'}
+              </button>
+            )}
           </div>
+          )}
 
           {/* Instructions */}
+          {!joinedDevice && (
           <div className={`p-3 rounded-lg ${cardClasses} space-y-1`}>
             <p className={`text-xs leading-relaxed ${subtitleClasses}`}>
               <strong className={titleClasses}>1.</strong> On your other device, open Dash → Settings → Sync → "I have another device".
             </p>
             <p className={`text-xs leading-relaxed ${subtitleClasses}`}>
-              <strong className={titleClasses}>2.</strong> Scan this QR (or paste the link) and enter the 6-digit code.
+              <strong className={titleClasses}>2.</strong> {showQR ? 'Scan this QR' : 'Paste the pair link'} and enter the 6-digit code above.
             </p>
           </div>
-
-          {/* Copy link fallback */}
-          {encryptedPacketB64 && !expired && (
-            <button
-              onClick={handleCopyLink}
-              className={`w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 ${secondaryBtn}`}
-            >
-              {linkCopied ? <Check className="w-4 h-4 pointer-events-none" /> : <Copy className="w-4 h-4 pointer-events-none" />}
-              {linkCopied ? 'Copied' : 'Copy pair link instead'}
-            </button>
           )}
         </div>
       </div>

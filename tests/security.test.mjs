@@ -746,14 +746,36 @@ describe('Page-switch race condition prevention', () => {
     assert.ok(flushIdx < encryptIdx, '__editorFlush must be called BEFORE encryptAndClearAppLockPages')
   })
 
-  it('beforeunload handler flushes editor before encrypting', () => {
+  it('lifecycle handler (beforeunload / pagehide / appStateChange) flushes editor before encrypting', () => {
+    // Build-23 refactor: the handler used to be named `handleBeforeUnload`
+    // but is now `fireEncrypt`, hooked to beforeunload + visibilitychange
+    // + pagehide + Capacitor App.appStateChange (since beforeunload alone
+    // rarely fires on iOS WKWebView). Look for the lifecycle block by its
+    // anchor strings instead of the old function name; assert the
+    // flush → encrypt ordering inside it.
     const code = readSrc('components/RichTextEditor.js')
-    const beforeUnload = code.substring(code.indexOf('handleBeforeUnload'), code.indexOf('handleBeforeUnload') + 500)
-    const flushIdx = beforeUnload.indexOf('__editorFlush')
-    const encryptIdx = beforeUnload.indexOf('encryptAndClearAppLockPages')
-    assert.ok(flushIdx > 0, 'beforeunload must call __editorFlush')
-    assert.ok(encryptIdx > 0, 'beforeunload must call encryptAndClearAppLockPages')
+    const blockStart = code.indexOf("const fireEncrypt")
+    assert.ok(blockStart > 0, 'fireEncrypt handler must exist (lifecycle encrypt path)')
+    const block = code.substring(blockStart, blockStart + 800)
+    const flushIdx = block.indexOf('__editorFlush')
+    const encryptIdx = block.indexOf('encryptAndClearAppLockPages')
+    assert.ok(flushIdx > 0, 'lifecycle handler must call __editorFlush')
+    assert.ok(encryptIdx > 0, 'lifecycle handler must call encryptAndClearAppLockPages')
     assert.ok(flushIdx < encryptIdx, '__editorFlush must be called BEFORE encryptAndClearAppLockPages')
+    // Belt-and-braces: ensure the handler is wired to all four lifecycle signals.
+    // Build 28 renamed the bound handler to `fireEncryptForce` for hard-exit
+    // signals so the lock + encrypt path can fire only on quit, while
+    // visibilitychange uses the gated path. Either name acceptable.
+    const beforeunloadOk =
+      code.includes("addEventListener('beforeunload', fireEncrypt)") ||
+      code.includes("addEventListener('beforeunload', fireEncryptForce)")
+    const pagehideOk =
+      code.includes("addEventListener('pagehide', fireEncrypt)") ||
+      code.includes("addEventListener('pagehide', fireEncryptForce)")
+    assert.ok(beforeunloadOk, 'beforeunload listener must be wired')
+    assert.ok(pagehideOk, 'pagehide listener must be wired')
+    assert.ok(code.includes("'visibilitychange'"), 'visibilitychange listener must be wired')
+    assert.ok(code.includes("App.addListener('appStateChange'"), 'Capacitor appStateChange listener must be wired')
   })
 
   it('pagesRef useEffect only syncs before initialization', () => {

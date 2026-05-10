@@ -18,7 +18,7 @@ export class AIInlineTool {
     this._button = document.createElement('button')
     this._button.type = 'button'
     this._button.innerHTML = ORB_SVG
-    this._button.classList.add('ce-inline-tool')
+    this._button.classList.add('ce-inline-tool', 'ce-inline-tool--ai')
     return this._button
   }
 

@@ -29,6 +29,12 @@ export default function SortablePageItem({ id, disabled, theme, dropPosition = '
     zIndex: isDragging ? 50 : undefined,
     cursor: disabled ? undefined : 'grab',
     position: 'relative',
+    // Allow native vertical scroll to pass through dnd-kit's touch listeners.
+    // dnd-kit's TouchSensor has a 250ms long-press delay before drag activates,
+    // but without `touch-action: pan-y` iOS WKWebView blocks scroll for that
+    // window — symptom: scrolling the sidebar feels like it "closes" because
+    // the gesture doesn't take effect and the user lifts onto the backdrop.
+    touchAction: 'pan-y',
   }
 
   return (

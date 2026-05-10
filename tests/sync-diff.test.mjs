@@ -127,6 +127,21 @@ describe('diffPages — note operations', () => {
     assert.equal(r.notesUpserted.size, 0, 'createdAt/lastEdited should not trigger sync push')
   })
 
+  it('emoji on note added → upsert (build-23 fix: emoji was previously ignored on notes)', () => {
+    const before = [note({ id: 'p1' })]
+    const after = [note({ id: 'p1', emoji: '🎯' })]
+    const r = diffPages(before, after)
+    assert.equal(r.notesUpserted.size, 1)
+    assert.ok(r.notesUpserted.has('p1'))
+  })
+
+  it('emoji on note changed → upsert', () => {
+    const before = [note({ id: 'p1', emoji: '📝' })]
+    const after = [note({ id: 'p1', emoji: '🎯' })]
+    const r = diffPages(before, after)
+    assert.equal(r.notesUpserted.size, 1)
+  })
+
   it('multiple notes — only changed ones in upsert', () => {
     const before = [
       note({ id: 'p1', title: 'A' }),

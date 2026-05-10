@@ -131,13 +131,13 @@ export default function SyncPassphraseModal ({
       : isDark ? 'bg-[#2f2f2f] border border-[#3a3a3a] text-[#c0c0c0] hover:bg-[#3a3a3a]'
         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
 
-  const defaultTitle = mode === 'setup' ? 'Set a sync passphrase' : 'Unlock vault'
+  const defaultTitle = mode === 'setup' ? 'Pick a passphrase for this device' : 'Unlock vault'
   const defaultSubtitle = mode === 'setup'
-    ? 'Encrypts your sync key on this device.'
+    ? 'This is local — different from your other devices.'
     : 'Enter your passphrase to resume sync.'
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+    <div className="dash-mobile-bottom-sheet fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
@@ -166,9 +166,14 @@ export default function SyncPassphraseModal ({
 
         <div className="px-6 py-5 space-y-3">
           {mode === 'setup' && (
-            <p className={`text-xs leading-relaxed ${subtitleClasses}`}>
-              <strong className={titleClasses}>Write this down somewhere safe.</strong> If you forget it and lose all your devices, your synced notes will be unrecoverable.
-            </p>
+            <>
+              <p className={`text-xs leading-relaxed ${subtitleClasses}`}>
+                Each device wraps the synced vault key with its own passphrase. Pick anything you'll remember — it doesn't need to match other devices.
+              </p>
+              <p className={`text-xs leading-relaxed ${subtitleClasses}`}>
+                <strong className={titleClasses}>Write it down somewhere safe.</strong> If you forget it and lose all your devices, your synced notes are unrecoverable.
+              </p>
+            </>
           )}
 
           {error && (

@@ -217,7 +217,9 @@ describe('syncCrypto — encryptEnvelope / decryptEnvelope', () => {
       parentVersion: null
     }
     const encrypted = await encryptEnvelope(envelope, key)
-    assert.equal(encrypted.v, 1)
+    // v2 = gzip(plaintext) → encrypt. v1 (legacy, plaintext → encrypt)
+    // is still decryptable but new envelopes are always v2.
+    assert.equal(encrypted.v, 2)
     assert.equal(encrypted.cipher, 'AES-GCM-256')
     assert.ok(Array.isArray(encrypted.iv))
     assert.equal(encrypted.iv.length, 12)
@@ -233,6 +235,50 @@ describe('syncCrypto — encryptEnvelope / decryptEnvelope', () => {
     const b = await encryptEnvelope(env, key)
     assert.notDeepEqual(a.iv, b.iv)
     assert.notDeepEqual(a.data, b.data)
+  })
+
+  it('decrypts v1 envelopes (legacy uncompressed plaintext)', async () => {
+    // Build a v1-shape envelope manually (no gzip layer) so we know the
+    // decrypt path still handles old data already on the relay.
+    const rawKey = generateVaultKey()
+    const key = await importVaultKey(rawKey)
+    const envelope = { hello: 'world v1' }
+    const iv = crypto.getRandomValues(new Uint8Array(12))
+    const plaintext = new TextEncoder().encode(JSON.stringify(envelope))
+    const ciphertext = new Uint8Array(
+      await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintext)
+    )
+    const v1Payload = {
+      v: 1,
+      cipher: 'AES-GCM-256',
+      iv: Array.from(iv),
+      data: Array.from(ciphertext)
+    }
+    const decrypted = await decryptEnvelope(v1Payload, key)
+    assert.deepEqual(decrypted, envelope)
+  })
+
+  it('compressed v2 envelope is meaningfully smaller than v1 for repetitive content', async () => {
+    // Editor.js block JSON is highly repetitive — gzip should shrink it.
+    // Without this win, the v2 schema bump isn't worth it.
+    const key = await importVaultKey(generateVaultKey())
+    const repetitive = {
+      blocks: Array.from({ length: 50 }, (_, i) => ({
+        type: 'paragraph',
+        data: { text: 'The quick brown fox jumps over the lazy dog. ' .repeat(5) },
+        id: `block-${i}`
+      }))
+    }
+    const v2 = await encryptEnvelope(repetitive, key)
+    const iv = crypto.getRandomValues(new Uint8Array(12))
+    const plain = new TextEncoder().encode(JSON.stringify(repetitive))
+    const v1Cipher = new Uint8Array(
+      await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plain)
+    )
+    assert.ok(
+      v2.data.length < v1Cipher.length / 2,
+      `v2 ciphertext (${v2.data.length} bytes) should be < half of v1 (${v1Cipher.length} bytes) for repetitive content`
+    )
   })
 
   it('throws DecryptionError with wrong key', async () => {
@@ -390,11 +436,40 @@ describe('syncCrypto — pair packet', () => {
       pairedDevices: [{ deviceId: 'd1', deviceName: 'MacBook' }]
     }
     const encrypted = await encryptPairPacket(packet, code)
-    assert.equal(encrypted.v, 1)
+    assert.equal(encrypted.v, 2) // bumped from 1 in build 33 — base64 fields, smaller QR
     assert.equal(encrypted.cipher, 'AES-GCM-256')
     assert.equal(encrypted.kdf, 'PBKDF2-SHA256')
     assert.equal(encrypted.iterations, 100000)
+    // v2 fields are base64 strings (not decimal-number arrays).
+    assert.equal(typeof encrypted.salt, 'string')
+    assert.equal(typeof encrypted.iv, 'string')
+    assert.equal(typeof encrypted.data, 'string')
     const decrypted = await decryptPairPacket(encrypted, code)
+    assert.deepEqual(decrypted, packet)
+  })
+
+  it('decrypts legacy v1 pair packet (decimal-number arrays)', async () => {
+    // Compatibility: any unreleased dev device that paired before the
+    // schema bump still decodes its stored / linked v1 packet.
+    const code = generatePairCode()
+    const packet = { vaultId: 'legacy', vaultKey: Array.from(generateVaultKey()) }
+    const v2 = await encryptPairPacket(packet, code)
+    // Convert v2 base64 fields back to decimal arrays + bump version
+    // down to simulate a legacy payload.
+    const bytesFrom = (s) => {
+      const bin = Buffer.from(s, 'base64').toString('binary')
+      const out = []
+      for (let i = 0; i < bin.length; i++) out.push(bin.charCodeAt(i))
+      return out
+    }
+    const v1 = {
+      ...v2,
+      v: 1,
+      salt: bytesFrom(v2.salt),
+      iv: bytesFrom(v2.iv),
+      data: bytesFrom(v2.data)
+    }
+    const decrypted = await decryptPairPacket(v1, code)
     assert.deepEqual(decrypted, packet)
   })
 

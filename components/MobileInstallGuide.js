@@ -22,7 +22,11 @@ export function MobileInstallGuide() {
     // Check if app is already installed (running in standalone mode)
     const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches
 
-    if (checkMobile() && !hasSeenGuide && !isStandalone) {
+    // Inside Capacitor (native iOS/Android shell) the app is already
+    // installed natively — never prompt for "Add to Home Screen".
+    const isCapacitor = !!window.Capacitor || /Capacitor/.test(navigator.userAgent)
+
+    if (checkMobile() && !hasSeenGuide && !isStandalone && !isCapacitor) {
       setIsMobile(true)
       // Show guide after a short delay
       const timer = setTimeout(() => {

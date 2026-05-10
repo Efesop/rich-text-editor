@@ -116,6 +116,17 @@ export default class MultiBlockTuneEnhancer {
     document.addEventListener('mouseup', this.handleSelection, { passive: true })
     document.addEventListener('keydown', this.handleKeyDown, { passive: true })
     document.addEventListener('mousedown', this.handleClickOutside)
+    // Touch parity for iOS / Android — `mouseup` does not always fire after a
+    // tap-to-select callout on iOS Safari, so listen to `touchend` and
+    // `selectionchange` (debounced) as well.
+    document.addEventListener('touchend', this.handleSelection, { passive: true })
+    document.addEventListener('touchstart', this.handleClickOutside, { passive: true })
+    this._selectionChangeTimer = null
+    this.handleSelectionChange = () => {
+      if (this._selectionChangeTimer) clearTimeout(this._selectionChangeTimer)
+      this._selectionChangeTimer = setTimeout(() => this.handleSelection(), 80)
+    }
+    document.addEventListener('selectionchange', this.handleSelectionChange, { passive: true })
 
     this.handleWindowBlur = () => {
       if (this._selectedElements.length > 0) {
@@ -157,13 +168,17 @@ export default class MultiBlockTuneEnhancer {
   }
 
   handleClickOutside (event) {
-    const onBtn = this._settingsBtn && this._settingsBtn.contains(event.target)
-    const onPopover = this._popover && this._popover.contains(event.target)
+    // Guard: touch events can have Text-node targets (no .closest), and
+    // synthetic events may have null target. Bail early for those.
+    const target = event.target
+    if (!target || typeof target.closest !== 'function') return
+    const onBtn = this._settingsBtn && this._settingsBtn.contains(target)
+    const onPopover = this._popover && this._popover.contains(target)
 
 
     // Cmd+click to toggle individual blocks in/out of selection
     if (event.metaKey || event.ctrlKey) {
-      const clickedBlock = event.target.closest('.ce-block')
+      const clickedBlock = target.closest('.ce-block')
       if (clickedBlock) {
         event.preventDefault()
         event.stopPropagation()
@@ -222,12 +237,16 @@ export default class MultiBlockTuneEnhancer {
   }
 
   handleSelection (event) {
-    if (event.target.closest('.multi-block-settings-btn, .multi-block-popover')) {
+    // Guard: selectionchange-debounced calls pass no event; touch targets
+    // can be Text nodes without .closest. Bail safely.
+    const target = event && event.target
+    if (target && typeof target.closest === 'function' &&
+      target.closest('.multi-block-settings-btn, .multi-block-popover')) {
       return
     }
 
     // Cmd+click is handled in handleClickOutside
-    if (event.metaKey || event.ctrlKey) {
+    if (event && (event.metaKey || event.ctrlKey)) {
       return
     }
 
@@ -707,6 +726,12 @@ export default class MultiBlockTuneEnhancer {
     document.removeEventListener('mouseup', this.handleSelection)
     document.removeEventListener('keydown', this.handleKeyDown)
     document.removeEventListener('mousedown', this.handleClickOutside)
+    document.removeEventListener('touchend', this.handleSelection)
+    document.removeEventListener('touchstart', this.handleClickOutside)
+    if (this.handleSelectionChange) {
+      document.removeEventListener('selectionchange', this.handleSelectionChange)
+    }
+    if (this._selectionChangeTimer) clearTimeout(this._selectionChangeTimer)
     window.removeEventListener('blur', this.handleWindowBlur)
     window.removeEventListener('focus', this.handleWindowFocus)
 

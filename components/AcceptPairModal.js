@@ -2,12 +2,18 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Smartphone, X, KeyRound, Check, AlertCircle, Lock } from 'lucide-react'
 import { decryptPairPacket } from '../lib/syncCrypto.js'
 
+// QR camera scan re-enabled in build 28 (`@capacitor-mlkit/barcode-scanning@^6`).
+// Cap pod install pinned via ios/App/Gemfile so the ffi 1.17 / Ruby 2.6
+// conflict from build 12 doesn't recur.
+const QR_SCAN_ENABLED = true
+
 /**
  * Guest-side pair flow.
  *
- * New device pastes the encrypted pair link (or scans from camera, future)
- * + types the 6-digit code. We decrypt the packet, hand the resulting vault
- * key + metadata back to the caller via `onPaired`.
+ * New device either scans a QR code with the camera (Capacitor native) or
+ * pastes the encrypted pair link. Plus the 6-digit code. We decrypt the
+ * packet, hand the resulting vault key + metadata back to the caller via
+ * `onPaired`.
  *
  * Caller is responsible for:
  *   - Persisting the new vault metadata (with this device's freshly-minted
@@ -31,7 +37,77 @@ export default function AcceptPairModal ({
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [scanning, setScanning] = useState(false)
   const codeInputRef = useRef(null)
+
+  // QR scan via @capacitor-mlkit/barcode-scanning. iOS-only entry point —
+  // gated above by `window.Capacitor?.isNativePlatform?.()`.
+  const scanQR = async () => {
+    let BarcodeScanner = null
+    try {
+      setError(null)
+      setScanning(true)
+      console.log('[QR] starting scan flow')
+      try {
+        const mod = await import('@capacitor-mlkit/barcode-scanning')
+        BarcodeScanner = mod.BarcodeScanner
+        console.log('[QR] plugin imported', typeof BarcodeScanner)
+      } catch (impErr) {
+        console.error('[QR] plugin import failed', impErr)
+        setError('Barcode plugin not available in this build. Use the link path.')
+        return
+      }
+      // Skip the Google barcode module check on iOS — ML Kit is bundled
+      // statically and the install* method is Android-only. Calling it
+      // on iOS rejects with "not implemented" and falls through, but
+      // skipping avoids confusing console noise.
+      // Permission first — `scan()` will also self-prompt, but doing it
+      // here gives us a clean error path when the user has previously
+      // denied (`scan()` rejects silently in that case, leaving the
+      // user confused with "nothing happened").
+      let perm = null
+      try {
+        perm = await BarcodeScanner.checkPermissions()
+        console.log('[QR] checkPermissions', perm)
+      } catch (e) {
+        console.warn('[QR] checkPermissions threw', e)
+      }
+      if (perm?.camera !== 'granted' && perm?.camera !== 'limited') {
+        try {
+          perm = await BarcodeScanner.requestPermissions()
+          console.log('[QR] requestPermissions', perm)
+        } catch (reqErr) {
+          console.error('[QR] requestPermissions threw', reqErr)
+        }
+      }
+      if (perm?.camera !== 'granted' && perm?.camera !== 'limited') {
+        setError('Camera permission denied. Open Settings → Dash → Camera to enable, then try again.')
+        return
+      }
+      console.log('[QR] calling BarcodeScanner.scan')
+      const result = await BarcodeScanner.scan({ formats: ['QR_CODE'] })
+      console.log('[QR] scan returned', result)
+      const value = result?.barcodes?.[0]?.rawValue
+      if (!value) {
+        setError('No QR code detected — try again.')
+        return
+      }
+      if (!value.startsWith('dash-pair:')) {
+        setError('Not a Dash pair QR code.')
+        return
+      }
+      setPairLink(value.replace(/^dash-pair:/, ''))
+      setTimeout(() => codeInputRef.current?.focus(), 100)
+    } catch (err) {
+      // BarcodeScanner.scan throws on user-cancel — treat as silent.
+      const msg = err?.message || err?.toString?.() || ''
+      console.error('[QR] scan threw', msg, err)
+      if (/cancel/i.test(msg)) return
+      setError(msg ? `Scan failed: ${msg}` : 'Scan failed (no error message). Use the link path.')
+    } finally {
+      setScanning(false)
+    }
+  }
 
   useEffect(() => {
     if (isOpen) {
@@ -40,6 +116,7 @@ export default function AcceptPairModal ({
       setError(null)
       setBusy(false)
       setSuccess(false)
+      setScanning(false)
     }
   }, [isOpen])
 
@@ -69,6 +146,18 @@ export default function AcceptPairModal ({
       })()
       const wireStr = new TextDecoder().decode(wireBytes)
       const encryptedPacket = JSON.parse(wireStr)
+      // Diagnostic: log what we received + what build is decoding it.
+      // Without this, "unsupported schema version 2" gives no clue
+      // whether (a) the desktop produced a v2 packet OR (b) this iOS
+      // build's decoder doesn't know v2 (stale cache).
+      console.log('[pair] decoder build', (typeof window !== 'undefined' && window.__DASH_BUILD__) || 'unknown')
+      console.log('[pair] packet shape', {
+        v: encryptedPacket?.v,
+        cipher: encryptedPacket?.cipher,
+        saltType: typeof encryptedPacket?.salt,
+        ivType: typeof encryptedPacket?.iv,
+        dataType: typeof encryptedPacket?.data
+      })
       const decryptedPacket = await decryptPairPacket(encryptedPacket, pairCode)
       // Sanity check: decryptedPacket must have vaultId, vaultKey, relayUrl
       if (!decryptedPacket.vaultId || !Array.isArray(decryptedPacket.vaultKey) || !decryptedPacket.relayUrl) {
@@ -76,13 +165,21 @@ export default function AcceptPairModal ({
       }
       setSuccess(true)
       // Brief success animation, then dispatch
-      setTimeout(() => onPaired?.({ vaultPacket: decryptedPacket, pairCode }), 600)
+      setTimeout(() => {
+        onPaired?.({ vaultPacket: decryptedPacket, pairCode })
+      }, 600)
     } catch (err) {
       console.error('AcceptPairModal: decrypt failed', err)
-      setError(/wrong pair code/i.test(err.message)
+      // Surface diagnostics in the error message itself — Safari Web
+      // Inspector isn't always available on the device that's failing,
+      // and screenshots of the error in the modal are the only feedback
+      // path. Including build marker lets us see if a stale-cache iOS
+      // is running an old bundle.
+      const buildMarker = (typeof window !== 'undefined' && window.__DASH_BUILD__) || 'unknown'
+      const baseMsg = /wrong pair code/i.test(err.message)
         ? 'That code didn\'t work. Double-check the digits.'
         : err.message
-      )
+      setError(`${baseMsg} (build ${buildMarker})`)
     } finally {
       setBusy(false)
     }
@@ -159,8 +256,8 @@ export default function AcceptPairModal ({
                 <KeyRound className="w-5 h-5 pointer-events-none" />
               </div>
               <div>
-                <h2 className={`text-lg font-semibold ${titleClasses}`}>Pair to existing vault</h2>
-                <p className={subtitleClasses}>Connect this device to your other Dash.</p>
+                <h2 className={`text-lg font-semibold ${titleClasses}`}>Enter a sync code</h2>
+                <p className={subtitleClasses}>Use the code shown on your other Dash to connect.</p>
               </div>
             </div>
             <button onClick={onClose} className={`p-2 rounded-lg transition-colors ${closeBtn}`} aria-label="Close">
@@ -171,12 +268,17 @@ export default function AcceptPairModal ({
 
         <div className="px-6 py-5 space-y-4">
           {success ? (
-            <div className="flex flex-col items-center gap-3 py-6">
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
               <div className={`w-14 h-14 rounded-full flex items-center justify-center ${iconContainerClasses}`}>
                 <Check className="w-7 h-7 pointer-events-none" />
               </div>
               <p className={`text-base font-semibold ${titleClasses}`}>Paired</p>
               <p className={subtitleClasses}>Setting up sync…</p>
+              <p className={`text-xs leading-relaxed mt-2 max-w-xs ${subtitleClasses}`}>
+                The first sync can take a few minutes — your existing notes
+                are being encrypted and uploaded. Sync runs in the background;
+                you can keep using the app.
+              </p>
             </div>
           ) : (
             <>
@@ -185,6 +287,17 @@ export default function AcceptPairModal ({
                   <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5 pointer-events-none" />
                   <p className="text-xs text-red-400 leading-relaxed">{error}</p>
                 </div>
+              )}
+
+              {/* Scan QR — gated off in build 12 pending CocoaPods env fix. */}
+              {QR_SCAN_ENABLED && (typeof window !== 'undefined' && !!window.Capacitor?.isNativePlatform?.()) && (
+                <button
+                  onClick={scanQR}
+                  disabled={scanning || busy}
+                  className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 disabled:opacity-40 ${secondaryBtn}`}
+                >
+                  {scanning ? 'Scanning…' : 'Scan QR code'}
+                </button>
               )}
 
               {/* Pair link input */}
@@ -198,7 +311,7 @@ export default function AcceptPairModal ({
                   className={`w-full px-4 py-3 text-sm rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 resize-none ${inputClasses}`}
                 />
                 <p className={`text-[11px] mt-1 ${subtitleClasses}`}>
-                  Tap "Copy pair link" on your other device, then paste here.
+                  Tap "Copy pair link" on your other device, then paste here. Or scan the QR if it's on screen.
                 </p>
               </div>
 
@@ -238,7 +351,7 @@ export default function AcceptPairModal ({
                   disabled={busy || !pairLink || pairCode.length !== 6}
                   className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 disabled:opacity-40 ${primaryBtn}`}
                 >
-                  {busy ? 'Decrypting…' : 'Pair'}
+                  {busy ? 'Decrypting…' : 'Connect'}
                 </button>
               </div>
             </>

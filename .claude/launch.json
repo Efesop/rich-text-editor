@@ -1,0 +1,20 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 4000,
+      "autoPort": false,
+      "env": { "PORT": "4000" }
+    },
+    {
+      "name": "ios-bundle",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "ios/App/App/public", "-p", "5050"],
+      "port": 5050,
+      "autoPort": false
+    }
+  ]
+}

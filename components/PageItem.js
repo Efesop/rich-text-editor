@@ -5,6 +5,7 @@ import StackedTags from './StackedTags'
 import Tooltip from './Tooltip'
 import { isMobileDevice, isSmallScreen } from '@/utils/deviceUtils'
 import { ActionSheet, ActionSheetItem, ActionSheetSeparator } from './ActionSheet'
+import { useLongPress } from '@/utils/useLongPress'
 
 const PageItem = ({
   page,
@@ -102,7 +103,10 @@ const PageItem = ({
     const folderStyle = isInsideFolder
       ? (sidebarOpen ? 'ml-5 mr-1 rounded-l-none border-l-2 ' : 'mx-1 ') + (theme === 'fallout' ? 'border-green-500/20' : theme === 'dark' ? 'border-[#3a3a3a]' : theme === 'darkblue' ? 'border-[#2a3454]' : 'border-neutral-200')
       : 'mx-1'
-    const baseClasses = `flex items-center ${sidebarOpen ? 'justify-between px-3 py-2' : 'justify-center px-0 py-1'} cursor-pointer text-sm rounded-lg transition-colors duration-150 overflow-hidden ${folderStyle}`
+    const sizing = sidebarOpen
+      ? (isMobile ? 'justify-between px-3 py-2 text-[15px] min-h-[40px]' : 'justify-between px-3 py-2 text-sm')
+      : 'justify-center px-0 py-1 text-sm'
+    const baseClasses = `flex items-center ${sizing} cursor-pointer rounded-lg transition-colors duration-150 overflow-hidden ${folderStyle}`
 
     if (isActive) {
       if (theme === 'fallout') {
@@ -184,11 +188,28 @@ const PageItem = ({
     }
   }
 
+  // On mobile: long-press is reserved for dnd-kit's drag activation
+  // (TouchSensor delay 250 ms). Action sheet still accessible via the
+  // 3-dots MoreVertical button (line ~308). Pre-fix this hook also opened
+  // the action sheet on long-press, which raced + won against the drag
+  // gesture (TouchSensor's 5 px tolerance often cancelled before activation
+  // when fingers jittered, then useLongPress fired at 450 ms). Result:
+  // user couldn't reorder by hold-drag.
+  // useLongPress still used for short-tap → select with built-in
+  // touchmove cancellation (so list scroll doesn't fire onClick).
+  const longPressHandlers = useLongPress({
+    onLongPress: () => { /* intentionally a no-op — drag owns long-press on mobile */ },
+    onClick: () => {
+      if (!isSelfDestructing) onSelect(page)
+    },
+    delay: 450
+  })
+
   return (
     <div
       ref={pageItemRef}
       className={`${getPageItemClasses()} ${className} ${isSelfDestructing ? 'dash-sd-dissolve' : ''}`}
-      onClick={() => !isSelfDestructing && onSelect(page)}
+      onClick={isMobile ? undefined : () => !isSelfDestructing && onSelect(page)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onAnimationEnd={(e) => {
@@ -197,9 +218,10 @@ const PageItem = ({
         }
       }}
       style={{ minHeight: isSelfDestructing ? undefined : '2.25rem' }}
+      {...(isMobile ? longPressHandlers : {})}
     >
       {sidebarOpen ? (
-      <div className="flex items-center flex-1 min-w-0" style={{ marginRight: isHovered ? 0 : -24, transition: 'margin-right 150ms' }}>
+      <div className="flex items-center flex-1 min-w-0" style={{ marginRight: isMobile ? 0 : (isHovered ? 0 : -24), transition: 'margin-right 150ms' }}>
         {(page.id?.startsWith('live-') || isLiveSession) && (
           <div className="flex items-center -space-x-1 mr-1.5 flex-shrink-0">
             {(liveAvatarColors.length > 0 ? liveAvatarColors.slice(0, 3) : ['#3b82f6']).map((color, i) => (
@@ -268,13 +290,20 @@ const PageItem = ({
             ref={buttonRef}
             onClick={(e) => {
               e.stopPropagation()
-              if (isMobile) {
-                setIsActionSheetOpen(true)
-              } else {
-                setIsDropdownOpen(!isDropdownOpen)
-              }
+              if (isMobile) setIsActionSheetOpen(true)
+              else setIsDropdownOpen(!isDropdownOpen)
             }}
-            className="h-6 w-6 p-0 inline-flex items-center justify-center rounded-md"
+            // Stop pointer events from bubbling to parent — useLongPress
+            // listens on pointerdown/pointermove/pointerup and fires its
+            // onClick callback even when the click event itself was stopped,
+            // which on mobile triggered onSelect → page navigate → sidebar
+            // close. Halting the pointer phase keeps useLongPress unaware of
+            // the tap.
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerUp={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            className={`${isMobile ? 'h-9 w-9' : 'h-6 w-6'} p-0 inline-flex items-center justify-center rounded-md flex-shrink-0`}
             style={{ opacity: isMobile || isHovered ? 1 : 0, transition: 'opacity 150ms' }}
             aria-haspopup="menu"
             aria-expanded={isDropdownOpen || isActionSheetOpen}

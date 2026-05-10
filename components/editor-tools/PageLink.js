@@ -25,7 +25,7 @@ export class PageLinkInlineTool {
     this._button = document.createElement('button')
     this._button.type = 'button'
     this._button.innerHTML = PAGE_LINK_ICON
-    this._button.classList.add('ce-inline-tool')
+    this._button.classList.add('ce-inline-tool', 'ce-inline-tool--pagelink')
     return this._button
   }
 
