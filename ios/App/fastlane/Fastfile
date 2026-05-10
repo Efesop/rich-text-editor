@@ -1,0 +1,66 @@
+default_platform(:ios)
+
+API_KEY_ID = "8NXN3W8UL2"
+API_ISSUER_ID = "0b2ccadb-7c1e-42e7-83ed-ee2e61b52391"
+API_KEY_PATH = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_8NXN3W8UL2.p8")
+
+def asc_api_key
+  app_store_connect_api_key(
+    key_id: API_KEY_ID,
+    issuer_id: API_ISSUER_ID,
+    key_filepath: API_KEY_PATH,
+    in_house: false
+  )
+end
+
+platform :ios do
+  desc "Pull existing ASC metadata + screenshots into ./fastlane"
+  lane :pull do
+    sh("LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 fastlane deliver download_metadata --api-key-path /tmp/dash_asc_key.json --app-identifier io.dashnote.app")
+  end
+
+  desc "Push metadata only (no binary, no submit) — review what'll go up"
+  lane :push_metadata do
+    deliver(
+      api_key: asc_api_key,
+      app_identifier: "io.dashnote.app",
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      skip_app_version_update: false,
+      force: true,
+      precheck_include_in_app_purchases: false,
+      submit_for_review: false,
+      automatic_release: false
+    )
+  end
+
+  desc "Submit build 44 for review (uses already-uploaded build)"
+  lane :submit do
+    deliver(
+      api_key: asc_api_key,
+      app_identifier: "io.dashnote.app",
+      build_number: "44",
+      skip_binary_upload: true,
+      skip_screenshots: false,
+      skip_metadata: false,
+      force: true,
+      precheck_include_in_app_purchases: false,
+      submit_for_review: true,
+      automatic_release: true,
+      reject_if_possible: true,
+      submission_information: {
+        add_id_info_uses_idfa: false,
+        export_compliance_uses_encryption: true,
+        export_compliance_encryption_updated: false,
+        export_compliance_app_type: nil,
+        export_compliance_uses_encryption: true,
+        export_compliance_is_exempt: true,
+        export_compliance_contains_third_party_cryptography: false,
+        export_compliance_contains_proprietary_cryptography: false,
+        export_compliance_available_on_french_store: true,
+        content_rights_contains_third_party_content: false,
+        content_rights_has_rights: true
+      }
+    )
+  end
+end

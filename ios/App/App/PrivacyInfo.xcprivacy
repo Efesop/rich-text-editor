@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+		Required by Apple from iOS 17 / App Store submissions May 2024+.
+		Declares: tracking domains, data types collected, required-reasons
+		API usage. Dash is a privacy-first local-first note app — most
+		categories are empty by design.
+
+		Sync: when enabled, encrypted user content (notes, attachments,
+		version history) is stored on a relay server. The relay receives
+		ciphertext only; vault key never leaves the device. We do NOT
+		consider this "data collection" in the App Store sense — the
+		operator (us) cannot read it. Apple's guidance treats E2E
+		encrypted content storage as not requiring disclosure when keys
+		are device-only.
+
+		Analytics: none. Crash reporting: none currently. If Sentry / etc
+		is added later, append to NSPrivacyCollectedDataTypes.
+	-->
+
+	<!-- We don't track users across apps/sites. -->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+
+	<!-- No analytics / advertising data collected. Sync content is E2E
+	     encrypted and not considered "linked to user" since there is no
+	     account identity — devices auth via cryptographic vault key. -->
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+
+	<!-- Required Reason API declarations (Apple list).
+	     UserDefaults: theme + sidebar preferences (CA92.1 – app
+	       functionality, not advertising / analytics).
+	     File timestamp: attachment + version metadata storage
+	       (C617.1 – display info to user about file). -->
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

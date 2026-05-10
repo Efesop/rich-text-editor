@@ -1,0 +1,4 @@
+app_identifier("io.dashnote.app")
+apple_id("efesop@gmail.com")
+itc_team_id("129577927") # Filmshape Ltd ASC team — adjust if deliver complains
+team_id("9888FL2CQ6")    # Apple Developer Team ID

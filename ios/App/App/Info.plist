@@ -28,7 +28,7 @@
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
@@ -45,5 +45,43 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<!-- ATS exception for local relay testing on simulator (ws://localhost) -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<!-- Face ID gates app-lock unlock; the app-lock key in turn protects
+	     access to encrypted notes (and, when sync is enabled, the vault
+	     key stored in iOS Keychain). -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>Dash uses Face ID to unlock the app and your encrypted notes.</string>
+	<!-- Required to scan QR pair codes from another device. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Dash uses the camera to scan pair codes from another device.</string>
+	<!-- Required to attach images from the photo library to notes. -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Dash uses the photo library so you can attach images to your notes.</string>
+	<!-- Custom URL scheme so dashnotes://share/... and dashnotes://live#...
+	     deep links delivered from Mail / iMessage / Safari open the app
+	     and route through Capacitor's App.appUrlOpen event. Mirrors the
+	     Electron protocol-handler registration in electron-main.js. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>io.dashnote.app.deeplink</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>dashnotes</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Export-compliance declaration: app uses standard published crypto
+	     (AES-GCM, HKDF, HMAC, PBKDF2 via WebCrypto) which qualifies for the
+	     mass-market exemption (ECCN 5D992.c). With this key set false, App
+	     Store Connect skips the encryption questionnaire on every build. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Used by `npm run ios:export`. Defaults to App Store distribution.
+	     Switch `method` to `development` for sideload to a single device,
+	     or `ad-hoc` for a UDID-restricted distribution.
+
+	     `signingStyle: automatic` lets Xcode pick certs + provisioning
+	     profile from the team specified in Signing & Capabilities. Set
+	     teamID below to your Apple Developer Team ID (10-char alphanum,
+	     visible in App Store Connect → Membership). -->
+	<key>method</key>
+	<string>app-store</string>
+	<key>signingStyle</key>
+	<string>automatic</string>
+	<key>uploadSymbols</key>
+	<true/>
+	<key>compileBitcode</key>
+	<false/>
+	<key>teamID</key>
+	<string>9888FL2CQ6</string>
+</dict>
+</plist>
