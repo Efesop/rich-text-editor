@@ -26,6 +26,8 @@
  * timestamp+device+nonce as the auth proof.
  */
 
+import { hasEntitlement } from './entitlements.ts'
+
 // ── Types ──────────────────────────────────────────────────────────────
 
 export type ResourceType =
@@ -49,6 +51,15 @@ export type SyncBlob = {
 export type VaultIndex = {
   lastVersion: number
   totalBytes: number
+  // Unix ms of last push/pull from this vault. Cron uses it to identify
+  // inactive vaults for auto-purge after INACTIVE_VAULT_TTL_MS.
+  lastActivityAt?: number
+  // Hashed IP of the device that created this vault. Stored at register
+  // time so we can decrement that IP's lifetime quota counter when the
+  // vault gets purged (auto on last-device-leave, or manual purge).
+  // Without this, IP quota is cumulative and never recovers — users hit
+  // the lifetime limit (10 prod) after a few sync resets and get stuck.
+  creatorIpHash?: string
 }
 
 export type DeviceInfo = {
@@ -77,7 +88,29 @@ export type EnvelopeIn = {
 
 export const MAX_DEVICES_PER_VAULT = 10
 export const MAX_VAULT_BYTES = 500 * 1024 * 1024 // 500 MB
-export const MAX_ENVELOPE_BYTES = 50 * 1024
+
+// Per-IP register hardening (free-tier abuse prevention).
+// IPs are SHA-256 hashed with IP_HASH_SALT before storage so we don't
+// keep raw addresses in KV.
+// Anti-spam: how many fresh vaults a single IP can register in a window.
+// Tight production defaults; relaxed locally so dev iteration doesn't lock
+// us out of our own relay during pair-flow testing.
+const IS_LOCAL_RELAY = !Deno.env.get('DENO_DEPLOYMENT_ID')
+export const REGISTER_PER_IP_PER_HOUR = IS_LOCAL_RELAY ? 200 : 20
+// Lifetime cap (production). Counter is now refunded on auto-purge + manual
+// purge so it tracks ACTIVE vaults per IP, not cumulative registers ever.
+// 50 gives a generous ceiling for normal users while still bounding abuse.
+export const REGISTER_PER_IP_LIFETIME = IS_LOCAL_RELAY ? 10000 : 50
+// Soft KV ceiling — refuse new vault registers above this. Free Deno
+// Deploy plan = 1 GiB; 80% leaves headroom.
+export const KV_SOFT_CEILING_BYTES = 800 * 1024 * 1024
+// Inactive vault TTL — auto-purged by cron after 90 days no activity.
+export const INACTIVE_VAULT_TTL_MS = 90 * 24 * 60 * 60 * 1000
+// Deno KV has a hard 64 KB cap per value. Each envelope is one KV entry,
+// so this CANNOT be bumped above ~62 KB without changing storage layout
+// (chunked entries). Larger notes need to be split or compressed before
+// the envelope is encrypted.
+export const MAX_ENVELOPE_BYTES = 62 * 1024
 export const MAX_BATCH_BYTES = 200 * 1024
 export const MAX_BATCH_COUNT = 50
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024 // 10 MB
@@ -97,7 +130,11 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
   'push': { perVault: 60, perDevice: 30 },
   'pull': { perVault: 120, perDevice: 60 },
   'attachment': { perVault: 10, perDevice: 5 },
-  'other': { perVault: 30, perDevice: 30 },
+  // /sync/vault/index gets polled aggressively while the pair modal AND
+  // the sync settings panel are both open (host showing pair code +
+  // checking for guests joining). 60/min per device leaves headroom
+  // without being unbounded.
+  'other': { perVault: 120, perDevice: 60 },
 }
 
 // CORS headers (matches relay.ts but adds sync auth headers)
@@ -195,10 +232,14 @@ export async function authenticate(
   req: Request,
   opts: { skipRegistrationCheck?: boolean } = {},
 ): Promise<AuthResult> {
-  const vaultId = req.headers.get('x-vault-id')
-  const deviceId = req.headers.get('x-device-id')
-  const timestampStr = req.headers.get('x-timestamp')
-  const auth = req.headers.get('x-auth')
+  // Prefer headers for auth proof, but fall back to URL query params for
+  // WebSocket clients — browser WS API can't set arbitrary headers, so
+  // the WS handshake passes auth via ?v=...&d=...&t=...&a=... .
+  const url = new URL(req.url)
+  const vaultId = req.headers.get('x-vault-id') ?? url.searchParams.get('v')
+  const deviceId = req.headers.get('x-device-id') ?? url.searchParams.get('d')
+  const timestampStr = req.headers.get('x-timestamp') ?? url.searchParams.get('t')
+  const auth = req.headers.get('x-auth') ?? url.searchParams.get('a')
 
   if (!vaultId || !deviceId || !timestampStr || !auth) {
     return {
@@ -345,6 +386,143 @@ export function clearRateLimits(): void {
   rateLimitCounters.clear()
 }
 
+/**
+ * Purge vaults inactive for >= INACTIVE_VAULT_TTL_MS. Called from a Deno
+ * cron job in relay.ts. Iterates ['v'] prefix, finds index entries with
+ * `lastActivityAt` older than the cutoff, deletes the whole vault subtree.
+ *
+ * Returns count of vaults purged. Logged but not fatal on errors —
+ * cron retries next tick.
+ */
+export async function purgeInactiveVaults(kv: Deno.Kv): Promise<number> {
+  const cutoff = Date.now() - INACTIVE_VAULT_TTL_MS
+  const vaultsToPurge: string[] = []
+
+  // Identify candidates first
+  const idxIter = kv.list<VaultIndex>({ prefix: ['v'] })
+  for await (const entry of idxIter) {
+    if (entry.key.length !== 3 || entry.key[2] !== 'index') continue
+    const lastAt = entry.value?.lastActivityAt
+    // Treat missing lastActivityAt as inactive only if vault has been
+    // around for long enough (otherwise we'd nuke fresh vaults that
+    // haven't pushed yet). Skip — wait for first push to record activity.
+    if (typeof lastAt !== 'number') continue
+    if (lastAt < cutoff) {
+      const vaultId = entry.key[1] as string
+      vaultsToPurge.push(vaultId)
+    }
+  }
+
+  // Delete each vault subtree. Use existing purge logic if available, or
+  // walk the prefix and delete in batches.
+  for (const vaultId of vaultsToPurge) {
+    const subIter = kv.list({ prefix: ['v', vaultId] })
+    let batch = kv.atomic()
+    let count = 0
+    for await (const e of subIter) {
+      batch = batch.delete(e.key)
+      count++
+      if (count % 100 === 0) {
+        await batch.commit()
+        batch = kv.atomic()
+      }
+    }
+    if (count % 100 !== 0) await batch.commit()
+    // Also clean up the device map at ['vault', vaultId, 'devices']
+    await kv.delete(['vault', vaultId, 'devices'])
+    console.log(`[purgeInactiveVaults] purged vault ${vaultId} (${count} entries)`)
+  }
+
+  return vaultsToPurge.length
+}
+
+// ── Per-IP register hardening ─────────────────────────────────────────
+
+const IP_HASH_SALT = Deno.env.get('IP_HASH_SALT') ?? 'dash-relay-default-salt-rotate-me'
+
+/**
+ * Extract client IP from standard proxy headers. Deno Deploy sets
+ * x-forwarded-for; fall back to a no-op string so dev/local doesn't crash.
+ */
+function getClientIp(req: Request): string {
+  const xff = req.headers.get('x-forwarded-for')
+  if (xff) {
+    const first = xff.split(',')[0].trim()
+    if (first) return first
+  }
+  return req.headers.get('cf-connecting-ip') ??
+    req.headers.get('x-real-ip') ??
+    'unknown'
+}
+
+async function hashIp(ip: string): Promise<string> {
+  const data = new TextEncoder().encode(ip + ':' + IP_HASH_SALT)
+  const hash = await crypto.subtle.digest('SHA-256', data)
+  // First 16 bytes hex = 32 chars — plenty for collision avoidance, half
+  // the storage of full SHA-256.
+  return Array.from(new Uint8Array(hash).slice(0, 16))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+/**
+ * Check + record per-IP register quota. Returns { ok, reason } where
+ * reason is one of 'rate' | 'lifetime' | 'kv-full'. KV is the source of
+ * truth (so quota survives instance restart).
+ */
+async function checkRegisterIpQuota(
+  kv: Deno.Kv,
+  ipHash: string,
+): Promise<{ ok: true } | { ok: false; reason: 'rate' | 'lifetime' }> {
+  const hourBucket = Math.floor(Date.now() / (60 * 60 * 1000))
+  const hourKey = ['ip-rate', ipHash, hourBucket]
+  const lifetimeKey = ['ip-lifetime', ipHash]
+
+  const [hourEntry, lifeEntry] = await kv.getMany<[number, number]>([
+    hourKey,
+    lifetimeKey,
+  ])
+  const hourCount = (hourEntry.value ?? 0)
+  const lifeCount = (lifeEntry.value ?? 0)
+
+  if (hourCount >= REGISTER_PER_IP_PER_HOUR) {
+    return { ok: false, reason: 'rate' }
+  }
+  if (lifeCount >= REGISTER_PER_IP_LIFETIME) {
+    return { ok: false, reason: 'lifetime' }
+  }
+
+  // Bump counters (best-effort; not atomic with vault create — small
+  // overcount is fine, undercount is the tolerated risk).
+  await kv.set(hourKey, hourCount + 1, { expireIn: 60 * 60 * 1000 })
+  await kv.set(lifetimeKey, lifeCount + 1)
+  return { ok: true }
+}
+
+/**
+ * KV size watchdog. Returns true if total KV usage is over the soft
+ * ceiling — caller should refuse new registers. Tracked via a running
+ * counter at ['kv-meta', 'totalBytes']; updated incrementally on push
+ * (already done by VaultIndex.totalBytes per vault) plus a global sum
+ * we maintain here.
+ *
+ * Cheap implementation: read first page of vault indexes, sum totalBytes.
+ * Acceptable since this only runs on register (rare).
+ */
+async function isKvFull(kv: Deno.Kv): Promise<boolean> {
+  let total = 0
+  // Per-vault index lives at ['v', vaultId, 'index']. Iterate ['v'] prefix
+  // and pick out only the index entries (length 3, last segment 'index').
+  const iter = kv.list<VaultIndex>({ prefix: ['v'] })
+  for await (const entry of iter) {
+    if (entry.key.length !== 3 || entry.key[2] !== 'index') continue
+    if (entry.value && typeof entry.value.totalBytes === 'number') {
+      total += entry.value.totalBytes
+    }
+  }
+  return total >= KV_SOFT_CEILING_BYTES
+}
+
 // ── WebSocket fan-out ──────────────────────────────────────────────────
 
 export type DoorbellMessage = {
@@ -394,7 +572,41 @@ export async function handleVaultRegister(
   const rl = checkRateLimit(auth.vaultId, auth.deviceId, 'other')
   if (!rl.ok) return rateLimitedResponse(rl.retryAfter)
 
-  let body: { vaultId?: string; deviceId?: string; deviceName?: string }
+  // Per-IP register hardening — prevents a script from filling KV with
+  // garbage vaults. Only check on FIRST device of a vault (creating the
+  // vault); existing-vault re-registers (paired devices) bypass.
+  const devicesProbe = await kv.get<DevicesMap>(['vault', auth.vaultId, 'devices'])
+  const isNewVault = !devicesProbe.value || Object.keys(devicesProbe.value).length === 0
+  let creatorIpHash: string | null = null
+  if (isNewVault) {
+    creatorIpHash = await hashIp(getClientIp(req))
+    const quota = await checkRegisterIpQuota(kv, creatorIpHash)
+    if (!quota.ok) {
+      return errorResponse('forbidden', 429, {
+        message: quota.reason === 'rate'
+          ? 'Too many vaults created from this network recently — try again later'
+          : 'Maximum vaults reached for this network',
+        reason: quota.reason,
+      })
+    }
+    if (await isKvFull(kv)) {
+      return errorResponse('forbidden', 503, {
+        message: 'Sync server at capacity — try again later or self-host',
+        reason: 'capacity',
+      })
+    }
+    // Stamp the creator IP onto the vault index so we can refund the
+    // lifetime quota when the vault gets purged. Best-effort: any race
+    // here just means we miss a refund (worst case = current behavior).
+    const indexKey = ['v', auth.vaultId, 'index']
+    const indexEntry = await kv.get<VaultIndex>(indexKey)
+    const existingIndex: VaultIndex = indexEntry.value ?? { lastVersion: 0, totalBytes: 0 }
+    if (!existingIndex.creatorIpHash) {
+      await kv.set(indexKey, { ...existingIndex, creatorIpHash })
+    }
+  }
+
+  let body: { vaultId?: string; deviceId?: string; deviceName?: string; entitlementEmail?: string; rcAppUserId?: string }
   try {
     body = await req.json()
   } catch {
@@ -406,6 +618,24 @@ export async function handleVaultRegister(
     return errorResponse('invalid-request', 400, {
       message: 'Body vaultId/deviceId must match headers',
     })
+  }
+
+  // Entitlement gate (feature-flagged for v1.5 rollout). Only enforced on
+  // new-vault creation — existing-vault re-registers (paired devices) bypass.
+  // During alpha (v1.4.0) ENTITLEMENT_REQUIRED is unset → free for all.
+  // Flip to "true" in Deno Deploy env when v1.5 IAP/Stripe paywall is live.
+  const entitlementRequired = Deno.env.get('ENTITLEMENT_REQUIRED') === 'true'
+  if (entitlementRequired && isNewVault) {
+    const ent = await hasEntitlement(kv, {
+      email: body.entitlementEmail,
+      rcAppUserId: body.rcAppUserId,
+    })
+    if (!ent.hasSync) {
+      return errorResponse('forbidden', 402, {
+        message: 'Sync requires an active subscription (iOS) or one-time Mac purchase. Subscribe in app or buy at https://dashnote.io',
+        reason: 'no-entitlement',
+      })
+    }
   }
 
   if (typeof body.deviceName !== 'undefined' && typeof body.deviceName !== 'string') {
@@ -482,16 +712,13 @@ export async function handleRevokeDevice(
     return errorResponse('invalid-request', 400, { message: 'deviceId required' })
   }
 
-  // Disallow self-revocation via this endpoint — must use disable-sync
-  // locally (which clears the device's own state) to avoid lockout where
-  // the only paired device removes itself accidentally.
-  if (pathDeviceId === auth.deviceId) {
-    return errorResponse('invalid-request', 400, {
-      message: 'Use disableSync locally to remove this device from its own vault',
-    })
-  }
+  // Self-revocation IS allowed — that's how a device "leaves" the vault.
+  // If the leaving device is the last paired device, we purge the entire
+  // vault (frees the per-IP lifetime quota). For multi-device vaults, just
+  // remove this device from the map; remaining devices keep syncing.
 
   const devicesKey = ['vault', auth.vaultId, 'devices']
+  const isSelfRevoke = pathDeviceId === auth.deviceId
   for (let attempt = 0; attempt < 5; attempt++) {
     const cur = await kv.get<DevicesMap>(devicesKey)
     const devices: DevicesMap = cur.value || {}
@@ -501,6 +728,57 @@ export async function handleRevokeDevice(
     }
     const next: DevicesMap = { ...devices }
     delete next[pathDeviceId]
+    const remaining = Object.keys(next).length
+
+    if (remaining === 0 && isSelfRevoke) {
+      // Last device leaving — purge the whole vault so the IP quota
+      // bookkeeping reflects reality (no orphan vault occupying a slot).
+      // Atomic check on the devices key ensures no concurrent device joined.
+      const purgeResult = await kv.atomic()
+        .check(cur)
+        .delete(devicesKey)
+        .commit()
+      if (!purgeResult.ok) continue // retry — race with concurrent register
+
+      // Read the vault index BEFORE we delete it, so we can refund the
+      // creator's lifetime quota counter.
+      const indexEntry = await kv.get<VaultIndex>(['v', auth.vaultId, 'index'])
+      const creatorIpHash = indexEntry.value?.creatorIpHash
+
+      // Sweep the data + index keys outside the atomic (they're partitioned
+      // under different prefixes; can't all be in one atomic op anyway).
+      let purgedBytes = 0
+      for await (const entry of kv.list({ prefix: ['v', auth.vaultId] })) {
+        await kv.delete(entry.key)
+        if (entry.value && typeof (entry.value as any).bytes === 'number') {
+          purgedBytes += (entry.value as any).bytes
+        }
+      }
+      for await (const entry of kv.list({ prefix: ['vault', auth.vaultId] })) {
+        await kv.delete(entry.key)
+      }
+
+      // Refund the creator's lifetime quota slot — vault is gone, so a
+      // future register from the same IP shouldn't count this one against
+      // them. Hour-bucket counter is intentionally NOT refunded (rate limit
+      // is meant to slow down churn, not be exact).
+      if (creatorIpHash) {
+        const lifetimeKey = ['ip-lifetime', creatorIpHash]
+        const lifeEntry = await kv.get<number>(lifetimeKey)
+        const lifeCur = lifeEntry.value ?? 0
+        if (lifeCur > 0) {
+          await kv.set(lifetimeKey, lifeCur - 1)
+        }
+      }
+
+      return jsonResponse({
+        ok: true,
+        revokedDeviceId: pathDeviceId,
+        vaultPurged: true,
+        purgedBytes,
+      })
+    }
+
     const result = await kv.atomic()
       .check(cur)
       .set(devicesKey, next)
@@ -658,6 +936,7 @@ export async function handlePush(
     const newIndex: VaultIndex = {
       lastVersion: newLast,
       totalBytes: idx.totalBytes + totalBatchBytes,
+      lastActivityAt: now(),
     }
     tx = tx.set(indexKey, newIndex)
 
@@ -765,6 +1044,23 @@ export async function handlePull(
   }
   if (limit > MAX_PULL_LIMIT) limit = MAX_PULL_LIMIT
 
+  // Short-circuit empty pulls — the common case in quiet periods.
+  // Without this, every /sync/pull does a `kv.list` over every
+  // resourceType (5 prefixes × N entries) just to find that the
+  // cursor is already at lastVersion → 50+ KV reads per pull, every
+  // 10-60 seconds, per device. Empties the Deno Free tier KV-reads
+  // quota fast. Now: read the vault index ONCE up front; if the
+  // cursor is already caught up, return immediately with 1 read.
+  const indexEntryEarly = await kv.get<VaultIndex>(['v', auth.vaultId, 'index'])
+  const vaultIndexEarly = indexEntryEarly.value ?? { lastVersion: 0, totalBytes: 0 }
+  if (vaultIndexEarly.lastVersion <= since) {
+    return jsonResponse({
+      envelopes: [],
+      hasMore: false,
+      vaultIndex: vaultIndexEarly,
+    })
+  }
+
   // Iterate all envelope-bearing resourceTypes for this vault. We collect
   // envelopes whose version > since, sort by version, slice to `limit`.
   // Since Deno KV doesn't give us cross-resourceType sorting on the version
@@ -821,13 +1117,12 @@ export async function handlePull(
   const sliced = collected.slice(0, limit)
   const hasMore = collected.length > limit
 
-  const indexEntry = await kv.get<VaultIndex>(['v', auth.vaultId, 'index'])
-  const vaultIndex = indexEntry.value ?? { lastVersion: 0, totalBytes: 0 }
-
+  // Reuse the index read from the short-circuit check above —
+  // cuts one KV read per non-empty pull.
   return jsonResponse({
     envelopes: sliced,
     hasMore,
-    vaultIndex,
+    vaultIndex: vaultIndexEarly,
   })
 }
 
@@ -1261,6 +1556,10 @@ export async function handleVaultPurge(
     return errorResponse('forbidden', 403, { message: 'Token state changed' })
   }
 
+  // Read the index BEFORE deleting so we can refund the IP quota slot.
+  const indexEntry = await kv.get<VaultIndex>(['v', auth.vaultId, 'index'])
+  const creatorIpHash = indexEntry.value?.creatorIpHash
+
   // Purge: iterate all ['v', vaultId, ...] and ['vault', vaultId, ...] and delete.
   let purgedBytes = 0
   const toDelete: Deno.KvKey[] = []
@@ -1277,6 +1576,16 @@ export async function handleVaultPurge(
     let tx = kv.atomic()
     for (const k of toDelete.slice(i, i + 100)) tx = tx.delete(k)
     await tx.commit()
+  }
+
+  // Refund creator's lifetime quota slot (same logic as auto-purge in revoke).
+  if (creatorIpHash) {
+    const lifetimeKey = ['ip-lifetime', creatorIpHash]
+    const lifeEntry = await kv.get<number>(lifetimeKey)
+    const lifeCur = lifeEntry.value ?? 0
+    if (lifeCur > 0) {
+      await kv.set(lifetimeKey, lifeCur - 1)
+    }
   }
 
   // Close any active WS for this vault
@@ -1322,6 +1631,31 @@ export async function handleVaultIndex(
   })
 }
 
+/**
+ * GET /sync/vault/quota — caller's IP-bucketed quota, read-only.
+ * No auth required — quota is a property of the caller's network, not a
+ * specific vault. Lets the client show "X of N vaults used" before the
+ * user even has a vault.
+ */
+export async function handleVaultQuota(
+  kv: Deno.Kv,
+  req: Request,
+): Promise<Response> {
+  const ip = getClientIp(req)
+  const ipHash = await hashIp(ip)
+  const hourBucket = Math.floor(Date.now() / (60 * 60 * 1000))
+  const [hourEntry, lifeEntry] = await kv.getMany<[number, number]>([
+    ['ip-rate', ipHash, hourBucket],
+    ['ip-lifetime', ipHash],
+  ])
+  return jsonResponse({
+    usedThisHour: hourEntry.value ?? 0,
+    hourLimit: REGISTER_PER_IP_PER_HOUR,
+    lifetimeUsed: lifeEntry.value ?? 0,
+    lifetimeLimit: REGISTER_PER_IP_LIFETIME,
+  })
+}
+
 // ── Top-level router ──────────────────────────────────────────────────
 
 /**
@@ -1348,6 +1682,9 @@ export async function routeSyncRequest(
   }
   if (path === '/sync/vault/index' && req.method === 'GET') {
     return handleVaultIndex(kv, req)
+  }
+  if (path === '/sync/vault/quota' && req.method === 'GET') {
+    return handleVaultQuota(kv, req)
   }
   if (path === '/sync/vault/purge-token' && req.method === 'GET') {
     return handlePurgeTokenIssue(kv, req)

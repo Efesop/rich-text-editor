@@ -18,7 +18,8 @@
  *   /sync/vault/index
  */
 
-import { routeSyncRequest } from './sync.ts'
+import { routeSyncRequest, purgeInactiveVaults } from './sync.ts'
+import { routeEntitlements } from './entitlements.ts'
 
 export const kv = await Deno.openKv()
 
@@ -36,22 +37,73 @@ const SHARE_TTL_MS = 30 * 24 * 60 * 60 * 1000
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  // Sync sends auth headers (X-Vault-Id, X-Device-Id, X-Timestamp, X-Auth)
+  // — they must be allow-listed or the browser blocks the actual request
+  // after the preflight. See lib/syncAuth.js.
+  'Access-Control-Allow-Headers': 'Content-Type, X-Vault-Id, X-Device-Id, X-Timestamp, X-Auth',
 }
 
 export async function handleRequest(req: Request): Promise<Response> {
   const url = new URL(req.url)
   const path = url.pathname
 
+  // [DEBUG-LOCAL] Request log — mounted only when not on Deno Deploy.
+  // Helps diagnose pair flows; production log is structured separately.
+  if (!Deno.env.get('DENO_DEPLOYMENT_ID')) {
+    console.log(`[req] ${req.method} ${path}`)
+  }
+
   // Multi-device sync routes (delegated to ./sync.ts)
   if (path.startsWith('/sync/')) {
     const synced = await routeSyncRequest(kv, req)
-    if (synced) return synced
+    if (synced) {
+      if (!Deno.env.get('DENO_DEPLOYMENT_ID')) {
+        console.log(`[req] ${req.method} ${path} -> ${synced.status}`)
+      }
+      return synced
+    }
+  }
+
+  // Entitlements routes (Mac Stripe + iOS RevenueCat grant + check)
+  if (path.startsWith('/entitlements/') || path === '/entitlements') {
+    const ent = await routeEntitlements(kv, req)
+    if (ent) {
+      if (!Deno.env.get('DENO_DEPLOYMENT_ID')) {
+        console.log(`[req] ${req.method} ${path} -> ${ent.status}`)
+      }
+      return ent
+    }
   }
 
   // CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders })
+  }
+
+  // Local-only client-log forwarding. Lets iOS Capacitor and other
+  // surfaces without a piped JS console funnel diagnostic messages into
+  // the relay log so the operator can grep one place. Body: `{tag, msg}`.
+  if (!Deno.env.get('DENO_DEPLOYMENT_ID') && path === '/debug/log' && req.method === 'POST') {
+    let body
+    try { body = await req.json() } catch { body = { msg: '<no-body>' } }
+    console.log(`[client:${body.tag || 'unknown'}] ${body.msg}`)
+    return new Response('{}', { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  }
+
+  // Local-only debug wipe — gated on DENO_DEPLOYMENT_ID being absent
+  // (only true on developer machines, never on Deno Deploy). Used to
+  // reset KV state during iteration; refuses to mount in prod.
+  if (!Deno.env.get('DENO_DEPLOYMENT_ID') && path === '/debug/wipe' && req.method === 'POST') {
+    let count = 0
+    for (const prefix of [['v'], ['vault'], ['ip-rate'], ['ip-lifetime'], ['nonce'], ['kv-meta']]) {
+      for await (const entry of kv.list({ prefix })) {
+        await kv.delete(entry.key)
+        count++
+      }
+    }
+    return new Response(JSON.stringify({ wiped: count }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
 
   // Health check
@@ -64,6 +116,7 @@ export async function handleRequest(req: Request): Promise<Response> {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
+
 
   // ── WebSocket: Live Room ──────────────────────────────────────────
   const wsMatch = path.match(/^\/ws\/([a-zA-Z0-9_-]+)$/)
@@ -257,6 +310,19 @@ export async function handleRequest(req: Request): Promise<Response> {
 // Only start the server if this file is run directly (not imported by tests)
 if (import.meta.main) {
   Deno.serve({ port: 8000 }, handleRequest)
+
+  // Daily cron: purge vaults inactive for 90+ days. Frees KV without any
+  // user action. Deno Deploy supports Deno.cron natively.
+  if (typeof Deno.cron === 'function') {
+    Deno.cron('purge-inactive-vaults', '17 3 * * *', async () => {
+      try {
+        const purged = await purgeInactiveVaults(kv)
+        console.log(`[cron] purgeInactiveVaults: ${purged} vault(s) purged`)
+      } catch (err) {
+        console.error('[cron] purgeInactiveVaults failed', err)
+      }
+    })
+  }
 }
 
 /** Broadcast metadata (participant count) to all clients in a room */

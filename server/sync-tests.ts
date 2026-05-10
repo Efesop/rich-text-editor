@@ -215,7 +215,7 @@ Deno.test('push: oversize envelope (>50KB) returns 413', setupTeardown(async (kv
 Deno.test('push: oversize batch (>200KB total) returns 413', setupTeardown(async (kv) => {
   await registerDevice(kv)
   const big = base64Encode(mkCipher(MAX_ENVELOPE_BYTES))
-  // 5 envelopes of 50 KB each = 250 KB > 200 KB
+  // 5 envelopes of 62 KB each = 310 KB > 200 KB
   const envelopes = []
   for (let i = 0; i < 5; i++) {
     envelopes.push({
