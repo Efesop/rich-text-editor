@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useEntitlement } from '@/hooks/useEntitlement'
 import PaywallModal from './PaywallModal'
+import { getMacEntitlementEmail, setMacEntitlementEmail } from '@/lib/entitlementId'
 
 /**
  * Sync settings panel — opens from main Settings, controls all sync behavior.
@@ -346,6 +347,38 @@ export default function SyncSettingsPanel ({
 // ────────────────────────────────────────────────────────────────────────────
 
 function DisabledState ({ isFallout, titleClasses, subtitleClasses, cardClasses, primaryBtn, secondaryBtn, onEnableSync, onAcceptPair, quota }) {
+  const isElectron = typeof window !== 'undefined' && !!window.electron?.invoke
+  const [showEmailPrompt, setShowEmailPrompt] = useState(false)
+  const [pendingAction, setPendingAction] = useState(null) // 'enable' | 'accept'
+  const [emailDraft, setEmailDraft] = useState('')
+  const [emailErr, setEmailErr] = useState(null)
+
+  const guardWithEmail = (action) => {
+    // Mac requires the buyer email tied to the dashnote.io purchase.
+    // iOS uses RC subscription — no email prompt.
+    if (isElectron && !getMacEntitlementEmail()) {
+      setPendingAction(action)
+      setEmailDraft('')
+      setEmailErr(null)
+      setShowEmailPrompt(true)
+      return
+    }
+    if (action === 'enable') onEnableSync()
+    else onAcceptPair()
+  }
+
+  const submitEmail = () => {
+    const v = emailDraft.trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+      setEmailErr('Enter a valid email address.')
+      return
+    }
+    setMacEntitlementEmail(v)
+    setShowEmailPrompt(false)
+    if (pendingAction === 'enable') onEnableSync()
+    else onAcceptPair()
+  }
+
   return (
     <div className="space-y-5">
       <div className={`p-4 rounded-xl ${cardClasses}`}>
@@ -360,13 +393,13 @@ function DisabledState ({ isFallout, titleClasses, subtitleClasses, cardClasses,
 
       <div className="space-y-2.5">
         <button
-          onClick={onEnableSync}
+          onClick={() => guardWithEmail('enable')}
           className={`w-full px-4 py-3 rounded-xl font-medium transition-all duration-200 ${primaryBtn}`}
         >
           {isFallout ? 'INITIALIZE VAULT' : 'Sync your notes'}
         </button>
         <button
-          onClick={onAcceptPair}
+          onClick={() => guardWithEmail('accept')}
           className={`w-full px-4 py-3 rounded-xl font-medium transition-all duration-200 ${secondaryBtn}`}
         >
           {isFallout ? 'JOIN EXISTING VAULT' : 'Enter a sync code'}
@@ -381,6 +414,35 @@ function DisabledState ({ isFallout, titleClasses, subtitleClasses, cardClasses,
       <p className={`text-[11px] leading-relaxed ${subtitleClasses}`}>
         Sync is opt-in. Your existing notes never leave this device until you turn it on. If you lose all your devices, you can restore from a local backup file (see Backup settings).
       </p>
+
+      {showEmailPrompt && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowEmailPrompt(false)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-[min(440px,90vw)] rounded-2xl bg-white dark:bg-zinc-900 p-6 shadow-2xl">
+            <h3 className="text-base font-semibold mb-2">Confirm your purchase</h3>
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-4">
+              Sync requires the email tied to your $14.99 Dash purchase from dashnote.io.
+              We use it only to verify you bought the app — we never email you.
+            </p>
+            <input
+              type="email"
+              autoFocus
+              value={emailDraft}
+              onChange={(e) => { setEmailDraft(e.target.value); setEmailErr(null) }}
+              onKeyDown={(e) => e.key === 'Enter' && submitEmail()}
+              placeholder="you@example.com"
+              className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm"
+            />
+            {emailErr && <p className="text-xs text-red-500 mt-2">{emailErr}</p>}
+            <div className="flex gap-2 mt-4 justify-end">
+              <button onClick={() => setShowEmailPrompt(false)} className="px-4 py-2 rounded-lg text-sm bg-zinc-100 dark:bg-zinc-800">Cancel</button>
+              <button onClick={submitEmail} className="px-4 py-2 rounded-lg text-sm bg-blue-500 text-white font-medium">Continue</button>
+            </div>
+            <p className="text-[10px] text-zinc-400 mt-3">
+              Don&rsquo;t have a purchase yet? <a href="https://dashnote.io" target="_blank" rel="noreferrer" className="underline">Buy at dashnote.io</a>
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
