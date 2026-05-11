@@ -10,6 +10,8 @@
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -36,13 +38,6 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 	<!-- ATS exception for local relay testing on simulator (ws://localhost) -->
@@ -56,9 +51,6 @@
 	     key stored in iOS Keychain). -->
 	<key>NSFaceIDUsageDescription</key>
 	<string>Dash uses Face ID to unlock the app and your encrypted notes.</string>
-	<!-- Required to scan QR pair codes from another device. -->
-	<key>NSCameraUsageDescription</key>
-	<string>Dash uses the camera to scan pair codes from another device.</string>
 	<!-- Required to attach images from the photo library to notes. -->
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Dash uses the photo library so you can attach images to your notes.</string>

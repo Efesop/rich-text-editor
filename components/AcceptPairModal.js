@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Smartphone, X, KeyRound, Check, AlertCircle, Lock } from 'lucide-react'
 import { decryptPairPacket } from '../lib/syncCrypto.js'
 
-// QR camera scan re-enabled in build 28 (`@capacitor-mlkit/barcode-scanning@^6`).
-// Cap pod install pinned via ios/App/Gemfile so the ffi 1.17 / Ruby 2.6
-// conflict from build 12 doesn't recur.
-const QR_SCAN_ENABLED = true
+// QR camera scan disabled in build 53: @capacitor-mlkit/barcode-scanning
+// pulls GoogleToolboxForMac 2.3.2 transitively, which lacks the privacy
+// manifest Apple now requires (ITMS-91061). Plugin removed pending a
+// path to a privacy-compliant GoogleMLKit. Manual pair link paste still
+// works on every platform.
+const QR_SCAN_ENABLED = false
 
 /**
  * Guest-side pair flow.
@@ -40,74 +42,8 @@ export default function AcceptPairModal ({
   const [scanning, setScanning] = useState(false)
   const codeInputRef = useRef(null)
 
-  // QR scan via @capacitor-mlkit/barcode-scanning. iOS-only entry point —
-  // gated above by `window.Capacitor?.isNativePlatform?.()`.
-  const scanQR = async () => {
-    let BarcodeScanner = null
-    try {
-      setError(null)
-      setScanning(true)
-      console.log('[QR] starting scan flow')
-      try {
-        const mod = await import('@capacitor-mlkit/barcode-scanning')
-        BarcodeScanner = mod.BarcodeScanner
-        console.log('[QR] plugin imported', typeof BarcodeScanner)
-      } catch (impErr) {
-        console.error('[QR] plugin import failed', impErr)
-        setError('Barcode plugin not available in this build. Use the link path.')
-        return
-      }
-      // Skip the Google barcode module check on iOS — ML Kit is bundled
-      // statically and the install* method is Android-only. Calling it
-      // on iOS rejects with "not implemented" and falls through, but
-      // skipping avoids confusing console noise.
-      // Permission first — `scan()` will also self-prompt, but doing it
-      // here gives us a clean error path when the user has previously
-      // denied (`scan()` rejects silently in that case, leaving the
-      // user confused with "nothing happened").
-      let perm = null
-      try {
-        perm = await BarcodeScanner.checkPermissions()
-        console.log('[QR] checkPermissions', perm)
-      } catch (e) {
-        console.warn('[QR] checkPermissions threw', e)
-      }
-      if (perm?.camera !== 'granted' && perm?.camera !== 'limited') {
-        try {
-          perm = await BarcodeScanner.requestPermissions()
-          console.log('[QR] requestPermissions', perm)
-        } catch (reqErr) {
-          console.error('[QR] requestPermissions threw', reqErr)
-        }
-      }
-      if (perm?.camera !== 'granted' && perm?.camera !== 'limited') {
-        setError('Camera permission denied. Open Settings → Dash → Camera to enable, then try again.')
-        return
-      }
-      console.log('[QR] calling BarcodeScanner.scan')
-      const result = await BarcodeScanner.scan({ formats: ['QR_CODE'] })
-      console.log('[QR] scan returned', result)
-      const value = result?.barcodes?.[0]?.rawValue
-      if (!value) {
-        setError('No QR code detected — try again.')
-        return
-      }
-      if (!value.startsWith('dash-pair:')) {
-        setError('Not a Dash pair QR code.')
-        return
-      }
-      setPairLink(value.replace(/^dash-pair:/, ''))
-      setTimeout(() => codeInputRef.current?.focus(), 100)
-    } catch (err) {
-      // BarcodeScanner.scan throws on user-cancel — treat as silent.
-      const msg = err?.message || err?.toString?.() || ''
-      console.error('[QR] scan threw', msg, err)
-      if (/cancel/i.test(msg)) return
-      setError(msg ? `Scan failed: ${msg}` : 'Scan failed (no error message). Use the link path.')
-    } finally {
-      setScanning(false)
-    }
-  }
+  // QR scan disabled — see QR_SCAN_ENABLED note above. Manual link paste only.
+  const scanQR = async () => {}
 
   useEffect(() => {
     if (isOpen) {
