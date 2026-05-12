@@ -15,7 +15,7 @@ import { useEffect, useState } from 'react'
 import { X, Check, Loader2, Cloud, Shield, Lock } from 'lucide-react'
 import { getOfferings, purchase, restore } from '@/lib/rc'
 
-export default function PaywallModal ({ isOpen, onClose, onPurchased, isDarkMode }) {
+export default function PaywallModal ({ isOpen, onClose, onPurchased, isDarkMode, onSignInExisting }) {
   const [offering, setOffering] = useState(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(null) // 'monthly'|'yearly'|'restore'|null
@@ -169,14 +169,22 @@ export default function PaywallModal ({ isOpen, onClose, onPurchased, isDarkMode
           <div style={{ padding: '0 24px 12px', color: '#ef4444', fontSize: 13 }}>{error}</div>
         )}
 
-        <div style={{ padding: '0 24px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: sub, gap: 12 }}>
+        <div style={{ padding: '0 24px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: sub, gap: 12 }}>
           <button onClick={handleRestore} disabled={!!busy} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: busy ? 'wait' : 'pointer', padding: 0, fontSize: 12, textDecoration: 'underline' }}>
             {busy === 'restore' ? 'Restoring…' : 'Restore purchases'}
           </button>
-          <span style={{ fontSize: 11 }}>
-            <Lock size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }} />
-            Auto-renews. Cancel via Settings → Apple ID → Subscriptions.
-          </span>
+          {/* Cross-platform sign-in — for users who already have a Dash account
+              (subscribed via Mac/web). NO pricing or "cheaper on web" mention
+              anywhere on this screen per Apple anti-steering guidelines. */}
+          {onSignInExisting && (
+            <button onClick={onSignInExisting} disabled={!!busy} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: busy ? 'wait' : 'pointer', padding: 0, fontSize: 12, textDecoration: 'underline' }}>
+              I already have an account
+            </button>
+          )}
+        </div>
+        <div style={{ padding: '0 24px 20px', fontSize: 11, color: sub }}>
+          <Lock size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }} />
+          Auto-renews. Cancel via Settings → Apple ID → Subscriptions.
         </div>
       </div>
     </div>

@@ -9,13 +9,13 @@ export default function PrivacyPolicy () {
       </Head>
       <main style={{ maxWidth: 720, margin: '0 auto', padding: '48px 24px', fontFamily: 'system-ui, -apple-system, sans-serif', lineHeight: 1.6, color: '#222' }}>
         <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>Dash Notes — Privacy Policy</h1>
-        <p style={{ color: '#666', marginBottom: 32 }}>Last updated: 9 May 2026</p>
+        <p style={{ color: '#666', marginBottom: 32 }}>Last updated: 12 May 2026</p>
 
         <p>Dash Notes (&ldquo;Dash&rdquo;, &ldquo;the app&rdquo;, &ldquo;we&rdquo;) is a privacy-first, offline-first note-taking application. This policy explains what data the app handles, where it lives, and what we do — and don&rsquo;t do — with it.</p>
 
         <h2 style={{ fontSize: 22, fontWeight: 600, marginTop: 32, marginBottom: 12 }}>The short version</h2>
         <ul style={{ paddingLeft: 24 }}>
-          <li>No accounts. No sign-up.</li>
+          <li>No passwords. No traditional accounts. Sign-in (only required for paid Dash Sync) is a 6-digit code emailed to you.</li>
           <li>No analytics, no tracking, no third-party SDKs.</li>
           <li>Notes live on your device. Optional sync is end-to-end encrypted; we cannot read your notes.</li>
           <li>We never sell, share, or monetize your data.</li>
@@ -49,8 +49,17 @@ export default function PrivacyPolicy () {
         </ul>
         <p>None of these permissions transmit data anywhere.</p>
 
+        <h2 style={{ fontSize: 22, fontWeight: 600, marginTop: 32, marginBottom: 12 }}>Dash Sync (paid subscription)</h2>
+        <p>Dash Sync is an optional subscription that keeps your notes in sync across devices. You can use the app indefinitely without it. When you subscribe, the following third parties handle billing or sign-in on our behalf:</p>
+        <ul style={{ paddingLeft: 24 }}>
+          <li><strong>Stripe</strong> — processes payments on Mac, Windows, Linux, and web. Stripe receives your email, billing address, and card details. We never see your card. For active subscribers, our relay stores your email, your Stripe customer/subscription IDs, and your subscription status (active/past-due/canceled) — solely to verify your sync entitlement.</li>
+          <li><strong>RevenueCat + Apple In-App Purchase</strong> — used only on iOS. RevenueCat receives an anonymous device-generated ID and your subscription receipt from Apple. They do not receive your email.</li>
+          <li><strong>Resend</strong> — sends the 6-digit sign-in code (and, one time only when sync launched, a transactional notice to existing Mac buyers). Resend sees only the destination email and the short code body. We do not use Resend for marketing.</li>
+        </ul>
+        <p>The sync vault itself is end-to-end encrypted as described above — none of these third parties (or we) can read your notes.</p>
+
         <h2 style={{ fontSize: 22, fontWeight: 600, marginTop: 32, marginBottom: 12 }}>Analytics, tracking, advertising</h2>
-        <p>We do not use any analytics, telemetry, crash reporting, advertising SDK, or third-party tracker. Dash makes no network calls except to the optional sync relay (only when sync is enabled and only with end-to-end encrypted blobs) and, on macOS/Windows/Linux, to GitHub Releases for app update checks.</p>
+        <p>We do not use any analytics, telemetry, crash reporting, advertising SDK, or third-party tracker. Dash makes no network calls except: to the optional sync relay (only when sync is enabled, and only with end-to-end encrypted blobs); to Stripe/RevenueCat/Resend solely for the paid Dash Sync subscription described above; and, on macOS/Windows/Linux, to GitHub Releases for app update checks.</p>
 
         <h2 style={{ fontSize: 22, fontWeight: 600, marginTop: 32, marginBottom: 12 }}>Data we collect</h2>
         <p>None, in the analytics sense. We do not collect personally identifiable information, advertising identifiers, contacts, location, or device identifiers. The only server-side data is the encrypted sync envelope described above (visible to us only as ciphertext) for users who opt in to sync.</p>

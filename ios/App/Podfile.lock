@@ -1,22 +1,28 @@
 PODS:
-  - AparajitaCapacitorBiometricAuth (8.0.2):
+  - AparajitaCapacitorBiometricAuth (10.0.0):
     - Capacitor
-  - Capacitor (6.2.1):
+  - Capacitor (8.3.3):
     - CapacitorCordova
-  - CapacitorApp (6.0.3):
+  - CapacitorApp (8.1.0):
     - Capacitor
-  - CapacitorCordova (6.2.1)
-  - CapacitorHaptics (6.0.3):
+  - CapacitorCordova (8.3.3)
+  - CapacitorHaptics (8.0.2):
     - Capacitor
-  - CapacitorKeyboard (6.0.4):
+  - CapacitorKeyboard (8.0.3):
     - Capacitor
   - CapacitorSecureStoragePlugin (0.13.0):
     - Capacitor
     - SwiftKeychainWrapper
-  - CapacitorSplashScreen (6.0.4):
+  - CapacitorSplashScreen (8.0.1):
     - Capacitor
-  - CapacitorStatusBar (6.0.3):
+  - CapacitorStatusBar (8.0.2):
     - Capacitor
+  - PurchasesHybridCommon (18.4.0):
+    - RevenueCat (= 5.70.0)
+  - RevenueCat (5.70.0)
+  - RevenuecatPurchasesCapacitor (13.1.0):
+    - Capacitor
+    - PurchasesHybridCommon (= 18.4.0)
   - SwiftKeychainWrapper (4.0.1)
 
 DEPENDENCIES:
@@ -29,9 +35,12 @@ DEPENDENCIES:
   - CapacitorSecureStoragePlugin (from `../../node_modules/capacitor-secure-storage-plugin`)
   - "CapacitorSplashScreen (from `../../node_modules/@capacitor/splash-screen`)"
   - "CapacitorStatusBar (from `../../node_modules/@capacitor/status-bar`)"
+  - "RevenuecatPurchasesCapacitor (from `../../node_modules/@revenuecat/purchases-capacitor`)"
 
 SPEC REPOS:
   trunk:
+    - PurchasesHybridCommon
+    - RevenueCat
     - SwiftKeychainWrapper
 
 EXTERNAL SOURCES:
@@ -53,19 +62,24 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor/splash-screen"
   CapacitorStatusBar:
     :path: "../../node_modules/@capacitor/status-bar"
+  RevenuecatPurchasesCapacitor:
+    :path: "../../node_modules/@revenuecat/purchases-capacitor"
 
 SPEC CHECKSUMS:
-  AparajitaCapacitorBiometricAuth: 3057403ee3e9e390e57bfb92b576f439157951b8
-  Capacitor: 1e0d0e7330dea9f983b50da737d8918abcf273f8
-  CapacitorApp: 22c94146dfaae1159ab7059cbd51e76d9f2d45ec
-  CapacitorCordova: 8d93e14982f440181be7304aa9559ca631d77fff
-  CapacitorHaptics: 1618db3e2d11f252c20127838b184dbc893194bc
-  CapacitorKeyboard: 5ce1e52b8b86ade4995f926a8ac736212d5102fa
-  CapacitorSecureStoragePlugin: a4b8ec11c5347dd9d74f04b867e24e8786a76428
-  CapacitorSplashScreen: f65292695df7d7b24a22954a6cfbaecadd1718a4
-  CapacitorStatusBar: 38665f1a18c55677098367a29f6b42126b72dc65
+  AparajitaCapacitorBiometricAuth: 1ae24ba90d7977dffb4bc9040f374a807a510c98
+  Capacitor: e6868a40e11989d2ba7c00f29ce6bdb3a01f29c1
+  CapacitorApp: 449ffe26375e96f8aaaee625ac6e01e5c57c8650
+  CapacitorCordova: 71cde252d2c3c3e73a9586e85d2354fc8bbf0209
+  CapacitorHaptics: 296f771ecd89c7a1bd92a7b6826a7d268e2e70f5
+  CapacitorKeyboard: 31c8285d92c9d1410071d52449f16d2c6673b6f4
+  CapacitorSecureStoragePlugin: d083ff28d9ba5bc74924b9bcf9754ea605016b63
+  CapacitorSplashScreen: 4b46c72298db552b3c57ce021ef028b6dc7f1fa7
+  CapacitorStatusBar: 01d5763b4ed720de5ce2edbc938de6a98f4c8f32
+  PurchasesHybridCommon: 2cd3e4b74c60f5a61603d78e4071274217cd9f6b
+  RevenueCat: f30d8ee4fd36ce56afa40923d314239761eb58a2
+  RevenuecatPurchasesCapacitor: f894c0f464ec4ea2c2fb645aeebc2f1609b77388
   SwiftKeychainWrapper: 807ba1d63c33a7d0613288512399cd1eda1e470c
 
-PODFILE CHECKSUM: 21ed0aff058dc2ddce9e3aa072804c9f141322d4
+PODFILE CHECKSUM: 88f4c9818551a6e57556542ad40d84c1d964b486
 
-COCOAPODS: 1.15.2
+COCOAPODS: 1.16.2

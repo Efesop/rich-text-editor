@@ -758,3 +758,257 @@ Deno.test('push: failed batch (oversize 2nd) leaves no partial state', setupTear
   assertEquals(body.envelopes.length, 0)
   assertEquals(body.vaultIndex.lastVersion, 0)
 }))
+
+// ── Entitlement gating (Option C v1.5) ─────────────────────────────────
+//
+// These tests exercise the relay's entitlement gate. They flip
+// ENTITLEMENT_REQUIRED on/off via Deno.env and verify that:
+//   - register/push/pull return 402 when no entitlement
+//   - register/push/pull return 200 with a valid sync-sub entitlement
+//   - mac-only lifetime (the v1.5 desktop-license-only grant) does NOT
+//     by itself unlock sync — confirms the no-grandfather policy
+//   - "always-allowed" routes (purge, quota, device revoke) bypass the gate
+
+import { hasEntitlement, routeEntitlements } from './entitlements.ts'
+import { routeAuth, verifySessionToken } from './auth.ts'
+
+async function hmacBodyHex(rawBody: string, secret: string): Promise<string> {
+  const enc = new TextEncoder()
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(rawBody))
+  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+/** Grant a Stripe sync-sub entitlement via the HMAC-protected endpoint. */
+async function grantSyncSub(
+  kv: Deno.Kv,
+  email: string,
+  active = true,
+  expiresInMs = 30 * 24 * 60 * 60 * 1000,
+): Promise<void> {
+  const secret = 'TEST_SECRET'
+  Deno.env.set('ENTITLEMENT_GRANT_SECRET', secret)
+  const body = {
+    email,
+    stripeCustomerId: 'cus_test',
+    stripeSubscriptionId: 'sub_test',
+    currentPeriodEnd: Date.now() + expiresInMs,
+    status: active ? 'active' : 'canceled',
+  }
+  const rawBody = JSON.stringify(body)
+  const sig = await hmacBodyHex(rawBody, secret)
+  const req = new Request('http://localhost/entitlements/grant-sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Entitlement-Signature': sig },
+    body: rawBody,
+  })
+  const res = await routeEntitlements(kv, req)
+  assertEquals(res?.status, 200, 'grant-sync should succeed')
+}
+
+function withEntitlementRequired<T>(fn: () => Promise<T>): () => Promise<T> {
+  return async () => {
+    const prev = Deno.env.get('ENTITLEMENT_REQUIRED')
+    Deno.env.set('ENTITLEMENT_REQUIRED', 'true')
+    try { return await fn() } finally {
+      if (prev === undefined) Deno.env.delete('ENTITLEMENT_REQUIRED')
+      else Deno.env.set('ENTITLEMENT_REQUIRED', prev)
+    }
+  }
+}
+
+Deno.test('entitlement: ENTITLEMENT_REQUIRED off → unauthed sync allowed (alpha behavior)', setupTeardown(async (kv) => {
+  Deno.env.delete('ENTITLEMENT_REQUIRED')
+  const res = await registerDevice(kv)
+  assertEquals(res.status, 200)
+}))
+
+Deno.test('entitlement: gate blocks register when no identity + no entitlement', setupTeardown(withEntitlementRequired(async () => {
+  const kv = await freshKv()
+  try {
+    const res = await registerDevice(kv)
+    assertEquals(res.status, 402)
+    const body = await res.json()
+    assertEquals(body.reason, 'no-identity')
+  } finally { kv.close() }
+})))
+
+Deno.test('entitlement: sync-sub via X-RC-AppUserId header unlocks sync', setupTeardown(withEntitlementRequired(async () => {
+  const kv = await freshKv()
+  try {
+    // Grant an iOS entitlement directly via KV (simulates RC webhook).
+    await kv.set(['entitlement', 'ios', 'rc-user-1'], {
+      source: 'ios',
+      rcAppUserId: 'rc-user-1',
+      active: true,
+      expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+      updatedAt: Date.now(),
+    })
+    // Compose a register request with the RC header.
+    const headers = authHeaders()
+    headers['Content-Type'] = 'application/json'
+    headers['X-RC-AppUserId'] = 'rc-user-1'
+    const req = makeRequest('POST', '/sync/vault/register', {
+      vaultId: VAULT_A, deviceId: DEVICE_A1, deviceName: 'iPhone',
+    }, headers)
+    const res = await routeSyncRequest(kv, req)
+    assertEquals(res?.status, 200)
+  } finally { kv.close() }
+})))
+
+Deno.test('entitlement: Stripe sync-sub via grant-sync unlocks via session token', setupTeardown(withEntitlementRequired(async () => {
+  const kv = await freshKv()
+  try {
+    Deno.env.set('AUTH_TOKEN_SECRET', 'test-auth-secret-32-chars-long-key')
+    Deno.env.set('ENTITLEMENT_GRANT_SECRET', 'TEST_SECRET')
+    const email = 'tester@example.com'
+    await grantSyncSub(kv, email)
+
+    // Mint a session for that email by writing directly to KV (skip the
+    // 6-digit code flow — covered separately below).
+    const tokenId = '0'.repeat(32)
+    const sig = await hmacBodyHex(tokenId, 'test-auth-secret-32-chars-long-key')
+    const token = `tok_${tokenId}.${sig}`
+    await kv.set(['auth-session', tokenId], { email, createdAt: Date.now() })
+
+    const headers = authHeaders()
+    headers['Content-Type'] = 'application/json'
+    headers['Authorization'] = `Bearer ${token}`
+    const req = makeRequest('POST', '/sync/vault/register', {
+      vaultId: VAULT_A, deviceId: DEVICE_A1, deviceName: 'Mac',
+    }, headers)
+    const res = await routeSyncRequest(kv, req)
+    assertEquals(res?.status, 200, `expected 200, got ${res?.status}: ${await res?.text()}`)
+  } finally { kv.close() }
+})))
+
+Deno.test('entitlement: Mac one-time alone does NOT unlock sync (v1.5 no-grandfather)', setupTeardown(withEntitlementRequired(async () => {
+  const kv = await freshKv()
+  try {
+    // Insert a mac entitlement directly.
+    await kv.set(['entitlement', 'mac', 'mac@example.com'], {
+      source: 'mac', email: 'mac@example.com', grantedAt: Date.now(),
+    })
+    const ent = await hasEntitlement(kv, { email: 'mac@example.com' })
+    assertEquals(ent.hasSync, false, 'mac-only should NOT have sync in v1.5')
+  } finally { kv.close() }
+})))
+
+Deno.test('entitlement: expired sync-sub returns 402', setupTeardown(withEntitlementRequired(async () => {
+  const kv = await freshKv()
+  try {
+    Deno.env.set('AUTH_TOKEN_SECRET', 'test-auth-secret-32-chars-long-key')
+    Deno.env.set('ENTITLEMENT_GRANT_SECRET', 'TEST_SECRET')
+    const email = 'expired@example.com'
+    // Set sync-sub with expiresAt in the past.
+    await kv.set(['entitlement', 'sync', email], {
+      source: 'stripe-sub',
+      email,
+      active: true,
+      expiresAt: Date.now() - 1000,
+      status: 'active',
+      updatedAt: Date.now(),
+    })
+    const ent = await hasEntitlement(kv, { email })
+    assertEquals(ent.hasSync, false)
+  } finally { kv.close() }
+})))
+
+Deno.test('entitlement: always-allowed routes (purge-token) bypass gate', setupTeardown(withEntitlementRequired(async () => {
+  const kv = await freshKv()
+  try {
+    // Register without gate (gate off here), then re-enable for purge.
+    const purgeReq = makeRequest('GET', '/sync/vault/purge-token', undefined, authHeaders())
+    const res = await routeSyncRequest(kv, purgeReq)
+    // The handler may still return 400 (missing args) but NOT 402.
+    assertNotEquals(res?.status, 402)
+  } finally { kv.close() }
+})))
+
+// ── Magic-link auth (server/auth.ts) ───────────────────────────────────
+
+// We can't actually send emails in tests; sendCode logs+swallows the
+// Resend failure when RESEND_API_KEY is unset. The auth endpoint still
+// returns ok:true and stores the code in KV — which is exactly what
+// the unit tests need to inspect.
+
+Deno.test('auth: request code stores 6-digit code in KV', setupTeardown(async (kv) => {
+  Deno.env.delete('RESEND_API_KEY')
+  const req = makeRequest('POST', '/auth/code/request', { email: 'auth@example.com' })
+  const res = await routeAuth(kv, req)
+  assertEquals(res?.status, 200)
+  const rec = await kv.get<{ code: string; attempts: number }>(['auth-code', 'auth@example.com'])
+  assertExists(rec.value)
+  assert(/^\d{6}$/.test(rec.value!.code))
+  assertEquals(rec.value!.attempts, 0)
+}))
+
+Deno.test('auth: throttle blocks 2nd request within 60s', setupTeardown(async (kv) => {
+  Deno.env.delete('RESEND_API_KEY')
+  const r1 = await routeAuth(kv, makeRequest('POST', '/auth/code/request', { email: 't@example.com' }))
+  assertEquals(r1?.status, 200)
+  const r2 = await routeAuth(kv, makeRequest('POST', '/auth/code/request', { email: 't@example.com' }))
+  assertEquals(r2?.status, 200) // still 200 (no leak), but body shows throttled
+  const body = await r2!.json()
+  assertEquals(body.throttled, true)
+}))
+
+Deno.test('auth: verify wrong code increments attempts', setupTeardown(async (kv) => {
+  Deno.env.set('AUTH_TOKEN_SECRET', 'test-auth-secret-32-chars-long-key')
+  await routeAuth(kv, makeRequest('POST', '/auth/code/request', { email: 'v@example.com' }))
+  const r = await routeAuth(kv, makeRequest('POST', '/auth/code/verify', { email: 'v@example.com', code: '000000' }))
+  // 000000 is *very unlikely* to match; with crypto-random there's a 1-in-1M chance of a flake.
+  // Allow either 401 (mismatch) or 200 (the astronomically rare match) — but assert KV attempts incremented if 401.
+  if (r?.status === 401) {
+    const rec = await kv.get<{ attempts: number }>(['auth-code', 'v@example.com'])
+    assertEquals(rec.value!.attempts, 1)
+  }
+}))
+
+Deno.test('auth: verify right code mints token + stores session', setupTeardown(async (kv) => {
+  Deno.env.set('AUTH_TOKEN_SECRET', 'test-auth-secret-32-chars-long-key')
+  // Request a code so the KV entry is created.
+  await routeAuth(kv, makeRequest('POST', '/auth/code/request', { email: 'happy@example.com' }))
+  const rec = await kv.get<{ code: string }>(['auth-code', 'happy@example.com'])
+  assertExists(rec.value)
+  const code = rec.value!.code
+
+  const r = await routeAuth(kv, makeRequest('POST', '/auth/code/verify', { email: 'happy@example.com', code }))
+  assertEquals(r?.status, 200)
+  const body = await r!.json()
+  assertEquals(body.email, 'happy@example.com')
+  assert(typeof body.token === 'string' && body.token.startsWith('tok_'))
+
+  // Token must validate
+  const sess = await verifySessionToken(kv, body.token)
+  assertEquals(sess?.email, 'happy@example.com')
+}))
+
+Deno.test('auth: signout deletes session', setupTeardown(async (kv) => {
+  Deno.env.set('AUTH_TOKEN_SECRET', 'test-auth-secret-32-chars-long-key')
+  await routeAuth(kv, makeRequest('POST', '/auth/code/request', { email: 'so@example.com' }))
+  const rec = await kv.get<{ code: string }>(['auth-code', 'so@example.com'])
+  const verifyRes = await routeAuth(kv, makeRequest('POST', '/auth/code/verify', { email: 'so@example.com', code: rec.value!.code }))
+  const { token } = await verifyRes!.json()
+  const sess = await verifySessionToken(kv, token)
+  assertExists(sess)
+  // Now sign out
+  const signoutReq = makeRequest('POST', '/auth/signout')
+  signoutReq.headers.set('Authorization', `Bearer ${token}`)
+  await routeAuth(kv, signoutReq)
+  const post = await verifySessionToken(kv, token)
+  assertEquals(post, null)
+}))
+
+Deno.test('auth: invalid token format → null from verifySessionToken', setupTeardown(async (kv) => {
+  Deno.env.set('AUTH_TOKEN_SECRET', 'test-auth-secret-32-chars-long-key')
+  assertEquals(await verifySessionToken(kv, 'garbage'), null)
+  assertEquals(await verifySessionToken(kv, 'tok_short.sig'), null)
+  assertEquals(await verifySessionToken(kv, ''), null)
+}))

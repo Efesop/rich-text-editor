@@ -27,6 +27,7 @@
  */
 
 import { hasEntitlement } from './entitlements.ts'
+import { verifyAuthRequest } from './auth.ts'
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -620,23 +621,11 @@ export async function handleVaultRegister(
     })
   }
 
-  // Entitlement gate (feature-flagged for v1.5 rollout). Only enforced on
-  // new-vault creation — existing-vault re-registers (paired devices) bypass.
-  // During alpha (v1.4.0) ENTITLEMENT_REQUIRED is unset → free for all.
-  // Flip to "true" in Deno Deploy env when v1.5 IAP/Stripe paywall is live.
-  const entitlementRequired = Deno.env.get('ENTITLEMENT_REQUIRED') === 'true'
-  if (entitlementRequired && isNewVault) {
-    const ent = await hasEntitlement(kv, {
-      email: body.entitlementEmail,
-      rcAppUserId: body.rcAppUserId,
-    })
-    if (!ent.hasSync) {
-      return errorResponse('forbidden', 402, {
-        message: 'Sync requires an active subscription (iOS) or one-time Mac purchase. Subscribe in app or buy at https://dashnote.io',
-        reason: 'no-entitlement',
-      })
-    }
-  }
+  // (Entitlement enforcement is now centralized in `requireSyncEntitlement`
+  // at the route layer — see end of file. handleVaultRegister no longer
+  // does its own gate; the route-level gate covers new-vault + every
+  // other sync write/read. Kept here as a marker so the code path is
+  // obvious during code review.)
 
   if (typeof body.deviceName !== 'undefined' && typeof body.deviceName !== 'string') {
     return errorResponse('invalid-request', 400, {
@@ -1662,6 +1651,60 @@ export async function handleVaultQuota(
  * Try to match + handle a /sync/* request. Returns Response if matched,
  * null if not (so caller can fall through to other routes).
  */
+/**
+ * Centralized entitlement gate.
+ *
+ * Identity sources (in priority order):
+ *   1. Magic-link bearer token (Authorization header → server/auth.ts) → email.
+ *      This is the cross-platform path: a user signs in once and proves
+ *      their email to the server, then the relay can look up their
+ *      Stripe sync-sub or Mac-license entitlement.
+ *   2. X-RC-AppUserId header → RevenueCat anonymous appUserId. iOS path.
+ *
+ * `ENTITLEMENT_REQUIRED` env flag must be 'true' for enforcement.
+ *
+ * Returns a 402 Response when the caller lacks a valid entitlement,
+ * or null to let the request proceed. The decoupling means a single
+ * helper covers every /sync/* endpoint — handlers no longer need to
+ * know about entitlement at all.
+ *
+ * Mounted UNCONDITIONALLY across all /sync/* routes EXCEPT:
+ *   - OPTIONS preflight (CORS)
+ *   - DELETE on /sync/vault/devices/:id (let users always revoke their devices)
+ *   - GET /sync/vault/purge-token + POST /sync/vault/purge (always allow data deletion)
+ *   - GET /sync/vault/quota (read-only, no PII, used to display warnings)
+ */
+async function requireSyncEntitlement(
+  kv: Deno.Kv,
+  req: Request,
+): Promise<Response | null> {
+  if (Deno.env.get('ENTITLEMENT_REQUIRED') !== 'true') return null
+
+  // 1) Magic-link bearer → email
+  const sess = await verifyAuthRequest(kv, req)
+  // 2) RC appUserId header → iOS
+  const rcAppUserId = req.headers.get('X-RC-AppUserId') || req.headers.get('x-rc-appuserid') || undefined
+
+  if (!sess && !rcAppUserId) {
+    return errorResponse('forbidden', 402, {
+      message: 'Sync requires sign-in. Open Settings → Sync to sign in or subscribe.',
+      reason: 'no-identity',
+    })
+  }
+
+  const ent = await hasEntitlement(kv, {
+    email: sess?.email,
+    rcAppUserId,
+  })
+  if (!ent.hasSync) {
+    return errorResponse('forbidden', 402, {
+      message: 'Sync requires an active subscription. Subscribe in the app, or via https://dashnote.io/subscribe.',
+      reason: 'no-entitlement',
+    })
+  }
+  return null
+}
+
 export async function routeSyncRequest(
   kv: Deno.Kv,
   req: Request,
@@ -1674,6 +1717,21 @@ export async function routeSyncRequest(
   // CORS preflight (sync-specific because we want sync auth headers allowed)
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: syncCorsHeaders })
+  }
+
+  // Always-allowed paths (data deletion + read-only quota status).
+  // These deliberately bypass the entitlement gate so users can always
+  // revoke devices / delete their data / see why they got 402'd.
+  const isAlwaysAllowed = (
+    (path === '/sync/vault/quota' && req.method === 'GET') ||
+    (path === '/sync/vault/purge-token' && req.method === 'GET') ||
+    (path === '/sync/vault/purge' && req.method === 'POST') ||
+    (/^\/sync\/vault\/devices\/[a-zA-Z0-9_-]+$/.test(path) && req.method === 'DELETE')
+  )
+
+  if (!isAlwaysAllowed) {
+    const blocked = await requireSyncEntitlement(kv, req)
+    if (blocked) return blocked
   }
 
   // Vault management

@@ -14,6 +14,8 @@ import {
 } from 'lucide-react'
 import { useEntitlement } from '@/hooks/useEntitlement'
 import PaywallModal from './PaywallModal'
+import SignInModal from './SignInModal'
+import { signOut as identitySignOut, getEmail as getIdentityEmail } from '@/lib/identity'
 import { getMacEntitlementEmail, setMacEntitlementEmail } from '@/lib/entitlementId'
 
 /**
@@ -87,23 +89,55 @@ export default function SyncSettingsPanel ({
   const [usage, setUsage] = useState(null)
   const [quota, setQuota] = useState(null)
   const [showPaywall, setShowPaywall] = useState(false)
-  const { hasSync } = useEntitlement()
+  const [showSignIn, setShowSignIn] = useState(false)
+  const { hasSync, signedInEmail, refresh: refreshEntitlement } = useEntitlement()
 
-  // Gate sync-creation actions on the 'sync' entitlement. On non-iOS the SDK
-  // returns hasSync=false (server-side check will replace this on Mac path);
-  // until that's wired we don't gate non-iOS so existing dev/Electron flows
-  // continue to work.
+  // Cross-platform entitlement gate (v1.5 Option C).
+  //
+  // iOS: native paywall via PaywallModal (RC SDK in-app purchase).
+  // Mac/PWA/Linux/Windows: SignInModal (to prove email) + redirect to
+  //   dashnote.io/subscribe for the actual Stripe checkout.
+  //
+  // hasSync comes from useEntitlement which resolves both iOS (RC SDK)
+  // and non-iOS (server /auth/me) paths.
   const isNativeIOS = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.() && window.Capacitor?.getPlatform?.() === 'ios'
-  const gate = useCallback((fn) => () => {
-    if (isNativeIOS && !hasSync) {
-      setShowPaywall(true)
-      return
+
+  const openSubscribePage = useCallback(() => {
+    if (typeof window === 'undefined') return
+    const url = 'https://dashnote.io/subscribe'
+    // Electron: prefer shell.openExternal so it opens in the user's
+    // default browser instead of the app's WKWebView/Chromium.
+    if (window.electron?.openExternal) {
+      try { window.electron.openExternal(url); return } catch {}
     }
-    fn?.()
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }, [])
+
+  const gate = useCallback((fn) => () => {
+    if (hasSync) { fn?.(); return }
+    if (isNativeIOS) {
+      // iOS: in-app purchase. PaywallModal handles RC flow.
+      setShowPaywall(true)
+    } else {
+      // Mac/PWA/Linux: sign in first so we can detect an existing
+      // subscription. If no entitlement after sign-in, the subscribe
+      // CTA in the disabled state will route them to dashnote.io.
+      setShowSignIn(true)
+    }
   }, [hasSync, isNativeIOS])
   const gatedEnableSync = useCallback(gate(onEnableSync), [gate, onEnableSync])
   const gatedAcceptPair = useCallback(gate(onAcceptPair), [gate, onAcceptPair])
   const gatedPairNewDevice = useCallback(gate(onPairNewDevice), [gate, onPairNewDevice])
+
+  const handleSignOut = useCallback(async () => {
+    try { await identitySignOut() } catch {}
+    refreshEntitlement?.()
+  }, [refreshEntitlement])
+
+  const handleSignedIn = useCallback(async () => {
+    setShowSignIn(false)
+    await refreshEntitlement?.()
+  }, [refreshEntitlement])
 
   useEffect(() => {
     if (!isOpen) return
@@ -246,8 +280,16 @@ export default function SyncSettingsPanel ({
     <PaywallModal
       isOpen={showPaywall}
       onClose={() => setShowPaywall(false)}
-      onPurchased={() => setShowPaywall(false)}
+      onPurchased={() => { setShowPaywall(false); refreshEntitlement?.() }}
+      onSignInExisting={() => { setShowPaywall(false); setShowSignIn(true) }}
       isDarkMode={isDark || isDarkBlue || isFallout}
+    />
+    <SignInModal
+      isOpen={showSignIn}
+      onClose={() => setShowSignIn(false)}
+      onSignedIn={handleSignedIn}
+      theme={theme}
+      reason="Sign in to use sync. No password — we email you a 6-digit code."
     />
     <div className="dash-mobile-bottom-sheet fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
@@ -299,6 +341,13 @@ export default function SyncSettingsPanel ({
               onEnableSync={gatedEnableSync}
               onAcceptPair={gatedAcceptPair}
               quota={quota}
+              hasSync={hasSync}
+              signedInEmail={signedInEmail}
+              isNativeIOS={isNativeIOS}
+              onSubscribe={openSubscribePage}
+              onOpenSignIn={() => setShowSignIn(true)}
+              onSignOut={handleSignOut}
+              onOpenPaywall={() => setShowPaywall(true)}
             />
           )}
 
@@ -346,39 +395,12 @@ export default function SyncSettingsPanel ({
 // Sub-components — one per stage to keep the main render clean
 // ────────────────────────────────────────────────────────────────────────────
 
-function DisabledState ({ isFallout, titleClasses, subtitleClasses, cardClasses, primaryBtn, secondaryBtn, onEnableSync, onAcceptPair, quota }) {
-  const isElectron = typeof window !== 'undefined' && !!window.electron?.invoke
-  const [showEmailPrompt, setShowEmailPrompt] = useState(false)
-  const [pendingAction, setPendingAction] = useState(null) // 'enable' | 'accept'
-  const [emailDraft, setEmailDraft] = useState('')
-  const [emailErr, setEmailErr] = useState(null)
-
-  const guardWithEmail = (action) => {
-    // Mac requires the buyer email tied to the dashnote.io purchase.
-    // iOS uses RC subscription — no email prompt.
-    if (isElectron && !getMacEntitlementEmail()) {
-      setPendingAction(action)
-      setEmailDraft('')
-      setEmailErr(null)
-      setShowEmailPrompt(true)
-      return
-    }
-    if (action === 'enable') onEnableSync()
-    else onAcceptPair()
-  }
-
-  const submitEmail = () => {
-    const v = emailDraft.trim().toLowerCase()
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
-      setEmailErr('Enter a valid email address.')
-      return
-    }
-    setMacEntitlementEmail(v)
-    setShowEmailPrompt(false)
-    if (pendingAction === 'enable') onEnableSync()
-    else onAcceptPair()
-  }
-
+function DisabledState ({
+  isFallout, titleClasses, subtitleClasses, cardClasses, primaryBtn, secondaryBtn,
+  onEnableSync, onAcceptPair, quota,
+  // v1.5 Option C — entitlement + identity props
+  hasSync, signedInEmail, isNativeIOS, onSubscribe, onOpenSignIn, onSignOut, onOpenPaywall
+}) {
   return (
     <div className="space-y-5">
       <div className={`p-4 rounded-xl ${cardClasses}`}>
@@ -386,24 +408,48 @@ function DisabledState ({ isFallout, titleClasses, subtitleClasses, cardClasses,
         <ul className={`text-xs space-y-1.5 ${subtitleClasses.replace('text-xs', '')} text-xs leading-relaxed`}>
           <li className="flex items-start gap-2"><span>•</span><span>Notes encrypted on your device with a key only you have.</span></li>
           <li className="flex items-start gap-2"><span>•</span><span>Server stores opaque ciphertext — never sees titles, content, or filenames.</span></li>
-          <li className="flex items-start gap-2"><span>•</span><span>Pair devices with a QR code + 6-digit code.</span></li>
-          <li className="flex items-start gap-2"><span>•</span><span>500 MB free vault. Auto-syncs after each save.</span></li>
+          <li className="flex items-start gap-2"><span>•</span><span>Pair devices with a 6-digit code.</span></li>
+          <li className="flex items-start gap-2"><span>•</span><span>500 MB included. Auto-syncs after each save.</span></li>
         </ul>
       </div>
 
+      {/* ── Account / entitlement panel ───────────────────────────── */}
+      {!isNativeIOS && (
+        <AccountPanel
+          hasSync={hasSync}
+          signedInEmail={signedInEmail}
+          subtitleClasses={subtitleClasses}
+          titleClasses={titleClasses}
+          cardClasses={cardClasses}
+          primaryBtn={primaryBtn}
+          secondaryBtn={secondaryBtn}
+          onSubscribe={onSubscribe}
+          onOpenSignIn={onOpenSignIn}
+          onSignOut={onSignOut}
+        />
+      )}
+
       <div className="space-y-2.5">
         <button
-          onClick={() => guardWithEmail('enable')}
+          onClick={onEnableSync}
           className={`w-full px-4 py-3 rounded-xl font-medium transition-all duration-200 ${primaryBtn}`}
         >
           {isFallout ? 'INITIALIZE VAULT' : 'Sync your notes'}
         </button>
         <button
-          onClick={() => guardWithEmail('accept')}
+          onClick={onAcceptPair}
           className={`w-full px-4 py-3 rounded-xl font-medium transition-all duration-200 ${secondaryBtn}`}
         >
           {isFallout ? 'JOIN EXISTING VAULT' : 'Enter a sync code'}
         </button>
+        {isNativeIOS && !hasSync && (
+          <button
+            onClick={onOpenPaywall}
+            className={`w-full px-4 py-3 rounded-xl font-medium transition-all duration-200 ${secondaryBtn}`}
+          >
+            See subscription options
+          </button>
+        )}
         <p className={`text-[11px] text-center ${subtitleClasses}`}>
           Already have Dash on another device? Use the code from there.
         </p>
@@ -414,35 +460,60 @@ function DisabledState ({ isFallout, titleClasses, subtitleClasses, cardClasses,
       <p className={`text-[11px] leading-relaxed ${subtitleClasses}`}>
         Sync is opt-in. Your existing notes never leave this device until you turn it on. If you lose all your devices, you can restore from a local backup file (see Backup settings).
       </p>
+    </div>
+  )
+}
 
-      {showEmailPrompt && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowEmailPrompt(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-[min(440px,90vw)] rounded-2xl bg-white dark:bg-zinc-900 p-6 shadow-2xl">
-            <h3 className="text-base font-semibold mb-2">Confirm your purchase</h3>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-4">
-              Sync requires the email tied to your $14.99 Dash purchase from dashnote.io.
-              We use it only to verify you bought the app — we never email you.
-            </p>
-            <input
-              type="email"
-              autoFocus
-              value={emailDraft}
-              onChange={(e) => { setEmailDraft(e.target.value); setEmailErr(null) }}
-              onKeyDown={(e) => e.key === 'Enter' && submitEmail()}
-              placeholder="you@example.com"
-              className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm"
-            />
-            {emailErr && <p className="text-xs text-red-500 mt-2">{emailErr}</p>}
-            <div className="flex gap-2 mt-4 justify-end">
-              <button onClick={() => setShowEmailPrompt(false)} className="px-4 py-2 rounded-lg text-sm bg-zinc-100 dark:bg-zinc-800">Cancel</button>
-              <button onClick={submitEmail} className="px-4 py-2 rounded-lg text-sm bg-blue-500 text-white font-medium">Continue</button>
-            </div>
-            <p className="text-[10px] text-zinc-400 mt-3">
-              Don&rsquo;t have a purchase yet? <a href="https://dashnote.io" target="_blank" rel="noreferrer" className="underline">Buy at dashnote.io</a>
-            </p>
-          </div>
+// Renders the sign-in / subscribe state above the sync buttons on
+// non-iOS platforms. iOS keeps using PaywallModal for in-app purchase.
+function AccountPanel ({ hasSync, signedInEmail, subtitleClasses, titleClasses, cardClasses, primaryBtn, secondaryBtn, onSubscribe, onOpenSignIn, onSignOut }) {
+  if (!signedInEmail) {
+    return (
+      <div className={`p-4 rounded-xl ${cardClasses} space-y-3`}>
+        <h3 className={`text-sm font-semibold ${titleClasses}`}>Sync requires a subscription</h3>
+        <p className={`text-xs leading-relaxed ${subtitleClasses}`}>
+          $4.99/mo or $47.99/yr (20% off). 7-day free trial. Cancel anytime. Existing subscribers — sign in.
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={onSubscribe} className={`px-3 py-2 rounded-lg text-sm font-medium ${primaryBtn}`}>
+            Subscribe
+          </button>
+          <button onClick={onOpenSignIn} className={`px-3 py-2 rounded-lg text-sm font-medium ${secondaryBtn}`}>
+            Sign in
+          </button>
         </div>
-      )}
+      </div>
+    )
+  }
+  // Signed in but no entitlement — must subscribe.
+  if (!hasSync) {
+    return (
+      <div className={`p-4 rounded-xl ${cardClasses} space-y-3`}>
+        <h3 className={`text-sm font-semibold ${titleClasses}`}>No active subscription</h3>
+        <p className={`text-xs leading-relaxed ${subtitleClasses}`}>
+          Signed in as <strong>{signedInEmail}</strong>, but we don't see a Dash Sync subscription on this email.
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={onSubscribe} className={`px-3 py-2 rounded-lg text-sm font-medium ${primaryBtn}`}>
+            Subscribe
+          </button>
+          <button onClick={onSignOut} className={`px-3 py-2 rounded-lg text-sm font-medium ${secondaryBtn}`}>
+            Sign out
+          </button>
+        </div>
+      </div>
+    )
+  }
+  // Signed in + entitled.
+  return (
+    <div className={`p-3 rounded-xl ${cardClasses} flex items-center justify-between gap-3`}>
+      <div className="min-w-0 flex-1">
+        <p className={`text-xs ${subtitleClasses}`}>Signed in</p>
+        <p className={`text-sm truncate ${titleClasses}`}>{signedInEmail}</p>
+      </div>
+      <button onClick={onSignOut} className={`px-3 py-2 rounded-lg text-xs font-medium ${secondaryBtn}`}>
+        Sign out
+      </button>
     </div>
   )
 }

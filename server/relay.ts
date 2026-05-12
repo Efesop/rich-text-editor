@@ -20,6 +20,7 @@
 
 import { routeSyncRequest, purgeInactiveVaults } from './sync.ts'
 import { routeEntitlements } from './entitlements.ts'
+import { routeAuth } from './auth.ts'
 
 export const kv = await Deno.openKv()
 
@@ -39,8 +40,9 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS',
   // Sync sends auth headers (X-Vault-Id, X-Device-Id, X-Timestamp, X-Auth)
   // — they must be allow-listed or the browser blocks the actual request
-  // after the preflight. See lib/syncAuth.js.
-  'Access-Control-Allow-Headers': 'Content-Type, X-Vault-Id, X-Device-Id, X-Timestamp, X-Auth',
+  // after the preflight. See lib/syncAuth.js. `Authorization` is added
+  // for the magic-link bearer token (lib/identity.js → server/auth.ts).
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Vault-Id, X-Device-Id, X-Timestamp, X-Auth, X-RC-AppUserId',
 }
 
 export async function handleRequest(req: Request): Promise<Response> {
@@ -72,6 +74,17 @@ export async function handleRequest(req: Request): Promise<Response> {
         console.log(`[req] ${req.method} ${path} -> ${ent.status}`)
       }
       return ent
+    }
+  }
+
+  // Auth routes (magic-link code request/verify + signout + me)
+  if (path.startsWith('/auth/')) {
+    const a = await routeAuth(kv, req)
+    if (a) {
+      if (!Deno.env.get('DENO_DEPLOYMENT_ID')) {
+        console.log(`[req] ${req.method} ${path} -> ${a.status}`)
+      }
+      return a
     }
   }
 
