@@ -12,7 +12,7 @@
 // of their devices.
 
 import { useEffect, useState } from 'react'
-import { X, Check, Loader2, Cloud, Shield, Lock } from 'lucide-react'
+import { X, Check, Loader2, Cloud, Shield, Lock, RotateCw } from 'lucide-react'
 import { getOfferings, purchase, restore } from '@/lib/rc'
 
 export default function PaywallModal ({ isOpen, onClose, onPurchased, isDarkMode, onSignInExisting }) {
@@ -20,6 +20,7 @@ export default function PaywallModal ({ isOpen, onClose, onPurchased, isDarkMode
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(null) // 'monthly'|'yearly'|'restore'|null
   const [error, setError] = useState(null)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     if (!isOpen) return
@@ -28,20 +29,33 @@ export default function PaywallModal ({ isOpen, onClose, onPurchased, isDarkMode
     ;(async () => {
       try {
         const o = await getOfferings()
-        if (!cancelled) setOffering(o)
+        if (cancelled) return
+        setOffering(o)
+        // A successful-but-empty response is a failure from the user's POV:
+        // no plans to buy. Surface it so we never render a buttonless paywall.
+        if (!o?.availablePackages?.length) {
+          setError('Subscription options aren’t available right now. Please check your connection and try again.')
+        }
       } catch (err) {
-        if (!cancelled) setError(err?.message || 'Failed to load subscription options.')
+        if (cancelled) return
+        setOffering(null)
+        setError(err?.isTimeout
+          ? 'Loading plans took too long. Please check your connection and try again.'
+          : (err?.message || 'Failed to load subscription options.'))
       } finally {
         if (!cancelled) setLoading(false)
       }
     })()
     return () => { cancelled = true }
-  }, [isOpen])
+  }, [isOpen, reloadKey])
 
   if (!isOpen) return null
 
+  const retry = () => setReloadKey(k => k + 1)
+
   const monthlyPkg = offering?.availablePackages?.find(p => p.identifier === '$rc_monthly')
   const yearlyPkg = offering?.availablePackages?.find(p => p.identifier === '$rc_annual')
+  const hasPlans = !!(monthlyPkg || yearlyPkg)
 
   async function handlePurchase (pkg, kind) {
     if (!pkg) return
@@ -53,7 +67,9 @@ export default function PaywallModal ({ isOpen, onClose, onPurchased, isDarkMode
         onClose?.()
       }
     } catch (err) {
-      setError(err?.message || 'Purchase failed. Try again.')
+      setError(err?.isTimeout
+        ? 'The App Store didn’t respond. If you completed the purchase it’ll unlock shortly — otherwise try again.'
+        : (err?.message || 'Purchase failed. Try again.'))
     } finally {
       setBusy(null)
     }
@@ -70,7 +86,9 @@ export default function PaywallModal ({ isOpen, onClose, onPurchased, isDarkMode
         setError('No prior purchase found on this Apple ID.')
       }
     } catch (err) {
-      setError(err?.message || 'Restore failed.')
+      setError(err?.isTimeout
+        ? 'Restore took too long. Please check your connection and try again.'
+        : (err?.message || 'Restore failed.'))
     } finally {
       setBusy(null)
     }
@@ -126,7 +144,21 @@ export default function PaywallModal ({ isOpen, onClose, onPurchased, isDarkMode
           </div>
         )}
 
-        {!loading && offering && (
+        {!loading && !hasPlans && (
+          <div style={{ padding: '8px 24px 20px', textAlign: 'center' }}>
+            <p style={{ margin: '0 0 14px', color: sub, fontSize: 14, lineHeight: 1.5 }}>
+              {error || 'Subscription options aren’t available right now.'}
+            </p>
+            <button
+              onClick={retry}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 10, border: `1px solid ${borderColor}`, background: 'transparent', color: fg, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
+            >
+              <RotateCw size={15} /> Try again
+            </button>
+          </div>
+        )}
+
+        {!loading && hasPlans && (
           <div style={{ padding: '0 24px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             {/* Yearly first — best value */}
             {yearlyPkg && (
@@ -165,7 +197,7 @@ export default function PaywallModal ({ isOpen, onClose, onPurchased, isDarkMode
           </div>
         )}
 
-        {error && (
+        {error && hasPlans && (
           <div style={{ padding: '0 24px 12px', color: '#ef4444', fontSize: 13 }}>{error}</div>
         )}
 
