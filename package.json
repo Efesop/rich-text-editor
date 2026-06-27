@@ -46,7 +46,7 @@
     "build:ios": "NEXT_PUBLIC_RELAY_URL=wss://dash-relay.efesop.deno.net next build && cap sync ios",
     "ios:open": "cap open ios",
     "ios:run": "cap run ios",
-    "ios:archive": "NEXT_PUBLIC_RELAY_URL=wss://dash-relay.efesop.deno.net LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 PATH=$HOME/.rbenv/shims:$PATH next build && PATH=$HOME/.rbenv/shims:$PATH LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 cap sync ios; rm -rf $HOME/Library/Developer/Xcode/DerivedData/App-* build/App.xcarchive && PATH=$HOME/.rbenv/shims:$PATH LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release -destination 'generic/platform=iOS' -archivePath build/App.xcarchive -allowProvisioningUpdates clean archive",
+    "ios:archive": "NEXT_PUBLIC_RELAY_URL=wss://dash-relay.efesop.deno.net LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 PATH=$HOME/.rvm/gems/default/bin:$HOME/.rvm/rubies/default/bin:$PATH next build && PATH=$HOME/.rvm/gems/default/bin:$HOME/.rvm/rubies/default/bin:$PATH LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 cap sync ios; rm -rf $HOME/Library/Developer/Xcode/DerivedData/App-* build/App.xcarchive && PATH=$HOME/.rvm/gems/default/bin:$HOME/.rvm/rubies/default/bin:$PATH LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release -destination 'generic/platform=iOS' -archivePath build/App.xcarchive -allowProvisioningUpdates clean archive",
     "ios:export": "xcodebuild -exportArchive -archivePath build/App.xcarchive -exportPath build/App-export -exportOptionsPlist ios/App/ExportOptions.plist -allowProvisioningUpdates",
     "export": "next export",
     "test": "node --test tests/"
