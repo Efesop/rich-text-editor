@@ -182,7 +182,7 @@ export default function PaywallModal ({ isOpen, onClose, onPurchased, isDarkMode
               <button
                 onClick={() => handlePurchase(monthlyPkg, 'monthly')}
                 disabled={!!busy}
-                style={{ padding: '14px 16px', borderRadius: 12, border: `1px solid ${borderColor}`, background: 'transparent', color: fg, cursor: busy ? 'wait' : 'pointer', textAlign: 'left', opacity: busy && busy !== 'monthly' ? 0.5 : 1 }}
+                style={{ position: 'relative', padding: '14px 16px', borderRadius: 12, border: `1px solid ${borderColor}`, background: 'transparent', color: fg, cursor: busy ? 'wait' : 'pointer', textAlign: 'left', opacity: busy && busy !== 'monthly' ? 0.5 : 1 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
