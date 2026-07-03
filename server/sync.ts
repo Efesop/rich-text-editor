@@ -138,12 +138,16 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
   'other': { perVault: 120, perDevice: 60 },
 }
 
-// CORS headers (matches relay.ts but adds sync auth headers)
+// CORS headers (matches relay.ts but adds sync auth headers).
+// MUST include every header lib/syncAuth.js sends: the iOS app adds
+// X-RC-AppUserId (RC entitlement lookup) and optionally Authorization
+// (magic-link bearer) — a header missing here fails the WebView's CORS
+// preflight and surfaces as "Load failed" on device.
 export const syncCorsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers':
-    'Content-Type, X-Vault-Id, X-Device-Id, X-Timestamp, X-Auth',
+    'Content-Type, Authorization, X-Vault-Id, X-Device-Id, X-Timestamp, X-Auth, X-RC-AppUserId',
 }
 
 // ── In-memory state ────────────────────────────────────────────────────
