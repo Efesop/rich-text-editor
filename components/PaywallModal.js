@@ -173,9 +173,10 @@ export default function PaywallModal ({ isOpen, onClose, onPurchased, isDarkMode
                     <div style={{ fontWeight: 600, fontSize: 16 }}>Yearly</div>
                     <div style={{ fontSize: 12, color: sub, marginTop: 2 }}>3-day free trial, then {yearlyDisplay}/yr {yearlyPriceMonthly && `(≈${yearlyCurrency} ${yearlyPriceMonthly}/mo)`}</div>
                   </div>
-                  <div style={{ fontSize: 18, fontWeight: 700 }}>{yearlyDisplay}</div>
+                  {busy === 'yearly'
+                    ? <Loader2 size={18} className="animate-spin" />
+                    : <div style={{ fontSize: 18, fontWeight: 700 }}>{yearlyDisplay}</div>}
                 </div>
-                {busy === 'yearly' && <Loader2 size={16} className="animate-spin" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }} />}
               </button>
             )}
             {monthlyPkg && (
@@ -189,9 +190,10 @@ export default function PaywallModal ({ isOpen, onClose, onPurchased, isDarkMode
                     <div style={{ fontWeight: 600, fontSize: 16 }}>Monthly</div>
                     <div style={{ fontSize: 12, color: sub, marginTop: 2 }}>3-day free trial, then {monthlyDisplay}/mo</div>
                   </div>
-                  <div style={{ fontSize: 18, fontWeight: 700 }}>{monthlyDisplay}</div>
+                  {busy === 'monthly'
+                    ? <Loader2 size={18} className="animate-spin" />
+                    : <div style={{ fontSize: 18, fontWeight: 700 }}>{monthlyDisplay}</div>}
                 </div>
-                {busy === 'monthly' && <Loader2 size={16} className="animate-spin" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }} />}
               </button>
             )}
           </div>
