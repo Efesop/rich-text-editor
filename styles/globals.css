@@ -3168,7 +3168,11 @@ button:focus {
     min-width: 100% !important;
     max-width: 100% !important;
     height: auto !important;
-    max-height: 75vh !important;
+    /* 88vh (was 75vh): the slash menu's 11 items overflowed 75vh on tall
+       phones by exactly one row — the sheet ended cleanly at the padding,
+       so the hidden last item (Divider) looked like it didn't exist rather
+       than inviting a scroll. Smaller screens still scroll. */
+    max-height: 88vh !important;
     margin: 0 !important;
     background: #ffffff !important;
     border-top-left-radius: 1.25rem !important;
