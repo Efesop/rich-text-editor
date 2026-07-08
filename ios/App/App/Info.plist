@@ -54,6 +54,15 @@
 	<!-- Required to attach images from the photo library to notes. -->
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Dash uses the photo library so you can attach images to your notes.</string>
+	<!-- Required because WKWebView's file chooser offers "Take Photo or
+	     Video" for any <input type=file> that accepts image types (note
+	     attachments). Without these keys iOS TERMINATES the app the moment
+	     the camera is opened — App Review rejection 2.1(a), July 2026:
+	     "app exits to Home Screen when we tap Take Photo or Video". -->
+	<key>NSCameraUsageDescription</key>
+	<string>Dash uses the camera so you can take a photo and attach it to your notes.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Dash uses the microphone when you record a video to attach to your notes.</string>
 	<!-- Custom URL scheme so dashnotes://share/... and dashnotes://live#...
 	     deep links delivered from Mail / iMessage / Safari open the app
 	     and route through Capacitor's App.appUrlOpen event. Mirrors the

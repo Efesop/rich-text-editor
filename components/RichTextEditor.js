@@ -4970,7 +4970,7 @@ export default function RichTextEditor() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".dashpack,application/json,application/octet-stream,*/*"
+        accept=".dashpack,application/json,application/octet-stream"
         onChange={handleImportBundle}
         className="hidden"
       />
