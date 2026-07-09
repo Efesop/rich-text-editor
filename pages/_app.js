@@ -17,6 +17,27 @@ function MyApp({ Component, pageProps }) {
     if (typeof window !== 'undefined') {
       window.__DASH_BUILD__ = DASH_BUILD
     }
+    // Mobile: portal Editor.js block popovers (slash menu / block tunes) to
+    // <body> when they open. The popover node lives deep inside the editor
+    // DOM, where a transformed/clipped ancestor re-scopes its
+    // `position: fixed` — the bottom-sheet renders inside the editor's
+    // clipped box and its lower rows are cut off at the editor's edge
+    // (the "menu ends at Image / can't scroll / no shadow" bug — the
+    // sheet's bottom half was never on screen). Reparenting to <body>
+    // restores true viewport-fixed behavior. Editor.js keeps working: it
+    // holds a reference to the same node and toggles classes on it.
+    // Desktop keeps native anchored popovers; inline toolbar untouched.
+    if (typeof window !== 'undefined') {
+      const isMobile = window.matchMedia('(max-width: 768px)')
+      const portal = new MutationObserver(() => {
+        if (!isMobile.matches) return
+        const pop = document.querySelector('.ce-popover--opened:not(.ce-popover--inline)')
+        if (pop && pop.parentElement !== document.body) {
+          document.body.appendChild(pop)
+        }
+      })
+      portal.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] })
+    }
     loadTags()
     // Initialise RevenueCat once per app boot. No-op on non-iOS platforms;
     // SDK is lazy-loaded via dynamic import so web/Electron bundles stay slim.

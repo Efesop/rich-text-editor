@@ -3174,7 +3174,19 @@ button:focus {
        than inviting a scroll. Smaller screens still scroll. */
     max-height: 88vh !important;
     margin: 0 !important;
-    background: #ffffff !important;
+    /* Scroll affordance — CSS-only scroll shadows. The "cover" gradients
+       use background-attachment: local so they scroll WITH the content:
+       the edge shadow is revealed only while more rows exist in that
+       direction, and disappears at the end of the list. */
+    --pop-sheet-bg: #ffffff;
+    --pop-sheet-shadow: rgba(0, 0, 0, 0.18);
+    background:
+      linear-gradient(var(--pop-sheet-bg) 30%, transparent) center top / 100% 48px no-repeat,
+      linear-gradient(transparent, var(--pop-sheet-bg) 70%) center bottom / 100% 48px no-repeat,
+      radial-gradient(farthest-side at 50% 0, var(--pop-sheet-shadow), transparent) center top / 100% 14px no-repeat,
+      radial-gradient(farthest-side at 50% 100%, var(--pop-sheet-shadow), transparent) center bottom / 100% 14px no-repeat
+      var(--pop-sheet-bg) !important;
+    background-attachment: local, local, scroll, scroll !important;
     border-top-left-radius: 1.25rem !important;
     border-top-right-radius: 1.25rem !important;
     border-bottom-left-radius: 0 !important;
@@ -3194,9 +3206,9 @@ button:focus {
     animation: dash-sheet-up 220ms cubic-bezier(0.32, 0.72, 0, 1) forwards !important;
   }
   /* Theme overrides for the card body */
-  .dark .ce-popover--opened:not(.ce-popover--inline) > .ce-popover__container { background: #1a1a1a !important; }
-  .darkblue .ce-popover--opened:not(.ce-popover--inline) > .ce-popover__container { background: #141825 !important; }
-  .fallout .ce-popover--opened:not(.ce-popover--inline) > .ce-popover__container { background: #0d0d0d !important; }
+  .dark .ce-popover--opened:not(.ce-popover--inline) > .ce-popover__container { --pop-sheet-bg: #1a1a1a; --pop-sheet-shadow: rgba(255, 255, 255, 0.14); }
+  .darkblue .ce-popover--opened:not(.ce-popover--inline) > .ce-popover__container { --pop-sheet-bg: #141825; --pop-sheet-shadow: rgba(255, 255, 255, 0.14); }
+  .fallout .ce-popover--opened:not(.ce-popover--inline) > .ce-popover__container { --pop-sheet-bg: #0d0d0d; --pop-sheet-shadow: rgba(74, 222, 128, 0.22); }
 
   /* Drag handle — pseudo-element on the visible card. */
   .ce-popover--opened:not(.ce-popover--inline) > .ce-popover__container::before {
@@ -3225,7 +3237,11 @@ button:focus {
   .ce-popover--opened:not(.ce-popover--inline) .ce-popover-items {
     max-height: none !important;
     overflow: visible !important;
-    padding: 4px 0 8px 0 !important;
+    /* flex-shrink 0: the container is a flex column — without this the
+       list is compressed to fit and the bottom padding (and last row)
+       is swallowed instead of overflowing into the container's scroll. */
+    flex-shrink: 0 !important;
+    padding: 4px 0 48px 0 !important;
   }
   .ce-popover--opened:not(.ce-popover--inline) .ce-popover-item {
     padding: 12px 16px !important;
