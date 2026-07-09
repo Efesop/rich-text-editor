@@ -100,7 +100,7 @@ export default function TrashModal ({
         style={{ animation: 'dash-backdrop-in 150ms ease-out forwards' }}
       />
       <div
-        className={`relative w-full max-w-lg rounded-2xl overflow-hidden ${bgContainer}`}
+        className={`transform relative w-full max-w-lg rounded-2xl overflow-hidden ${bgContainer}`}
         style={{ animation: 'dash-modal-in 150ms ease-out forwards' }}
       >
         {/* Header */}
