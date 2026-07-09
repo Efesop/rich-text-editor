@@ -519,7 +519,7 @@ export default function FeaturesPanel({ isOpen, onClose, theme }) {
       >
         {/* Header */}
         <div className={`
-          flex items-center justify-between px-6 pt-6 pb-4 flex-shrink-0
+          flex items-center justify-between px-6 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-4 flex-shrink-0
           ${isFallout ? 'border-b border-green-500/30' : isDarkBlue ? 'border-b border-[#1c2438]' : isDark ? 'border-b border-[#3a3a3a]' : 'border-b border-gray-100'}
         `}>
           <div className="flex items-center gap-3">
