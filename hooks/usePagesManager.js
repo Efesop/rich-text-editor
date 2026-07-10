@@ -529,7 +529,8 @@ export function usePagesManager() {
     // Move user off the trashed page if they're viewing it
     if (currentPageRef.current?.id === pageToTrash.id) {
       const remaining = newPages.filter(p => p.type !== 'folder' && !p.trashed)
-      setCurrentPage(remaining[0] || null)
+      if (remaining[0]) setCurrentPage(remaining[0])
+      else clearCurrentPage() // no notes left — actually clear (setCurrentPage(null) is a no-op)
     }
   }, [])
 
@@ -635,7 +636,8 @@ export function usePagesManager() {
     // Handle current page cleanup
     if (currentPageRef.current?.id === pageToDelete.id) {
       const remainingPages = (Array.isArray(pagesRef.current) ? pagesRef.current : []).filter(p => p.type !== 'folder' && !p.trashed)
-      setCurrentPage(remainingPages[0] || null)
+      if (remainingPages[0]) setCurrentPage(remainingPages[0])
+      else clearCurrentPage() // no notes left — actually clear (setCurrentPage(null) is a no-op)
     }
   }, [savePagesToStorage])
 
@@ -949,6 +951,13 @@ export function usePagesManager() {
   // is already verified/decrypted but tempUnlockedPages may not be flushed yet.
   const navigateToPage = useCallback((page) => {
     if (page) _setCurrentPage(page)
+  }, [])
+
+  // Actually clear the open page. `setCurrentPage`/`navigateToPage` are guarded
+  // no-ops on falsy input (they refuse to accept `null`), so callers that need
+  // to clear — e.g. deleting/trashing the last visible note — must use this.
+  const clearCurrentPage = useCallback(() => {
+    _setCurrentPage(null)
   }, [])
 
   const updateTagInPages = useCallback(async (oldName, updatedTag) => {
@@ -1418,6 +1427,11 @@ export function usePagesManager() {
     pagesRef.current = newPages
     savePagesToStorage(newPages)
     setPages(newPages)
+    // Return the re-mapped items (with their NEW ids) so callers navigate to a
+    // page that actually exists in pagesRef. Navigating to the pre-remap object
+    // (its old id) lands on a page savePage can't find, so edits are silently
+    // dropped until the user re-selects it from the sidebar.
+    return remappedItems
   }, [savePagesToStorage])
 
   // Self-destruct: set a timer on a page
@@ -1732,6 +1746,7 @@ export function usePagesManager() {
     setSelfDestruct,
     cancelSelfDestruct,
     navigateToPage,
+    clearCurrentPage,
     selfDestructingPages,
     completeSelfDestruct,
     editorReloadKey,

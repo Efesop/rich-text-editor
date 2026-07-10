@@ -288,6 +288,36 @@ Deno.test('pull: pagination via since cursor', setupTeardown(async (kv) => {
   assertEquals(body3.hasMore, false)
 }))
 
+Deno.test('pull: low-version note is not skipped on a large vault (scan-order regression)', setupTeardown(async (kv) => {
+  await registerDevice(kv)
+  // Push this note FIRST so it gets the lowest version (1), but give it a
+  // resourceId that sorts LAST. kv.list yields in resourceId order, so a
+  // resourceId-ordered scan reaches every other note before this one.
+  await callSync(kv, 'POST', '/sync/push', {
+    envelopes: [{ resourceType: 'note', resourceId: 'zzz-late', ciphertext: base64Encode(mkCipher(40)), parentVersion: null }],
+  })
+  // Push 200 more notes (versions 2..201) whose resourceIds all sort BEFORE
+  // 'zzz-late'. 200 exceeds the old maxScan (limit*8+100), so the previous
+  // early break fired before ever scanning 'zzz-late' — and because its
+  // version (1) sits below every later cursor, it was then lost forever.
+  for (let b = 0; b < 4; b++) {
+    const envelopes = []
+    for (let i = 0; i < 50; i++) {
+      const n = b * 50 + i
+      envelopes.push({ resourceType: 'note', resourceId: `a-${String(n).padStart(3, '0')}`, ciphertext: base64Encode(mkCipher(40)), parentVersion: null })
+    }
+    await callSync(kv, 'POST', '/sync/push', { envelopes })
+  }
+  // The first page (the 10 lowest versions) MUST contain the version-1 note.
+  const res = await callSync(kv, 'GET', '/sync/pull?since=0&limit=10')
+  assertEquals(res.status, 200)
+  const body = await res.json()
+  assertEquals(body.envelopes.length, 10)
+  assertEquals(body.envelopes[0].version, 1)
+  const ids = body.envelopes.map((e: { resourceId: string }) => e.resourceId)
+  assert(ids.includes('zzz-late'), 'the version-1 note must be in the lowest-version page, not skipped by scan order')
+}))
+
 // ── 4. Version eviction ────────────────────────────────────────────────
 
 Deno.test('push: 31st version of same note evicts oldest', setupTeardown(async (kv) => {

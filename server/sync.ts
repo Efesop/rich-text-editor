@@ -1070,45 +1070,61 @@ export async function handlePull(
     parentVersion: number | null
     permanent?: boolean
   }
-  const collected: PulledEnvelope[] = []
-
-  // Hard cap to avoid runaway: at most limit*4 records examined
-  const maxScan = limit * 8 + 100
-
+  // Two-pass, memory-bounded scan.
+  //
+  // Pass 1 collects lightweight refs (key + version, NO ciphertext) for EVERY
+  // entry newer than `since`, across all resource types, so we can globally sort
+  // by version and take the true lowest `limit`. Holding only refs keeps memory
+  // bounded even on a large initial sync (`since = 0`); pass 2 fetches blobs for
+  // just the returned window.
+  //
+  // This replaces an earlier `scanned > limit*8+100` early break. kv.list yields
+  // in resourceId (random UUID) order, NOT version order, so that break could
+  // stop before reaching a low-version note whose UUID happened to sort late.
+  // The client then advanced its `since` cursor past that version and never
+  // pulled the note again — silent, permanent note loss on exactly the
+  // large-vault initial-sync path new multi-device users hit first.
+  type ScanRef = { resourceType: ResourceType; key: Deno.KvKey; resourceId: string; version: number }
+  const refs: ScanRef[] = []
   for (const t of types) {
-    let scanned = 0
     for await (const entry of kv.list<SyncBlob>({ prefix: ['v', auth.vaultId, t] })) {
-      scanned++
-      if (scanned > maxScan && collected.length > limit) break
       const key = entry.key
       const version = key[key.length - 1] as number
-      const resourceId = key[key.length - 2] as string
       if (typeof version !== 'number' || version <= since) continue
-      const blob = entry.value
-
-      // Tombstone permanent flag (lazy)
-      let permanent = blob.permanent
-      if (t === 'tombstone' && !permanent && now() - blob.uploadedAt >= TOMBSTONE_PERMANENT_MS) {
-        permanent = true
-        await kv.set(key, { ...blob, permanent: true }).catch(() => {})
-      }
-
-      collected.push({
-        resourceType: t,
-        resourceId,
-        ciphertext: base64Encode(blob.ciphertext),
-        version,
-        uploadedAt: blob.uploadedAt,
-        authorDeviceId: blob.authorDeviceId,
-        parentVersion: blob.parentVersion,
-        permanent,
-      })
+      refs.push({ resourceType: t, key, resourceId: key[key.length - 2] as string, version })
     }
   }
 
-  collected.sort((a, b) => a.version - b.version)
-  const sliced = collected.slice(0, limit)
-  const hasMore = collected.length > limit
+  refs.sort((a, b) => a.version - b.version)
+  const windowRefs = refs.slice(0, limit)
+  const hasMore = refs.length > limit
+
+  const collected: PulledEnvelope[] = []
+  for (const ref of windowRefs) {
+    const blob = (await kv.get<SyncBlob>(ref.key)).value
+    if (!blob) continue
+
+    // Tombstone permanent flag (lazy)
+    let permanent = blob.permanent
+    if (ref.resourceType === 'tombstone' && !permanent && now() - blob.uploadedAt >= TOMBSTONE_PERMANENT_MS) {
+      permanent = true
+      await kv.set(ref.key, { ...blob, permanent: true }).catch(() => {})
+    }
+
+    collected.push({
+      resourceType: ref.resourceType,
+      resourceId: ref.resourceId,
+      ciphertext: base64Encode(blob.ciphertext),
+      version: ref.version,
+      uploadedAt: blob.uploadedAt,
+      authorDeviceId: blob.authorDeviceId,
+      parentVersion: blob.parentVersion,
+      permanent,
+    })
+  }
+  // windowRefs is already the version-sorted lowest-`limit` slice, so `collected`
+  // is in ascending version order — no re-sort needed.
+  const sliced = collected
 
   // Reuse the index read from the short-circuit check above —
   // cuts one KV read per non-empty pull.

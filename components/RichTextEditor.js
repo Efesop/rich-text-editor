@@ -526,6 +526,7 @@ export default function RichTextEditor() {
     setSelfDestruct,
     cancelSelfDestruct,
     navigateToPage,
+    clearCurrentPage,
     selfDestructingPages,
     completeSelfDestruct,
     editorReloadKey,
@@ -1379,7 +1380,8 @@ export default function RichTextEditor() {
           const peerDeleted = !fresh || fresh.trashed === true
           if (peerDeleted) {
             const next = pagesToSet.find(p => p && p.type !== 'folder' && !p.trashed)
-            setCurrentPage(next || null)
+            if (next) setCurrentPage(next)
+            else clearCurrentPage() // no notes left — setCurrentPage(null) is a no-op
           } else if (fresh !== cur) {
             // Content refresh, not navigation.
             setCurrentPage(fresh)
@@ -1469,8 +1471,8 @@ export default function RichTextEditor() {
         createdAt: new Date().toISOString(),
         password: null
       }
-      importPages([newPage])
-      setTimeout(() => navigateToPage(newPage), 100)
+      const [importedShared] = (await importPages([newPage])) || []
+      setTimeout(() => navigateToPage(importedShared || newPage), 100)
     } catch (err) {
       console.error('Deep link import failed:', err)
     }
@@ -1539,8 +1541,8 @@ export default function RichTextEditor() {
           password: null
         }
 
-        importPages([newPage])
-        setTimeout(() => navigateToPage(newPage), 100)
+        const [importedShared] = (await importPages([newPage])) || []
+        setTimeout(() => navigateToPage(importedShared || newPage), 100)
       } catch (err) {
         console.error('Deep link import failed:', err)
       }
@@ -1724,8 +1726,8 @@ export default function RichTextEditor() {
             createdAt: new Date().toISOString(),
             password: null
           }
-          importPages([newPage])
-          setTimeout(() => navigateToPage(newPage), 100)
+          const [importedShared] = (await importPages([newPage])) || []
+          setTimeout(() => navigateToPage(importedShared || newPage), 100)
         } catch (err) {
           console.error('Deep link import failed:', err)
         }
@@ -2234,8 +2236,13 @@ export default function RichTextEditor() {
       const newPage = await handleNewPage()
       if (newPage) {
         const content = { time: Date.now(), blocks, version: '2.30.6' }
-        await handleEditorChange(content)
-        setCurrentPage({ ...currentPageRef.current, content })
+        // Pin the save to the NEW page's id. Without an explicit id, savePage
+        // falls back to currentPageRef — which still points at the previously
+        // open note here (the ref syncs to `currentPage` via an effect that
+        // hasn't run yet), so the AI content would overwrite that note and leave
+        // the new page blank.
+        await handleEditorChange(content, newPage.id)
+        setCurrentPage({ ...newPage, content })
         setAiReloadKey(k => k + 1)
       }
     }
@@ -2557,7 +2564,7 @@ export default function RichTextEditor() {
                   if (liveSessionRef.current) { liveSessionRef.current.destroy(); liveSessionRef.current = null }
                   clearSession()
                   setPages(prev => prev.filter(p => p.id !== guestPageId))
-                  navigateToPage(null)
+                  clearCurrentPage() // navigateToPage(null) is a no-op — actually clear the guest page
                   return
                 }
                 const encoder = new TextEncoder()
@@ -2584,7 +2591,7 @@ export default function RichTextEditor() {
                   if (liveSessionRef.current) { liveSessionRef.current.destroy(); liveSessionRef.current = null }
                   clearSession()
                   setPages(pp => pp.filter(p => p.id !== guestPageId))
-                  navigateToPage(null)
+                  clearCurrentPage() // navigateToPage(null) is a no-op — actually clear the guest page
                   return null
                 }
                 return { ...prev, attempts, error: `Incorrect password (${3 - attempts} ${3 - attempts === 1 ? 'try' : 'tries'} remaining)` }
@@ -2704,7 +2711,7 @@ export default function RichTextEditor() {
     } catch (e) {
       console.error('Failed to join live session:', e)
     }
-  }, [setActiveSession, setParticipants, setSessionStatus, navigateToPage, setPages])
+  }, [setActiveSession, setParticipants, setSessionStatus, navigateToPage, clearCurrentPage, setPages])
 
   // Check for live session join link (from /live page redirect)
   useEffect(() => {
@@ -3360,9 +3367,11 @@ export default function RichTextEditor() {
       createdAt: new Date().toISOString(),
       password: null
     }
-    // Insert into pages via importPages (handles storage + state atomically)
-    await importPages([restoredPage])
-    navigateToPage(restoredPage)
+    // Insert into pages via importPages (handles storage + state atomically).
+    // importPages assigns a NEW id, so navigate to the returned item — the
+    // pre-remap object's id isn't in pagesRef, so edits to it would be dropped.
+    const [importedRestored] = (await importPages([restoredPage])) || []
+    navigateToPage(importedRestored || restoredPage)
     setEditorReloadKey(k => k + 1)
   }
 
