@@ -69,6 +69,7 @@ Users can set a self-destruct timer on any page through the page's action menu. 
 
 **Preset options:**
 - 1 hour
+- 12 hours
 - 1 day (24 hours)
 - 7 days
 - 30 days

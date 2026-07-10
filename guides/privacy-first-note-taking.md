@@ -42,9 +42,9 @@ This is fundamentally different from how most software is built. Most apps colle
 - Example: Standard Notes, Proton Notes
 
 **Privacy-first / Zero-knowledge:**
-- Architectured so the developer **cannot** access user data even if they wanted to
-- No accounts, no servers processing user data, no telemetry
-- Privacy is guaranteed by architecture, not by policy or promise
+- Architectured so the developer **cannot** read user data even if they wanted to — content is encrypted on-device and only ciphertext ever leaves it
+- No account for local note-taking; no telemetry; any server involvement (optional sync/sharing) is zero-knowledge — it handles ciphertext it cannot decrypt
+- Privacy is guaranteed by architecture (client-side encryption), not by policy or promise
 - Example: Dash
 
 ---
@@ -71,25 +71,25 @@ Cloud providers can change their terms. They can introduce AI training on your c
 
 ### Zero Data Collection
 
-Dash collects **zero** user data. This isn't a policy choice — it's an architectural impossibility:
+Dash never reads your notes and never collects analytics. This isn't a policy choice — it's enforced by client-side encryption:
 
-- **No data-collecting server**: Dash has no backend that collects, processes, or stores user data. A zero-knowledge relay server exists for optional features (encrypted sharing and live collaboration), but it only handles encrypted blobs it cannot read — no accounts, no logs, no user data
-- **No accounts**: No sign-up, no login, no email, no identity
+- **No data-reading server**: Dash has no backend that can read your notes. A zero-knowledge relay exists for optional features (encrypted sharing and, if you subscribe, Dash Sync), but it only ever handles ciphertext it cannot decrypt — no note content, no vault keys
+- **No account for local use**: creating and editing notes needs no sign-up, login, or email. The optional Dash Sync feature uses a **passwordless magic-link email** to tie your subscription to your devices — the only personal data the service ever sees is that email (plus purchase state), never your notes
 - **No analytics**: No Segment, Amplitude, Google Analytics, Mixpanel, Sentry, or any other telemetry service
-- **No telemetry**: The app makes no tracking or analytics network requests. The only network activity is: checking for app updates (desktop), and optional user-initiated features (encrypted share uploads and live collaboration sessions) — all of which are end-to-end encrypted
+- **No telemetry**: The app makes no tracking or analytics network requests. Outbound network activity is limited to: checking for app updates (desktop), optional encrypted share uploads, and — only if you enable it — Dash Sync (all end-to-end encrypted)
 - **No cookies or tracking**: No third-party scripts, no tracking pixels, no fingerprinting
 
 This can be verified by inspecting the open-source code — there are no analytics packages in the dependencies and no tracking calls in the application logic.
 
-### Local-Only Storage
+### Local-First Storage
 
-All data in Dash stays on your device:
+By default, all data in Dash stays on your device:
 
 - **Desktop**: JSON files in your local app data directory
 - **Mobile/PWA**: IndexedDB in your browser's sandboxed storage
 - **Web**: localStorage in your browser
 
-There is no cloud sync, no backup service, no server-side copy of your data. The data exists in exactly one place — the device you're using.
+With sync off, your notes exist in exactly one place — the device you're using. **Dash Sync** is an optional subscription feature: when you turn it on, notes are encrypted on-device and synced across your own devices through the zero-knowledge relay, which stores only ciphertext it cannot read. Either way, the developer never has a readable copy of your notes.
 
 ### Client-Side Encryption
 
@@ -128,7 +128,7 @@ This is as important as what Dash does:
 - **No "anonymous" analytics** — there's no usage tracking at all, not even anonymized
 - **No crash reporting** — no Sentry, Bugsnag, or similar services that capture app state
 - **No A/B testing** — no feature flags that phone home
-- **End-to-end encrypted sharing** — when you choose to share a note or start a live session, content is encrypted on your device before anything touches the network. The relay server only sees encrypted blobs it cannot decrypt. Shared note blobs are auto-deleted after 30 days
+- **End-to-end encrypted sharing and sync** — when you choose to share a note, or enable Dash Sync, content is encrypted on your device before anything touches the network. The relay only sees encrypted blobs it cannot decrypt. Shared note blobs are auto-deleted after 30 days
 - **No advertisements** — no ad networks, no tracking for ad targeting
 - **No data broker relationships** — no user data exists to sell
 
@@ -138,13 +138,13 @@ This is as important as what Dash does:
 
 | Aspect | Dash | Typical cloud note app |
 |--------|------|----------------------|
-| Account required | No | Yes (email + password) |
-| Data stored on servers | No | Yes |
+| Account required | No for local use; magic-link email only for optional sync | Yes (email + password) |
+| Data stored on servers | No by default; only E2E-encrypted ciphertext if you enable sync | Yes (readable by the service) |
 | Encryption key holder | Only you | Usually the service |
 | Analytics/telemetry | None | Typically 3-5 analytics services |
-| Network requests (normal use) | None (optional E2E encrypted sharing/collaboration) | Continuous (sync, analytics, ads) |
+| Network requests (normal use) | None by default; E2E-encrypted sync/sharing only if enabled | Continuous (sync, analytics, ads) |
 | Password recovery | Not possible (zero-knowledge) | Usually available (they have your data) |
-| AI training on your content | Never (no data leaves device) | Check their ToS (often ambiguous) |
+| AI training on your content | Never (only ciphertext ever leaves the device) | Check their ToS (often ambiguous) |
 | Works without internet | Yes, fully | Limited or not at all |
 | Data portability | Full export (7 formats) | Usually limited |
 | Code inspectable | Yes (open source) | Usually no |
@@ -156,12 +156,12 @@ This is as important as what Dash does:
 
 While Dash doesn't need to comply with data protection regulations in the traditional sense (it doesn't collect data), its architecture naturally aligns with the principles behind these regulations:
 
-- **GDPR** (EU): Right to erasure, data minimization, purpose limitation — Dash stores nothing externally, so there's nothing to erase, minimize, or limit purpose on
-- **CCPA** (California): Right to know what data is collected — Dash collects nothing
-- **HIPAA** (US Healthcare): While Dash isn't HIPAA-certified, its zero-knowledge architecture means protected health information never leaves the device
-- **Data residency**: Since data never leaves your device, it's always in your jurisdiction
+- **GDPR** (EU): Right to erasure, data minimization, purpose limitation — Dash stores no readable content externally; the only personal data the optional sync service holds is your email and purchase state, which you can delete by cancelling and purging your vault
+- **CCPA** (California): Right to know what data is collected — Dash collects no note content and no analytics
+- **HIPAA** (US Healthcare): While Dash isn't HIPAA-certified, its zero-knowledge architecture means protected health information is never readable off the device — even synced, only ciphertext leaves it
+- **Data residency**: Note content is encrypted on-device before it ever leaves, so plaintext always stays in your control
 
-This isn't compliance through legal effort — it's compliance through architecture. When you don't collect data, most privacy regulations become irrelevant.
+This is privacy through architecture (client-side encryption), not just legal effort. Because content is encrypted before it leaves the device, most data-protection concerns are addressed structurally.
 
 ---
 
@@ -170,12 +170,11 @@ This isn't compliance through legal effort — it's compliance through architect
 For technically-minded users, here's what Dash protects against and what it doesn't:
 
 ### Protected Against
-- Server-side data breaches (relay only stores encrypted blobs it cannot read, auto-deleted after 30 days)
-- Man-in-the-middle attacks on note content (all sharing and collaboration is end-to-end encrypted; encryption keys are in URL fragments, never sent to servers)
-- Service provider reading your notes (zero-knowledge architecture — even the relay server cannot decrypt content)
-- Government data requests to the developer (no user data, no accounts; relay stores only encrypted blobs with no identifying information)
+- Server-side data breaches (relay only stores ciphertext it cannot read; shared blobs auto-deleted after 30 days)
+- Man-in-the-middle attacks on note content (sharing and sync are end-to-end encrypted; share keys live in URL fragments, never sent to servers)
+- Service provider reading your notes (zero-knowledge architecture — even the relay cannot decrypt content)
+- Government data requests to the developer (no note content is readable; the sync service holds only your email + purchase state, never plaintext notes)
 - Analytics company profiling (no analytics)
-- Account compromise (no accounts)
 - Brute-force on encrypted pages (PBKDF2 with 600K iterations + AES-256)
 
 ### User's Responsibility

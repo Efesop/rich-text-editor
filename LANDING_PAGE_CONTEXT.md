@@ -2,6 +2,18 @@
 
 > This document provides full context about Dash for use by AI or developers working on the landing page, marketing site, or SEO content.
 
+> **HISTORICAL SNAPSHOT — READ FIRST.** This document describes Dash as of
+> **v1.3.101 (March 1, 2026)** and is kept for reference. The current app is
+> **v1.5.0**, which added **Dash Sync** — optional, end-to-end-encrypted
+> multi-device cloud sync sold as a subscription (**$4.99/mo or $47.99/yr,
+> 7-day free trial**, with magic-link email sign-in) — plus a **native iOS
+> App Store app** (Capacitor). Several claims below are now out of date; the
+> most important are flagged inline. Where this doc says "no subscriptions",
+> "no cloud sync", or "no account", that now applies only to the free, local,
+> offline core — Dash Sync exists as a paid add-on and requires an email
+> sign-in. The Mac desktop app is a **$14.99 one-time purchase** (desktop
+> license only); only macOS ships as a desktop binary.
+
 ---
 
 ## Product Overview
@@ -58,7 +70,7 @@ Dash is a beautiful, privacy-first note-taking app that keeps your thoughts comp
 | Auto-Lock on Inactivity | Lock the entire app after idle timeout | Unattended devices stay protected |
 | Touch ID / Biometric Unlock | Use Touch ID instead of typing a password | Fast, secure access on macOS |
 | Self-Destructing Notes | Set notes to auto-delete after a time period | Sensitive info doesn't linger |
-| No Account Required | Use immediately, no sign-up | Zero personal data collected |
+| No Account Required* | Use immediately, no sign-up | Zero personal data collected (*core note-taking only — the optional Dash Sync add-on requires a magic-link email sign-in) |
 | No Tracking | Zero analytics or telemetry | Complete privacy, no profiling |
 | Local Storage | Data stored in user directory | You control where your data lives |
 
@@ -102,10 +114,10 @@ Dash is a beautiful, privacy-first note-taking app that keeps your thoughts comp
 ### 📱 Platform Support
 | Platform | Type | Notes |
 |----------|------|-------|
-| macOS | Native Electron App | Primary platform, auto-updates |
-| Windows | Native Electron App | Full feature parity |
-| Linux | Native Electron App | AppImage, deb, rpm |
-| iOS | Progressive Web App | Install from Safari |
+| macOS | Native Electron App | Primary platform — the only desktop binary built/shipped by CI; auto-updates |
+| Windows | Electron (source only) | Build target exists in config, but no official binary is published |
+| Linux | Electron (source only) | Build target exists in config, but no official binary is published |
+| iOS | Native App Store app (Capacitor 8) + PWA | Shipped on the App Store (`io.dashnote.app`); PWA also installable from Safari |
 | Android | Progressive Web App | Install from Chrome |
 
 ---
@@ -118,7 +130,7 @@ Dash is a beautiful, privacy-first note-taking app that keeps your thoughts comp
 |---------|------|--------|----------|-------------|----------|
 | 100% Offline | ✅ | ❌ | ❌ | ⚠️ | ✅ |
 | No Account Required | ✅ | ❌ | ❌ | ❌ | ✅ |
-| No Subscription | ✅ | ❌ | ❌ | ✅ | ✅ |
+| No Subscription | ⚠️* | ❌ | ❌ | ✅ | ✅ |
 | End-to-End Encryption | ✅ | ❌ | ❌ | ⚠️ | ⚠️ |
 | Biometric Unlock | ✅ | ❌ | ❌ | ✅ | ❌ |
 | Self-Destructing Notes | ✅ | ❌ | ❌ | ❌ | ❌ |
@@ -127,10 +139,12 @@ Dash is a beautiful, privacy-first note-taking app that keeps your thoughts comp
 | Rich Text Editor | ✅ | ✅ | ✅ | ✅ | ⚠️ |
 | Export Formats | 8+ | Limited | Limited | Limited | ✅ |
 
+*⚠️ Dash's core app is a one-time purchase (Mac $14.99) with no subscription; the optional **Dash Sync** cloud add-on is a subscription ($4.99/mo or $47.99/yr). (Comparable to Obsidian: free/one-time core, paid sync add-on.)
+
 ### Key Differentiators
 1. **True Privacy** - Not "privacy-focused" marketing, actually offline-first
 2. **No Vendor Lock-In** - Export everything in standard formats
-3. **One-Time Purchase** - No subscriptions (or free forever for personal use)
+3. **One-Time Purchase for the core app** - Mac is a one-time $14.99 purchase; no subscription for local note-taking. (The optional Dash Sync cloud add-on is a separate subscription.)
 4. **Open Source** - Audit the code yourself
 5. **Beautiful Design** - Privacy doesn't mean ugly
 
@@ -191,9 +205,15 @@ Dash is a beautiful, privacy-first note-taking app that keeps your thoughts comp
 - Cross-platform, Portable, Export, Sync (device-to-device)
 
 ### Words to Avoid
-- Cloud, Server, Account, Sign up, Subscribe, Sync (to cloud)
+- Cloud, Server (when describing the free local core — it never touches a server)
 - Track, Analytics, Telemetry, Data collection
 - AI-powered, Machine learning (we don't use these)
+
+> Note (v1.5): "Subscribe", "Sync (to cloud)", "Account", and "Sign up" were
+> in this avoid-list for the v1.3 snapshot, but Dash now sells **Dash Sync** —
+> an end-to-end-encrypted cloud-sync subscription with magic-link email
+> sign-in — so those terms are now accurate and on-brand when describing the
+> sync add-on.
 
 ---
 
@@ -322,7 +342,7 @@ Dash is a beautiful, privacy-first note-taking app that keeps your thoughts comp
 ## FAQ
 
 **Is Dash really free?**
-Yes, Dash is free for personal use. No account, no subscription, no hidden costs.
+The local, offline core is free to use with no account (the PWA is free). Note (v1.5): the Mac desktop app is a one-time **$14.99** purchase, and the optional **Dash Sync** cloud-sync add-on is a subscription ($4.99/mo or $47.99/yr, 7-day free trial). There's still no subscription required for core, local note-taking.
 
 **Can I use Dash offline?**
 Yes! Dash is 100% offline. It never connects to the internet. Your data stays on your device.
@@ -334,7 +354,7 @@ On your device only. Desktop: in your user application data folder. Mobile: in b
 Your data is stored locally in plain JSON by default. You can enable password protection on individual pages, which encrypts them with AES-256.
 
 **Can I sync between devices?**
-Yes, using encrypted export/import. Export a `.dashpack` file from one device, import on another. No cloud sync.
+Yes, two ways. (1) **Dash Sync** (v1.5+) — optional, end-to-end-encrypted cloud sync across your devices, sold as a subscription ($4.99/mo or $47.99/yr, 7-day free trial); the relay stores ciphertext only and can never read your notes. (2) **Manual encrypted export/import** — export a `.dashpack` file from one device and import it on another, no account needed.
 
 **What happens if I lose my device?**
 Export your notes regularly as a backup. We recommend keeping encrypted `.dashpack` backups.

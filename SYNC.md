@@ -12,6 +12,12 @@ ciphertext only — Dash can never read your notes.
 > Mac users: subscribe at https://dashnote.io/subscribe.
 > iOS users: paywall opens automatically on first sync action.
 >
+> Identity is a **magic-link email sign-in** (6-digit code, no password —
+> `lib/identity.js` ↔ relay `/auth/*`, `components/SignInModal.js`). On
+> Mac/PWA the sign-in proves which email owns the subscription, and the relay
+> issues an HMAC-signed bearer token that gates every vault call; on iOS the
+> entitlement comes from the App Store purchase via RevenueCat (`lib/rc.js`).
+>
 > The desktop Mac app one-time purchase ($14.99) is separate and
 > unchanged — it covers the desktop license; sync is its own thing.
 
@@ -85,7 +91,7 @@ ciphertext only — Dash can never read your notes.
 
 | File | Purpose |
 |---|---|
-| `components/SyncSettingsPanel.js` | Master sync settings — toggle, devices list, status, advanced (lock, purge, disable) |
+| `components/SyncSettingsPanel.js` | Master sync settings — toggle, devices list, status, advanced (lock, purge, disable). "Disable sync" clears the vault key + sync metadata on this device only (`vaultStorage.disableSync`) — **local notes are untouched** and remain in normal storage. |
 | `components/PairDeviceModal.js` | Host: QR code + 6-digit pair code + 60s countdown |
 | `components/AcceptPairModal.js` | Guest: paste pair link + type code |
 | `components/SyncPassphraseModal.js` | Reusable passphrase prompt (setup / unlock modes) |
@@ -96,8 +102,9 @@ ciphertext only — Dash can never read your notes.
 
 ### Server (`server/sync.ts`, `server/relay.ts`)
 
-Deno Deploy relay extended from existing share-link / live-session
-infrastructure. 13 endpoints under `/sync/*`:
+Deno Deploy relay (`dash-relay.efesop.deno.net`) extended from the existing
+share-link / live-session infrastructure. `server/sync.ts` is ~1806 lines;
+14 endpoints under `/sync/*`:
 
 ```
 POST   /sync/vault/register
@@ -113,6 +120,7 @@ POST   /sync/vault/purge
 GET    /sync/vault/purge-token
 DELETE /sync/vault/devices/:deviceId
 GET    /sync/vault/index
+GET    /sync/vault/quota
 ```
 
 Server tests: `cd server && deno test --allow-net --allow-read --allow-env --unstable-kv sync-tests.ts` → 38 tests, 0 fail.
@@ -318,9 +326,12 @@ data loss." Ten independent defenses:
     versions surface "Update Dash to read this note" instead of crashing
     or corrupting.
 
-## Free-tier limits
+## Per-vault limits
 
-| Resource | Free | Why |
+These caps apply to every synced vault (sync is subscription-only — there is
+no free sync tier).
+
+| Resource | Limit | Why |
 |---|---|---|
 | Vault storage | 500 MB | Generous for ~50k text notes + moderate attachments |
 | Notes per vault | unlimited | Just storage cap |
@@ -378,7 +389,8 @@ deno test --allow-net --allow-read --allow-env --unstable-kv sync-tests.ts
 
 ### Live integration test
 
-1. Flip `SYNC_ENABLED = true` in `components/RichTextEditor.js`.
+1. Confirm `SYNC_ENABLED = true` in `components/RichTextEditor.js` (it ships
+   enabled now — this was `false` in pre-v1.5 builds).
 2. Start local relay: `cd server && deno run --allow-net --allow-env --unstable-kv relay.ts`
 3. Set `NEXT_PUBLIC_RELAY_URL=ws://localhost:8000` in `.env.local`.
 4. `npm run dev` (PWA) or `npm run electron-dev` (desktop).

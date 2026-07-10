@@ -33,7 +33,7 @@ Block-based editor powered by Editor.js with 15+ content types:
 | Numbered List | Individual numbered items with auto-numbering |
 | Checklist | Interactive checkbox items, each its own block |
 | Quote | Block quotes with author caption |
-| Code | Syntax-highlighted code blocks (22 languages) |
+| Code | Syntax-highlighted code blocks (20 languages) |
 | Table | Rows, columns, and optional headings |
 | Image | Drag-and-drop or file picker (up to 5MB, stored locally) |
 | Embed | YouTube, Vimeo, GitHub, Twitter |
@@ -161,7 +161,7 @@ Theme preference persists across sessions.
 ### App Lock & Auto-Lock
 - Lock the entire app after a configurable idle timeout (1, 5, 15, 30 minutes, custom, or Never)
 - Master password required to unlock
-- **Touch ID / biometric unlock** — use Touch ID on macOS as an alternative to typing your password
+- **Touch ID / Face ID biometric unlock** — use Touch ID on macOS or Face ID (Touch ID on older devices) on iOS, via `@aparajita/capacitor-biometric-auth`, as an alternative to typing your password
 - Biometrics also available for unlocking individual locked pages
 - Instant lock with Cmd+Shift+L shortcut or sidebar lock button
 - Locks automatically on app launch if enabled
@@ -187,7 +187,7 @@ Theme preference persists across sessions.
 - Data saved as standard Editor.js block JSON — benefits from page encryption when the page is locked
 
 ### Self-Destructing Notes
-- Set a page to automatically delete after a time period (1 hour, 1 day, 7 days, or 30 days)
+- Set a page to automatically delete after a time period (1 hour, 12 hours, 1 day, 7 days, or 30 days, plus custom durations)
 - Countdown badge in the sidebar shows precise time remaining
 - Badge color shifts from green to orange to red as expiry approaches
 - Cancel self-destruct at any time via the page's context menu
@@ -221,6 +221,17 @@ Browse and restore previous versions of any page.
 - **Privacy** — locked pages do **not** capture versions, and existing versions are deleted the moment a page is locked. The "Version History" menu item is hidden for locked pages.
 - **Storage** — versions stored separately per page (Electron: `userData/versions/{pageId}.json`, PWA: IndexedDB, browser: localStorage)
 - **Page delete** cleans up associated version history
+
+---
+
+## Multi-Device Sync (Dash Sync)
+
+Optional end-to-end-encrypted sync keeps notes, folders, tags, attachments, and version history in step across Mac, iPhone, iPad, and the PWA. Sync requires a **Dash Sync** subscription ($4.99/mo or $47.99/yr, 7-day free trial) on every platform; with it turned off, Dash is 100% local and offline exactly as before.
+
+- **Zero-knowledge relay** — the sync server (`dash-relay.efesop.deno.net`) only ever stores encrypted blobs. It never sees note contents and never holds your vault key.
+- **Client-side vault encryption** — a per-account vault key encrypts everything before upload; the key is derived on-device and never leaves it.
+- **Magic-link sign-in** — sign in with your email and a 6-digit code (no password to remember). Identity only ties your subscription to your devices.
+- **Trash & auto-backup** — deleted pages sync to a recoverable Trash (30-day retention); scheduled encrypted `.dashpack` backups run independently of sync.
 
 ---
 
@@ -305,7 +316,7 @@ All exports can optionally be **encrypted with a passphrase** (AES-GCM-256).
 - **Native file storage** — pages saved as local JSON files
 - **Bug reporting** — built-in GitHub issue creator
 - **macOS Applications folder prompt** — guides users to install correctly
-- **Cross-platform builds** — macOS (Apple Silicon + Intel), Windows, Linux
+- **macOS builds** — signed, notarized DMG for Apple Silicon + Intel (Windows/Linux electron-builder targets exist in the codebase but are not built or shipped by the release pipeline)
 - **What's New modal** — shows new features on first launch after each update
 
 ---
@@ -339,7 +350,7 @@ All exports can optionally be **encrypted with a passphrase** (AES-GCM-256).
 | Editor | Editor.js 2.30 |
 | Styling | Tailwind CSS |
 | Desktop | Electron 32 |
-| Mobile | PWA (next-pwa), Capacitor 6 |
+| Mobile | iOS native (Capacitor 8), PWA (next-pwa) |
 | State | Zustand |
 | Search | Fuse.js |
 | Drag & Drop | @dnd-kit |

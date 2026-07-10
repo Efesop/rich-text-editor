@@ -12,6 +12,7 @@
 - encrypt all notes at once
 - biometric notes app
 - touch id notes app
+- face id notes app
 - full disk encryption notes
 - password lock note app
 - secure notes with fingerprint
@@ -103,7 +104,7 @@ When the idle timer triggers, Dash encrypts all pages before displaying the lock
 
 ---
 
-## Touch ID / Biometric Unlock
+## Touch ID & Face ID / Biometric Unlock
 
 ### The Challenge
 
@@ -129,6 +130,10 @@ This means Touch ID provides **real decryption**, not just a UI bypass. The biom
 - On macOS, the Keychain is protected by the Secure Enclave
 - The password is only accessible after successful biometric authentication
 - If Touch ID fails, you can always fall back to password entry
+
+### On iOS (Face ID & Touch ID)
+
+The iOS app uses the same real-decryption pattern. In place of Electron's `safeStorage`, Dash gates access with the `@aparajita/capacitor-biometric-auth` plugin — Face ID (or Touch ID on Touch ID-equipped devices) — and stores the app-lock password in the iOS Keychain. A successful Face ID scan releases the password, which re-derives the AES-256 key exactly as on macOS. Same guarantee: the biometric unlocks the key, it does not merely dismiss a screen.
 
 ---
 

@@ -44,10 +44,10 @@ Browser mode **won't work** for:
 ### Code Style
 
 - **Standard.js**: No semicolons, 2-space indentation
-- **Functional components**: Always use hooks, never class components
+- **Functional components**: Always use hooks, never class components — the sole exception is `components/ErrorBoundary.js`, which must be a class (React error boundaries have no hook equivalent)
 - **Descriptive naming**: `isLoading`, `hasError`, `handleSubmit`
 - **File organization**: Component → Subcomponents → Helpers → Static content
-- **Theme support**: Always handle light, dark, and fallout themes
+- **Theme support**: Always handle all four themes — Light, Dark, Dark Blue, and Fallout
 
 ### Project Structure
 
@@ -98,7 +98,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed technical docs.
 ### Pull Request Process
 1. **Create a feature branch**: `git checkout -b feature/your-feature`
 2. **Make your changes** and test thoroughly
-3. **Test on multiple platforms** if possible (Windows, macOS, Linux)
+3. **Test on macOS** — the only platform the release pipeline builds and ships. Windows/Linux code paths exist but aren't released, so testing them is best-effort.
 4. **Write clear commit messages**
 5. **Open a pull request** with a detailed description
 

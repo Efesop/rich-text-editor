@@ -17,7 +17,7 @@ Future feature ideas and enhancements for Dash.
   - Import shared note directly into recipient's Dash notes
 
 ## Note Management
-- Trash / recently deleted with 30-day recovery
+- ~~Trash / recently deleted with 30-day recovery~~ ✓ **Shipped** — soft-delete with 30-day auto-purge; restore or permanently delete from the Trash modal (always on, independent of sync)
 - ~~Note versioning / revision history~~ ✓ **Shipped in v1.3.159** — see [FEATURES.md#version-history](./FEATURES.md#version-history)
 - Pinned notes and favorites
 - Smart filters (by date, tag, word count, locked status)
@@ -44,6 +44,7 @@ Future feature ideas and enhancements for Dash.
 - ~~Auto-backup: scheduled encrypted `.dashpack` export~~ ✓ **Shipped in v1.4.0**
 - ~~Cloud sync (encrypted, zero-knowledge)~~ ✓ **Shipped in v1.4.0** alpha, paywalled in v1.5.0 as Dash Sync subscription ($4.99/mo or $47.99/yr)
 - P2P local network sync: devices on same WiFi discover each other via mDNS, pair with confirmation code, sync pages over encrypted WebSocket channel. No cloud, no internet required. Last-write-wins conflict resolution. Electron-only.
+- Live collaboration (real-time multi-device editing sessions): **built but gated off** (`LIVE_SESSIONS_ENABLED = false` in `components/RichTextEditor.js`) — the code is in the tree but not yet enabled for users.
 
 ## Monetization follow-ups (after v1.5)
 - iOS Keychain for session token (currently `localStorage['dash:auth:token']`)

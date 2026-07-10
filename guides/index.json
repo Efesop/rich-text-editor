@@ -19,7 +19,7 @@
       "file": "self-destructing-notes.md",
       "tags": ["privacy", "self-destruct", "ephemeral", "security"],
       "relatedFeatures": ["self-destruct-timer", "page-management"],
-      "lastUpdated": "2026-03-05"
+      "lastUpdated": "2026-07-10"
     },
     {
       "slug": "offline-first",
@@ -35,7 +35,7 @@
       "slug": "privacy-first-note-taking",
       "title": "Privacy-First Note Taking",
       "subtitle": "What Privacy-First Means & Why It Matters",
-      "description": "Explore what privacy-first design means compared to traditional cloud note apps, zero-knowledge architecture, and how Dash ensures your data never leaves your device.",
+      "description": "Explore what privacy-first design means compared to traditional cloud note apps, zero-knowledge architecture, and how Dash keeps your notes private with local-first storage and end-to-end encryption.",
       "file": "privacy-first-note-taking.md",
       "tags": ["privacy", "zero-knowledge", "security", "design"],
       "relatedFeatures": ["encryption", "local-storage", "no-telemetry"],
@@ -47,9 +47,9 @@
       "subtitle": "Real Encryption Behind Your Lock Screen",
       "description": "Learn how Dash's app lock goes beyond a simple password screen to provide real AES-256 encryption for all your notes, with Touch ID support and automatic locking.",
       "file": "app-lock.md",
-      "tags": ["security", "encryption", "app-lock", "biometric", "touch-id"],
+      "tags": ["security", "encryption", "app-lock", "biometric", "touch-id", "face-id"],
       "relatedFeatures": ["app-lock", "biometric-unlock", "auto-lock", "encryption"],
-      "lastUpdated": "2026-03-05"
+      "lastUpdated": "2026-07-10"
     },
     {
       "slug": "page-linking",
@@ -95,11 +95,11 @@
       "slug": "features",
       "title": "All Features",
       "subtitle": "Complete Feature Guide for Dash",
-      "description": "A comprehensive overview of every feature in Dash — encryption, encrypted sharing, live collaboration, local AI, EXIF stripping, decoy app, self-destructing notes, markdown paste, focus mode, themes, keyboard shortcuts, and more.",
+      "description": "A comprehensive overview of every feature in Dash — encryption, encrypted sharing, multi-device sync, local AI, EXIF stripping, decoy app, self-destructing notes, markdown paste, focus mode, themes, keyboard shortcuts, and more.",
       "file": "features.md",
-      "tags": ["features", "overview", "guide", "security", "editor", "sharing", "privacy", "live-sessions", "collaboration", "ai"],
-      "relatedFeatures": ["encryption", "app-lock", "focus-mode", "themes", "shortcuts", "encrypted-sharing", "exif-stripping", "decoy-app", "live-sessions", "markdown-paste", "local-ai"],
-      "lastUpdated": "2026-03-19"
+      "tags": ["features", "overview", "guide", "security", "editor", "sharing", "privacy", "sync", "ai"],
+      "relatedFeatures": ["encryption", "app-lock", "focus-mode", "themes", "shortcuts", "encrypted-sharing", "exif-stripping", "decoy-app", "sync", "markdown-paste", "local-ai"],
+      "lastUpdated": "2026-07-10"
     }
   ]
 }

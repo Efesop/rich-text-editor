@@ -2,7 +2,7 @@
 
 ## Overview
 
-Dash is a privacy-first, offline-first note-taking app with end-to-end encryption, built for people who want full control over their data. Everything runs locally on your device — no accounts, no cloud sync, no telemetry.
+Dash is a privacy-first, offline-first note-taking app with end-to-end encryption, built for people who want full control over their data. Everything runs locally on your device by default — no account and no telemetry. An optional Dash Sync subscription adds end-to-end-encrypted sync across your own devices (the relay only ever stores ciphertext it cannot read).
 
 Below is a comprehensive list of every feature in Dash, organized by category.
 
@@ -15,7 +15,7 @@ Below is a comprehensive list of every feature in Dash, organized by category.
 Lock individual pages with AES-256-GCM encryption. When you lock a page, the entire content is encrypted on disk using a password you choose. The encryption key is derived using PBKDF2 with 600,000 iterations. Without the password, the content is unreadable — even if someone accesses the raw data files.
 
 - Algorithm: AES-256-GCM with PBKDF2 key derivation
-- Encryption happens client-side — no data ever leaves your device
+- Encryption happens client-side — only ciphertext ever leaves your device (and only if you enable sync/sharing)
 - Each page has its own password and salt
 - Locked pages show a lock icon in the sidebar
 
@@ -24,7 +24,7 @@ Lock individual pages with AES-256-GCM encryption. When you lock a page, the ent
 Lock the entire app behind a password. All pages are encrypted with AES-256 when app lock is enabled — not just hidden behind a password screen, but actually encrypted on disk. Every page's content is encrypted using a key derived from your password, so even if someone accesses the raw data files, they can't read anything. Supports automatic locking after a configurable inactivity period.
 
 - All pages encrypted on disk with AES-256-GCM when locked
-- Biometric unlock via Touch ID (macOS) when available
+- Biometric unlock via Touch ID (macOS) and Face ID / Touch ID (iOS) when available
 - Auto-lock after 1, 5, 15, or 30 minutes of inactivity
 - Brute-force protection with escalating cooldowns
 - Password stored in system secure storage for biometric unlock
@@ -45,7 +45,7 @@ A secondary password that shows fake decoy notes when entered at the lock screen
 
 Set any page to automatically delete itself after a time period. A live countdown badge in the sidebar tracks the remaining time. Useful for temporary information you don't want lingering — passwords, one-time codes, sensitive instructions.
 
-- Preset timers: 1 hour, 24 hours, 7 days, 30 days
+- Preset timers: 1 hour, 12 hours, 1 day, 7 days, 30 days
 - Custom timer with days, hours, and minutes precision
 - Live countdown badge visible in the sidebar
 - Deletion happens automatically even if the app is reopened later
@@ -62,7 +62,20 @@ Share any note via an encrypted link. The note content is encrypted client-side 
 - Share page hosted at dash-share.vercel.app with full client-side decryption
 - Native share sheet (AirDrop, Messages, etc.) on supported platforms, copy link fallback elsewhere
 
-### Live Collaboration (Live Sessions)
+### Multi-Device Sync (Dash Sync)
+
+Sync your notes across your own devices, end-to-end encrypted. Notes, attachments, and version history are encrypted on-device before upload; the relay stores only ciphertext it cannot read, and your vault key never leaves your devices. Pair devices with a QR code and a 6-digit code.
+
+- End-to-end encrypted — the relay never sees your notes or your vault key
+- Syncs notes, folders, tags, attachments, and version history
+- Pair devices via QR code + short code; Trash and encrypted auto-backup work alongside it
+- Optional subscription: $4.99/month or $47.99/year with a 7-day free trial, honored on every platform you sign into (iOS App Store, Mac, PWA/web)
+- Passwordless magic-link email sign-in links your subscription to your devices — the only personal data the service ever holds is that email and your purchase state
+- The Mac desktop app remains a separate one-time $14.99 purchase (desktop license); sync is a distinct optional feature
+
+### Live Collaboration (Live Sessions) — in development (not enabled in current builds)
+
+> This feature is built but currently disabled (`LIVE_SESSIONS_ENABLED = false`) and is not available in shipping builds. Documented here for reference; do not present it as an available feature.
 
 Real-time collaborative editing with end-to-end encryption. The host starts a session and shares a link — guests join and see live edits in real-time. All communication is encrypted client-side before being relayed through the server; the relay never sees plaintext content.
 
@@ -105,11 +118,11 @@ A dedicated secure block type for storing cryptocurrency wallet recovery phrases
 The editor supports a variety of content block types:
 
 - **Paragraph** — standard text with inline formatting (bold, italic, underline, strikethrough, inline code, links)
-- **Headings** — H1 through H6
+- **Headings** — H2, H3, and H4
 - **Bullet list items** — unordered list items (one block per item)
 - **Numbered list items** — ordered list items with automatic numbering
 - **Checklist items** — checkbox items that can be toggled complete/incomplete
-- **Code blocks** — syntax-highlighted code with 22 language support
+- **Code blocks** — syntax-highlighted code with 20-language support
 - **Tables** — row/column data with optional header row
 - **Images** — inline images with optional captions
 - **Seed phrase grid** — BIP-39 wallet recovery phrase storage
@@ -134,9 +147,9 @@ Connect your notes with wiki-style `[[` links. Type `[[` anywhere in a text bloc
 
 ### Syntax-Highlighted Code Blocks
 
-Full code block support with syntax highlighting for 22 programming languages. Language auto-detection means you can paste code and it will be highlighted correctly without manual selection. Highlighting is theme-aware — colors adapt to your chosen theme.
+Full code block support with syntax highlighting for 20 programming languages. Language auto-detection means you can paste code and it will be highlighted correctly without manual selection. Highlighting is theme-aware — colors adapt to your chosen theme.
 
-- 22 supported languages including JavaScript, Python, Rust, Go, HTML, CSS, SQL, and more
+- 20 supported languages including JavaScript, Python, Rust, Go, HTML, CSS, SQL, and more (plus auto-detect and plain text)
 - Automatic language detection
 - Theme-aware color schemes
 - Add via the + block menu or type ``` to create a code block
@@ -182,9 +195,9 @@ Press the + button or type `/` to open the block menu. Quickly add any block typ
 
 ### Export & Import
 
-Export any page to 7 different formats, or share pages between devices using `.dashpack` bundles.
+Export any page to 8 different formats, or share pages between devices using `.dashpack` bundles.
 
-- Export formats: PDF, Markdown, Plain Text, RTF, DOCX, CSV, XML
+- Export formats: PDF, Markdown, Plain Text, RTF, DOCX, CSV, JSON, XML
 - `.dashpack` export bundles pages with all their data for transfer
 - Import `.dashpack` files to restore or merge pages
 - All export happens locally — no cloud processing
@@ -298,22 +311,25 @@ The desktop app checks for updates automatically in the background. When an upda
 
 ## Platform & Architecture
 
-- **Desktop**: Electron app for macOS (primary platform)
+- **Desktop**: Electron app for macOS (primary desktop platform; Windows/Linux build targets exist in-code but are not currently shipped)
+- **Mobile**: native iOS app (Capacitor, on the App Store) and installable PWA
 - **Web**: Progressive Web App (PWA) accessible via browser
-- **Storage**: Local JSON files (desktop) or IndexedDB (PWA) — no cloud, no sync
+- **Storage**: Local JSON files (desktop) or IndexedDB (mobile/PWA) by default; optional end-to-end-encrypted Dash Sync across your own devices
 - **Open source**: Source code available on GitHub at https://github.com/Efesop/rich-text-editor
-- **Price**: $14.99 one-time purchase for the macOS app
-- **Framework**: Next.js 13, React 18, Tailwind CSS
+- **Price**: macOS app is $14.99 one-time (desktop license). Dash Sync is a separate optional subscription — $4.99/month or $47.99/year, 7-day free trial
+- **Framework**: Next.js 13, React 18, Tailwind CSS, Capacitor 8 (iOS)
 - **Editor**: Editor.js with custom block tools
 
 ---
 
 ## Relay Server
 
-The relay server at dash-relay.efesop.deno.net provides two services:
+The relay server at dash-relay.efesop.deno.net provides three zero-knowledge services:
 
-1. **Live session relay** — WebSocket server that broadcasts encrypted binary messages between session participants. The relay never decrypts content; it just forwards encrypted payloads between peers in the same room.
+1. **Dash Sync** — Stores each device's encrypted note/attachment/version envelopes and coordinates multi-device sync. The relay only ever holds ciphertext it cannot decrypt; the vault key never leaves your devices. A lightweight identity layer (passwordless magic-link email) and entitlement check tie a sync subscription to a set of devices — the only personal data it holds is that email plus purchase state.
 
-2. **Share link storage** — Stores encrypted note blobs for share links. The server receives only encrypted data (AES-256-GCM encrypted client-side) and stores it with a 30-day TTL. After 30 days, the encrypted blob is automatically deleted. The server is zero-knowledge — it cannot read any stored content.
+2. **Share link storage** — Stores encrypted note blobs for share links. The server receives only encrypted data (AES-256-GCM encrypted client-side) and stores it with a 30-day TTL, then auto-deletes. Zero-knowledge — it cannot read stored content.
 
-Both services are hosted on Deno Deploy. The relay is stateless and disposable — no user data, no accounts, no logs.
+3. **Live session relay** — WebSocket relay for the (currently disabled) live-collaboration feature; forwards encrypted payloads between peers without decrypting them.
+
+All services are hosted on Deno Deploy. The relay never stores readable note content — for sync it holds only ciphertext plus the minimal identity/billing data needed to gate the subscription.

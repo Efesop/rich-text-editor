@@ -55,7 +55,7 @@ Internet connections fail. Wi-Fi drops on trains, planes, and in buildings with 
 Local reads and writes are orders of magnitude faster than network requests. There's no loading spinner waiting for a server response, no latency from a round trip across the internet. Every action in an offline-first app is instantaneous.
 
 ### Privacy
-When data never leaves your device, there's nothing to intercept, breach, or subpoena from a server. No cloud storage means no cloud vulnerabilities. Your notes exist in exactly one place — the device in your hands.
+When your data stays on your device, there's nothing to intercept, breach, or subpoena from a server. Dash is local-first: by default your notes exist in exactly one place — the device in your hands. If you opt into Dash Sync, your notes are end-to-end encrypted on-device first, so the relay only ever holds ciphertext it cannot read.
 
 ### Ownership
 With cloud-based apps, you're renting access to your data. The service can change terms, increase prices, shut down, or lock you out. With offline-first, your data is yours — stored in formats you can access, back up, and migrate independently.
@@ -103,24 +103,22 @@ When a user transitions between storage backends (e.g., first opening the PWA af
 - Preserves all pages, tags, folders, and settings
 - No user action required
 
-### No Sync, By Design
+### Offline-First, Sync Optional
 
-Dash intentionally does not sync data between devices. This is a deliberate privacy and simplicity choice:
+Dash works fully offline with no account. Nothing is uploaded unless you opt in:
 
-- **No sync conflicts**: You never lose data to a merge conflict
-- **No account required**: No sign-up, no login, no email address needed
-- **Your notes stay on your device**: Notes are never uploaded to a server unless you explicitly choose to share them
-
-For users who want to move data between devices, Dash provides **export/import** in multiple formats (JSON, Markdown, PDF, DOCX, and more). Encrypted exports can be password-protected for secure transfer.
+- **No account required for local use**: create and edit notes with no sign-up, login, or email
+- **Your notes stay on your device by default**: nothing leaves the device unless you share a note or turn on Dash Sync
+- **Export/import** in multiple formats (JSON, Markdown, PDF, DOCX, and more) moves data between devices without any server; encrypted exports can be password-protected
 
 ### Optional Network Features
 
-While Dash works fully offline, two optional features use a zero-knowledge relay server when you choose to use them:
+While Dash works fully offline, two opt-in features use a zero-knowledge relay when you choose to use them:
 
 - **Encrypted sharing**: When you share a note, the content is encrypted on your device with AES-256-GCM before being uploaded to the relay. The server stores only an encrypted blob it cannot read, which is auto-deleted after 30 days.
-- **Live collaboration**: Real-time editing sessions use WebSocket connections through the relay to exchange encrypted messages between participants. The relay forwards encrypted binary data — it never sees plaintext content.
+- **Dash Sync** (subscription): Syncs notes, attachments, and version history across your own devices. Everything is encrypted on-device before upload; the relay stores only ciphertext it cannot read, and your vault key never leaves your devices. Requires a passwordless magic-link email to link your subscription to your devices.
 
-Both features are entirely opt-in. If you never share a note or start a live session, Dash makes no network requests beyond checking for app updates on desktop.
+Both are entirely opt-in. If you never share a note or enable sync, Dash makes no network requests beyond checking for app updates on desktop. (Real-time live collaboration is built but currently disabled in shipping builds.)
 
 ---
 
@@ -130,11 +128,15 @@ Both features are entirely opt-in. If you never share a note or start a live ses
 
 For the PWA/mobile platform, Dash uses IndexedDB with the following structure:
 
-- **Database**: `DashNotesDB`, version 1
+- **Database**: `DashNotesDB`, version 4
 - **Object stores**:
   - `pages` — all page data (content, metadata, encryption info, self-destruct timestamps)
   - `tags` — tag definitions and colors
   - `metadata` — app-level data like last save timestamp
+  - `attachments` — file attachments stored separately from page JSON
+  - `versions` — page version history
+  - `vaultMetadata` — Dash Sync vault state (no vault key)
+  - `syncQueue` — pending sync operations
 - **Indexing**: Pages indexed by `lastModified` for efficient sorting
 - **Transactions**: All reads/writes use IndexedDB transactions for data integrity
 

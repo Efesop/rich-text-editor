@@ -2,19 +2,34 @@
 
 Comprehensive audit of all pages on dashnote.io with recommendations for copy, features, design, conversion, and accuracy.
 
+> **Editor's note (added July 2026).** This review was written in **March 2026,
+> before the v1.5 launch**. Two things changed since:
+> - **Dash Sync shipped** — optional, end-to-end-encrypted multi-device cloud
+>   sync sold as a subscription (**$4.99/mo or $47.99/yr, 7-day free trial**),
+>   plus magic-link email sign-in. This review predates it and never mentions
+>   the subscription or its pricing — **that is now the single biggest content
+>   gap on the site.**
+> - **A native iOS App Store app shipped** (Capacitor). The "PWA is the only
+>   mobile option" framing below is out of date for iOS.
+>
+> Also: **live sessions / live collaboration are NOT shipped** — the code is
+> gated off (`LIVE_SESSIONS_ENABLED = false` in `RichTextEditor.js`). Treat
+> every recommendation below to market "live collaboration" or "live sessions"
+> as obsolete; it is in development, not available.
+
 ---
 
 ## 1. Inaccuracies & Outdated Content (Fix ASAP)
 
 ### Features that exist but aren't mentioned anywhere
-- **Live collaboration / Live sessions** — not mentioned on any page
+- ~~**Live collaboration / Live sessions** — not mentioned on any page~~ **UPDATE (v1.5): not shipped.** The code exists but is disabled (`LIVE_SESSIONS_ENABLED = false`). Do **not** market it as available — it's in development.
 - **Note sharing (encrypted links)** — not mentioned anywhere, this is a major feature
 - **Quick Switcher (Cmd+P)** — mentioned on homepage but not on feature-focused pages
 - **Multi-block selection & conversion toolbar** — not mentioned
 - **Tag system with stacked tags** — barely mentioned
 
 ### Claims that are inaccurate or misleading
-- **"Zero Network Requests"** on the offline-notes page — this is no longer true. The app makes network requests for: auto-updates, live sessions (WebSocket relay), and share link uploads. Should say "Your notes never leave your device" instead
+- **"Zero Network Requests"** on the offline-notes page — this is no longer true. The app makes network requests for: auto-updates, share-link uploads, and (v1.5) **opt-in Dash Sync** (end-to-end encrypted, ciphertext only). (Live sessions used to be listed here but are disabled — `LIVE_SESSIONS_ENABLED = false`.) Should say "Your notes never leave your device unless you turn on Dash Sync" instead
 - **"No servers to subpoena"** on for-journalists page — if a note is never shared, it truly never leaves the device. If a user shares a note, the content is end-to-end encrypted and stored on a relay server for up to 30 days before being automatically deleted. The relay is zero-knowledge (cannot read the content), but the server does exist. Reframe as: "Your notes never leave your device unless you choose to share them — and shared notes are end-to-end encrypted, stored temporarily, and auto-deleted after 30 days"
 - **"Decoy Password: data wiping capabilities"** on guides page — wipe mode is DISABLED, only hide mode exists. The feature is called "Decoy Password" (not duress password) and it hides data, it does not wipe it. This is dangerously inaccurate and must be corrected
 - **PWA described as "iOS/Android"** — it's a browser PWA, not native mobile apps. Don't imply native mobile support. Mac is the primary platform
@@ -46,8 +61,9 @@ Comprehensive audit of all pages on dashnote.io with recommendations for copy, f
 ## 3. Conversion Rate Issues
 
 ### Pricing & Purchase Flow
+- **The Dash Sync subscription is not mentioned anywhere** ($4.99/mo or $47.99/yr, 7-day free trial). This is the **biggest gap** — the site still reads as one-time-purchase-only. Sync needs its own pricing card, a one-time (Mac desktop license) vs. subscription (cross-device sync) comparison, and a clear "what you get" breakdown
 - **$14.99 one-time** is buried in the page or repeated inconsistently. Some pages show it prominently, others hide it
-- **"Buy with Card"** is the only payment option shown — no Apple Pay, no crypto (ironic for the bitcoiners page)
+- **"Buy with Card"** is the main payment option shown — no Apple Pay. **UPDATE (v1.5):** a **Lightning (Voltage) crypto payment route now exists** in the DashLandingPage repo (`app/api/voltage/*`); confirm it's actually surfaced on the site — especially the bitcoiners page, where it belongs
 - **"Already purchased? Recover your downloads"** is in the footer — should be more prominent for returning users
 
 ### CTAs are repetitive and unfocused

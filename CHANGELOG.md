@@ -5,9 +5,16 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.5.0] - 2026-05-13 (submitted to App Review)
+## [1.5.0] - 2026-05-13 (iOS App Store build 70; Mac DMG not yet tag-released)
 
-Sync subscription release. Sync now requires a $4.99/mo or $47.99/yr
+Sync subscription release. First submitted to Apple on May 13 (build 55);
+the iOS binary went through several App Store review cycles (builds 56–70,
+May–Jul 2026) resolving the in-app-purchase flow before acceptance — see
+"Fixed — App Store review cycle" below. The Mac desktop DMG for 1.5.0 has
+not been tag-released yet (`git tag v1.5.0` from the launch sequence is still
+pending; the latest git tag is `v1.3.165`).
+
+Sync now requires a $4.99/mo or $47.99/yr
 Dash Sync subscription on every platform (7-day free trial). The Mac
 desktop $14.99 one-time purchase is unchanged and unaffected — it
 covers the desktop app license only. Existing Mac buyers retain their
@@ -56,7 +63,7 @@ recurring fee that pays for the relay server costs.
   manifest). QR pair scan on iOS now goes through the in-WebView
   camera path with `NSCameraUsageDescription` permission, no MLKit
   dependency.
-- **iOS build/marketing version** → 1.5.0 / build 55.
+- **iOS build/marketing version** → 1.5.0 / build 70 (initial submission was build 55; builds 56–70 carried App Store review fixes).
 - **PaywallModal fallback prices** corrected: `$2.99 / $28.99` → `$4.99
   / $47.99`. "3-day free trial" → "7-day free trial" throughout. Plan
   option buttons always render (even before RC fetches the offering)
@@ -79,6 +86,30 @@ recurring fee that pays for the relay server costs.
   GitHub release proxy) was refactored to live under
   `/api/download-recovery` so `/api/customer-portal` can be the real
   Stripe Billing Portal handler.
+
+### Fixed — App Store review cycle (builds 56–70)
+- **IAP paywall could load forever** — the purchase flow no longer awaits the
+  Capacitor plugin proxy, and RevenueCat offerings/purchases now resolve or
+  fall back within a bounded time instead of hanging.
+- **Purchase success no longer gated on the entitlement boolean** — a resolved,
+  non-cancelled purchase is treated as success; the `sync` entitlement (which
+  can lag a few seconds after a fresh trial) is reconciled by the live listener
+  and server webhook. `SyncSettingsPanel` also closes the paywall if the
+  entitlement resolves after the sheet is dismissed.
+- **Paywall shows a spinner in place of the price while a purchase is in flight**
+  (anchored inside the tapped plan button).
+- **Camera/mic crash on iOS** — added `NSCameraUsageDescription` /
+  `NSMicrophoneUsageDescription`; "Take Photo or Video" previously hit a fatal
+  TCC kill with no usage string.
+- **iPad layout** — bottom-sheet treatment now extends to iPad (touch input,
+  ≤1280px) so the slash / block menu isn't cropped above the viewport; fixed an
+  iPad camera-popover anchor crash (hidden `<input type=file>` given a real
+  off-screen pixel so WKWebView can anchor the picker popover).
+- **Opaque bottom-sheet backgrounds** on the share sheet and four other mobile
+  modals (were translucent, showing content behind); mobile block menu raised to
+  88vh so all items fit; iOS status bar cleared in the Features panel header.
+- **Relay CORS preflight** now allows the `X-RC-AppUserId` and `Authorization`
+  headers used by the sync entitlement gate.
 
 ### Migration notes for existing Mac $14.99 buyers
 - Your desktop app keeps working forever.

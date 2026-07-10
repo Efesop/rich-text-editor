@@ -1,6 +1,6 @@
 # Capacitor iOS → App Store Connect / TestFlight: end-to-end recipe
 
-This doc captures everything needed to take a Capacitor 6 Next.js app from
+This doc captures everything needed to take a Capacitor 8 Next.js app from
 "works on simulator" → "delivered build in App Store Connect / TestFlight"
 in one session. Written so it's portable: paste into a new chat for a
 different app and just sub in your identifiers.
@@ -11,7 +11,7 @@ different app and just sub in your identifiers.
 
 - macOS with Xcode 16+
 - $99/yr Apple Developer Program membership, paid (you'll have a Team ID)
-- Capacitor 6 iOS scaffold (`ios/App/App.xcworkspace` exists)
+- Capacitor 8 iOS scaffold (`ios/App/App.xcworkspace` exists) — Dash bumped 6 → 8 in v1.5
 - Next.js project with `output: 'export'`, `assetPrefix: './'`
 - Node + npm at `/usr/local/bin` (or adjust PATH commands below)
 
@@ -151,6 +151,11 @@ sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Automatic;\n        
 
 (Replace `YOUR_TEAM_ID` with your 10-char Team ID.) `CURRENT_PROJECT_VERSION = 1` is fine for first build — bump on every upload, App Store Connect rejects duplicate build numbers.
 
+> **Dash's current values (v1.5.x):** `MARKETING_VERSION = 1.5.0`,
+> `CURRENT_PROJECT_VERSION = 70` (the shipping build is 70, after several
+> App Store resubmissions). Team ID `9888FL2CQ6`, bundle `io.dashnote.app`,
+> ASC App ID `6766192836`.
+
 ## Step 6 — Export options plist
 
 Create `ios/App/ExportOptions.plist`:
@@ -244,6 +249,7 @@ Click Submit for Review. 1-3 day Apple turnaround.
 | `error: Unable to log in with account 'X' ... rejected` | Xcode session expired | Xcode → Settings → Accounts → Re-Sign In |
 | `error: Signing for 'App' requires a development team` | `DEVELOPMENT_TEAM` missing in pbxproj | sed-edit per Step 5 |
 | `Encoding::CompatibilityError` from CocoaPods | Ruby 2.6 + non-UTF-8 locale | `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 npx cap sync ios` |
+| `pod install` fails: `ffi (~> 1.15.5)` vs `1.17.0` installed | Local Bundler/ffi gem mismatch — `cap sync ios` runs `pod install` via Bundler and dies (**current Dash local gotcha**) | Skip the `cap sync` script: run `next build`, then `cp -R out/. ios/App/App/public/`, then `xcodebuild` directly. `Pods/` is committed and stays in sync |
 | Build: "PrivacyInfo.xcprivacy not found" / build succeeds but TestFlight rejects "missing privacy manifest" | File on disk but not in pbxproj | Add the four pbxproj entries per Step 4 |
 | ASC: "Invalid build number — same as a previous upload" | `CURRENT_PROJECT_VERSION` not bumped | Increment in pbxproj before re-archive |
 | Capacitor sim shows old assets after edit | WKWebView cache | Long-press app → Remove App; Xcode Product → Clean Build Folder; re-Run |

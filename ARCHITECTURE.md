@@ -5,14 +5,15 @@ This document explains how Dash works internally, its data flow, and key archite
 ## Overview
 
 Dash is a privacy-first, offline note-taking application. It runs as:
-- **Desktop App**: Electron-based application for macOS, Windows, and Linux
-- **Mobile PWA**: Progressive Web App for iOS/Android
+- **Desktop App**: Electron-based application. macOS is the only target built and shipped by CI (`.github/workflows/build-and-release.yml` runs on macOS); Windows and Linux build targets exist in `package.json` but no binaries are published.
+- **Native iOS App**: Capacitor 8 app on the App Store (app ID `io.dashnote.app`, ASC App ID `6766192836`).
+- **Mobile / Web PWA**: Progressive Web App (installable on iOS/Android, hosted on GitHub Pages).
 
-All data is stored locally on your device - never in the cloud.
+All note data is stored locally on your device by default. Since v1.5, an **optional Dash Sync** subscription adds end-to-end-encrypted multi-device sync — the relay stores ciphertext only and can never read your notes.
 
 ## Core Principles
 
-1. **Privacy First**: No network requests for data, no analytics, no tracking
+1. **Privacy First**: No analytics, no tracking; no network requests for note data unless you opt into Dash Sync (and even then the relay only ever sees end-to-end-encrypted ciphertext)
 2. **Offline First**: Works without internet after initial install
 3. **Local Storage**: Data stays on your device, encrypted when password-protected
 4. **Cross-Platform**: Same codebase for desktop and mobile
@@ -42,17 +43,28 @@ dash/
 │   │   └── CodeBlock.js        # Syntax-highlighted code block
 │   ├── AIPanel.js              # Local AI slide-over panel
 │   ├── VersionHistoryModal.js  # Version history viewer + "Restore as New Page"
+│   ├── SyncSettingsPanel.js    # Dash Sync settings (pair devices, status, disable)
+│   ├── SignInModal.js          # Magic-link email sign-in (Mac/PWA)
+│   ├── PaywallModal.js         # iOS subscription paywall (RevenueCat)
 │   └── ...
 ├── hooks/
 │   ├── usePagesManager.js    # Page/folder CRUD + DnD reorder operations
 │   ├── useKeyboardNavigation.js # Keyboard shortcuts
-│   └── useUpdateManager.js   # Auto-update handling
+│   ├── useUpdateManager.js   # Auto-update handling
+│   ├── useSyncQueue.js       # Multi-device sync orchestration (composes lib/sync*)
+│   ├── useAutoBackup.js      # Scheduled .dashpack auto-backup
+│   └── useEntitlement.js     # Dash Sync entitlement state (RevenueCat + relay /auth/me)
 ├── lib/
 │   ├── storage.js              # Storage abstraction (auto-detects environment)
-│   ├── mobileStorage.js        # IndexedDB v3 (PWA + mobile)
+│   ├── mobileStorage.js        # IndexedDB v4 — 7 stores (PWA + mobile)
 │   ├── attachmentStorage.js    # File attachment storage (Electron/PWA/browser)
 │   ├── versionStorage.js       # Version history storage (Electron/PWA/browser)
-│   └── localAI.js              # Local LLM API layer (Ollama + OpenAI-compatible)
+│   ├── localAI.js              # Local LLM API layer (Ollama + OpenAI-compatible)
+│   ├── sync*.js                # Sync engine: syncCrypto, syncAuth, syncQueue, syncDiff, syncPull, syncAttachments, syncVersions
+│   ├── vaultStorage.js         # Vault key + sync metadata (Electron IPC / IndexedDB / memory)
+│   ├── backupSchedule.js       # Auto-backup schedule + retention math
+│   ├── identity.js             # Magic-link email sign-in client (requestCode/verifyCode/getMe)
+│   └── rc.js                   # RevenueCat client (iOS IAP entitlement)
 ├── store/
 │   ├── tagStore.js             # Zustand store for tags
 │   ├── aiStore.js              # Zustand store for local AI settings
@@ -66,7 +78,14 @@ dash/
 │   └── migrateBlocks.js      # Legacy block migration (nestedlist → individual items)
 ├── electron-main.js          # Electron main process
 ├── preload.js                # Electron preload script (IPC bridge)
-└── pages/                    # Next.js pages
+├── pages/                    # Next.js pages
+├── server/                   # Deno Deploy relay (sync + identity + entitlements)
+│   ├── relay.ts              # Router: share-link + sync + /auth/*
+│   ├── sync.ts               # Sync endpoints (~1806 lines; ciphertext-only vault store)
+│   ├── auth.ts               # Magic-link identity (6-digit code, HMAC bearer tokens)
+│   ├── entitlements.ts       # Sync entitlement grant/revoke + hasEntitlement
+│   └── resend.ts             # Transactional email (magic-link codes)
+└── ios/                      # Capacitor 8 iOS project (App.xcworkspace)
 ```
 
 ## Data Flow
@@ -89,7 +108,7 @@ The app uses different storage mechanisms depending on the environment:
 ```
 
 - **Electron (Desktop)**: Uses `fs` module to read/write JSON files in user data directory
-- **PWA (Mobile)**: Uses IndexedDB with localStorage fallback
+- **PWA (Mobile)**: Uses IndexedDB (v4 — 7 stores: pages, tags, metadata, attachments, versions, vaultMetadata, syncQueue) with localStorage fallback
 - **Web Browser**: Uses localStorage for development/testing
 
 ### Page Management
@@ -223,8 +242,8 @@ Individual pages can be encrypted with AES-256-GCM:
 
 ```javascript
 // passwordUtils.js
-hashPassword(password)          // Argon2-style hashing
-verifyPassword(password, hash)  // Constant-time comparison
+hashPassword(password)          // bcrypt (10 rounds)
+verifyPassword(password, hash)  // bcrypt.compare
 encryptContent(content, password)
 decryptContent(encrypted, password)
 ```
@@ -466,6 +485,40 @@ See [SHARING.md](./SHARING.md) for the full data flow. Brief summary:
 - **Decryption page** — `pages/share.js` runs purely client-side at `dash-share.vercel.app`.
 
 > **Live sessions** (real-time collaboration over `wss://dash-relay.efesop.deno.net`) are implemented in the codebase (`lib/liveSession.js`, `components/LiveSessionModal.js`, `components/LiveSessionBar.js`, `components/LiveNotificationsPanel.js`, `store/liveNotesStore.js`) but **disabled in the UI** — gated on `LIVE_SESSIONS_ENABLED = false` in `RichTextEditor.js`. Code is kept for future re-enable. All UI entry points (word-count click, bell-edit-requests path, modal/chip/panel renders, sidebar live indicators, deep-link auto-join) are gated; persisted `live-*` pages from prior versions render the "Session ended — Keep as My Page" banner so users can adopt them as normal pages.
+
+## Multi-Device Sync (Dash Sync)
+
+Since v1.5, Dash offers optional end-to-end-encrypted sync across a user's own
+devices — a paid subscription ($4.99/mo or $47.99/yr, 7-day trial) enforced on
+every platform. Full architecture is in [SYNC.md](./SYNC.md); in brief:
+
+- **Client engine** — `hooks/useSyncQueue.js` composes the pure-logic libs in
+  `lib/sync*.js` (`syncCrypto`, `syncAuth`, `syncQueue`, `syncDiff`, `syncPull`,
+  `syncAttachments`, `syncVersions`) plus `lib/vaultStorage.js`. Gated behind
+  `SYNC_ENABLED` in `RichTextEditor.js` (currently `true`).
+- **Crypto** — a 256-bit vault key (never leaves the device unwrapped) encrypts
+  every envelope with AES-GCM-256; the relay stores opaque ciphertext in Deno KV.
+- **Relay** — `server/sync.ts` (~1806 lines) exposes 14 `/sync/*` endpoints on
+  Deno Deploy (`dash-relay.efesop.deno.net`).
+- **Device pairing** via QR code + 6-digit code; conflict resolution is
+  latest-wins, with losing versions preserved in version history.
+- **Auto-backup** — `hooks/useAutoBackup.js` writes scheduled `.dashpack`
+  backups, independent of sync.
+
+## Identity & Entitlements
+
+- **Magic-link sign-in** — `lib/identity.js` ↔ `server/auth.ts`: passwordless
+  6-digit email code (sent via `server/resend.ts`), exchanged for an
+  HMAC-signed bearer token. Used on Mac/PWA to prove which email owns the
+  subscription. UI is `components/SignInModal.js`.
+- **Entitlements** — `server/entitlements.ts` grants/revokes the `sync`
+  entitlement. iOS purchases flow through RevenueCat (`lib/rc.js`) →
+  `/entitlements/grant-ios`; Mac/PWA Stripe purchases flow through the
+  DashLandingPage webhook → `/entitlements/grant-sync`. The client reads
+  entitlement state via `hooks/useEntitlement.js` (RevenueCat SDK on iOS,
+  relay `/auth/me` fallback elsewhere); iOS shows `components/PaywallModal.js`.
+- The relay's `requireSyncEntitlement` gate returns **402** to unpaid clients
+  when `ENTITLEMENT_REQUIRED=true`.
 
 ## Auto-Updates (Desktop)
 

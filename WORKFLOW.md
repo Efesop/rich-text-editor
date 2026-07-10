@@ -5,7 +5,7 @@
 When ready to commit and push changes:
 
 ```bash
-npm test                  # Security test suite — MUST pass before release (116 tests, 19 suites)
+npm test                  # Test suite — MUST pass before release (71 suites, 336 subtests)
 git add .
 git commit -m "Your commit message here"
 npm version patch
@@ -16,10 +16,11 @@ git push origin main --follow-tags
 
 Before every release:
 
-1. **Run `npm test`** — all tests must pass. Covers XSS, encryption schema, import safety, export escaping, URL validation, data-safety invariants, codebase static analysis, page-switch race-condition prevention.
-2. Verify no `savePagesToStorage([])` patterns in the diff.
-3. Verify encrypted-content field names match schema (`data`/`iv`, NOT `ciphertext`).
-4. (Optional) Run `npm run build` to confirm a clean compile.
+1. **Run `npm test`** — all 71 suites (336 subtests) must pass. Covers XSS, encryption schema, import safety, export escaping, URL validation, data-safety invariants, codebase static analysis, page-switch race-condition prevention.
+2. **Run the server-side sync tests** — `cd server && deno test --allow-net --allow-read --allow-env --unstable-kv sync-tests.ts` (51 tests). Important now that sync is live.
+3. Verify no `savePagesToStorage([])` patterns in the diff.
+4. Verify encrypted-content field names match schema (`data`/`iv`, NOT `ciphertext`).
+5. (Optional) Run `npm run build` to confirm a clean compile.
 
 If `npm test` fails, **do not release**. Diagnose and fix first.
 
@@ -41,6 +42,7 @@ git push origin main --follow-tags
 - **Never** include "Co-Authored-By: Claude" or any AI attribution in commits
 - Keep commit messages concise but descriptive
 - Use conventional commit style: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `perf:`
+- **Release tags**: pushing a `v*` tag triggers the GitHub Actions macOS DMG build. Tags currently stop at `v1.3.165` even though `package.json` is `1.5.0` — the iOS app ships via Xcode archive + Transporter (App Store), not git tags, and the Mac DMG tag for 1.5.0 hasn't been pushed.
 
 ## Open Source Guidelines
 
