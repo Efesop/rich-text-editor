@@ -25,6 +25,7 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.env
 .env*.local
 
 # vercel
@@ -47,4 +48,5 @@ build/
 certificate.p12
 build.keychain
 
-.env
+.v15-launch-secrets.local
+.build-scratch/

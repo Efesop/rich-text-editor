@@ -92,6 +92,18 @@ export default function SyncSettingsPanel ({
   const [showSignIn, setShowSignIn] = useState(false)
   const { hasSync, signedInEmail, refresh: refreshEntitlement } = useEntitlement()
 
+  // Backstop: if the 'sync' entitlement becomes active while the paywall is
+  // open, close it. After a fresh sandbox/trial purchase the entitlement can
+  // arrive a few seconds late via useEntitlement's onCustomerInfoUpdated
+  // listener — without this, a successful purchase could leave the paywall
+  // visibly open (the "unable to complete the purchase" symptom). This is the
+  // async completion path that complements PaywallModal's own optimistic close.
+  useEffect(() => {
+    // hasSync was just set true by useEntitlement's listener, so no re-fetch
+    // is needed here (a redundant refresh could transiently flip it back).
+    if (hasSync && showPaywall) setShowPaywall(false)
+  }, [hasSync, showPaywall])
+
   // Cross-platform entitlement gate (v1.5 Option C).
   //
   // iOS: native paywall via PaywallModal (RC SDK in-app purchase).

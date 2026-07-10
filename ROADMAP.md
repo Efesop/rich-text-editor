@@ -41,9 +41,17 @@ Future feature ideas and enhancements for Dash.
 - Template variables (date, time, page title)
 
 ## Backup & Sync
-- Auto-backup: scheduled encrypted `.dashpack` export
-- Cloud sync (encrypted, zero-knowledge)
+- ~~Auto-backup: scheduled encrypted `.dashpack` export~~ ✓ **Shipped in v1.4.0**
+- ~~Cloud sync (encrypted, zero-knowledge)~~ ✓ **Shipped in v1.4.0** alpha, paywalled in v1.5.0 as Dash Sync subscription ($4.99/mo or $47.99/yr)
 - P2P local network sync: devices on same WiFi discover each other via mDNS, pair with confirmation code, sync pages over encrypted WebSocket channel. No cloud, no internet required. Last-write-wins conflict resolution. Electron-only.
+
+## Monetization follow-ups (after v1.5)
+- iOS Keychain for session token (currently `localStorage['dash:auth:token']`)
+- Lifetime sync tier (one-time alternative to recurring sub) — price TBD
+- France IAP availability (file encryption export documentation, currently 1 of 175 countries excluded)
+- Server-side bulk vault purge on cancellation (today relies on 90-day inactive-vault sweep)
+- Team / shared vaults
+- BYO-relay self-host docs (sync server is open-source by source disclosure; package self-host instructions)
 
 ## Import & Export
 - Import from Standard Notes, Evernote, Notion, Markdown files

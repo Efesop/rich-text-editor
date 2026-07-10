@@ -7,6 +7,30 @@
   display: block !important;
 }
 
+/* iPad camera popover anchor fix (rejected build 55 by Apple May 14, 2026):
+ * @editorjs/image and other libraries create <input type="file"> with
+ * inline `display: none` then programmatically click them. On iPad,
+ * choosing "Take Photo" presents UIImagePickerController as a popover
+ * which requires a valid sourceView/sourceRect. WKWebView reads it from
+ * the input's getBoundingClientRect(); display:none returns {0,0,0,0}
+ * → iPadOS asserts → crash. Force these inputs to occupy a real pixel
+ * (off-screen, opacity 0) so WKWebView can anchor the popover. Affects
+ * iPad only; iPhone path doesn't use popovers and is unaffected. */
+input[type="file"][style*="display: none"],
+input[type="file"][style*="display:none"],
+input[type="file"].hidden,
+input[type="file"][hidden] {
+  display: block !important;
+  position: fixed !important;
+  bottom: 1px !important;
+  right: 1px !important;
+  width: 1px !important;
+  height: 1px !important;
+  opacity: 0.001 !important;
+  pointer-events: none !important;
+  z-index: -1 !important;
+}
+
 /* Import a monospace font for terminal effect */
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
@@ -3075,8 +3099,15 @@ button:focus {
    modal applies it for the scale-in animation, so we use it as a marker.
    All the bottom-sheet chrome (top radius, drag handle, safe-area pad,
    slide-up) lives on the visible card so it actually paints (the wrapper's
-   chrome is hidden behind the card's bg). */
-@media (max-width: 768px) {
+   chrome is hidden behind the card's bg).
+
+   IMPORTANT: trigger on `(max-width: 768px) OR ((pointer: coarse) AND
+   (max-width: 1280px))` so iPad (~820-1180px wide, touch input) gets the
+   bottom-sheet treatment too. Without this, iPad fell through to desktop
+   popover positioning which cropped the slash-menu top items above the
+   visible viewport (Apple build-58 rejection 4 Design: "divider selection
+   was cropped off"). */
+@media (max-width: 768px), (pointer: coarse) and (max-width: 1280px) {
   .dash-mobile-bottom-sheet {
     align-items: flex-end !important;
     padding: 0 !important;
@@ -3143,8 +3174,15 @@ button:focus {
    wrapper) `position: fixed` near the bottom with a 5px gutter and a
    tiny 10px border-radius. We override that container — NOT the
    `.ce-popover` wrapper — so the chrome (rounded top, drag handle,
-   safe-area padding, slide-up) actually paints. */
-@media (max-width: 768px) {
+   safe-area padding, slide-up) actually paints.
+
+   Trigger on `(max-width: 768px) OR ((pointer: coarse) AND (max-width:
+   1280px))` so iPad gets the bottom-sheet treatment too. Build 58 was
+   rejected under guideline 4 Design because the slash-menu popover
+   anchored to the editor `+` button got cropped off-screen on iPad Air
+   M3 (the popover's top edge was above the visible viewport, hiding
+   "Divider" / "Seed Phrase" / earlier items). */
+@media (max-width: 768px), (pointer: coarse) and (max-width: 1280px) {
   /* Outer wrapper — let Editor.js position it however; we don't paint here.
      `:not(.ce-popover--inline)` keeps the inline selection toolbar out of
      this bottom-sheet treatment — it gets its own pill style further down. */
@@ -3264,8 +3302,9 @@ button:focus {
 }
 
 /* Mobile editor padding tweak — avoid the fat 72px desktop left padding
-   that wastes phone width. */
-@media (max-width: 768px) {
+   that wastes phone width. Also covers iPad (touch + ≤1280px) so the
+   floating inline toolbar pill renders consistently on tablet. */
+@media (max-width: 768px), (pointer: coarse) and (max-width: 1280px) {
   #editorjs.codex-editor,
   .codex-editor__redactor {
     padding-bottom: 4rem !important;

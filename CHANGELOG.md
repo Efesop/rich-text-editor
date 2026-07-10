@@ -5,6 +5,100 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-05-13 (submitted to App Review)
+
+Sync subscription release. Sync now requires a $4.99/mo or $47.99/yr
+Dash Sync subscription on every platform (7-day free trial). The Mac
+desktop $14.99 one-time purchase is unchanged and unaffected — it
+covers the desktop app license only. Existing Mac buyers retain their
+desktop app forever; sync is a new optional feature with its own
+recurring fee that pays for the relay server costs.
+
+### Added
+- **Dash Sync subscription** — cross-platform recurring sub that grants
+  the `sync` entitlement on every signed-in device. iOS via App Store
+  IAP (RevenueCat-orchestrated), Mac/PWA/web via Stripe checkout
+  through dashnote.io/subscribe. Either rail honors on every platform
+  the user signs into. 7-day free trial on both monthly + yearly.
+- **Magic-link sign-in (passwordless)** — email + 6-digit code via
+  Resend. Used to bind a sync vault to a billing identity on Mac/PWA
+  (where there's no App Store IAP to anchor to). Tokens are HMAC-signed,
+  90-day TTL, stored client-side in localStorage. No passwords, no
+  third-party OAuth. The relay never sees vault contents, just the
+  email-to-entitlement mapping.
+- **PaywallModal on iOS** — full RevenueCat paywall with yearly-first
+  hierarchy, 20%-off badge on annual plan, Restore Purchases + "I
+  already have an account" cross-platform sign-in entry. Anti-steering
+  compliant: no mention of web pricing inside iOS UI.
+- **SyncSettingsPanel paywall on Mac/PWA** — Subscribe and Sign-In CTAs
+  in disabled state. Subscribe opens dashnote.io/subscribe in the
+  default browser (via Electron `shell.openExternal` where available).
+- **Stripe Customer Portal** for sync subs — cancel, plan switch
+  (monthly ↔ yearly), update payment method, view invoices. Routed
+  through a Dash-specific portal configuration so it stays isolated
+  from other products in the same Stripe account (e.g. LinkJolt).
+- **/subscribe page** on dashnote.io — pricing cards for monthly +
+  yearly with feature checklist + trust copy (E2E encrypted, cancel
+  anytime, server sees only ciphertext).
+- **Sync entitlement gate** on the relay — `requireSyncEntitlement`
+  middleware on every `/sync/*` endpoint. Verifies Bearer token
+  (magic-link session) + the per-vault HMAC. Gated by
+  `ENTITLEMENT_REQUIRED` env var (defaults `false` during review,
+  flipped to `true` post-launch).
+
+### Changed
+- **iOS: Capacitor 6 → 8 upgrade** to restore the RevenueCat native pod
+  (its iOS SDK requires Capacitor 8). Native API renames + Info.plist
+  key updates handled via `cap migrate ios`. Requires Node 22 to run
+  the migration; runtime still works on the bundled Node.
+- **iOS: `@capacitor-mlkit/barcode-scanning` removed** to fix
+  **ITMS-91061** (GoogleToolboxForMac framework missing a privacy
+  manifest). QR pair scan on iOS now goes through the in-WebView
+  camera path with `NSCameraUsageDescription` permission, no MLKit
+  dependency.
+- **iOS build/marketing version** → 1.5.0 / build 55.
+- **PaywallModal fallback prices** corrected: `$2.99 / $28.99` → `$4.99
+  / $47.99`. "3-day free trial" → "7-day free trial" throughout. Plan
+  option buttons always render (even before RC fetches the offering)
+  so the layout stays stable on slow networks.
+- **Marketing copy on dashnote.io** updated — removed "lifetime, no
+  subscriptions" wording. New: "Mac desktop license — one-time $14.99.
+  Optional Dash Sync — $4.99/mo for cross-device sync."
+- **Privacy policy** (app + landing page) — disclose Resend
+  (transactional email for sign-in codes + announcements), Stripe
+  (subscription lifecycle), RevenueCat (entitlement state). All three
+  receive billing identifiers only — never note content, names, or
+  device IDs.
+- **`hasEntitlement` on the relay** now checks 3 sources: Stripe sync
+  sub, iOS RC entitlement, and Mac one-time (Mac one-time NO LONGER
+  grants sync — desktop $14.99 covers the desktop app license only,
+  as documented in the announcement copy).
+
+### Fixed
+- The Mac DMG download path (Stripe checkout → secure download token →
+  GitHub release proxy) was refactored to live under
+  `/api/download-recovery` so `/api/customer-portal` can be the real
+  Stripe Billing Portal handler.
+
+### Migration notes for existing Mac $14.99 buyers
+- Your desktop app keeps working forever.
+- Sync is a NEW optional feature (it didn't exist when you bought).
+- If you want sync, subscribe at `https://dashnote.io/subscribe`. The
+  first 7 days are free.
+- If you bought before May 13 2026 and want a refund for any reason,
+  reach out via the support email on dashnote.io within the standard
+  window.
+
+### Risks + known issues
+- Capacitor 8 plugin breakage could affect biometric-auth, keyboard, or
+  splash-screen flows in ways not caught by the simulator. Watch
+  TestFlight feedback for the first few days.
+- Session token in localStorage has a theoretical XSS exposure, mitigated
+  by strict CSP + no third-party scripts. Moves to iOS Keychain via
+  Capacitor Secure Storage in v1.6.
+- France excluded from IAP availability (174/175 countries) pending
+  encryption export documentation filing.
+
 ## [1.4.0] - 2026-05-08
 
 Major release: multi-device sync, Trash bin, encrypted auto-backup, iOS

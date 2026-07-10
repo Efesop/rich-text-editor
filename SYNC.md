@@ -3,11 +3,17 @@
 End-to-end encrypted sync between a user's own devices. Server stores
 ciphertext only — Dash can never read your notes.
 
-> **Status:** v1 implementation complete and gated behind
-> `SYNC_ENABLED = false` in `components/RichTextEditor.js`. All code paths
-> (push, pull, attachments, version history, Trash, backup) are wired
-> end-to-end. Default builds ship with sync OFF — flip the flag to true
-> to expose the UI for alpha testing.
+> **Status:** Shipped in v1.5.0 (May 2026) as a paid feature. Requires
+> an active Dash Sync subscription ($4.99/mo or $47.99/yr, 7-day free
+> trial) on every platform. The relay enforces this via the `sync`
+> entitlement — `ENTITLEMENT_REQUIRED=true` returns 402 to any unpaid
+> client trying to register a vault.
+>
+> Mac users: subscribe at https://dashnote.io/subscribe.
+> iOS users: paywall opens automatically on first sync action.
+>
+> The desktop Mac app one-time purchase ($14.99) is separate and
+> unchanged — it covers the desktop license; sync is its own thing.
 
 ## TL;DR
 

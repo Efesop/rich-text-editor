@@ -39,7 +39,6 @@
     "packageJson": {
       "dependencies": [
         "npm:@aparajita/capacitor-biometric-auth@^8.0.2",
-        "npm:@capacitor-mlkit/barcode-scanning@^6.2.0",
         "npm:@capacitor/app@^6.0.3",
         "npm:@capacitor/cli@^6.1.2",
         "npm:@capacitor/core@^6.1.2",

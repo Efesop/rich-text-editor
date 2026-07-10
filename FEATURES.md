@@ -4,11 +4,20 @@
 
 ## Platforms
 
-- **Desktop** — macOS, Windows, Linux (Electron)
-- **Mobile** — iOS, Android (PWA + Capacitor)
-- **Browser** — Any modern browser, no install needed
+- **Desktop** — macOS (DMG via dashnote.io, $14.99 one-time). Win/Linux build paths exist in the codebase but the GitHub Actions release workflow only builds macOS — Win/Linux are unshipped today.
+- **Mobile** — iOS native app via Capacitor (free download from App Store, Dash Sync subscription required for cloud sync). Android via PWA.
+- **Browser** — Any modern browser, no install needed (Dash Sync subscription required for cloud sync).
 
 Storage auto-detects: Electron uses local JSON files, PWA uses IndexedDB, browser uses localStorage. All data stays on-device.
+
+## Pricing (v1.5+)
+
+- **Mac desktop app** — $14.99 one-time. Includes everything except cloud sync. Lifetime updates.
+- **Dash Sync subscription** — $4.99/mo or $47.99/yr (≈20% off annual). 7-day free trial. End-to-end encrypted multi-device sync — same subscription unlocks sync on iPhone, iPad, Mac, and PWA. Cancel anytime via Settings → Apple ID → Subscriptions (iOS) or the customer portal at https://dashnote.io/payment/manage (Mac/web).
+- **iOS app** — Free download. Works offline-first without a subscription; the sub only unlocks the sync feature.
+- **PWA / browser** — Free. Same offline-first model as iOS; sub unlocks sync.
+
+The Mac one-time price covers the desktop license only. The subscription pays for the relay server costs (sync only — the server never sees your note contents, just encrypted blobs).
 
 ---
 
