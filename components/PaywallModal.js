@@ -219,6 +219,23 @@ export default function PaywallModal ({ isOpen, onClose, onPurchased, isDarkMode
         <div style={{ padding: '0 24px 20px', fontSize: 11, color: sub }}>
           <Lock size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }} />
           Auto-renews. Cancel via Settings → Apple ID → Subscriptions.
+          {/* App Review 3.1.2(c): auto-renewable subscriptions must show
+              functional Privacy Policy + Terms of Use (EULA) links in the
+              purchase UI. Terms links to Apple's standard EULA. */}
+          <div style={{ marginTop: 6, display: 'flex', gap: 14 }}>
+            <button
+              onClick={() => window.open('https://efesop.github.io/rich-text-editor/privacy', '_blank', 'noopener,noreferrer')}
+              style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', padding: 0, fontSize: 11, textDecoration: 'underline' }}
+            >
+              Privacy Policy
+            </button>
+            <button
+              onClick={() => window.open('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/', '_blank', 'noopener,noreferrer')}
+              style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', padding: 0, fontSize: 11, textDecoration: 'underline' }}
+            >
+              Terms of Use (EULA)
+            </button>
+          </div>
         </div>
       </div>
     </div>
