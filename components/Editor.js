@@ -192,6 +192,14 @@ function convertInlineMarkdown (text) {
   return autoLinkify(result)
 }
 
+// Local AI (Ollama / LM Studio / LocalAI) needs a model server on localhost,
+// which cannot run inside the iOS/Android Capacitor WebView — so every AI
+// entry point errors on a phone. Hide them on native builds (App Review
+// 2.1(a): tapping "Use Local AI" showed a connection error). Web + Electron
+// keep AI, where a local model server is reachable.
+const isCapacitorNative = () =>
+  typeof window !== 'undefined' && !!window.Capacitor?.isNativePlatform?.()
+
 export default function Editor({ data, onChange, holder, onPageLinkClick, liveUpdateKey, readOnly, pageId }) {
   const editorRef = useRef(null)
   const isInitializedRef = useRef(false)
@@ -235,7 +243,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
     // iOS blocks autofocus without user gesture; also distracting on mobile.
     autofocus: !isMobileViewport,
     defaultBlock: 'paragraph',
-    tunes: ['aiTune'],
+    tunes: isCapacitorNative() ? [] : ['aiTune'],
     sanitizer: {
       p: true,
       b: true,
@@ -420,7 +428,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
         header: {
           class: Header,
           inlineToolbar: ['marker', 'inlineCode'],
-          tunes: ['alignment', 'aiTune'],
+          tunes: isCapacitorNative() ? ['alignment'] : ['alignment', 'aiTune'],
           config: {
             placeholder: 'Enter a header',
             levels: [2, 3, 4],
@@ -491,12 +499,12 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
         pageLink: {
           class: PageLinkInlineTool,
         },
-        aiTool: {
-          class: AIInlineTool,
-        },
-        ai: {
-          class: AIBlockTool,
-        },
+        // Omitted on native (iOS/Android): Local AI can't reach a localhost
+        // model server inside the Capacitor WebView. Web + Electron keep them.
+        ...(isCapacitorNative() ? {} : {
+          aiTool: { class: AIInlineTool },
+          ai: { class: AIBlockTool },
+        }),
         table: {
           class: Table,
           inlineToolbar: true,
@@ -567,7 +575,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
         paragraph: {
           class: Paragraph,
           inlineToolbar: true,
-          tunes: ['alignment', 'aiTune']
+          tunes: isCapacitorNative() ? ['alignment'] : ['alignment', 'aiTune']
         }
       }
 

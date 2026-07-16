@@ -42,6 +42,9 @@ export default function MobileFooter ({
 }) {
   const { theme } = useTheme()
   const [moreOpen, setMoreOpen] = useState(false)
+  // Local AI needs a localhost model server, unreachable inside the iOS/Android
+  // Capacitor WebView — hide the footer shortcut there (App Review 2.1(a)).
+  const isNativeApp = typeof window !== 'undefined' && !!window.Capacitor?.isNativePlatform?.()
 
   const isFallout = theme === 'fallout'
   const isDark = theme === 'dark'
@@ -102,6 +105,7 @@ export default function MobileFooter ({
             }>Saved</span>}
             {saveStatus === 'error' && <span className="text-red-500">Error</span>}
           </span>
+          {!isNativeApp && (
           <button
             onClick={onOpenAi}
             className={chipClass}
@@ -119,6 +123,7 @@ export default function MobileFooter ({
               <circle cx="12" cy="12" r="10" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="0.5"/>
             </svg>
           </button>
+          )}
           {(() => {
             // Status dot on the More button — color tracks SYNC state
             // (matches the sync chip in the page-actions sheet + desktop

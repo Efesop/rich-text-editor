@@ -476,6 +476,9 @@ export default class MultiBlockTuneEnhancer {
       this._popover.appendChild(item)
     })
 
+    // Local AI needs a localhost model server, unreachable inside the native
+    // Capacitor WebView — skip the AI option (and its divider) there.
+    if (!(typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.())) {
     // Divider
     const divider = document.createElement('div')
     divider.style.cssText = 'height: 1px; margin: 4px 12px; opacity: 0.15; background: currentColor;'
@@ -517,6 +520,7 @@ export default class MultiBlockTuneEnhancer {
       self.hideSettingsButton()
     })
     this._popover.appendChild(aiItem)
+    }
 
     document.body.appendChild(this._popover)
 
