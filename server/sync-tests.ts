@@ -973,6 +973,35 @@ Deno.test('entitlement: an iPhone subscription covers the whole vault — a Mac 
   } finally { kv.close() }
 })))
 
+Deno.test('entitlement: support link-ios-email ties an App Store plan to an email (HMAC, active-only)', setupTeardown(async (kv) => {
+  Deno.env.set('ENTITLEMENT_SUPPORT_SECRET', 'SUPPORT_SECRET')
+  await kv.set(['entitlement', 'ios', 'rc-user-3'], {
+    source: 'ios', rcAppUserId: 'rc-user-3', active: true,
+    expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000, updatedAt: Date.now(),
+  })
+  const post = async (body: unknown, secret: string) => {
+    const raw = JSON.stringify(body)
+    const sig = await hmacBodyHex(raw, secret)
+    return await routeEntitlements(kv, new Request('http://localhost/entitlements/link-ios-email', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Entitlement-Signature': sig }, body: raw,
+    }))
+  }
+  // Wrong secret → 401, nothing linked.
+  assertEquals((await post({ email: 'Owner@Example.com', rcAppUserId: 'rc-user-3' }, 'WRONG'))?.status, 401)
+  assertEquals((await hasEntitlement(kv, { email: 'owner@example.com' })).hasSync, false)
+  // Unknown / inactive RC id → 404.
+  assertEquals((await post({ email: 'owner@example.com', rcAppUserId: 'rc-nobody' }, 'SUPPORT_SECRET'))?.status, 404)
+  // Good → linked; email-only lookup now reports the iOS plan.
+  const ok = await post({ email: 'Owner@Example.com', rcAppUserId: 'rc-user-3' }, 'SUPPORT_SECRET')
+  assertEquals(ok?.status, 200)
+  const body = await ok!.json()
+  assertEquals(body.hasSync, true)
+  assertEquals(body.source, 'ios')
+  const viaEmail = await hasEntitlement(kv, { email: 'owner@example.com' })
+  assertEquals(viaEmail.hasSync, true)
+  assertEquals(viaEmail.source, 'ios')
+}))
+
 Deno.test('entitlement: Mac one-time alone does NOT unlock sync (v1.5 no-grandfather)', setupTeardown(withEntitlementRequired(async () => {
   const kv = await freshKv()
   try {

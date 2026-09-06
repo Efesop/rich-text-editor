@@ -271,6 +271,44 @@ export async function routeEntitlements(
     return json(result)
   }
 
+  // ── POST /entitlements/link-ios-email (HMAC-protected, support) ──────────
+  // Body: { email, rcAppUserId }
+  // Header: X-Entitlement-Signature: <hex HMAC-SHA256 of body> using
+  //         ENTITLEMENT_SUPPORT_SECRET (a separate secret from the Stripe
+  //         grant path so support tooling never holds the webhook secret).
+  //
+  // Ties an App Store subscription (keyed by the phone's RevenueCat id) to
+  // the email the user signs in with on Mac/web, so hasEntitlement(email)
+  // finds it. The relay learns this by itself the first time both identities
+  // arrive on one sync request (see requireSyncEntitlement); this exists for
+  // accounts where the phone never sends the email — the iOS app has no
+  // sign-in yet. Links only to an ACTIVE iOS entitlement.
+  if (path === '/entitlements/link-ios-email' && req.method === 'POST') {
+    const secret = Deno.env.get('ENTITLEMENT_SUPPORT_SECRET')
+    if (!secret) {
+      console.error('[entitlements] ENTITLEMENT_SUPPORT_SECRET not configured')
+      return json({ error: 'server misconfigured' }, 500)
+    }
+    const rawBody = await req.text()
+    const sig = req.headers.get('X-Entitlement-Signature')
+    if (!(await verifyHmacSignature(rawBody, sig, secret))) {
+      return json({ error: 'invalid signature' }, 401)
+    }
+    let body: any
+    try { body = JSON.parse(rawBody) } catch { return json({ error: 'invalid json' }, 400) }
+    if (!body.email || typeof body.email !== 'string' || !body.rcAppUserId || typeof body.rcAppUserId !== 'string') {
+      return json({ error: 'email and rcAppUserId required' }, 400)
+    }
+    const email = body.email.trim().toLowerCase()
+    if (!(await iosActive(kv, body.rcAppUserId, Date.now()))) {
+      return json({ error: 'no active iOS entitlement for that rcAppUserId' }, 404)
+    }
+    await linkIosEntitlementToEmail(kv, email, body.rcAppUserId)
+    const result = await hasEntitlement(kv, { email })
+    console.log(`[entitlements] support: linked ${email} → iOS ${body.rcAppUserId} (hasSync=${result.hasSync})`)
+    return json({ ok: true, email, rcAppUserId: body.rcAppUserId, hasSync: result.hasSync, source: result.source ?? null })
+  }
+
   // ── POST /entitlements/grant-mac (HMAC-protected) ────────────────────────
   // Body: { email, stripeSessionId, stripeCustomerId, amountPaid, currency }
   // Header: X-Entitlement-Signature: <hex HMAC-SHA256 of body>
