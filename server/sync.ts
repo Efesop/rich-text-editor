@@ -1727,9 +1727,13 @@ async function requireSyncEntitlement(
     // has no RevenueCat id — pass this gate too, and tie the App Store
     // purchase to the signed-in email when both arrive together.
     if (vaultId) {
+      // Link whichever identities this entitled request carried: the RC id
+      // when the phone itself is subscribed, and the signed-in email whenever
+      // present (its plan may be Stripe, or an App Store plan reached through
+      // the email→iOS link — hasVaultEntitlement re-checks it live either way).
       await linkEntitlementToVault(kv, vaultId, {
-        rcAppUserId: ent.source === 'ios' ? rcAppUserId : undefined,
-        email: ent.source === 'stripe-sub' ? sess?.email : undefined,
+        rcAppUserId: ent.source === 'ios' && rcAppUserId ? rcAppUserId : undefined,
+        email: sess?.email,
       }).catch(() => {})
     }
     if (ent.source === 'ios' && sess?.email && rcAppUserId) {

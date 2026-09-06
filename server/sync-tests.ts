@@ -973,6 +973,39 @@ Deno.test('entitlement: an iPhone subscription covers the whole vault — a Mac 
   } finally { kv.close() }
 })))
 
+Deno.test('entitlement: a Mac entitled through the email→iOS link covers its vault, so a reinstalled phone (new RC id) can join', setupTeardown(withEntitlementRequired(async () => {
+  const kv = await freshKv()
+  try {
+    Deno.env.set('AUTH_TOKEN_SECRET', 'test-auth-secret-32-chars-long-key')
+    await kv.set(['entitlement', 'ios', 'rc-old'], { source: 'ios', rcAppUserId: 'rc-old', active: true, expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000, updatedAt: Date.now() })
+    await kv.set(['entitlement', 'email-ios', 'owner@example.com'], { rcAppUserId: 'rc-old', linkedAt: Date.now() })
+    const tokenId = '2'.repeat(32)
+    const sig = await hmacBodyHex(tokenId, 'test-auth-secret-32-chars-long-key')
+    await kv.set(['auth-session', tokenId], { email: 'owner@example.com', createdAt: Date.now() })
+    const macHeaders = { ...authHeaders({ deviceId: DEVICE_A2 }), 'Content-Type': 'application/json', 'Authorization': `Bearer tok_${tokenId}.${sig}` }
+    // Mac (entitled only via the email link) touches the vault → vault gets covered.
+    const mac = await routeSyncRequest(kv, makeRequest('POST', '/sync/vault/register', { vaultId: VAULT_A, deviceId: DEVICE_A2, deviceName: 'Mac' }, macHeaders))
+    assertEquals(mac?.status, 200)
+    // Reinstalled phone: brand-new RC id with no plan of its own joins the same vault.
+    const phoneHeaders = { ...authHeaders(), 'Content-Type': 'application/json', 'X-RC-AppUserId': 'rc-new-after-reinstall' }
+    const phone = await routeSyncRequest(kv, makeRequest('POST', '/sync/vault/register', { vaultId: VAULT_A, deviceId: DEVICE_A1, deviceName: 'iPhone' }, phoneHeaders))
+    assertEquals(phone?.status, 200, `expected 200, got ${phone?.status}: ${await phone?.text()}`)
+  } finally { kv.close() }
+})))
+
+Deno.test('entitlement: RevenueCat TRANSFER moves the plan to the new RC id and retires the old one', setupTeardown(async (kv) => {
+  Deno.env.set('RC_WEBHOOK_AUTH', 'rc-secret')
+  const post = async (event: unknown) => routeEntitlements(kv, new Request('http://localhost/entitlements/grant-ios', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer rc-secret' }, body: JSON.stringify({ event }),
+  }))
+  const exp = Date.now() + 30 * 24 * 60 * 60 * 1000
+  assertEquals((await post({ type: 'INITIAL_PURCHASE', app_user_id: 'rc-a', product_id: 'sync.monthly', expiration_at_ms: exp }))?.status, 200)
+  assertEquals((await hasEntitlement(kv, { rcAppUserId: 'rc-a' })).hasSync, true)
+  assertEquals((await post({ type: 'TRANSFER', app_user_id: 'rc-b', transferred_from: ['rc-a'], transferred_to: ['rc-b'], product_id: 'sync.monthly', expiration_at_ms: exp }))?.status, 200)
+  assertEquals((await hasEntitlement(kv, { rcAppUserId: 'rc-b' })).hasSync, true)
+  assertEquals((await hasEntitlement(kv, { rcAppUserId: 'rc-a' })).hasSync, false)
+}))
+
 Deno.test('entitlement: support link-ios-email ties an App Store plan to an email (HMAC, active-only)', setupTeardown(async (kv) => {
   Deno.env.set('ENTITLEMENT_SUPPORT_SECRET', 'SUPPORT_SECRET')
   await kv.set(['entitlement', 'ios', 'rc-user-3'], {

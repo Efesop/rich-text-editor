@@ -142,8 +142,13 @@ export async function hasVaultEntitlement(
   if (link.rcAppUserId && await iosActive(kv, link.rcAppUserId, now)) {
     return { hasSync: true, source: 'ios', rcAppUserId: link.rcAppUserId, email: link.email }
   }
-  if (link.email && await syncSubActive(kv, link.email, now)) {
-    return { hasSync: true, source: 'stripe-sub', email: link.email, rcAppUserId: link.rcAppUserId }
+  if (link.email) {
+    // Through hasEntitlement so an email whose plan is an App Store one
+    // (via the email→iOS link) counts too, not only Stripe.
+    const viaEmail = await hasEntitlement(kv, { email: link.email })
+    if (viaEmail.hasSync && viaEmail.source !== 'mac') {
+      return { hasSync: true, source: viaEmail.source, email: link.email, rcAppUserId: link.rcAppUserId }
+    }
   }
   return { hasSync: false }
 }
@@ -462,6 +467,12 @@ export async function routeEntitlements(
       'PRODUCT_CHANGE',
       'UNCANCELLATION',
       'TEMPORARY_ENTITLEMENT_GRANT',
+      // A deleted-and-reinstalled app gets a fresh anonymous RC id; when the
+      // user restores / "buys" again, RevenueCat moves the subscription to
+      // the new id and sends TRANSFER with app_user_id = new owner and
+      // transferred_from = the old ids. Ignoring it left reinstalled phones
+      // looking unpaid to the relay.
+      'TRANSFER',
     ])
     const INACTIVE_TYPES = new Set([
       'EXPIRATION',
@@ -486,6 +497,15 @@ export async function routeEntitlements(
       updatedAt: Date.now(),
     }
     await kv.set(iosKey(rcAppUserId), ent)
+    if (e.type === 'TRANSFER' && Array.isArray(e.transferred_from)) {
+      // The subscription now belongs to `rcAppUserId`; the ids it came from
+      // must stop unlocking sync (RC does not send EXPIRATION for them).
+      for (const oldId of e.transferred_from) {
+        if (typeof oldId !== 'string' || !oldId || oldId === rcAppUserId) continue
+        const prev = (await kv.get<IosEntitlement>(iosKey(oldId))).value
+        if (prev?.active) await kv.set(iosKey(oldId), { ...prev, active: false, updatedAt: Date.now() })
+      }
+    }
     console.log(`[entitlements] iOS ${e.type} for ${rcAppUserId} active=${ent.active} expiresAt=${ent.expiresAt}`)
     return json({ ok: true, active: ent.active })
   }
