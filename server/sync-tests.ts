@@ -918,6 +918,61 @@ Deno.test('entitlement: Stripe sync-sub via grant-sync unlocks via session token
   } finally { kv.close() }
 })))
 
+Deno.test('entitlement: an iPhone subscription covers the whole vault — a Mac signed in by email unlocks after the phone joins', setupTeardown(withEntitlementRequired(async () => {
+  const kv = await freshKv()
+  try {
+    Deno.env.set('AUTH_TOKEN_SECRET', 'test-auth-secret-32-chars-long-key')
+    // App Store purchase, keyed by the phone's RevenueCat id (RC webhook).
+    await kv.set(['entitlement', 'ios', 'rc-user-2'], {
+      source: 'ios', rcAppUserId: 'rc-user-2', active: true,
+      expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000, updatedAt: Date.now(),
+    })
+    // Mac: signed in by email, NO plan on that email.
+    const email = 'mac-owner@example.com'
+    const tokenId = '1'.repeat(32)
+    const sig = await hmacBodyHex(tokenId, 'test-auth-secret-32-chars-long-key')
+    const token = `tok_${tokenId}.${sig}`
+    await kv.set(['auth-session', tokenId], { email, createdAt: Date.now() })
+    const macHeaders = () => {
+      const h = authHeaders({ deviceId: DEVICE_A2 })
+      h['Content-Type'] = 'application/json'
+      h['Authorization'] = `Bearer ${token}`
+      return h
+    }
+    // Before the phone joins: the Mac is blocked.
+    const blocked = await routeSyncRequest(kv, makeRequest('POST', '/sync/vault/register', {
+      vaultId: VAULT_A, deviceId: DEVICE_A2, deviceName: 'Mac',
+    }, macHeaders()))
+    assertEquals(blocked?.status, 402)
+    assertEquals((await hasEntitlement(kv, { email })).hasSync, false)
+
+    // iPhone joins the same vault, carrying its RC id.
+    const phoneHeaders = authHeaders()
+    phoneHeaders['Content-Type'] = 'application/json'
+    phoneHeaders['X-RC-AppUserId'] = 'rc-user-2'
+    const joined = await routeSyncRequest(kv, makeRequest('POST', '/sync/vault/register', {
+      vaultId: VAULT_A, deviceId: DEVICE_A1, deviceName: 'iPhone',
+    }, phoneHeaders))
+    assertEquals(joined?.status, 200)
+
+    // Now the Mac passes — the vault is covered — and the email gets linked,
+    // so an email-only lookup (/auth/me) agrees.
+    const allowed = await routeSyncRequest(kv, makeRequest('POST', '/sync/vault/register', {
+      vaultId: VAULT_A, deviceId: DEVICE_A2, deviceName: 'Mac',
+    }, macHeaders()))
+    assertEquals(allowed?.status, 200, `expected 200, got ${allowed?.status}: ${await allowed?.text()}`)
+    const viaEmail = await hasEntitlement(kv, { email })
+    assertEquals(viaEmail.hasSync, true)
+    assertEquals(viaEmail.source, 'ios')
+
+    // A different vault is NOT covered by that phone's plan.
+    const other = await routeSyncRequest(kv, makeRequest('POST', '/sync/vault/register', {
+      vaultId: 'vault-bbbbbbbbbbbbbbbbbbbbbb1', deviceId: 'device-bbbbbbbbbbbbbbbbbb1', deviceName: 'Stranger',
+    }, { ...authHeaders({ vaultId: 'vault-bbbbbbbbbbbbbbbbbbbbbb1', deviceId: 'device-bbbbbbbbbbbbbbbbbb1' }), 'Content-Type': 'application/json' }))
+    assertEquals(other?.status, 402)
+  } finally { kv.close() }
+})))
+
 Deno.test('entitlement: Mac one-time alone does NOT unlock sync (v1.5 no-grandfather)', setupTeardown(withEntitlementRequired(async () => {
   const kv = await freshKv()
   try {

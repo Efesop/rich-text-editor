@@ -90,6 +90,71 @@ export type SyncSubEntitlement = {
 const macKey = (email: string) => ['entitlement', 'mac', email.trim().toLowerCase()] as const
 const iosKey = (rcAppUserId: string) => ['entitlement', 'ios', rcAppUserId] as const
 const syncKey = (email: string) => ['entitlement', 'sync', email.trim().toLowerCase()] as const
+// A subscription covers the subscriber's VAULT (all their devices), not just
+// the identity that bought it. An App Store purchase is keyed by the phone's
+// RevenueCat id; a Mac has no such id and signs in by email. These two links
+// let the other devices pass the gate:
+//   ['entitlement','vault',vaultId]      -> which identity paid for this vault
+//   ['entitlement','email-ios',email]    -> which RC id this email owns
+const vaultLinkKey = (vaultId: string) => ['entitlement', 'vault', vaultId] as const
+const emailIosLinkKey = (email: string) => ['entitlement', 'email-ios', email.trim().toLowerCase()] as const
+
+export type VaultEntitlementLink = { rcAppUserId?: string; email?: string; linkedAt: number }
+type EmailIosLink = { rcAppUserId: string; linkedAt: number }
+
+async function iosActive(kv: Deno.Kv, rcAppUserId: string, now: number): Promise<boolean> {
+  const v = (await kv.get<IosEntitlement>(iosKey(rcAppUserId))).value
+  // Honor expiresAt only when set; lifetime grants have expiresAt=0
+  return !!(v?.active && (!v.expiresAt || v.expiresAt > now))
+}
+
+async function syncSubActive(kv: Deno.Kv, email: string, now: number): Promise<boolean> {
+  const v = (await kv.get<SyncSubEntitlement>(syncKey(email))).value
+  return !!(v?.active && v.expiresAt > now)
+}
+
+/** Remember that `vaultId` is covered by this identity's entitlement. Idempotent. */
+export async function linkEntitlementToVault(
+  kv: Deno.Kv,
+  vaultId: string,
+  id: { rcAppUserId?: string; email?: string },
+): Promise<void> {
+  if (!vaultId || (!id.rcAppUserId && !id.email)) return
+  const cur = (await kv.get<VaultEntitlementLink>(vaultLinkKey(vaultId))).value
+  const next: VaultEntitlementLink = {
+    rcAppUserId: id.rcAppUserId || cur?.rcAppUserId,
+    email: id.email ? id.email.trim().toLowerCase() : cur?.email,
+    linkedAt: Date.now(),
+  }
+  if (cur && cur.rcAppUserId === next.rcAppUserId && cur.email === next.email) return
+  await kv.set(vaultLinkKey(vaultId), next)
+}
+
+/** Is any identity linked to this vault still entitled? Checked live — a lapsed plan lapses for the whole vault. */
+export async function hasVaultEntitlement(
+  kv: Deno.Kv,
+  vaultId: string,
+): Promise<{ hasSync: boolean; source?: 'ios' | 'stripe-sub'; rcAppUserId?: string; email?: string }> {
+  if (!vaultId) return { hasSync: false }
+  const link = (await kv.get<VaultEntitlementLink>(vaultLinkKey(vaultId))).value
+  if (!link) return { hasSync: false }
+  const now = Date.now()
+  if (link.rcAppUserId && await iosActive(kv, link.rcAppUserId, now)) {
+    return { hasSync: true, source: 'ios', rcAppUserId: link.rcAppUserId, email: link.email }
+  }
+  if (link.email && await syncSubActive(kv, link.email, now)) {
+    return { hasSync: true, source: 'stripe-sub', email: link.email, rcAppUserId: link.rcAppUserId }
+  }
+  return { hasSync: false }
+}
+
+/** Remember that `email` owns the App Store subscription under `rcAppUserId`, so an email-only lookup (Mac, web) finds it. Idempotent. */
+export async function linkIosEntitlementToEmail(kv: Deno.Kv, email: string, rcAppUserId: string): Promise<void> {
+  if (!email || !rcAppUserId) return
+  const cur = (await kv.get<EmailIosLink>(emailIosLinkKey(email))).value
+  if (cur?.rcAppUserId === rcAppUserId) return
+  await kv.set(emailIosLinkKey(email), { rcAppUserId, linkedAt: Date.now() })
+}
 
 // HMAC-SHA-256 of body with shared secret. Used to verify the
 // DashLandingPage → relay grant call. Avoids Stripe-secret reuse.
@@ -151,6 +216,16 @@ export async function hasEntitlement(
     const v = ent.value
     if (v?.active && v.expiresAt > now) {
       return { hasSync: true, source: 'stripe-sub' }
+    }
+  }
+
+  // 2b. App Store subscription reached through the email it was linked to
+  //     (see linkIosEntitlementToEmail). This is what lets a Mac — which has
+  //     no RevenueCat id — use a subscription bought on the iPhone.
+  if (opts.email) {
+    const link = (await kv.get<EmailIosLink>(emailIosLinkKey(opts.email))).value
+    if (link?.rcAppUserId && link.rcAppUserId !== opts.rcAppUserId && await iosActive(kv, link.rcAppUserId, now)) {
+      return { hasSync: true, source: 'ios' }
     }
   }
 

@@ -26,7 +26,7 @@
  * timestamp+device+nonce as the auth proof.
  */
 
-import { hasEntitlement } from './entitlements.ts'
+import { hasEntitlement, hasVaultEntitlement, linkEntitlementToVault, linkIosEntitlementToEmail } from './entitlements.ts'
 import { verifyAuthRequest } from './auth.ts'
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -1716,13 +1716,46 @@ async function requireSyncEntitlement(
     email: sess?.email,
     rcAppUserId,
   })
-  if (!ent.hasSync) {
-    return errorResponse('forbidden', 402, {
-      message: 'Sync requires an active subscription. Subscribe in the app, or via https://dashnote.io/subscribe.',
-      reason: 'no-entitlement',
-    })
+  // The vault this request is about (auth header, or ?v= for WebSocket
+  // clients). Spoofing it only reaches the entitlement check — the handler's
+  // own authenticate() still demands valid device credentials for it.
+  const vaultId = req.headers.get('x-vault-id') ?? new URL(req.url).searchParams.get('v') ?? undefined
+
+  if (ent.hasSync) {
+    // A subscription covers the whole vault, not just the identity that
+    // bought it. Remember the link so the subscriber's OTHER devices — a Mac
+    // has no RevenueCat id — pass this gate too, and tie the App Store
+    // purchase to the signed-in email when both arrive together.
+    if (vaultId) {
+      await linkEntitlementToVault(kv, vaultId, {
+        rcAppUserId: ent.source === 'ios' ? rcAppUserId : undefined,
+        email: ent.source === 'stripe-sub' ? sess?.email : undefined,
+      }).catch(() => {})
+    }
+    if (ent.source === 'ios' && sess?.email && rcAppUserId) {
+      await linkIosEntitlementToEmail(kv, sess.email, rcAppUserId).catch(() => {})
+    }
+    return null
   }
-  return null
+
+  // This identity has no plan of its own — is the vault covered by another
+  // device's plan (e.g. the iPhone that bought it)?
+  if (vaultId) {
+    const viaVault = await hasVaultEntitlement(kv, vaultId)
+    if (viaVault.hasSync) {
+      // Propagate to the signed-in email so /auth/me (which only knows the
+      // email) agrees with this gate and the client's UI unlocks.
+      if (sess?.email && viaVault.rcAppUserId) {
+        await linkIosEntitlementToEmail(kv, sess.email, viaVault.rcAppUserId).catch(() => {})
+      }
+      return null
+    }
+  }
+
+  return errorResponse('forbidden', 402, {
+    message: 'Sync requires an active subscription. Subscribe in the app, or via https://dashnote.io/subscribe.',
+    reason: 'no-entitlement',
+  })
 }
 
 export async function routeSyncRequest(
