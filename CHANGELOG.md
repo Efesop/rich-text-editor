@@ -5,6 +5,15 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.2] - 2026-09-06
+
+### Fixed
+- **A Mac can now join the vault its iPhone paid for.** With the relay
+  treating a subscription as covering the whole vault, "Enter a sync code"
+  no longer requires a plan on the Mac's own email first — the relay decides,
+  and the Mac inherits the phone's plan the moment it joins. Phone-first
+  subscribers were previously sent to checkout instead.
+
 ## [1.5.1] - 2026-09-06 (Mac DMG; web live)
 
 ### Fixed
