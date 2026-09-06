@@ -149,7 +149,11 @@ export default function SyncSettingsPanel ({
   // email) is exactly how a device inherits the plan. If the vault isn't
   // covered the relay answers 402 and the paused / no-plan card shows.
   const gatedAcceptPair = useCallback(() => onAcceptPair?.(), [onAcceptPair])
-  const gatedPairNewDevice = useCallback(gate(onPairNewDevice), [gate, onPairNewDevice])
+  // Showing the pairing QR is purely local (the packet is encrypted on this
+  // device); the relay checks the device that JOINS. Not gated, because a
+  // phone that paid in the App Store joining this vault is how this device
+  // inherits the phone's plan.
+  const gatedPairNewDevice = useCallback(() => onPairNewDevice?.(), [onPairNewDevice])
 
   const handleSignOut = useCallback(async () => {
     try { await identitySignOut() } catch {}
@@ -501,7 +505,10 @@ function AccountPanel ({ hasSync, signedInEmail, subtitleClasses, titleClasses, 
       <div className={`p-4 rounded-xl ${cardClasses} space-y-3`}>
         <h3 className={`text-sm font-semibold ${titleClasses}`}>Sync requires a subscription</h3>
         <p className={`text-xs leading-relaxed ${subtitleClasses}`}>
-          $4.99/mo or $47.99/yr (20% off). 7-day free trial. Cancel anytime. Existing subscribers — sign in.
+          $4.99/mo or $47.99/yr (20% off). 7-day free trial. Cancel anytime. Subscribed on the website? Sign in with the email from that checkout.
+        </p>
+        <p className={`text-xs leading-relaxed ${subtitleClasses}`}>
+          <strong className={titleClasses}>Subscribed on your iPhone?</strong> Don't buy again — tap <strong className={titleClasses}>Enter a sync code</strong> below and scan the code from the phone (iPhone → Sync → Add device). This device then uses the phone's plan.
         </p>
         <div className="grid grid-cols-2 gap-2">
           <button onClick={onSubscribe} className={`px-3 py-2 rounded-lg text-sm font-medium ${primaryBtn}`}>
@@ -521,6 +528,9 @@ function AccountPanel ({ hasSync, signedInEmail, subtitleClasses, titleClasses, 
         <h3 className={`text-sm font-semibold ${titleClasses}`}>No active subscription</h3>
         <p className={`text-xs leading-relaxed ${subtitleClasses}`}>
           Signed in as <strong>{signedInEmail}</strong>, but we don't see a Dash Sync subscription on this email.
+        </p>
+        <p className={`text-xs leading-relaxed ${subtitleClasses}`}>
+          <strong className={titleClasses}>Subscribed on your iPhone?</strong> Don't buy again — tap <strong className={titleClasses}>Enter a sync code</strong> below and scan the code from the phone (iPhone → Sync → Add device). This device then uses the phone's plan.
         </p>
         <div className="grid grid-cols-2 gap-2">
           <button onClick={onSubscribe} className={`px-3 py-2 rounded-lg text-sm font-medium ${primaryBtn}`}>
@@ -713,6 +723,9 @@ function UnlockedState ({
             <p className={`text-xs leading-relaxed ${subtitleClasses}`}>
               {signedInEmail && (<>You're signed in as <strong className={titleClasses}>{signedInEmail}</strong>. </>)}
               Sync is a paid feature: $4.99/month or $47.99/year, with a 7-day free trial. Nothing uploads until a plan is active.
+            </p>
+            <p className={`text-xs leading-relaxed ${subtitleClasses}`}>
+              <strong className={titleClasses}>Paying on your iPhone already?</strong> Don't subscribe again. Press <strong className={titleClasses}>Add my phone or another computer</strong> below and scan the code with the phone — this device then uses the phone's plan.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">

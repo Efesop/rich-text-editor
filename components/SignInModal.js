@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Mail, X, Check, AlertCircle, KeyRound, ArrowLeft, Minus, Lock } from 'lucide-react'
+import { Mail, X, Check, AlertCircle, KeyRound, ArrowLeft, Minus, Lock, Smartphone } from 'lucide-react'
 import { requestCode, verifyCode } from '@/lib/identity'
 
 // Cross-platform sign-in via 6-digit code emailed by the relay.
@@ -204,11 +204,15 @@ export default function SignInModal ({
                 <h3 className={`text-sm font-semibold ${titleClasses}`}>Why we ask for an email</h3>
                 <div className="flex items-start gap-2.5">
                   <Check className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-green-400 pointer-events-none" />
-                  <p className={`leading-relaxed ${subtitleClasses}`}>It's how we confirm you have a Dash Sync subscription.</p>
+                  <p className={`leading-relaxed ${subtitleClasses}`}>Subscribed on the website? Use the email from that checkout — it's how we find the plan.</p>
                 </div>
                 <div className="flex items-start gap-2.5">
                   <Minus className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 pointer-events-none ${subtitleClasses}`} />
                   <p className={`leading-relaxed ${subtitleClasses}`}>It's not used for anything else. No newsletters, no account to manage.</p>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <Smartphone className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 pointer-events-none ${subtitleClasses}`} />
+                  <p className={`leading-relaxed ${subtitleClasses}`}>Subscribed on your iPhone? Any email works here — this device picks up the phone's plan when you pair the two. No second payment.</p>
                 </div>
                 <div className="flex items-start gap-2.5">
                   <Lock className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-blue-300 pointer-events-none" />
@@ -216,7 +220,7 @@ export default function SignInModal ({
                 </div>
               </div>
               <div>
-                <label className={`block text-xs font-medium mb-1.5 ${subtitleClasses}`}>Email on your subscription</label>
+                <label className={`block text-xs font-medium mb-1.5 ${subtitleClasses}`}>Your email</label>
                 <input
                   type="email"
                   autoFocus
