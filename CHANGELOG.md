@@ -5,6 +5,17 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.3] - 2026-09-06
+
+### Fixed
+- **iPhone subscribers were steered into paying twice.** The Mac asked for
+  the "email on your subscription" (an App Store plan has none) and its
+  no-plan card led with "Start 7-day free trial". The sign-in dialog now says
+  any email works for phone subscribers and the Mac inherits the phone's plan
+  by pairing; the no-plan cards say "Paying on your iPhone already? Don't
+  subscribe again" and point at Add device / Enter a sync code. Showing the
+  pairing QR is purely local, so it is no longer gated on having a plan.
+
 ## [1.5.2] - 2026-09-06
 
 ### Fixed
