@@ -8,7 +8,7 @@ import { useEffect } from 'react'
 // so a stale-cache install (iOS WebView serving old chunks despite
 // new IPA) can be identified by comparing the marker in the UI to
 // the build the user thinks they installed.
-const DASH_BUILD = '70'
+const DASH_BUILD = '75'
 
 function MyApp({ Component, pageProps }) {
   const loadTags = useTagStore(state => state.loadTags)
