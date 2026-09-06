@@ -1780,7 +1780,16 @@ export async function routeSyncRequest(
       const vault = req.headers.get('x-vault-id') ?? url.searchParams.get('v') ?? ''
       const rc = req.headers.has('x-rc-appuserid') ? 'y' : 'n'
       const auth = req.headers.has('authorization') ? 'y' : 'n'
-      console.log(`[sync] ${req.method} ${url.pathname} → ${res.status} vault=${vault.slice(0, 8)} rc=${rc} session=${auth} ua=${(req.headers.get('user-agent') || '').slice(0, 40)}`)
+      let why = ''
+      if (res.status >= 400) {
+        // Error bodies are small JSON ({ error, message }); read a clone so
+        // the real response is untouched.
+        try {
+          const body = await res.clone().json() as { error?: string; message?: string }
+          why = ` why=${body?.error ?? '?'}${body?.message ? ` (${String(body.message).slice(0, 60)})` : ''}`
+        } catch { /* not JSON */ }
+      }
+      console.log(`[sync] ${req.method} ${url.pathname} → ${res.status}${why} vault=${vault.slice(0, 8)} rc=${rc} session=${auth} ua=${(req.headers.get('user-agent') || '').slice(0, 40)}`)
     }
   }
   return res
