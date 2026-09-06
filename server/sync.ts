@@ -1705,7 +1705,16 @@ async function requireSyncEntitlement(
   // 2) RC appUserId header → iOS
   const rcAppUserId = req.headers.get('X-RC-AppUserId') || req.headers.get('x-rc-appuserid') || undefined
 
+  // The vault this request is about (auth header, or ?v= for WebSocket
+  // clients). Spoofing it only reaches the entitlement check — the handler's
+  // own authenticate() still demands valid device credentials for it.
+  const vaultId = req.headers.get('x-vault-id') ?? new URL(req.url).searchParams.get('v') ?? undefined
+
   if (!sess && !rcAppUserId) {
+    // No identity on this request — notably the WebSocket doorbell, which
+    // cannot carry headers. It still passes when the vault itself is
+    // covered by another device's plan (see hasVaultEntitlement).
+    if (vaultId && (await hasVaultEntitlement(kv, vaultId)).hasSync) return null
     return errorResponse('forbidden', 402, {
       message: 'Sync requires sign-in. Open Settings → Sync to sign in or subscribe.',
       reason: 'no-identity',
@@ -1716,11 +1725,6 @@ async function requireSyncEntitlement(
     email: sess?.email,
     rcAppUserId,
   })
-  // The vault this request is about (auth header, or ?v= for WebSocket
-  // clients). Spoofing it only reaches the entitlement check — the handler's
-  // own authenticate() still demands valid device credentials for it.
-  const vaultId = req.headers.get('x-vault-id') ?? new URL(req.url).searchParams.get('v') ?? undefined
-
   if (ent.hasSync) {
     // A subscription covers the whole vault, not just the identity that
     // bought it. Remember the link so the subscriber's OTHER devices — a Mac

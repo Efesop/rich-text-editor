@@ -965,6 +965,12 @@ Deno.test('entitlement: an iPhone subscription covers the whole vault — a Mac 
     assertEquals(viaEmail.hasSync, true)
     assertEquals(viaEmail.source, 'ios')
 
+    // A request with NO identity at all (the WebSocket doorbell cannot carry
+    // headers) passes once the vault is covered — it used to be cut off by
+    // the "no identity → 402" shortcut before the vault check ever ran.
+    const noIdentity = await routeSyncRequest(kv, makeRequest('GET', '/sync/pull?since=0', undefined, authHeaders()))
+    assert(noIdentity?.status !== 402, `no-identity request on a covered vault must not 402, got ${noIdentity?.status}`)
+
     // A different vault is NOT covered by that phone's plan.
     const other = await routeSyncRequest(kv, makeRequest('POST', '/sync/vault/register', {
       vaultId: 'vault-bbbbbbbbbbbbbbbbbbbbbb1', deviceId: 'device-bbbbbbbbbbbbbbbbbb1', deviceName: 'Stranger',
