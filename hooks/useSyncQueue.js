@@ -28,6 +28,7 @@ import {
   iosKeychainRetrieveVaultKey
 } from '../lib/vaultStorage.js'
 import { createSyncQueue } from '../lib/syncQueue.js'
+import { isSameRelay, resolveRelayUrl, markRelayUnreachable, compatRelayUrl, toHttpUrl } from '../lib/relayHosts.js'
 import { diffPages, snapshotPages, buildManifestPayload } from '../lib/syncDiff.js'
 import { pullSince, applyPulledChanges, PullError } from '../lib/syncPull.js'
 import { makeIsHardDeleted } from '../lib/hardDeletes.js'
@@ -143,7 +144,9 @@ export function useSyncQueue ({
         // prod to local for testing, or vice versa), the vault's HMAC
         // creds were registered at the old relay — talking to the new
         // one returns 401. Clear and require fresh setup.
-        if (meta.syncEnabled && meta.relayUrl && relayUrl && meta.relayUrl !== relayUrl) {
+        // Public relay aliases (sync.dashnote.io ↔ dash-relay.efesop.deno.net)
+        // are the same server and must NOT trip this guard — see relayHosts.js.
+        if (meta.syncEnabled && meta.relayUrl && relayUrl && !isSameRelay(meta.relayUrl, relayUrl)) {
           console.warn('useSyncQueue: relayUrl mismatch — clearing stale vault metadata',
             { stored: meta.relayUrl, current: relayUrl })
           await store.disableSync()
@@ -210,7 +213,9 @@ export function useSyncQueue ({
       vaultCryptoKey: store.getVaultCryptoKey(),
       vaultId: meta.vaultId,
       deviceId: meta.deviceId,
-      relayUrl: meta.relayUrl
+      // Whichever public alias answers right now (cached per session); the
+      // STORED relayUrl stays the legacy name for older clients.
+      relayUrl: await resolveRelayUrl(meta.relayUrl)
     }
   }, [])
 
@@ -682,7 +687,9 @@ export function useSyncQueue ({
       // above ignores non-JSON / unknown messages identically on both
       // sides).
       let heartbeatTimer = null
+      let opened = false
       s.addEventListener('open', () => {
+        opened = true
         backoff = 2000
         heartbeatTimer = setInterval(() => {
           if (s.readyState !== WebSocket.OPEN) return
@@ -699,6 +706,9 @@ export function useSyncQueue ({
       })
       s.addEventListener('close', () => {
         if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null }
+        // Never opened → this alias may be unreachable from here (DNS filter,
+        // Private Relay). Forget it so the next attempt re-probes both names.
+        if (!opened) markRelayUnreachable(creds.relayUrl)
         if (socket === s) socket = null
         if (cancelled) return
         // Reset backoff on planned-looking closes so a transient network
@@ -1180,7 +1190,9 @@ export function useSyncQueue ({
     return {
       vaultId: meta.vaultId,
       vaultKey: Array.from(raw),
-      relayUrl: meta.relayUrl,
+      // Legacy name on purpose: older app versions require it verbatim;
+      // newer ones treat every public alias as the same relay.
+      relayUrl: compatRelayUrl(meta.relayUrl),
       pairedDevices: meta.pairedDevices || []
     }
   }, [])
@@ -1206,7 +1218,7 @@ export function useSyncQueue ({
   const fetchQuota = useCallback(async () => {
     if (!relayUrl) return null
     try {
-      const httpUrl = relayUrl.replace(/^wss?:\/\//, m => m === 'wss://' ? 'https://' : 'http://')
+      const httpUrl = toHttpUrl(await resolveRelayUrl(relayUrl))
       const response = await fetch(httpUrl + '/sync/vault/quota', { method: 'GET' })
       if (!response.ok) return null
       return await response.json()

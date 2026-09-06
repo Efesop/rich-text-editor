@@ -152,7 +152,7 @@ function createWindow() {
           "style-src 'self' 'unsafe-inline'; " +
           "img-src 'self' data:; " +
           "font-src 'self' data:; " +
-          "connect-src 'self' https://dash-relay.efesop.deno.net wss://dash-relay.efesop.deno.net http://localhost:* http://127.0.0.1:*" + connectExtras + '; ' +
+          "connect-src 'self' https://sync.dashnote.io wss://sync.dashnote.io https://dash-relay.efesop.deno.net wss://dash-relay.efesop.deno.net http://localhost:* http://127.0.0.1:*" + connectExtras + '; ' +
           "frame-src 'none'; " +
           "object-src 'none';"
         ]

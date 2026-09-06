@@ -505,3 +505,14 @@ against the local Deno relay:
 - **Phase 4:** Multi-user shared vaults ("share folder with my partner").
 - **Phase 5:** Re-enable live-collab (existing `LIVE_SESSIONS_ENABLED`-gated code).
 - **Phase 6:** True CRDT character-level merge.
+
+## Relay hostnames
+
+The public relay answers under two names that point at the same server and
+the same data: `sync.dashnote.io` (primary) and `dash-relay.efesop.deno.net`
+(legacy). Some phones refuse every name under `deno.net` (iCloud Private
+Relay's resolvers and some DNS-filter apps), so each device probes both names
+on first use and keeps whichever answers (`lib/relayHosts.js`). Pair codes and
+stored vault metadata keep the legacy name so older app versions still work;
+newer versions treat both names as the same relay. A public diagnostic page
+lives at https://dashnote.io/sync-check.

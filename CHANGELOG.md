@@ -5,6 +5,21 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.5] - 2026-09-06
+
+### Fixed
+- **Sync on phones that block `*.deno.net`.** Some iPhones (iCloud Private
+  Relay's resolvers, some DNS-filter apps) refuse every name under deno.net,
+  so the sync server was unreachable and every attempt ended in
+  "Sync error — Load failed" while the same phone reached other sites. The
+  relay now also answers as `sync.dashnote.io`; every device probes both
+  names on first use (primary preferred, concurrent, cached per session) and
+  re-probes after a network failure. Pair codes and stored vault metadata keep
+  the legacy name so older app versions keep working; newer versions treat
+  both names as the same relay instead of wiping the sync setup when the name
+  differs. Mac content-security policy allows the new name. Diagnostic page:
+  https://dashnote.io/sync-check.
+
 ## [1.5.4] - 2026-09-06
 
 ### Fixed

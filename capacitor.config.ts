@@ -5,7 +5,8 @@ const config: CapacitorConfig = {
   appName: 'Dash',
   webDir: 'out',
   // Production: WebView serves from `capacitor://localhost` (default secure
-  // scheme). Outbound `wss://dash-relay.efesop.deno.net` is secure-secure —
+  // scheme). Outbound `wss://sync.dashnote.io` / `wss://dash-relay.efesop.deno.net`
+  // (same relay, two names — lib/relayHosts.js) is secure-secure —
   // no mixed-content concern.
   // Local dev against `ws://localhost:8000` (insecure) needs the WebView
   // origin to also be insecure or the connection is blocked. Re-add this
