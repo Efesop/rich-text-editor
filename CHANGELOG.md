@@ -5,7 +5,7 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.5.0] - 2026-05-13 (iOS App Store build 70; Mac DMG not yet tag-released)
+## [1.5.0] - 2026-05-13 (iOS App Store build 75, live; Mac DMG not yet tag-released)
 
 Sync subscription release. First submitted to Apple on May 13 (build 55);
 the iOS binary went through several App Store review cycles (builds 56–70,
@@ -110,6 +110,31 @@ recurring fee that pays for the relay server costs.
   88vh so all items fit; iOS status bar cleared in the Features panel header.
 - **Relay CORS preflight** now allows the `X-RC-AppUserId` and `Authorization`
   headers used by the sync entitlement gate.
+
+### Fixed — pre-DMG-release sweep (Sep 2026)
+- **Desktop: trashed notes came back after every relaunch.** Electron's
+  `save-pages` sanitizer whitelists page fields and was never extended when
+  Trash shipped, so `trashed`, `trashedAt`, `restoredAt` and `lastEdited`
+  were dropped on every save. Never reached Mac users only because desktop
+  is still on 1.3.165 — the 1.5.0 DMG would have shipped it. A test now
+  fails if a field the app relies on goes missing from the whitelist.
+- **Desktop: a corrupt `pages.json` no longer destroys data.** Reading an
+  unparseable file used to fall through to "create a fresh page and save",
+  overwriting the file and copying the corrupt copy over the good `.bak`
+  within milliseconds of launch. `read-pages` now recovers from `.bak`
+  (keeping a `pages.json.corrupt-<timestamp>` copy and healing
+  `pages.json`); if that also fails, saving is paused for the session and
+  the footer shows "Storage error" instead of writing anything.
+- **Desktop: one bad record no longer blocks all saves.** An empty title
+  made `save-pages` throw, failing the whole save; it is coerced to
+  "Untitled" instead.
+- **iOS: disabling sync now wipes the vault key from the Keychain**
+  (metadata was cleared, the raw key was not).
+- **iOS: RevenueCat listener leak** when the entitlement hook unmounted
+  while the SDK subscription was still being set up.
+- **Desktop/web: the iPad camera-popover CSS fix** made hidden file inputs
+  a keyboard tab stop everywhere; scoped to touch devices.
+- Demo-seed tags never seeded (wrong `addTag` call shape).
 
 ### Migration notes for existing Mac $14.99 buyers
 - Your desktop app keeps working forever.
