@@ -1,33 +1,37 @@
 #!/bin/bash
-# Deploy Dash Live Notes relay server to Deno Deploy
+# Deploy the Dash relay (sync + entitlements + auth) to Deno Deploy.
+#
+# The relay runs on Deno Deploy (*.deno.net) as org `efesop`, app `dash-relay`.
+# Its build config expects `main.ts` as the entrypoint (inherited from the
+# playground the app was created as); main.ts boots relay.ts. Git is the
+# source of truth — do not edit in the console playground.
 #
 # Prerequisites:
-# 1. Install Deno: curl -fsSL https://deno.land/install.sh | sh
-# 2. Install deployctl: deno install -Arf jsr:@deno/deployctl
-# 3. Sign up at https://dash.deno.com (GitHub login, no credit card)
-# 4. Create a project named "dash-relay" at https://dash.deno.com/new
-# 5. Get your access token from https://dash.deno.com/account#access-tokens
+#   - Deno >= 2.4 (provides the `deno deploy` subcommand)
+#   - An org access token from https://console.deno.com (Settings → Tokens)
 #
 # Usage:
-#   DENO_DEPLOY_TOKEN=your_token ./deploy.sh
+#   DENO_DEPLOY_TOKEN=ddo_... ./deploy.sh          # preview revision only
+#   DENO_DEPLOY_TOKEN=ddo_... ./deploy.sh --prod   # route production
 #
-# Or set DENO_DEPLOY_TOKEN in your environment.
+# A preview revision gets its own URL (dash-relay-<revision>.efesop.deno.net)
+# and shares the production KV database. Smoke-test /health and an
+# unauthenticated /sync/pull (expect 401) on it before re-running with --prod.
+#
+# Env vars (RESEND_*, AUTH_TOKEN_SECRET, RC_WEBHOOK_AUTH, ENTITLEMENT_*) live on
+# the app: `deno deploy env list --org efesop --app dash-relay`.
 
 set -e
 
 if [ -z "$DENO_DEPLOY_TOKEN" ]; then
-  echo "Error: DENO_DEPLOY_TOKEN not set"
-  echo "Get your token from: https://dash.deno.com/account#access-tokens"
+  echo "Error: DENO_DEPLOY_TOKEN not set (org token from https://console.deno.com)"
   exit 1
 fi
 
 cd "$(dirname "$0")"
 
-echo "Deploying relay server to Deno Deploy..."
-deployctl deploy --project=dash-relay --prod relay.ts
+echo "Deploying relay to Deno Deploy (org efesop, app dash-relay) $*"
+deno deploy --org efesop --app dash-relay --non-interactive "$@"
 
 echo ""
-echo "Deployed! Your relay is live at: https://dash-relay.deno.dev"
-echo ""
-echo "Update NEXT_PUBLIC_RELAY_URL in your .env.local:"
-echo "  NEXT_PUBLIC_RELAY_URL=https://dash-relay.deno.dev"
+echo "Production URL: https://dash-relay.efesop.deno.net"

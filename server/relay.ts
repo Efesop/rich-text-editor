@@ -320,8 +320,13 @@ export async function handleRequest(req: Request): Promise<Response> {
   })
 }
 
-// Only start the server if this file is run directly (not imported by tests)
-if (import.meta.main) {
+/**
+ * Start the HTTP/WebSocket server and register the daily vault-purge cron.
+ * Called from `main.ts` (the Deno Deploy entrypoint — the app's build config
+ * expects that filename) and when this file is run directly. Tests import
+ * `handleRequest` without triggering it.
+ */
+export function startServer() {
   Deno.serve({ port: 8000 }, handleRequest)
 
   // Daily cron: purge vaults inactive for 90+ days. Frees KV without any
@@ -337,6 +342,9 @@ if (import.meta.main) {
     })
   }
 }
+
+// Only start the server if this file is run directly (not imported by tests)
+if (import.meta.main) startServer()
 
 /** Broadcast metadata (participant count) to all clients in a room */
 function broadcastMeta(roomId: string) {
