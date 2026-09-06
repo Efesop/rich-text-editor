@@ -5,7 +5,7 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.5.1] - Unreleased
+## [1.5.1] - 2026-09-06 (Mac DMG; web live)
 
 ### Fixed
 - **Sync: "pull unknown (HTTP 402)" after signing in.** The relay answers 402
