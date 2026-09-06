@@ -15,20 +15,27 @@
  * the input's getBoundingClientRect(); display:none returns {0,0,0,0}
  * → iPadOS asserts → crash. Force these inputs to occupy a real pixel
  * (off-screen, opacity 0) so WKWebView can anchor the popover. Affects
- * iPad only; iPhone path doesn't use popovers and is unaffected. */
-input[type="file"][style*="display: none"],
-input[type="file"][style*="display:none"],
-input[type="file"].hidden,
-input[type="file"][hidden] {
-  display: block !important;
-  position: fixed !important;
-  bottom: 1px !important;
-  right: 1px !important;
-  width: 1px !important;
-  height: 1px !important;
-  opacity: 0.001 !important;
-  pointer-events: none !important;
-  z-index: -1 !important;
+ * iPad only; iPhone path doesn't use popovers and is unaffected.
+ *
+ * Scoped to touch devices: unscoped, the un-hidden 1x1 input was also a
+ * keyboard tab stop on desktop (Tab past the last control -> invisible
+ * focus -> Enter opens the .dashpack import picker). `(pointer: coarse)`
+ * is the same iPad test the bottom-sheet rules below rely on. */
+@media (pointer: coarse) {
+  input[type="file"][style*="display: none"],
+  input[type="file"][style*="display:none"],
+  input[type="file"].hidden,
+  input[type="file"][hidden] {
+    display: block !important;
+    position: fixed !important;
+    bottom: 1px !important;
+    right: 1px !important;
+    width: 1px !important;
+    height: 1px !important;
+    opacity: 0.001 !important;
+    pointer-events: none !important;
+    z-index: -1 !important;
+  }
 }
 
 /* Import a monospace font for terminal effect */
