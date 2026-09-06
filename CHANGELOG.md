@@ -5,6 +5,18 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.6] - 2026-09-06
+
+### Fixed
+- **Sync now works on phones that block `*.deno.net`, with no setup.** 1.5.5
+  added a second server name that still needed DNS work. 1.5.6 adds a third:
+  `dashnote.io/relay`, a same-origin proxy in front of the relay on the
+  marketing site, which is reachable wherever dashnote.io is. Devices try
+  the direct name, the custom name and the proxy at once and keep the first
+  that answers (direct preferred). On the proxy the WebSocket doorbell is
+  skipped (HTTPS only) and the periodic + foreground pulls carry sync.
+  Uploads up to the 10 MB attachment limit pass through.
+
 ## [1.5.5] - 2026-09-06
 
 ### Fixed

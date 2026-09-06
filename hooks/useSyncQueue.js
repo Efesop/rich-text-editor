@@ -28,7 +28,7 @@ import {
   iosKeychainRetrieveVaultKey
 } from '../lib/vaultStorage.js'
 import { createSyncQueue } from '../lib/syncQueue.js'
-import { isSameRelay, resolveRelayUrl, markRelayUnreachable, compatRelayUrl, toHttpUrl } from '../lib/relayHosts.js'
+import { isSameRelay, resolveRelayUrl, compatRelayUrl, toHttpUrl, relaySupportsWebSocket } from '../lib/relayHosts.js'
 import { diffPages, snapshotPages, buildManifestPayload } from '../lib/syncDiff.js'
 import { pullSince, applyPulledChanges, PullError } from '../lib/syncPull.js'
 import { makeIsHardDeleted } from '../lib/hardDeletes.js'
@@ -658,6 +658,13 @@ export function useSyncQueue ({
         scheduleReconnect(5000)
         return
       }
+      if (!relaySupportsWebSocket(creds.relayUrl)) {
+        // HTTPS-only proxy alias (see relayHosts.js): no doorbell here. The
+        // periodic + foreground pulls carry sync; re-check each minute in case
+        // the resolver moves back to a direct name.
+        scheduleReconnect(60000)
+        return
+      }
       const wsUrl = creds.relayUrl.replace(/^https?:\/\//, m => m === 'https://' ? 'wss://' : 'ws://')
       const path = `/sync/ws/${encodeURIComponent(creds.vaultId)}`
       const timestamp = Date.now()
@@ -687,9 +694,7 @@ export function useSyncQueue ({
       // above ignores non-JSON / unknown messages identically on both
       // sides).
       let heartbeatTimer = null
-      let opened = false
       s.addEventListener('open', () => {
-        opened = true
         backoff = 2000
         heartbeatTimer = setInterval(() => {
           if (s.readyState !== WebSocket.OPEN) return
@@ -706,9 +711,6 @@ export function useSyncQueue ({
       })
       s.addEventListener('close', () => {
         if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null }
-        // Never opened → this alias may be unreachable from here (DNS filter,
-        // Private Relay). Forget it so the next attempt re-probes both names.
-        if (!opened) markRelayUnreachable(creds.relayUrl)
         if (socket === s) socket = null
         if (cancelled) return
         // Reset backoff on planned-looking closes so a transient network
