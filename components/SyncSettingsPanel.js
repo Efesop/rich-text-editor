@@ -143,7 +143,12 @@ export default function SyncSettingsPanel ({
     }
   }, [hasSync, isNativeIOS, signedInEmail, openSubscribePage])
   const gatedEnableSync = useCallback(gate(onEnableSync), [gate, onEnableSync])
-  const gatedAcceptPair = useCallback(gate(onAcceptPair), [gate, onAcceptPair])
+  // Joining an existing vault is deliberately NOT gated here: the relay
+  // decides, because a subscription covers the whole vault. A Mac joining
+  // the vault its iPhone paid for (or a phone joining a vault paid for by
+  // email) is exactly how a device inherits the plan. If the vault isn't
+  // covered the relay answers 402 and the paused / no-plan card shows.
+  const gatedAcceptPair = useCallback(() => onAcceptPair?.(), [onAcceptPair])
   const gatedPairNewDevice = useCallback(gate(onPairNewDevice), [gate, onPairNewDevice])
 
   const handleSignOut = useCallback(async () => {
