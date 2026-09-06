@@ -81,6 +81,9 @@ export function useEntitlement () {
             setSource(active ? 'ios' : null)
           }
         })
+        // Unmounted while the SDK call was in flight: the cleanup already ran
+        // against the no-op stub, so release the real listener here.
+        if (cancelled) { try { unsub() } catch {} }
       }
     })()
     return () => { cancelled = true; try { unsub() } catch {} }
