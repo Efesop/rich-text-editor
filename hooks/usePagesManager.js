@@ -22,6 +22,11 @@ export function usePagesManager() {
   const [currentPage, _setCurrentPage] = useState(null)
   const { tags, addTag, removeTag, updateTag } = useTagStore()
   const [saveStatus, setSaveStatus] = useState('saved')
+  // Set when the initial read of the page store fails (corrupt file with no
+  // usable backup, IndexedDB failure). While set, saves are blocked for the
+  // session so nothing on disk is overwritten — see fetchPages' catch.
+  const [loadError, setLoadError] = useState(null)
+  const loadErrorRef = useRef(null)
   const [editorReloadKey, setEditorReloadKey] = useState(0)
   const [tempUnlockedPages, setTempUnlockedPages] = useState(new Set())
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
@@ -141,7 +146,11 @@ export function usePagesManager() {
       return
     }
     if (savesBlockedRef.current) {
-      dbg('save', 'BLOCKED by duress mode, skipping disk write')
+      dbg('save', 'BLOCKED', loadErrorRef.current ? 'by storage read failure' : 'by duress mode', '— skipping disk write')
+      // Read-failure block: savePagesToStorage already flipped the footer to
+      // 'saving'; put it back on the red error state rather than leaving a
+      // perpetual "Saving…". (Duress mode must look normal — no status change.)
+      if (loadErrorRef.current) setSaveStatus('error')
       return
     }
     try {
@@ -364,7 +373,7 @@ export function usePagesManager() {
           // Seed demo dataset for App Store screenshots
           try {
             for (const tag of DEMO_TAGS) {
-              try { addTag(tag.name, tag.color) } catch {}
+              try { addTag(tag) } catch {} // store's addTag takes the { name, color } object
             }
           } catch {}
           setPages(DEMO_PAGES)
@@ -383,8 +392,23 @@ export function usePagesManager() {
     } catch (error) {
       console.error('Error fetching pages:', error)
       dbg('pages', 'ERROR fetching:', error.message)
-      const newPage = await createNewPage()
-      setCurrentPage(newPage)
+      // The store exists but could not be read (corrupt pages.json with no
+      // usable .bak, IndexedDB failure, ...). This used to create a fresh page
+      // and SAVE it — overwriting the unreadable-but-recoverable data on disk
+      // within milliseconds of launch (and copying the corrupt file over the
+      // good .bak). Block every save for this session instead: the footer
+      // shows "Storage error", nothing on disk is touched, and the files stay
+      // recoverable. A relaunch retries the read.
+      savesBlockedRef.current = true
+      loadErrorRef.current = error?.message || String(error)
+      setLoadError(loadErrorRef.current)
+      setSaveStatus('error')
+      console.error(
+        '[storage] Saving is PAUSED for this session to protect your data. ' +
+        'Desktop: inspect pages.json and pages.json.bak in the app data folder ' +
+        '(a pages.json.corrupt-<timestamp> copy is kept when recovery was attempted). ' +
+        'Quit and relaunch once the file is readable.'
+      )
       isInitializedRef.current = true
     }
   }, [])
@@ -1314,6 +1338,10 @@ export function usePagesManager() {
   // Recover from duress hide mode: unblock saves and reload pages from disk
   // Only reloads if duress mode is active (savesBlockedRef), otherwise no-op
   const recoverFromDuressMode = useCallback(async () => {
+    // A read-failure block is not duress. Leave it in place — saves stay
+    // paused for the session so the unreadable store is never overwritten
+    // (unblocking here and re-reading would reopen exactly that path).
+    if (loadErrorRef.current) return false
     if (!savesBlockedRef.current && !isDuressModeRef.current) return false
     dbg('duress', 'RECOVERING from duress — unblocking saves, reloading from disk')
     savesBlockedRef.current = false
@@ -1708,6 +1736,7 @@ export function usePagesManager() {
     setPages,
     currentPage,
     saveStatus,
+    loadError,
     setCurrentPage,
     handleNewPage,
     savePage,

@@ -695,15 +695,51 @@ ipcMain.handle('delete-versions', async (event, pageId) => {
 });
 
 ipcMain.handle('read-pages', async () => {
+  const pagesPath = path.join(app.getPath('userData'), 'pages.json');
+  const backupPath = pagesPath + '.bak';
+  let raw;
   try {
-    const data = await fs.readFile(path.join(app.getPath('userData'), 'pages.json'), 'utf8');
-    return JSON.parse(data);
+    raw = await fs.readFile(pagesPath, 'utf8');
   } catch (error) {
     if (error.code === 'ENOENT') {
       // File doesn't exist, return an empty array
       return [];
     }
     throw error;
+  }
+  try {
+    return JSON.parse(raw);
+  } catch (parseError) {
+    // pages.json exists but is not valid JSON (truncated write, disk fault,
+    // hand edit). Until now this threw to the renderer, which treated it as
+    // "no data", created a fresh page and SAVED it — and that save copies the
+    // corrupt file over the good .bak. Recover from .bak instead, keep the
+    // corrupt file for forensics, and heal pages.json so the next save has a
+    // valid backup to copy.
+    log.error('read-pages: pages.json is not valid JSON, trying .bak —', parseError.message);
+    try { await fs.copyFile(pagesPath, `${pagesPath}.corrupt-${Date.now()}`); } catch { /* best-effort */ }
+    let backupRaw;
+    try {
+      backupRaw = await fs.readFile(backupPath, 'utf8');
+    } catch (backupReadError) {
+      log.error('read-pages: no readable .bak either —', backupReadError.message);
+      throw parseError; // renderer blocks saves for the session
+    }
+    let recovered;
+    try {
+      recovered = JSON.parse(backupRaw);
+    } catch (backupParseError) {
+      log.error('read-pages: .bak is not valid JSON either —', backupParseError.message);
+      throw parseError;
+    }
+    if (!Array.isArray(recovered)) throw parseError;
+    log.error(`read-pages: recovered ${recovered.length} pages from .bak`);
+    try {
+      await fs.copyFile(backupPath, pagesPath);
+    } catch (healError) {
+      log.error('read-pages: could not restore pages.json from .bak —', healError.message);
+    }
+    return recovered;
   }
 });
 
@@ -722,16 +758,22 @@ ipcMain.handle('save-pages', async (event, pages) => {
         log.error(`Page ${index}: Invalid or missing ID`, { page: { id: page.id, title: page.title } });
         throw new Error('Invalid page: missing or invalid id');
       }
-      if (!page.title || typeof page.title !== 'string') {
-        log.error(`Page ${index}: Invalid or missing title`, { page: { id: page.id, title: page.title } });
-        throw new Error('Invalid page: missing or invalid title');
+      // A missing/empty title is cosmetic — coerce rather than throw. Throwing
+      // here failed the WHOLE save (every page, not just this one), so a single
+      // odd record from an import or a sync pull could silently stop all
+      // persistence until the next launch.
+      const title = (typeof page.title === 'string' && page.title.length > 0)
+        ? page.title.slice(0, 200) // Limit title length
+        : 'Untitled';
+      if (title === 'Untitled' && page.title !== 'Untitled') {
+        log.warn(`Page ${index}: missing or invalid title, saving as "Untitled"`, { id: page.id });
       }
 
       // Handle folders differently from pages
       if (page.type === 'folder') {
         return {
           id: page.id,
-          title: page.title.slice(0, 200),
+          title,
           type: 'folder',
           pages: Array.isArray(page.pages) ? page.pages : [],
           createdAt: page.createdAt || new Date().toISOString(),
@@ -751,7 +793,7 @@ ipcMain.handle('save-pages', async (event, pages) => {
 
       return {
         id: page.id,
-        title: page.title.slice(0, 200), // Limit title length
+        title,
         content: content
           ? {
               time: content.time || Date.now(),
@@ -767,7 +809,16 @@ ipcMain.handle('save-pages', async (event, pages) => {
         password: page.password || null,
         folderId: page.folderId || null,
         type: page.type || undefined,
-        selfDestructAt: page.selfDestructAt || null
+        selfDestructAt: page.selfDestructAt || null,
+        // Trash (soft-delete) + sync-restore state. Missing from this
+        // whitelist from the day Trash shipped (May 2026), so on desktop a
+        // trashed note came back after every relaunch and `lastEdited` (the
+        // sync latest-wins tiebreak) reset to undefined on restart. Emitted
+        // only when present so the on-disk shape matches the in-memory one.
+        ...(typeof page.lastEdited === 'number' ? { lastEdited: page.lastEdited } : {}),
+        ...(page.trashed === true ? { trashed: true } : {}),
+        ...(typeof page.trashedAt === 'number' ? { trashedAt: page.trashedAt } : {}),
+        ...(typeof page.restoredAt === 'number' ? { restoredAt: page.restoredAt } : {})
       };
     });
 

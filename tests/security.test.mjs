@@ -788,3 +788,54 @@ describe('Page-switch race condition prevention', () => {
     assert.ok(nearbyCode.includes('pagesRef.current = pages'), 'guarded block must sync pagesRef from React state')
   })
 })
+
+// ===== ELECTRON PERSISTENCE — REQUIRED FIELDS + CORRUPT-FILE RECOVERY =====
+describe('Electron save-pages persists every field the app relies on', () => {
+  const saveSection = () => {
+    const code = readSrc('electron-main.js')
+    const start = code.indexOf("ipcMain.handle('save-pages'")
+    return code.substring(start, start + 5000)
+  }
+  // Trash shipped (May 2026) without extending the save-pages whitelist, so
+  // on desktop a trashed note reappeared after every relaunch. Any new
+  // persisted page field must be added to the sanitizer AND to this list.
+  const REQUIRED_PAGE_FIELDS = [
+    'id', 'title', 'content', 'encryptedContent', 'appLockEncrypted', 'tags', 'tagNames',
+    'createdAt', 'password', 'folderId', 'type', 'selfDestructAt',
+    'lastEdited', 'trashed', 'trashedAt', 'restoredAt'
+  ]
+  REQUIRED_PAGE_FIELDS.forEach(field => {
+    it(`save-pages sanitizer emits '${field}'`, () => {
+      assert.ok(saveSection().includes(`${field}:`), `save-pages must persist '${field}'`)
+    })
+  })
+  it('save-pages coerces an empty title instead of failing the whole save', () => {
+    const section = saveSection()
+    assert.ok(!section.includes("throw new Error('Invalid page: missing or invalid title')"), 'must not throw on empty title')
+    assert.ok(section.includes("'Untitled'"), 'must coerce to Untitled')
+  })
+})
+
+describe('Corrupt pages.json cannot destroy data', () => {
+  it('read-pages falls back to pages.json.bak and preserves the corrupt file', () => {
+    const code = readSrc('electron-main.js')
+    const start = code.indexOf("ipcMain.handle('read-pages'")
+    const section = code.substring(start, code.indexOf("ipcMain.handle('save-pages'"))
+    assert.ok(section.includes('.bak'), 'read-pages must consult the .bak file')
+    assert.ok(section.includes('.corrupt-'), 'read-pages must keep the corrupt file for recovery')
+  })
+  it('fetchPages blocks saves on a read error instead of creating and saving a fresh page', () => {
+    const code = readSrc('hooks/usePagesManager.js')
+    const start = code.indexOf('const fetchPages = useCallback')
+    const section = code.substring(start, code.indexOf('}, [])', start) + 6)
+    const catchBody = section.substring(section.indexOf('catch (error)'))
+    assert.ok(catchBody.includes('savesBlockedRef.current = true'), 'read error must block saves')
+    assert.ok(!catchBody.includes('createNewPage()'), 'read error must NOT create+save a fresh page')
+  })
+  it('recoverFromDuressMode does not lift a read-failure save block', () => {
+    const code = readSrc('hooks/usePagesManager.js')
+    const start = code.indexOf('const recoverFromDuressMode = useCallback')
+    const section = code.substring(start, code.indexOf('savesBlockedRef.current = false', start))
+    assert.ok(section.includes('if (loadErrorRef.current) return false'), 'must bail out before unblocking saves when the store failed to load')
+  })
+})

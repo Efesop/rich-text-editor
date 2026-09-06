@@ -491,6 +491,7 @@ export default function RichTextEditor() {
     pages,
     currentPage,
     saveStatus,
+    loadError,
     setCurrentPage,
     handleNewPage,
     savePage,
@@ -4739,13 +4740,13 @@ export default function RichTextEditor() {
       <Tooltip text={
         saveStatus === 'saving' ? 'Saving to disk…'
           : saveStatus === 'saved' ? 'All changes saved locally'
-            : saveStatus === 'error' ? 'Save failed — check console for details'
+            : saveStatus === 'error' ? (loadError ? 'Your notes could not be read — saving is paused this session so nothing on disk is overwritten. See the console for recovery steps.' : 'Save failed — check console for details')
               : 'Save status'
       }>
         <span aria-live="polite" aria-atomic="true">
           {saveStatus === 'saving' && <span className={theme === 'fallout' ? 'text-yellow-400' : 'text-yellow-500'}>Saving...</span>}
           {saveStatus === 'saved' && <span className={theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-[#6b6b6b]' : theme === 'darkblue' ? 'text-[#445068]' : 'text-neutral-400'}>Saved</span>}
-          {saveStatus === 'error' && <span className="text-red-500">Error saving</span>}
+          {saveStatus === 'error' && <span className="text-red-500">{loadError ? 'Storage error' : 'Error saving'}</span>}
         </span>
       </Tooltip>
       {SYNC_AVAILABLE && (() => {
