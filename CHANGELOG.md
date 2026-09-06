@@ -18,6 +18,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   plan" like "not signed in" and re-opened the sign-in form. It now sends a
   signed-in user to checkout instead.
 
+- **Relay: an App Store subscription now unlocks the Mac (and web).** A plan
+  bought on iPhone is stored under the phone's RevenueCat id; the Mac signs in
+  by email; nothing connected the two, so iPhone subscribers got 402 on Mac
+  forever. The relay now treats a subscription as covering the whole vault
+  (any device in it passes the gate) and links the signed-in email to the
+  App Store plan the first time both identities arrive together. A signed
+  support endpoint (`POST /entitlements/link-ios-email`,
+  `ENTITLEMENT_SUPPORT_SECRET`) links an account by hand until the iOS app
+  gains a sign-in screen. Server-side only; no app update needed.
+
 ### Changed
 - **Clearer sync wording.** The sign-in dialog explains why it asks for an
   email (a subscription check only; notes never travel by email and are
