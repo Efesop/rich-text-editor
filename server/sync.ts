@@ -1762,7 +1762,31 @@ async function requireSyncEntitlement(
   })
 }
 
+/**
+ * Thin logging wrapper: one line per failed sync request (and every
+ * register attempt) so support can see whether a device reached the relay
+ * and what it was told. Logs route, status, an 8-char vault-id prefix and
+ * whether the request carried an RC id / session — never note data.
+ */
 export async function routeSyncRequest(
+  kv: Deno.Kv,
+  req: Request,
+): Promise<Response | null> {
+  const res = await routeSyncRequestInner(kv, req)
+  if (res) {
+    const url = new URL(req.url)
+    const isRegister = url.pathname === '/sync/vault/register'
+    if (isRegister || (res.status >= 400 && res.status !== 404)) {
+      const vault = req.headers.get('x-vault-id') ?? url.searchParams.get('v') ?? ''
+      const rc = req.headers.has('x-rc-appuserid') ? 'y' : 'n'
+      const auth = req.headers.has('authorization') ? 'y' : 'n'
+      console.log(`[sync] ${req.method} ${url.pathname} → ${res.status} vault=${vault.slice(0, 8)} rc=${rc} session=${auth} ua=${(req.headers.get('user-agent') || '').slice(0, 40)}`)
+    }
+  }
+  return res
+}
+
+async function routeSyncRequestInner(
   kv: Deno.Kv,
   req: Request,
 ): Promise<Response | null> {
