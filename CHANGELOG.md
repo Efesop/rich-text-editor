@@ -5,7 +5,16 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.5.3] - 2026-09-06
+## [1.5.4] - 2026-09-06
+
+### Fixed
+- **Release pipeline.** electron-builder was importing the signing
+  certificate into a second, temporary keychain on top of the one the
+  workflow prepares, and that step began failing on GitHub's macOS runners
+  (v1.5.2 and v1.5.3 were tagged but never published). The builder now signs
+  with the keychain the workflow already set up. 1.5.4 is the first Mac
+  build carrying the 1.5.2 and 1.5.3 changes below.
+
 
 ### Fixed
 - **iPhone subscribers were steered into paying twice.** The Mac asked for

@@ -63,10 +63,16 @@ jobs:
           # endpoint. Memory called this out as a pre-ship gap.
           NEXT_PUBLIC_RELAY_URL: wss://dash-relay.efesop.deno.net
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Sign with the identity the "Import Certificate" step already put
+          # in build.keychain (with the codesign partition set). Do NOT also
+          # pass CSC_LINK/CSC_KEY_PASSWORD: electron-builder then imports the
+          # same .p12 into a second, temporary keychain and runs
+          # `security set-key-partition-list` on it, which started failing
+          # on the macOS runners with "SecKeychainUnlock: The user name or
+          # passphrase you entered is not correct" (v1.5.2 / v1.5.3, three
+          # runs in a row) while v1.5.1 had passed minutes earlier.
           CSC_KEYCHAIN: build.keychain
           CSC_NAME: 'Filmshape Ltd (9888FL2CQ6)'
-          CSC_LINK: ${{ secrets.MAC_CERTS }}
-          CSC_KEY_PASSWORD: ${{ secrets.P12_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
