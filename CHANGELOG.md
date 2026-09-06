@@ -5,6 +5,28 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - Unreleased
+
+### Fixed
+- **Sync: "pull unknown (HTTP 402)" after signing in.** The relay answers 402
+  when the signed-in email has no active Dash Sync plan. The clients now map
+  that to `subscription-required`: the queue pauses instead of retrying, the
+  panel shows "Sync is paused — No Dash Sync plan on this email yet" with
+  Start free trial / Refresh / Sign out, and sync resumes by itself the moment
+  the plan is active.
+- **Sync kept asking for the email again.** The gate treated "signed in, no
+  plan" like "not signed in" and re-opened the sign-in form. It now sends a
+  signed-in user to checkout instead.
+
+### Changed
+- **Clearer sync wording.** The sign-in dialog explains why it asks for an
+  email (a subscription check only; notes never travel by email and are
+  encrypted before they leave the device). "28 pending" reads "28 notes ready
+  to upload" with the reason they're waiting; "Add device" is "Add my phone or
+  another computer" with a line on how the QR pairing hands the key over;
+  "Stop sync" is "Turn off sync" and says it keeps every note on the device.
+  Mockups: https://claude.ai/code/artifact/6b177f21-4b09-442c-bb78-6db54ab6ce6e
+
 ## [1.5.0] - 2026-05-13 (iOS App Store build 75, live; Mac DMG not yet tag-released)
 
 Sync subscription release. First submitted to Apple on May 13 (build 55);

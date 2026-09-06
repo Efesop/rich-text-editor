@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Cloud,
   CloudOff,
@@ -90,7 +90,7 @@ export default function SyncSettingsPanel ({
   const [quota, setQuota] = useState(null)
   const [showPaywall, setShowPaywall] = useState(false)
   const [showSignIn, setShowSignIn] = useState(false)
-  const { hasSync, signedInEmail, refresh: refreshEntitlement } = useEntitlement()
+  const { hasSync, signedInEmail, loading: entitlementLoading, refresh: refreshEntitlement } = useEntitlement()
 
   // Backstop: if the 'sync' entitlement becomes active while the paywall is
   // open, close it. After a fresh sandbox/trial purchase the entitlement can
@@ -130,13 +130,18 @@ export default function SyncSettingsPanel ({
     if (isNativeIOS) {
       // iOS: in-app purchase. PaywallModal handles RC flow.
       setShowPaywall(true)
+    } else if (signedInEmail) {
+      // Already signed in, just no plan on that email. Don't ask for the
+      // email again (that loop read as "it keeps asking me to sign in") —
+      // send them straight to checkout.
+      openSubscribePage()
     } else {
       // Mac/PWA/Linux: sign in first so we can detect an existing
       // subscription. If no entitlement after sign-in, the subscribe
-      // CTA in the disabled state will route them to dashnote.io.
+      // CTA routes them to dashnote.io.
       setShowSignIn(true)
     }
-  }, [hasSync, isNativeIOS])
+  }, [hasSync, isNativeIOS, signedInEmail, openSubscribePage])
   const gatedEnableSync = useCallback(gate(onEnableSync), [gate, onEnableSync])
   const gatedAcceptPair = useCallback(gate(onAcceptPair), [gate, onAcceptPair])
   const gatedPairNewDevice = useCallback(gate(onPairNewDevice), [gate, onPairNewDevice])
@@ -301,7 +306,7 @@ export default function SyncSettingsPanel ({
       onClose={() => setShowSignIn(false)}
       onSignedIn={handleSignedIn}
       theme={theme}
-      reason="Sign in to use sync. No password — we email you a 6-digit code."
+      reason="A one-time check that your email has a Dash Sync subscription. No password — we email you a 6-digit code."
     />
     <div className="dash-mobile-bottom-sheet fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
@@ -322,7 +327,7 @@ export default function SyncSettingsPanel ({
               </div>
               <div>
                 <h2 className={`text-lg font-semibold ${titleClasses}`}>Sync across devices</h2>
-                <p className={subtitleClasses}>End-to-end encrypted. We can never read your notes.</p>
+                <p className={subtitleClasses}>Notes are encrypted on this device before they leave it. We can't read them — only your devices can.</p>
               </div>
             </div>
             <button onClick={onClose} className={`p-2 rounded-lg transition-colors ${closeBtnClasses}`} aria-label="Close">
@@ -394,6 +399,13 @@ export default function SyncSettingsPanel ({
               onDisableSync={onDisableSync}
               confirmStop={confirmStop}
               setConfirmStop={setConfirmStop}
+              hasSync={hasSync}
+              entitlementLoading={entitlementLoading}
+              signedInEmail={signedInEmail}
+              onSubscribe={isNativeIOS ? () => setShowPaywall(true) : openSubscribePage}
+              onOpenSignIn={() => setShowSignIn(true)}
+              onSignOut={handleSignOut}
+              onRefreshEntitlement={() => refreshEntitlement?.()}
             />
           )}
         </div>
@@ -576,14 +588,35 @@ function UnlockedState ({
   status, usage, StageIcon, stageColor, titleClasses, subtitleClasses, sectionLabelClasses,
   cardClasses, primaryBtn, secondaryBtn, dangerBtn, isFallout,
   onSyncNow, onPairNewDevice, onRevokeDevice, onDisableSync,
-  confirmStop, setConfirmStop
+  confirmStop, setConfirmStop,
+  hasSync, entitlementLoading, signedInEmail, onSubscribe, onOpenSignIn, onSignOut, onRefreshEntitlement
 }) {
   const isAnimating = status.stage === 'flushing' || status.stage === 'pulling' || status.stage === 'queued'
   const hasError = status.stage === 'error' || status.stage === 'rate-limited'
-  const stageLabel = hasError ? 'Couldn\'t sync'
+  // The relay answers 402 while the signed-in email has no active plan (or
+  // nobody is signed in). That's a paused state, not a failure — before this
+  // the raw "pull unknown (HTTP 402)" landed in the error box.
+  const needsSubscription = !hasSync && !entitlementLoading &&
+    (/subscription-required|HTTP 402/.test(status.lastError || '') || (!hasError && status.pendingCount > 0))
+  const noun = status.pendingCount === 1 ? 'note' : 'notes'
+  const stageLabel = needsSubscription
+    ? (status.pendingCount > 0 ? `${status.pendingCount} ${noun} ready to upload` : 'Sync is paused')
+    : hasError ? 'Couldn\'t sync'
     : isAnimating ? 'Syncing…'
     : status.lastSuccessAt ? `Synced ${formatRelativeTime(status.lastSuccessAt)}`
     : 'Ready to sync'
+  const stageSubLabel = needsSubscription
+    ? (signedInEmail
+        ? 'Waiting for a Dash Sync plan. Nothing leaves this device until then.'
+        : 'Waiting for you to sign in. Nothing leaves this device until then.')
+    : null
+
+  // The moment the plan turns on, push the waiting edits and pull.
+  const prevHasSyncRef = useRef(hasSync)
+  useEffect(() => {
+    if (hasSync && !prevHasSyncRef.current) onSyncNow?.()
+    prevHasSyncRef.current = hasSync
+  }, [hasSync, onSyncNow])
 
   // Format vault usage as e.g. "12 MB used of 500 MB" (only if we have a number)
   const usageText = (() => {
@@ -600,21 +633,24 @@ function UnlockedState ({
           in an Advanced section. Pending count has a tooltip-style title attr. */}
       <div className={`px-4 py-3 rounded-xl flex items-center justify-between gap-3 ${cardClasses}`}>
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <StageIcon className={`w-4 h-4 pointer-events-none flex-shrink-0 ${stageColor} ${isAnimating ? 'animate-spin' : ''}`} />
+          <StageIcon className={`w-4 h-4 pointer-events-none flex-shrink-0 ${needsSubscription ? 'text-amber-400' : stageColor} ${isAnimating ? 'animate-spin' : ''}`} />
           <div className="min-w-0">
             <p className={`text-sm font-medium truncate ${titleClasses}`}>{stageLabel}</p>
             {usageText && (
               <p className={`${subtitleClasses} truncate`}>{usageText}</p>
             )}
-            {status.pendingCount > 0 && (
+            {stageSubLabel && (
+              <p className={subtitleClasses}>{stageSubLabel}</p>
+            )}
+            {!needsSubscription && status.pendingCount > 0 && (
               <p className={subtitleClasses} title="Edits queued to upload — clears once they reach the server">
-                {status.pendingCount} pending
+                {status.pendingCount} {noun} waiting to upload
               </p>
             )}
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {hasError && (
+          {hasError && !needsSubscription && (
             <button
               onClick={onSyncNow}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${secondaryBtn}`}
@@ -626,9 +662,9 @@ function UnlockedState ({
             <button
               onClick={() => setConfirmStop(true)}
               className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
-              aria-label="Stop sync"
+              aria-label="Turn off sync"
             >
-              Stop sync
+              Turn off sync
             </button>
           )}
         </div>
@@ -637,7 +673,7 @@ function UnlockedState ({
       {confirmStop && (
         <div className={`p-3 rounded-lg space-y-3 ${cardClasses} border border-red-500/20`}>
           <p className={`text-xs ${subtitleClasses}`}>
-            <strong className={titleClasses}>Stop sync on this device?</strong> Local notes stay on every device. If this is the last device paired with the cloud vault, the cloud copy is deleted automatically.
+            <strong className={titleClasses}>Turn off sync on this device?</strong> Every note stays on this device — this only stops uploading. If this is the last device using the vault, the encrypted cloud copy is deleted too.
           </p>
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -650,36 +686,74 @@ function UnlockedState ({
               onClick={() => { setConfirmStop(false); onDisableSync?.() }}
               className={`px-3 py-2 rounded-md text-xs font-medium ${dangerBtn}`}
             >
-              Stop sync
+              Turn off sync
             </button>
           </div>
         </div>
       )}
 
-      {hasError && status.lastError && (
+      {hasError && status.lastError && !needsSubscription && (
         <div className="px-4 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20 flex items-start gap-2">
           <AlertCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5 pointer-events-none" />
           <p className="text-xs text-red-400 leading-relaxed">{status.lastError}</p>
         </div>
       )}
 
+      {!hasSync && !entitlementLoading && (
+        <div className={`p-4 rounded-xl ${cardClasses} space-y-3`}>
+          <div className="space-y-1">
+            <h3 className={`text-sm font-semibold ${titleClasses}`}>
+              {signedInEmail ? 'No Dash Sync plan on this email yet' : 'Sync needs a subscription'}
+            </h3>
+            <p className={`text-xs leading-relaxed ${subtitleClasses}`}>
+              {signedInEmail && (<>You're signed in as <strong className={titleClasses}>{signedInEmail}</strong>. </>)}
+              Sync is a paid feature: $4.99/month or $47.99/year, with a 7-day free trial. Nothing uploads until a plan is active.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {signedInEmail ? (
+              <>
+                <button onClick={onSubscribe} className={`px-3 py-2 rounded-lg text-sm font-medium ${primaryBtn}`}>
+                  Start 7-day free trial
+                </button>
+                <button onClick={onRefreshEntitlement} className={`px-3 py-2 rounded-lg text-sm font-medium ${secondaryBtn}`}>
+                  Already subscribed? Refresh
+                </button>
+                <button onClick={onSignOut} className={`px-3 py-2 rounded-lg text-sm font-medium ${subtitleClasses}`}>
+                  Sign out
+                </button>
+              </>
+            ) : (
+              <>
+                <button onClick={onOpenSignIn} className={`px-3 py-2 rounded-lg text-sm font-medium ${primaryBtn}`}>
+                  Sign in
+                </button>
+                <button onClick={onSubscribe} className={`px-3 py-2 rounded-lg text-sm font-medium ${secondaryBtn}`}>
+                  Subscribe
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Devices */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className={sectionLabelClasses}>Paired devices</span>
+          <span className={sectionLabelClasses}>Your devices</span>
           <button
             onClick={onPairNewDevice}
             className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all ${secondaryBtn}`}
           >
             <Plus className="w-3 h-3 pointer-events-none" />
-            Add device
+            Add my phone or another computer
           </button>
         </div>
         <div className="space-y-1.5">
           {/* Self */}
           <DeviceRow
             label={status.deviceName || 'This device'}
-            sublabel="This device"
+            sublabel="This device — your notes live here"
             icon={Laptop}
             cardClasses={cardClasses}
             titleClasses={titleClasses}
@@ -717,11 +791,12 @@ function UnlockedState ({
               .filter(d => d.deviceId !== selfId)
             if (list.length > 0) return null
             return (
-              <p className={`text-xs italic ${subtitleClasses}`}>No other devices yet. Tap "Add device" to pair your phone, tablet, or another computer.</p>
+              <p className={`text-xs italic ${subtitleClasses}`}>Only this device so far. To see these notes on your phone, add it above — you'll scan a code so the phone gets the encryption key straight from this device. It never passes through our server.</p>
             )
           })()}
         </div>
       </div>
+      <p className={`text-[11px] leading-relaxed ${subtitleClasses}`}>Turning off sync keeps every note on this device. It only stops uploading.</p>
     </div>
   )
 }

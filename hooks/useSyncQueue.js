@@ -1221,6 +1221,8 @@ export function useSyncQueue ({
     enqueueChangedPages,
     flushNow,
     pull,
+    // Un-pause after a subscription-required (402) stop, then push + pull once.
+    resumeSync: async () => { try { queueRef.current?.resume?.() } catch { /* ignore */ } await flushNow(); await pull() },
     enableSync,
     adoptVault,
     disableSync,

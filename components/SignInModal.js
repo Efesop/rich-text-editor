@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Mail, X, Check, AlertCircle, KeyRound, ArrowLeft } from 'lucide-react'
+import { Mail, X, Check, AlertCircle, KeyRound, ArrowLeft, Minus, Lock } from 'lucide-react'
 import { requestCode, verifyCode } from '@/lib/identity'
 
 // Cross-platform sign-in via 6-digit code emailed by the relay.
@@ -136,6 +136,12 @@ export default function SignInModal ({
       : isDark ? 'bg-[#1a1a1a] border border-[#3a3a3a] text-white placeholder-[#6b6b6b] focus:ring-blue-500/50'
         : 'bg-white border border-gray-200 text-gray-900 placeholder-gray-400 focus:ring-blue-500/30'
 
+  const cardClasses = isFallout
+    ? 'bg-gray-900 border border-green-500/30'
+    : isDarkBlue ? 'bg-[#0c1017] border border-[#1c2438]'
+      : isDark ? 'bg-[#222] border border-[#3a3a3a]/40'
+        : 'bg-gray-50 border border-gray-200'
+
   const primaryBtn = isFallout
     ? 'bg-green-500 text-gray-900 hover:bg-green-400 font-mono shadow-[0_0_20px_rgba(34,197,94,0.3)]'
     : isDarkBlue ? 'bg-blue-500 text-white hover:bg-blue-400'
@@ -167,12 +173,12 @@ export default function SignInModal ({
               </div>
               <div>
                 <h2 className={`text-lg font-semibold ${titleClasses}`}>
-                  {step === 'email' && 'Sign in to Dash'}
+                  {step === 'email' && 'Sign in to use Sync'}
                   {step === 'code' && 'Enter your code'}
                   {step === 'done' && 'Signed in'}
                 </h2>
                 <p className={subtitleClasses}>
-                  {step === 'email' && (reason || 'No passwords — we email you a 6-digit code.')}
+                  {step === 'email' && (reason || 'A one-time check that your email has a Dash Sync subscription. No password.')}
                   {step === 'code' && `Sent to ${email}`}
                   {step === 'done' && 'You can close this window.'}
                 </p>
@@ -194,8 +200,23 @@ export default function SignInModal ({
 
           {step === 'email' && (
             <form onSubmit={sendCode} className="space-y-4">
+              <div className={`p-4 rounded-xl space-y-2.5 ${cardClasses}`}>
+                <h3 className={`text-sm font-semibold ${titleClasses}`}>Why we ask for an email</h3>
+                <div className="flex items-start gap-2.5">
+                  <Check className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-green-400 pointer-events-none" />
+                  <p className={`leading-relaxed ${subtitleClasses}`}>It's how we confirm you have a Dash Sync subscription.</p>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <Minus className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 pointer-events-none ${subtitleClasses}`} />
+                  <p className={`leading-relaxed ${subtitleClasses}`}>It's not used for anything else. No newsletters, no account to manage.</p>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <Lock className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-blue-300 pointer-events-none" />
+                  <p className={`text-xs leading-relaxed ${titleClasses}`}><strong>Your notes never travel by email.</strong> They're encrypted on this device before they leave it, and only your devices hold the key.</p>
+                </div>
+              </div>
               <div>
-                <label className={`block text-xs font-medium mb-1.5 ${subtitleClasses}`}>Email</label>
+                <label className={`block text-xs font-medium mb-1.5 ${subtitleClasses}`}>Email on your subscription</label>
                 <input
                   type="email"
                   autoFocus
@@ -211,10 +232,10 @@ export default function SignInModal ({
                 disabled={busy || !email}
                 className={`w-full px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 disabled:opacity-40 ${primaryBtn}`}
               >
-                {busy ? 'Sending…' : 'Email me a code'}
+                {busy ? 'Sending…' : 'Email me a 6-digit code'}
               </button>
               <p className={`text-[11px] leading-relaxed text-center ${subtitleClasses}`}>
-                We send a 6-digit code that expires in 10 minutes. Email is used only to verify your subscription — your notes stay end-to-end encrypted.
+                The code expires in 10 minutes. No subscription yet? Sign in first — you can start a 7-day free trial right after.
               </p>
             </form>
           )}

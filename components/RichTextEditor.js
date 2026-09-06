@@ -5426,7 +5426,7 @@ export default function RichTextEditor() {
             }}
             onPairNewDevice={() => setIsPairDeviceOpen(true)}
             onAcceptPair={() => setIsAcceptPairOpen(true)}
-            onSyncNow={() => { sync?.flushNow?.(); sync?.pull?.() }}
+            onSyncNow={() => { if (sync?.resumeSync) sync.resumeSync(); else { sync?.flushNow?.(); sync?.pull?.() } }}
             fetchVaultUsage={() => sync?.fetchVaultUsage?.()}
             fetchQuota={() => sync?.fetchQuota?.()}
             onRevokeDevice={async (deviceId) => {
