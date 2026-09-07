@@ -6,6 +6,7 @@ import Tooltip from './Tooltip'
 import { isMobileDevice, isSmallScreen } from '@/utils/deviceUtils'
 import { ActionSheet, ActionSheetItem, ActionSheetSeparator } from './ActionSheet'
 import { useLongPress } from '@/utils/useLongPress'
+import { hapticLight } from '@/utils/nativeBridge'
 
 const PageItem = ({
   page,
@@ -104,7 +105,7 @@ const PageItem = ({
       ? (sidebarOpen ? 'ml-5 mr-1 rounded-l-none border-l-2 ' : 'mx-1 ') + (theme === 'fallout' ? 'border-green-500/20' : theme === 'dark' ? 'border-[#3a3a3a]' : theme === 'darkblue' ? 'border-[#2a3454]' : 'border-neutral-200')
       : 'mx-1'
     const sizing = sidebarOpen
-      ? (isMobile ? 'justify-between px-3 py-2 text-[15px] min-h-[40px]' : 'justify-between px-3 py-2 text-sm')
+      ? (isMobile ? 'justify-between px-3 py-2 text-base min-h-[48px]' : 'justify-between px-3 py-2 text-sm')
       : 'justify-center px-0 py-1 text-sm'
     const baseClasses = `flex items-center ${sizing} cursor-pointer rounded-lg transition-colors duration-150 overflow-hidden ${folderStyle}`
 
@@ -205,7 +206,72 @@ const PageItem = ({
     delay: 450
   })
 
-  return (
+  // Mobile swipe actions (Sep 2026 UI refresh): swipe left → Trash, swipe
+  // right → Lock / Unlock. A quick horizontal move (before dnd-kit's 250 ms
+  // hold-to-drag activates) drags the row and reveals the action; releasing
+  // past SWIPE_COMMIT fires it. Vertical moves fall through to scrolling.
+  const SWIPE_MAX = 112
+  const SWIPE_COMMIT = 72
+  const [swipeX, setSwipeX] = useState(0)
+  const [swiping, setSwiping] = useState(false)
+  const swipeRef = useRef(null)
+  const swipeXRef = useRef(0)
+  const isLocked = !!(page.password && page.password.hash && !tempUnlockedPages.has(page.id))
+  const canSwipe = isMobile && sidebarOpen && !isSelfDestructing && !page.id?.startsWith('live-')
+  const resetSwipe = () => {
+    swipeRef.current = null
+    swipeXRef.current = 0
+    setSwipeX(0)
+    setSwiping(false)
+  }
+  const swipeHandlers = canSwipe
+    ? {
+        onTouchStart: (e) => {
+          longPressHandlers.onTouchStart(e)
+          const t = e.touches?.[0]
+          swipeRef.current = t ? { x: t.clientX, y: t.clientY, t: Date.now(), horizontal: null, ignore: false } : null
+        },
+        onTouchMove: (e) => {
+          longPressHandlers.onTouchMove(e)
+          const s = swipeRef.current
+          const t = e.touches?.[0]
+          if (!s || !t || s.ignore) return
+          const dx = t.clientX - s.x
+          const dy = t.clientY - s.y
+          if (s.horizontal === null) {
+            if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return
+            // Held longer than dnd-kit's activation delay → that is a drag, not a swipe.
+            if (Date.now() - s.t > 240) { s.ignore = true; return }
+            s.horizontal = Math.abs(dx) > Math.abs(dy)
+            if (!s.horizontal) { s.ignore = true; return }
+            setSwiping(true)
+          }
+          const next = Math.max(-SWIPE_MAX, Math.min(SWIPE_MAX, dx))
+          swipeXRef.current = next
+          setSwipeX(next)
+        },
+        onTouchEnd: (e) => {
+          const s = swipeRef.current
+          if (s && s.horizontal) {
+            longPressHandlers.onTouchCancel()
+            const x = swipeXRef.current
+            resetSwipe()
+            if (x <= -SWIPE_COMMIT) { hapticLight(); onDelete && onDelete(page) }
+            else if (x >= SWIPE_COMMIT) { hapticLight(); onToggleLock && onToggleLock(page) }
+            return
+          }
+          swipeRef.current = null
+          longPressHandlers.onTouchEnd(e)
+        },
+        onTouchCancel: () => { resetSwipe(); longPressHandlers.onTouchCancel() },
+        onContextMenu: longPressHandlers.onContextMenu
+      }
+    : longPressHandlers
+
+  const revealWidth = Math.min(96, Math.abs(swipeX))
+  const swipeActionBase = 'absolute inset-y-0 flex flex-col items-center justify-center gap-0.5 rounded-lg overflow-hidden text-white text-[11px] font-semibold pointer-events-none'
+
+  const row = (
     <div
       ref={pageItemRef}
       className={`${getPageItemClasses()} ${className} ${isSelfDestructing ? 'dash-sd-dissolve' : ''}`}
@@ -217,8 +283,13 @@ const PageItem = ({
           onSelfDestructComplete(page.id)
         }
       }}
-      style={{ minHeight: isSelfDestructing ? undefined : '2.25rem' }}
-      {...(isMobile ? longPressHandlers : {})}
+      style={{
+        minHeight: isSelfDestructing ? undefined : (isMobile && sidebarOpen ? '3rem' : '2.25rem'),
+        transform: swipeX ? `translateX(${swipeX}px)` : undefined,
+        transition: swiping ? 'none' : 'transform 200ms ease'
+      }}
+      data-swipe-row={canSwipe ? '' : undefined}
+      {...(isMobile ? swipeHandlers : {})}
     >
       {sidebarOpen ? (
       <div className="flex items-center flex-1 min-w-0" style={{ marginRight: isMobile ? 0 : (isHovered ? 0 : -24), transition: 'margin-right 150ms' }}>
@@ -554,6 +625,25 @@ const PageItem = ({
           }}
         />
       </ActionSheet>
+    </div>
+  )
+
+  if (!canSwipe) return row
+  return (
+    <div className="relative">
+      {swipeX < 0 && (
+        <div className={`${swipeActionBase} bg-red-500`} style={{ right: 4, width: revealWidth }} aria-hidden="true">
+          <Trash2 className="h-5 w-5" />
+          Trash
+        </div>
+      )}
+      {swipeX > 0 && (
+        <div className={`${swipeActionBase} ${theme === 'fallout' ? 'bg-green-600' : 'bg-blue-500'}`} style={{ left: isInsideFolder ? 20 : 4, width: revealWidth }} aria-hidden="true">
+          {isLocked ? <Unlock className="h-5 w-5" /> : <LockKeyhole className="h-5 w-5" />}
+          {isLocked ? 'Unlock' : 'Lock'}
+        </div>
+      )}
+      {row}
     </div>
   )
 }

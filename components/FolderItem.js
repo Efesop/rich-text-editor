@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Folder, FolderOpen, Trash2, MoreVertical, Edit3, Plus } from 'lucide-react'
+import { Folder, FolderOpen, Trash2, MoreVertical, Edit3, Plus, ChevronRight, ChevronDown } from 'lucide-react'
 import SortablePageItem from './SortablePageItem'
 import Tooltip from './Tooltip'
 import { RenameFolderModal } from './RenameFolderModal'
@@ -227,12 +227,15 @@ export function FolderItem({
   return (
     <div className={`my-1 transition-all duration-150 ${isDropTarget && !isDraggingFolder ? `rounded-lg mx-1 ${theme === 'fallout' ? 'bg-green-500/10 border border-dashed border-green-500/40' : theme === 'dark' ? 'bg-blue-500/10 border border-dashed border-blue-400/30' : theme === 'darkblue' ? 'bg-blue-500/10 border border-dashed border-blue-400/30' : 'bg-blue-50 border border-dashed border-blue-300/60'}` : ''}`} ref={folderRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} data-theme={theme}>
       <div
-        className={`flex items-center ${sidebarOpen ? (isMobile ? 'justify-between px-3 py-2 text-[15px] min-h-[40px]' : 'justify-between px-3 py-2 text-sm') : 'justify-center px-0 py-1 text-sm'} cursor-pointer rounded-lg mx-1 transition-colors duration-150 overflow-hidden ${getFolderHoverClasses()}`}
+        className={`flex items-center ${sidebarOpen ? (isMobile ? 'justify-between px-3 py-2 text-base min-h-[48px]' : 'justify-between px-3 py-2 text-sm') : 'justify-center px-0 py-1 text-sm'} cursor-pointer rounded-lg mx-1 transition-colors duration-150 overflow-hidden ${getFolderHoverClasses()}`}
         onClick={isMobile ? undefined : toggleExpand}
         {...(isMobile ? folderLongPressHandlers : {})}
       >
         {sidebarOpen ? (
         <div className="flex items-center flex-grow min-w-0" style={{ marginRight: isMobile ? 0 : (isHovered ? 0 : -24), transition: 'margin-right 150ms' }}>
+          {isMobile && (isExpanded
+            ? <ChevronDown className={`h-4 w-4 mr-1.5 flex-shrink-0 ${getFolderIconClasses()}`} strokeWidth={2} />
+            : <ChevronRight className={`h-4 w-4 mr-1.5 flex-shrink-0 ${getFolderIconClasses()}`} strokeWidth={2} />)}
           {folder.emoji ? (
             <span className="h-4 w-4 mr-1.5 flex-shrink-0 text-sm leading-4 text-center">{folder.emoji}</span>
           ) : isExpanded ? (

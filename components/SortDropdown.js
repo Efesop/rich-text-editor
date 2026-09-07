@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { ArrowUpDown, Check } from 'lucide-react'
 
-const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen, compact = false }) => {
+const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen, compact = false, size = 'sm' }) => {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef(null)
   const buttonRef = useRef(null)
@@ -109,7 +109,7 @@ const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen, compact = 
           aria-label="Sort notes"
           aria-haspopup="menu"
           aria-expanded={isOpen}
-          className={`h-5 w-5 rounded flex items-center justify-center transition-colors ${
+          className={`${size === 'lg' ? 'h-7 w-7 rounded-md' : 'h-5 w-5 rounded'} flex items-center justify-center transition-colors ${
             theme === 'fallout'
               ? 'text-green-600 hover:text-green-400 hover:bg-gray-800'
               : theme === 'dark'
@@ -119,7 +119,7 @@ const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen, compact = 
                   : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-200'
           }`}
         >
-          <ArrowUpDown className="w-3 h-3 pointer-events-none" />
+          <ArrowUpDown className={`${size === 'lg' ? 'w-4 h-4' : 'w-3 h-3'} pointer-events-none`} />
         </button>
         {isOpen && (
           <div

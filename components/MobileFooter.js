@@ -1,14 +1,17 @@
 import React, { useState } from 'react'
 import { useTheme } from 'next-themes'
 import {
-  MoreHorizontal,
   List,
   Sparkles,
   Keyboard,
   Trash2,
-  Archive,
-  Cloud,
-  Bug
+  Bug,
+  SunMoon,
+  Lock,
+  RefreshCw,
+  HardDrive,
+  SlidersHorizontal,
+  ChevronRight
 } from 'lucide-react'
 import { format } from 'date-fns'
 import EncryptionStatusIndicator from './EncryptionStatusIndicator'
@@ -38,7 +41,14 @@ export default function MobileFooter ({
   onOpenSync,
   syncEnabled,
   syncStatusText,
-  syncStatus // { enabled, unlocked, stage, lastError } — drives the trailing dot
+  syncStatus, // { enabled, unlocked, stage, lastError } — drives the trailing dot
+  // Settings sheet (Sep 2026 UI refresh)
+  onOpenAppearance,
+  themeLabel = '',
+  onOpenAppLock,
+  backupLabel = '',
+  appVersion = '',
+  syncLabel = ''
 }) {
   const { theme } = useTheme()
   const [moreOpen, setMoreOpen] = useState(false)
@@ -49,6 +59,17 @@ export default function MobileFooter ({
   const isFallout = theme === 'fallout'
   const isDark = theme === 'dark'
   const isDarkBlue = theme === 'darkblue'
+
+  const mutedClass = isFallout ? 'text-green-600' : isDark ? 'text-[#8e8e8e]' : isDarkBlue ? 'text-[#5d6b88]' : 'text-gray-500'
+  const faintClass = isFallout ? 'text-green-700' : isDark ? 'text-[#6b6b6b]' : isDarkBlue ? 'text-[#445068]' : 'text-gray-400'
+  // Trailing "value ›" slot for Settings rows.
+  const Trailing = ({ value, dot }) => (
+    <span className="inline-flex items-center gap-1.5">
+      {dot && <span className={`inline-block w-2.5 h-2.5 rounded-full ${dot}`} />}
+      {value && <span className={`text-sm ${mutedClass}`}>{value}</span>}
+      <ChevronRight className={`w-4 h-4 ${faintClass}`} />
+    </span>
+  )
 
   const chipClass = `flex items-center justify-center h-10 w-10 rounded-lg transition-colors ${
     isFallout ? 'text-green-500 hover:text-green-400 hover:bg-green-900/30' :
@@ -145,9 +166,9 @@ export default function MobileFooter ({
               <button
                 onClick={() => setMoreOpen(true)}
                 className={`${chipClass} relative`}
-                aria-label="More"
+                aria-label="Settings"
               >
-                <MoreHorizontal className="w-5 h-5 pointer-events-none" />
+                <SlidersHorizontal className="w-5 h-5 pointer-events-none" />
                 {showDot && (
                   <span className={`absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full ${dotClass}`} />
                 )}
@@ -160,19 +181,52 @@ export default function MobileFooter ({
       <ActionSheet
         isOpen={moreOpen}
         onClose={() => setMoreOpen(false)}
-        title="More"
-        icon={MoreHorizontal}
+        title="Settings"
+        icon={SlidersHorizontal}
       >
-        {currentPage?.createdAt && (
-          <div className={`px-5 py-2 text-xs ${
-            isFallout ? 'text-green-600/80' :
-            isDark ? 'text-[#6b6b6b]' :
-            isDarkBlue ? 'text-[#5d6b88]' :
-            'text-neutral-400'
-          }`}>
-            Created {format(new Date(currentPage.createdAt), 'MMM d, yyyy')}
-          </div>
-        )}
+        <ActionSheetItem
+          icon={SunMoon}
+          label="Appearance"
+          onClick={() => { setMoreOpen(false); onOpenAppearance?.() }}
+          trailing={<Trailing value={themeLabel} />}
+        />
+        <ActionSheetItem
+          icon={Lock}
+          label="App lock"
+          onClick={() => { setMoreOpen(false); onOpenAppLock?.() }}
+          trailing={<Trailing value={appLockEnabled ? 'On' : 'Off'} />}
+        />
+        {syncEnabled && (() => {
+          // Same status vocabulary as MobileHeaderMenu's Sync settings row:
+          // green=synced, red=error, yellow=locked, gray=off.
+          const enabled = !!syncStatus?.enabled
+          const unlocked = !!syncStatus?.unlocked
+          const errored = syncStatus?.stage === 'error' || syncStatus?.stage === 'rate-limited' || !!syncStatus?.lastError
+          let dotClass = 'bg-gray-400'
+          if (enabled && unlocked && !errored) dotClass = 'bg-green-500'
+          else if (enabled && errored) dotClass = 'bg-red-500'
+          else if (enabled && !unlocked) dotClass = 'bg-yellow-400'
+          return (
+            <ActionSheetItem
+              icon={RefreshCw}
+              label="Dash Sync"
+              onClick={() => { onOpenSync(); setMoreOpen(false) }}
+              trailing={<Trailing value={syncLabel} dot={dotClass} />}
+            />
+          )
+        })()}
+        <ActionSheetItem
+          icon={HardDrive}
+          label="Backups"
+          onClick={() => { onOpenBackup(); setMoreOpen(false) }}
+          trailing={<Trailing value={backupLabel} />}
+        />
+        <ActionSheetItem
+          icon={Trash2}
+          label="Trash"
+          onClick={() => { onOpenTrash(); setMoreOpen(false) }}
+          trailing={<Trailing value={trashCount > 0 ? `${trashCount} item${trashCount === 1 ? '' : 's'}` : ''} />}
+        />
         <ActionSheetSeparator />
         <ActionSheetItem
           icon={List}
@@ -184,52 +238,13 @@ export default function MobileFooter ({
           label="Features"
           onClick={() => { onOpenFeatures(); setMoreOpen(false) }}
         />
-        <ActionSheetItem
-          icon={Keyboard}
-          label="Keyboard shortcuts"
-          onClick={() => { onOpenShortcuts(); setMoreOpen(false) }}
-        />
-        <ActionSheetSeparator />
-        {trashCount > 0 && (
+        {!isNativeApp && (
           <ActionSheetItem
-            icon={Trash2}
-            label={`Trash · ${trashCount}`}
-            onClick={() => { onOpenTrash(); setMoreOpen(false) }}
+            icon={Keyboard}
+            label="Keyboard shortcuts"
+            onClick={() => { onOpenShortcuts(); setMoreOpen(false) }}
           />
         )}
-        <ActionSheetItem
-          icon={Archive}
-          label="Backup settings"
-          onClick={() => { onOpenBackup(); setMoreOpen(false) }}
-        />
-        {syncEnabled && (() => {
-          // Identical look + feel to MobileHeaderMenu's Sync settings row:
-          // Cloud icon, "Sync settings" label, trailing colored dot
-          // showing live status (green=synced, red=error, yellow=locked,
-          // gray=disabled). Single source-of-truth derivation here +
-          // MobileHeaderMenu so both sheets stay in sync.
-          const enabled = !!syncStatus?.enabled
-          const unlocked = !!syncStatus?.unlocked
-          const errored = syncStatus?.stage === 'error' || syncStatus?.stage === 'rate-limited' || !!syncStatus?.lastError
-          let dotClass = 'bg-gray-400'
-          let dotTitle = 'Sync off'
-          if (enabled && unlocked && !errored) { dotClass = 'bg-green-500'; dotTitle = 'Synced' }
-          else if (enabled && errored) { dotClass = 'bg-red-500'; dotTitle = 'Sync error' }
-          else if (enabled && !unlocked) { dotClass = 'bg-yellow-400'; dotTitle = 'Vault locked' }
-          return (
-            <ActionSheetItem
-              icon={Cloud}
-              label="Sync settings"
-              onClick={() => { onOpenSync(); setMoreOpen(false) }}
-              trailing={
-                <span
-                  title={dotTitle}
-                  className={`inline-block w-2.5 h-2.5 rounded-full ${dotClass}`}
-                />
-              }
-            />
-          )
-        })()}
         <ActionSheetSeparator />
         <ActionSheetItem
           icon={Bug}
@@ -239,6 +254,9 @@ export default function MobileFooter ({
             setMoreOpen(false)
           }}
         />
+        <div className={`px-5 pt-2 pb-1 text-xs text-center ${faintClass} ${isFallout ? 'font-mono' : ''}`}>
+          {[appVersion ? `Dash ${appVersion}` : 'Dash', currentPage?.createdAt ? `Created ${format(new Date(currentPage.createdAt), 'MMM d, yyyy')}` : null].filter(Boolean).join(' · ')}
+        </div>
       </ActionSheet>
     </>
   )

@@ -42,7 +42,8 @@ export default function SettingsPopover ({
   isCheckingForUpdates,
   canCheckForUpdates,
   onCheckForUpdates,
-  onShowUpdate
+  onShowUpdate,
+  systemName = 'macOS'
 }) {
   const popoverRef = useRef(null)
   const [pos, setPos] = useState({ top: 0, left: 0 })
@@ -158,7 +159,7 @@ export default function SettingsPopover ({
         aria-checked={!!matchSystem}
       >
         <Monitor className={`h-[15px] w-[15px] flex-shrink-0 pointer-events-none ${iconClass}`} />
-        <span className="flex-1 text-left">Match macOS appearance</span>
+        <span className="flex-1 text-left">Match {systemName} appearance</span>
         <span className={`relative inline-block w-[30px] h-[18px] rounded-full transition-colors ${matchSystem ? toggleOn : toggleOff}`}>
           <span className={`absolute top-[2px] w-3.5 h-3.5 rounded-full bg-white shadow transition-all ${matchSystem ? 'left-[14px]' : 'left-[2px]'}`} />
         </span>

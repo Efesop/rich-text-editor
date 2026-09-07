@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, Import, X, FolderPlus, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, List, Shield, Copy, Check, AlertCircle, SlidersHorizontal } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, Import, X, FolderPlus, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, List, Shield, Copy, Check, AlertCircle, SlidersHorizontal, SunMoon } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
@@ -31,7 +31,8 @@ import useTagStore from '../store/tagStore'
 import { format } from 'date-fns'
 import PasswordModal from '@/components/PasswordModal'
 import { usePagesManager } from '@/hooks/usePagesManager'
-import ThemeToggle from '@/components/ThemeToggle'
+import AppearanceSheet from '@/components/AppearanceSheet'
+import packageJson from '../package.json'
 import SettingsPopover from '@/components/SettingsPopover'
 import PageMenu from '@/components/PageMenu'
 import SearchTrigger from '@/components/SearchTrigger'
@@ -603,6 +604,10 @@ export default function RichTextEditor() {
   // "Match macOS appearance": follow prefers-color-scheme, mapping dark to
   // the last dark theme the user picked (dark / darkblue / fallout).
   const [matchSystemAppearance, setMatchSystemAppearance] = useState(false)
+  // Mobile (Sep 2026): appearance sheet, "Locked" filter chip, swipe-to-close bookkeeping.
+  const [isAppearanceSheetOpen, setIsAppearanceSheetOpen] = useState(false)
+  const [lockedOnlyFilter, setLockedOnlyFilter] = useState(false)
+  const navSwipeRef = useRef(null)
   const [titleCompact, setTitleCompact] = useState(false)
   const [wordCount, setWordCount] = useState(0)
   const [outlineHeadings, setOutlineHeadings] = useState([])
@@ -709,7 +714,7 @@ export default function RichTextEditor() {
     // vertical motions to the scroller before reaching the sensor.
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 15 } })
   )
-  const isDndEnabled = sortOption === 'custom' && !searchTerm && selectedTagsFilter.length === 0
+  const isDndEnabled = sortOption === 'custom' && !searchTerm && selectedTagsFilter.length === 0 && !lockedOnlyFilter
 
   // Custom collision detection using raw pointer coordinates for reliable folder boundary detection
   const customCollisionDetection = useCallback((args) => {
@@ -3290,6 +3295,9 @@ export default function RichTextEditor() {
         return page.title.toLowerCase().includes(searchTerm.toLowerCase())
       }
 
+      // "Locked" chip in the mobile sidebar
+      if (lockedOnlyFilter && !(page.password && page.password.hash)) return false
+
       // Apply tag filter first
       if (selectedTagsFilter.length > 0) {
         const pageHasSelectedTag = selectedTagsFilter.some(selectedTag =>
@@ -3318,7 +3326,7 @@ export default function RichTextEditor() {
           return true;
       }
     });
-  }, [pages, searchTerm, searchFilter, selectedTagsFilter]);
+  }, [pages, searchTerm, searchFilter, selectedTagsFilter, lockedOnlyFilter]);
 
   const sortPages = useCallback((pages, option) => {
     const list = Array.isArray(pages) ? pages : []
@@ -3357,16 +3365,16 @@ export default function RichTextEditor() {
   const getRootItemIds = useCallback(() => {
     const rootItems = sortPages(filteredPages(), sortOption)
       .filter(item => item.type === 'folder' || !item.folderId)
-    // The expanded desktop sidebar renders two sections (Folders, then
-    // Notes); dnd-kit needs the sortable id order to match the DOM order.
-    if (sidebarOpen && !isSmallScreen) {
+    // The expanded sidebar renders two sections (Folders, then Notes);
+    // dnd-kit needs the sortable id order to match the DOM order.
+    if (sidebarOpen) {
       return [
         ...rootItems.filter(item => item.type === 'folder'),
         ...rootItems.filter(item => item.type !== 'folder')
       ].map(item => item.id)
     }
     return rootItems.map(item => item.id)
-  }, [filteredPages, sortPages, sortOption, sidebarOpen, isSmallScreen])
+  }, [filteredPages, sortPages, sortOption, sidebarOpen])
 
   const getFolderPageIds = useCallback((folderId) => {
     const folder = (pages || []).find(p => p.id === folderId && p.type === 'folder')
@@ -3473,7 +3481,9 @@ export default function RichTextEditor() {
   useEffect(() => {
     const fetchAppVersion = async () => {
       try {
-        if (!window.electron?.invoke) return
+        // Electron reports the packaged version; iOS / PWA fall back to the
+        // build-time package.json version so Settings can show it too.
+        if (!window.electron?.invoke) { setAppVersion(packageJson.version || ''); return }
         const version = await window.electron.invoke('get-app-version');
         setAppVersion(version);
       } catch (error) {
@@ -3793,8 +3803,45 @@ export default function RichTextEditor() {
   const toolbarButtonClass = `p-2 rounded-lg transition-colors cursor-pointer ${getIconClasses()} ${getButtonHoverClasses()}`
   const toolbarDividerClass = theme === 'fallout' ? 'bg-green-500/25' : theme === 'dark' ? 'bg-white/10' : theme === 'darkblue' ? 'bg-white/10' : 'bg-neutral-200'
   const pageTitleClass = theme === 'fallout' ? 'text-green-400 hover:bg-gray-800/50' : theme === 'dark' ? 'text-[#ececec] hover:bg-[#2f2f2f]/50' : theme === 'darkblue' ? 'text-[#e0e6f0] hover:bg-[#232b42]/50' : 'text-neutral-900 hover:bg-neutral-100'
-  const sidebarSectionLabelClass = `flex items-center justify-between pl-3 pr-2 pt-2.5 pb-1 text-[11px] font-semibold uppercase tracking-[0.06em] select-none ${theme === 'fallout' ? 'text-green-700' : theme === 'darkblue' ? 'text-[#445068]' : theme === 'dark' ? 'text-[#6b6b6b]' : 'text-neutral-400'}`
-  const sidebarSectionButtonClass = `h-5 w-5 rounded flex items-center justify-center transition-colors ${theme === 'fallout' ? 'text-green-600 hover:text-green-400 hover:bg-gray-800' : theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5] hover:bg-[#232b42]' : theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0] hover:bg-[#2f2f2f]' : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-200'}`
+  const sidebarSectionLabelClass = `flex items-center justify-between ${isSmallScreen ? 'pl-5 pr-3 pt-3.5 pb-1' : 'pl-3 pr-2 pt-2.5 pb-1'} text-[11px] font-semibold uppercase tracking-[0.06em] select-none ${theme === 'fallout' ? 'text-green-700' : theme === 'darkblue' ? 'text-[#445068]' : theme === 'dark' ? 'text-[#6b6b6b]' : 'text-neutral-400'}`
+  const sidebarSectionButtonClass = `${isSmallScreen ? 'h-7 w-7 rounded-md' : 'h-5 w-5 rounded'} flex items-center justify-center transition-colors ${theme === 'fallout' ? 'text-green-600 hover:text-green-400 hover:bg-gray-800' : theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5] hover:bg-[#232b42]' : theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0] hover:bg-[#2f2f2f]' : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-200'}`
+  const systemAppearanceName = isMacElectron ? 'macOS' : (isNativePlatform() ? 'iOS' : 'system')
+  const themeLabel = theme === 'darkblue' ? 'Night' : theme === 'fallout' ? 'Terminal' : theme === 'dark' ? 'Dark' : 'Light'
+  // Mobile sidebar filter chips (All · tags · Locked)
+  const filterChipClass = (active) => `flex-shrink-0 inline-flex items-center gap-1 h-7 px-3 rounded-full text-[13px] font-medium border transition-colors ${
+    active
+      ? (theme === 'fallout' ? 'bg-green-700/30 text-green-300 border-green-600/40' : theme === 'darkblue' ? 'bg-[#1e2740] text-[#e0e6f0] border-[#2a3454]' : theme === 'dark' ? 'bg-[#3a3a3a] text-[#ececec] border-[#4a4a4a]' : 'bg-neutral-900 text-white border-neutral-900')
+      : (theme === 'fallout' ? 'bg-gray-900 text-green-600 border-green-600/30' : theme === 'darkblue' ? 'bg-[#1a2035] text-[#5d6b88] border-[#1c2438]' : theme === 'dark' ? 'bg-[#2f2f2f] text-[#8e8e8e] border-[#3a3a3a]' : 'bg-white text-neutral-500 border-neutral-200')
+  }`
+  const toggleTagChip = (name) => {
+    setSelectedTagsFilter(prev => (prev.length === 1 && prev[0] === name) ? [] : [name])
+  }
+  // Mobile sidebar: swipe left (outside a note row, which has its own swipe
+  // actions) closes the Notes screen.
+  const handleNavTouchStart = (e) => {
+    if (!isSmallScreen) return
+    if (e.target?.closest && e.target.closest('[data-swipe-row]')) { navSwipeRef.current = null; return }
+    const t = e.touches?.[0]
+    navSwipeRef.current = t ? { x: t.clientX, y: t.clientY, dx: 0, dy: 0 } : null
+  }
+  const handleNavTouchMove = (e) => {
+    const st = navSwipeRef.current
+    const t = e.touches?.[0]
+    if (!st || !t) return
+    st.dx = t.clientX - st.x
+    st.dy = t.clientY - st.y
+  }
+  const handleNavTouchEnd = () => {
+    const st = navSwipeRef.current
+    navSwipeRef.current = null
+    if (st && st.dx < -70 && Math.abs(st.dx) > Math.abs(st.dy) * 1.5) setSidebarOpen(false)
+  }
+  // The password modal (z-50) sits under the full-width mobile sidebar (z-60),
+  // so lock actions started from the sidebar close it first on phones.
+  const handleToggleLockFromSidebar = (page) => {
+    if (isSmallScreen) setSidebarOpen(false)
+    handleToggleLock(page)
+  }
 
   const syncSettingsLabel = (() => {
     const st = sync?.status
@@ -4056,22 +4103,13 @@ export default function RichTextEditor() {
         </div>
       )}
 
-      {/* Mobile overlay */}
-      {isSmallScreen && sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 z-[55] md:hidden safe-area-top"
-          onClick={() => setSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
       {/* Sidebar */}
       <SidebarErrorBoundary>
         <nav
           className={`${getSidebarClasses()} ${focusMode
             ? 'w-0 overflow-hidden opacity-0 pointer-events-none absolute transition-all duration-300'
             : isSmallScreen
-            ? `fixed z-[60] inset-y-0 left-0 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-200 w-[88%] max-w-[380px] safe-area-top safe-area-bottom`
+            ? `fixed z-[60] inset-y-0 left-0 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-200 w-full safe-area-top safe-area-bottom`
             : sidebarOpen
               ? 'w-64 relative transition-all duration-300'
               : 'w-16 relative transition-all duration-200'
@@ -4080,13 +4118,20 @@ export default function RichTextEditor() {
           aria-label="Page navigation"
           aria-expanded={sidebarOpen}
           style={isSmallScreen ? { touchAction: 'pan-y' } : undefined}
+          onTouchStart={isSmallScreen ? handleNavTouchStart : undefined}
+          onTouchMove={isSmallScreen ? handleNavTouchMove : undefined}
+          onTouchEnd={isSmallScreen ? handleNavTouchEnd : undefined}
         >
-          <header className={`${sidebarOpen ? 'px-3' : 'px-1'} ${isMacElectron ? 'pt-10' : isSmallScreen ? 'pt-2' : 'pt-4'} pb-2 flex ${sidebarOpen ? 'justify-between' : 'flex-col items-center gap-1'} items-center`}>
+          <header className={isSmallScreen ? 'px-4 pt-2 pb-3 flex justify-between items-center' : `${sidebarOpen ? 'px-3' : 'px-1'} ${isMacElectron ? 'pt-10' : 'pt-4'} pb-2 flex ${sidebarOpen ? 'justify-between' : 'flex-col items-center gap-1'} items-center`}>
             {sidebarOpen ? (
+              isSmallScreen ? (
+                <h2 className={`text-[34px] font-bold tracking-[-0.01em] leading-tight ${theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-[#ececec]' : theme === 'darkblue' ? 'text-[#e0e6f0]' : 'text-neutral-900'}`}>Notes</h2>
+              ) : (
               <div className="flex items-center space-x-2">
                 <img src="./icons/dash-logo.png" alt="Dash" className="h-7 w-7 rounded-md" />
                 <span className={`text-base font-semibold ${theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-[#ececec]' : theme === 'darkblue' ? 'text-[#e0e6f0]' : 'text-neutral-900'}`}>Dash</span>
               </div>
+              )
             ) : (
               <img src="./icons/dash-logo.png" alt="Dash" className="h-6 w-6 rounded-md" />
             )}
@@ -4220,23 +4265,7 @@ export default function RichTextEditor() {
                   })()}
                 </div>
               )}
-              {sidebarOpen && isSmallScreen && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    // On mobile, close the sidebar before opening the folder
-                    // modal so the modal isn't visually hidden behind the
-                    // sidebar (z-index race + sidebar takes the viewport).
-                    if (isSmallScreen) setSidebarOpen(false)
-                    setIsFolderModalOpen(true)
-                  }}
-                  className={`h-8 w-8 p-0 ${getButtonHoverClasses()}`}
-                  title="New folder"
-                >
-                  <FolderPlus className="h-5 w-5" />
-                </Button>
-              )}
+              {!isSmallScreen && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -4246,11 +4275,14 @@ export default function RichTextEditor() {
               >
                 <Plus className={sidebarOpen ? 'h-5 w-5' : 'h-4 w-4'} />
               </Button>
+              )}
             </div>
           </header>
           {sidebarOpen && (
-            <div className="px-3 mb-2 pt-1">
+            <div className={isSmallScreen ? 'px-4 mb-2' : 'px-3 mb-2 pt-1'}>
               <SearchTrigger
+                placeholder={isSmallScreen ? 'Search' : 'Search everything'}
+                large={isSmallScreen}
                 searchTerm={searchTerm}
                 selectedTags={selectedTagsFilter}
                 onClick={() => {
@@ -4265,6 +4297,41 @@ export default function RichTextEditor() {
                 theme={theme}
                 tagColorMap={(tags || []).reduce((acc, t) => { acc[t.name] = t.color; return acc }, {})}
               />
+            </div>
+          )}
+          {sidebarOpen && isSmallScreen && (
+            <div className="flex gap-2 px-4 pt-1 pb-1.5 overflow-x-auto dash-no-scrollbar flex-shrink-0" style={{ WebkitOverflowScrolling: 'touch' }} role="group" aria-label="Filter notes">
+              <button
+                type="button"
+                onClick={() => { setSelectedTagsFilter([]); setLockedOnlyFilter(false) }}
+                className={filterChipClass(selectedTagsFilter.length === 0 && !lockedOnlyFilter)}
+              >
+                All
+              </button>
+              {(tags || []).map(tag => {
+                const active = selectedTagsFilter.length === 1 && selectedTagsFilter[0] === tag.name
+                return (
+                  <button
+                    key={tag.name}
+                    type="button"
+                    onClick={() => toggleTagChip(tag.name)}
+                    className={filterChipClass(false)}
+                    style={active ? getTagChipStyle(tag.color, theme) : undefined}
+                    aria-pressed={active}
+                  >
+                    {tag.name}
+                  </button>
+                )
+              })}
+              <button
+                type="button"
+                onClick={() => setLockedOnlyFilter(v => !v)}
+                className={filterChipClass(lockedOnlyFilter)}
+                aria-pressed={lockedOnlyFilter}
+              >
+                <LockKeyhole className="h-3 w-3 pointer-events-none" />
+                Locked
+              </button>
             </div>
           )}
           <ScrollArea className="flex-grow px-1">
@@ -4319,7 +4386,7 @@ export default function RichTextEditor() {
                         sidebarOpen={sidebarOpen}
                         onDelete={handleDeletePage}
                         onRename={handleRenamePage}
-                        onToggleLock={handleToggleLock}
+                        onToggleLock={handleToggleLockFromSidebar}
                         onDuplicate={handleDuplicatePage}
                         onVersionHistory={handleVersionHistory}
                         onMoveToFolder={handleMoveToFolder}
@@ -4345,7 +4412,7 @@ export default function RichTextEditor() {
                         onSelect={handlePageSelect}
                         onRename={handleRenamePage}
                         onDelete={handleDeletePage}
-                        onToggleLock={handleToggleLock}
+                        onToggleLock={handleToggleLockFromSidebar}
                         onDuplicate={handleDuplicatePage}
                         onVersionHistory={handleVersionHistory}
                         onMoveToFolder={handleMoveToFolder}
@@ -4365,7 +4432,7 @@ export default function RichTextEditor() {
                   }
                   return null
                   }
-                  const showSections = sidebarOpen && !isSmallScreen
+                  const showSections = sidebarOpen
                   if (!showSections) return sortedItems.map(renderRootItem)
                   const rootFolders = sortedItems.filter(item => item.type === 'folder')
                   const rootNotes = sortedItems.filter(item => item.type !== 'folder' && !item.folderId && !folderOwnedPageIds.has(item.id))
@@ -4375,18 +4442,18 @@ export default function RichTextEditor() {
                         <span>Folders</span>
                         <button
                           type="button"
-                          onClick={() => setIsFolderModalOpen(true)}
+                          onClick={() => { if (isSmallScreen) setSidebarOpen(false); setIsFolderModalOpen(true) }}
                           title="New folder"
                           aria-label="New folder"
                           className={sidebarSectionButtonClass}
                         >
-                          <FolderPlus className="h-3.5 w-3.5 pointer-events-none" />
+                          <FolderPlus className={isSmallScreen ? 'h-4 w-4 pointer-events-none' : 'h-3.5 w-3.5 pointer-events-none'} />
                         </button>
                       </div>
                       {rootFolders.map(renderRootItem)}
                       <div className={`${sidebarSectionLabelClass} mt-1.5`}>
                         <span>Notes</span>
-                        <SortDropdown compact onSort={setSortOption} theme={theme} activeSortOption={sortOption} sidebarOpen={sidebarOpen} />
+                        <SortDropdown compact size={isSmallScreen ? 'lg' : 'sm'} onSort={setSortOption} theme={theme} activeSortOption={sortOption} sidebarOpen={sidebarOpen} />
                       </div>
                       {rootNotes.map(renderRootItem)}
                     </>
@@ -4413,6 +4480,28 @@ export default function RichTextEditor() {
               </DragOverlay>
             </DndContext>
           </ScrollArea>
+          {isSmallScreen ? (
+          <div className={`mt-auto px-4 pt-2.5 pb-2 flex flex-col items-center gap-2.5 ${theme === 'fallout' ? 'border-t border-green-600/20' : theme === 'dark' ? 'border-t border-[#2e2e2e]' : theme === 'darkblue' ? 'border-t border-[#1c2438]' : 'border-t border-neutral-100'}`}>
+            {SYNC_AVAILABLE && sync?.status?.enabled && (
+              <button
+                type="button"
+                onClick={() => { setSidebarOpen(false); setIsSyncSettingsOpen(true) }}
+                className={`inline-flex items-center gap-1.5 text-xs ${getTextClasses()}`}
+              >
+                {syncSettingsDot && <span className={`inline-block w-1.5 h-1.5 rounded-full ${syncSettingsDot}`} />}
+                Dash Sync · {syncSettingsLabel}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleNewPageWithRename}
+              className={`w-full h-12 rounded-xl text-base font-semibold flex items-center justify-center gap-2 transition-colors ${theme === 'fallout' ? 'bg-green-500 text-gray-900 hover:bg-green-400 font-mono' : theme === 'darkblue' ? 'bg-blue-500 text-white hover:bg-blue-400' : theme === 'dark' ? 'bg-white text-neutral-900 hover:bg-neutral-200' : 'bg-neutral-900 text-white hover:bg-neutral-800'}`}
+            >
+              <Plus className="h-[18px] w-[18px] pointer-events-none" strokeWidth={2.5} />
+              New note
+            </button>
+          </div>
+          ) : (
           <div className={`mt-auto ${sidebarOpen ? 'px-3' : 'px-1'} py-2 flex items-center ${sidebarOpen ? 'justify-between' : 'justify-center'} ${theme === 'fallout' ? 'border-t border-green-600/20' : theme === 'dark' ? 'border-t border-[#2e2e2e]' : theme === 'darkblue' ? 'border-t border-[#1c2438]' : 'border-t border-neutral-100'}`}>
             <Button
               variant="ghost"
@@ -4422,13 +4511,8 @@ export default function RichTextEditor() {
             >
               {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-3.5 w-3.5" />}
             </Button>
-            {sidebarOpen && isSmallScreen && (
-              <div className="flex items-center space-x-2">
-                {appVersion && <span className={`text-xs ${getTextClasses()}`}>v{appVersion}</span>}
-                <SortDropdown onSort={setSortOption} theme={theme} activeSortOption={sortOption} sidebarOpen={sidebarOpen} />
-              </div>
-            )}
           </div>
+          )}
         </nav>
       </SidebarErrorBoundary>
 
@@ -4470,7 +4554,23 @@ export default function RichTextEditor() {
               </Tooltip>
             </div>
             <div className="flex items-center space-x-1 flex-shrink-0">
-              <ThemeToggle className={`cursor-pointer ${getButtonHoverClasses()}`} />
+              <button
+                type="button"
+                onClick={() => setIsAppearanceSheetOpen(true)}
+                className={`p-2 rounded-lg transition-colors cursor-pointer ${getButtonHoverClasses()}`}
+                aria-label="Appearance"
+              >
+                <SunMoon className="h-4 w-4 pointer-events-none" />
+              </button>
+              <AppearanceSheet
+                isOpen={isAppearanceSheetOpen}
+                onClose={() => setIsAppearanceSheetOpen(false)}
+                theme={theme}
+                onChooseTheme={chooseTheme}
+                matchSystem={matchSystemAppearance}
+                onToggleMatchSystem={toggleMatchSystemAppearance}
+                systemName={systemAppearanceName}
+              />
                   <MobileHeaderMenu
                     onLockPage={currentPage && !currentPage.id?.startsWith('live-')
                       ? () => handleEncryptBadgeClick(currentPage)
@@ -4606,6 +4706,7 @@ export default function RichTextEditor() {
           canCheckForUpdates={canCheckForUpdates}
           onCheckForUpdates={handleBellClick}
           onShowUpdate={() => setShowUpdateNotification(true)}
+          systemName={systemAppearanceName}
         />
         </>
         )}
@@ -4769,6 +4870,12 @@ export default function RichTextEditor() {
       syncEnabled={SYNC_AVAILABLE}
       syncStatusText={sync?.status?.statusText || 'Sync settings'}
       syncStatus={sync?.status}
+      onOpenAppearance={() => setIsAppearanceSheetOpen(true)}
+      themeLabel={themeLabel}
+      onOpenAppLock={() => { if (appLock.isEnabled) setIsAppLockSettingsOpen(true); else setIsAppLockSetupOpen(true) }}
+      backupLabel={backupSettingsLabel}
+      appVersion={appVersion}
+      syncLabel={syncSettingsLabel}
     />
   ) : (
   <div className={`footer-fixed flex justify-between items-center px-6 py-2 text-xs ${getFooterClasses()} safe-area-bottom ${focusMode ? 'hidden' : ''}`}>
