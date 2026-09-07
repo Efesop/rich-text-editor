@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { ArrowUpDown, Check } from 'lucide-react'
 
-const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
+const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen, compact = false }) => {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef(null)
   const buttonRef = useRef(null)
   const [dropdownPosition, setDropdownPosition] = useState('bottom')
+  // Compact mode renders inside the sidebar ScrollArea (overflow clipped),
+  // so the menu is positioned with `fixed` coordinates from the button rect.
+  const [fixedPos, setFixedPos] = useState({ top: 0, left: 0 })
 
   const sortOptions = [
     { value: 'custom', label: 'Custom' },
@@ -44,6 +47,10 @@ const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
   }
 
   useEffect(() => {
+    if (isOpen && compact && buttonRef.current) {
+      const r = buttonRef.current.getBoundingClientRect()
+      setFixedPos({ top: r.bottom + 4, left: Math.max(8, r.right - 128) })
+    }
     if (isOpen) {
       calculateDropdownPosition()
       window.addEventListener('resize', calculateDropdownPosition)
@@ -54,7 +61,7 @@ const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
       window.removeEventListener('resize', calculateDropdownPosition)
       window.removeEventListener('scroll', calculateDropdownPosition)
     }
-  }, [isOpen])
+  }, [isOpen, compact])
 
   const activeSort = sortOptions.find(option => option.value === activeSortOption)
 
@@ -90,6 +97,55 @@ const SortDropdown = ({ onSort, theme, activeSortOption, sidebarOpen }) => {
       default:
         return `text-neutral-600 hover:bg-neutral-100 ${activeClasses}`
     }
+  }
+
+  if (compact) {
+    return (
+      <div className="relative">
+        <button
+          ref={buttonRef}
+          onClick={() => setIsOpen(!isOpen)}
+          title={`Sort: ${activeSort ? activeSort.label : 'Custom'}`}
+          aria-label="Sort notes"
+          aria-haspopup="menu"
+          aria-expanded={isOpen}
+          className={`h-5 w-5 rounded flex items-center justify-center transition-colors ${
+            theme === 'fallout'
+              ? 'text-green-600 hover:text-green-400 hover:bg-gray-800'
+              : theme === 'dark'
+                ? 'text-[#6b6b6b] hover:text-[#c0c0c0] hover:bg-[#2f2f2f]'
+                : theme === 'darkblue'
+                  ? 'text-[#5d6b88] hover:text-[#8b99b5] hover:bg-[#232b42]'
+                  : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-200'
+          }`}
+        >
+          <ArrowUpDown className="w-3 h-3 pointer-events-none" />
+        </button>
+        {isOpen && (
+          <div
+            ref={dropdownRef}
+            className={`fixed z-[70] w-32 rounded-lg shadow-lg ${getDropdownClasses()} border`}
+            style={{ top: fixedPos.top, left: fixedPos.left, animation: 'dash-dropdown-in 120ms ease-out forwards' }}
+          >
+            {sortOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => {
+                  onSort(option.value)
+                  setIsOpen(false)
+                }}
+                className={`block w-full px-4 py-2 text-sm text-left ${getDropdownItemClasses(activeSortOption === option.value)} focus:outline-none flex justify-between items-center`}
+              >
+                {option.label}
+                {activeSortOption === option.value && (
+                  <Check className={`w-4 h-4 ${theme === 'fallout' ? 'text-green-400' : theme === 'darkblue' ? 'text-blue-400' : 'text-blue-500'}`} />
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (

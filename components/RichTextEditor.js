@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, MoreVertical, Import, X, FolderPlus, Bell, Bug, Smartphone, Menu, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, Share2, List, Users, Shield, Copy, Check, Trash2, Archive, Cloud, AlertCircle } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, Import, X, FolderPlus, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, List, Shield, Copy, Check, AlertCircle, SlidersHorizontal } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
@@ -32,6 +32,8 @@ import { format } from 'date-fns'
 import PasswordModal from '@/components/PasswordModal'
 import { usePagesManager } from '@/hooks/usePagesManager'
 import ThemeToggle from '@/components/ThemeToggle'
+import SettingsPopover from '@/components/SettingsPopover'
+import PageMenu from '@/components/PageMenu'
 import SearchTrigger from '@/components/SearchTrigger'
 import SearchModal from '@/components/SearchModal'
 import SortDropdown from '@/components/SortDropdown'
@@ -563,7 +565,7 @@ export default function RichTextEditor() {
     dismissError
   } = useUpdateManager()
 
-  const { theme } = useTheme()
+  const { theme, setTheme } = useTheme()
   const announce = useScreenReader()
   useSkipNavigation()
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -595,6 +597,12 @@ export default function RichTextEditor() {
   }
   const [isClient, setIsClient] = useState(false)
   const [isMacElectron, setIsMacElectron] = useState(false)
+  // Desktop toolbar settings popover (Sep 2026 UI refresh).
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const settingsButtonRef = useRef(null)
+  // "Match macOS appearance": follow prefers-color-scheme, mapping dark to
+  // the last dark theme the user picked (dark / darkblue / fallout).
+  const [matchSystemAppearance, setMatchSystemAppearance] = useState(false)
   const [titleCompact, setTitleCompact] = useState(false)
   const [wordCount, setWordCount] = useState(0)
   const [outlineHeadings, setOutlineHeadings] = useState([])
@@ -909,6 +917,60 @@ export default function RichTextEditor() {
       }
     }
   }, [flushSavesNow])
+
+  // Match macOS appearance — persisted flag + live prefers-color-scheme listener.
+  useEffect(() => {
+    try { setMatchSystemAppearance(localStorage.getItem('dash:match-system') === '1') } catch { /* ignore */ }
+  }, [])
+
+  useEffect(() => {
+    if (!matchSystemAppearance || typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const apply = () => {
+      let darkVariant = 'dark'
+      try { darkVariant = localStorage.getItem('dash:system-dark-theme') || 'dark' } catch { /* ignore */ }
+      if (!['dark', 'darkblue', 'fallout'].includes(darkVariant)) darkVariant = 'dark'
+      setTheme(mq.matches ? darkVariant : 'light')
+    }
+    // Deferred so it runs after next-themes' own mount effect (which re-applies
+    // the stored theme); a synchronous call here gets overwritten on load.
+    const initial = setTimeout(apply, 0)
+    mq.addEventListener('change', apply)
+    // Belt and braces: some shells only deliver the media-query change once
+    // the window is active again, so re-check on focus / visibility too.
+    const recheck = () => { if (!document.hidden) apply() }
+    window.addEventListener('focus', recheck)
+    document.addEventListener('visibilitychange', recheck)
+    return () => {
+      clearTimeout(initial)
+      mq.removeEventListener('change', apply)
+      window.removeEventListener('focus', recheck)
+      document.removeEventListener('visibilitychange', recheck)
+    }
+  }, [matchSystemAppearance, setTheme])
+
+  const toggleMatchSystemAppearance = useCallback(() => {
+    setMatchSystemAppearance(prev => {
+      const next = !prev
+      try {
+        localStorage.setItem('dash:match-system', next ? '1' : '0')
+        if (next && theme && theme !== 'light') localStorage.setItem('dash:system-dark-theme', theme)
+      } catch { /* ignore */ }
+      return next
+    })
+  }, [theme])
+
+  // Explicit theme choice from the settings popover. Picking a theme turns
+  // "match macOS" off so the choice sticks; dark picks are remembered as the
+  // variant to use the next time matching is switched on.
+  const chooseTheme = useCallback((next) => {
+    setTheme(next)
+    try {
+      if (next !== 'light') localStorage.setItem('dash:system-dark-theme', next)
+      if (matchSystemAppearance) localStorage.setItem('dash:match-system', '0')
+    } catch { /* ignore */ }
+    if (matchSystemAppearance) setMatchSystemAppearance(false)
+  }, [setTheme, matchSystemAppearance])
 
   // Essential useEffects
   useEffect(() => {
@@ -3293,10 +3355,18 @@ export default function RichTextEditor() {
 
   // DnD helpers (must be after filteredPages/sortPages definitions)
   const getRootItemIds = useCallback(() => {
-    return sortPages(filteredPages(), sortOption)
+    const rootItems = sortPages(filteredPages(), sortOption)
       .filter(item => item.type === 'folder' || !item.folderId)
-      .map(item => item.id)
-  }, [filteredPages, sortPages, sortOption])
+    // The expanded desktop sidebar renders two sections (Folders, then
+    // Notes); dnd-kit needs the sortable id order to match the DOM order.
+    if (sidebarOpen && !isSmallScreen) {
+      return [
+        ...rootItems.filter(item => item.type === 'folder'),
+        ...rootItems.filter(item => item.type !== 'folder')
+      ].map(item => item.id)
+    }
+    return rootItems.map(item => item.id)
+  }, [filteredPages, sortPages, sortOption, sidebarOpen, isSmallScreen])
 
   const getFolderPageIds = useCallback((folderId) => {
     const folder = (pages || []).find(p => p.id === folderId && p.type === 'folder')
@@ -3717,6 +3787,151 @@ export default function RichTextEditor() {
     return colors
   })()
 
+  // ---- Sep 2026 UI refresh: desktop toolbar / sidebar sections / page meta ----
+  const isLivePage = !!currentPage?.id?.startsWith('live-')
+  const pageLocked = !!(currentPage?.password?.hash && !tempUnlockedPages.has(currentPage?.id))
+  const toolbarButtonClass = `p-2 rounded-lg transition-colors cursor-pointer ${getIconClasses()} ${getButtonHoverClasses()}`
+  const toolbarDividerClass = theme === 'fallout' ? 'bg-green-500/25' : theme === 'dark' ? 'bg-white/10' : theme === 'darkblue' ? 'bg-white/10' : 'bg-neutral-200'
+  const pageTitleClass = theme === 'fallout' ? 'text-green-400 hover:bg-gray-800/50' : theme === 'dark' ? 'text-[#ececec] hover:bg-[#2f2f2f]/50' : theme === 'darkblue' ? 'text-[#e0e6f0] hover:bg-[#232b42]/50' : 'text-neutral-900 hover:bg-neutral-100'
+  const sidebarSectionLabelClass = `flex items-center justify-between pl-3 pr-2 pt-2.5 pb-1 text-[11px] font-semibold uppercase tracking-[0.06em] select-none ${theme === 'fallout' ? 'text-green-700' : theme === 'darkblue' ? 'text-[#445068]' : theme === 'dark' ? 'text-[#6b6b6b]' : 'text-neutral-400'}`
+  const sidebarSectionButtonClass = `h-5 w-5 rounded flex items-center justify-center transition-colors ${theme === 'fallout' ? 'text-green-600 hover:text-green-400 hover:bg-gray-800' : theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5] hover:bg-[#232b42]' : theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0] hover:bg-[#2f2f2f]' : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-200'}`
+
+  const syncSettingsLabel = (() => {
+    const st = sync?.status
+    if (!st?.enabled) return 'Off'
+    if (st.stage === 'error' || st.stage === 'rate-limited') return 'Error'
+    if (!st.unlocked) return 'Locked'
+    if (st.stage === 'paused') return 'Paused'
+    if (st.stage === 'flushing' || st.stage === 'queued' || st.stage === 'pulling') return 'Syncing…'
+    return 'Synced'
+  })()
+  const syncSettingsDot = syncSettingsLabel === 'Synced' ? 'bg-green-500' : syncSettingsLabel === 'Error' ? 'bg-red-500' : syncSettingsLabel === 'Off' ? null : 'bg-yellow-500'
+  const backupSettingsLabel = (() => {
+    const schedule = backup?.settings?.schedule
+    if (!schedule || schedule === 'off') return 'Off'
+    return schedule.charAt(0).toUpperCase() + schedule.slice(1)
+  })()
+
+  const handleSharePage = async () => {
+    const flushed = window.__editorFlush ? await window.__editorFlush() : null
+    setShareNoteContent(flushed || currentPage?.content)
+    setIsShareModalOpen(true)
+  }
+
+  const handleSelfDestructToolbarClick = () => {
+    if (!currentPage) return
+    if (currentPage.selfDestructAt) {
+      setConfirmModal({
+        isOpen: true,
+        title: 'Remove Self-Destruct',
+        message: `Remove the self-destruct timer from "${currentPage.title}"? The page will no longer be automatically deleted.`,
+        onConfirm: () => cancelSelfDestruct(currentPage.id),
+        variant: 'danger',
+        confirmText: 'Remove Timer',
+        cancelText: 'Keep Timer',
+        showCancel: true
+      })
+    } else {
+      handleSelfDestruct(currentPage)
+    }
+  }
+
+  // Folder badge + tag chips (+ date / word count on desktop). Mobile keeps
+  // the horizontally scrolling row under the header; desktop renders it as
+  // the meta line under the in-document title.
+  const renderPageMeta = (mode) => {
+    if (!currentPage) return null
+    const isMobileRow = mode === 'mobile'
+    const folder = currentPage?.folderId
+      ? (pages || []).find(item => item.id === currentPage.folderId && item.type === 'folder')
+      : (pages || []).find(item => item.type === 'folder' && Array.isArray(item.pages) && item.pages.includes(currentPage?.id))
+    const hasTags = currentPage.tagNames && currentPage.tagNames.length > 0
+    const dividerClass = theme === 'fallout' ? 'bg-green-500/25' : theme === 'dark' ? 'bg-white/10' : theme === 'darkblue' ? 'bg-white/10' : 'bg-neutral-200'
+    const mutedClass = theme === 'fallout' ? 'text-green-600' : theme === 'dark' ? 'text-[#6b6b6b]' : theme === 'darkblue' ? 'text-[#5d6b88]' : 'text-neutral-400'
+    return (
+      <div
+        className={`flex items-center gap-1.5 ${isMobileRow ? 'mt-2 overflow-x-auto flex-nowrap -mx-1 px-1 dash-no-scrollbar' : 'mt-2.5 mb-4 flex-wrap'}`}
+        style={isMobileRow ? { WebkitOverflowScrolling: 'touch' } : undefined}
+      >
+        {folder && (
+          <>
+            <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md flex-shrink-0 ${getFolderBadgeClasses()}`}>
+              {folder.emoji ? (
+                <span className="inline-block mr-1 text-xs">{folder.emoji}</span>
+              ) : (
+                <FolderIcon className="w-3 h-3 inline-block mr-1" />
+              )}
+              {truncateFolderName(folder.title || '')}
+            </span>
+            {hasTags && (
+              <span className={`inline-block w-px h-4 mx-1 flex-shrink-0 ${dividerClass}`} aria-hidden="true" />
+            )}
+          </>
+        )}
+        {hasTags && currentPage.tagNames.map((tagName, index) => {
+          const tag = (tags || []).find(t => t.name === tagName)
+          if (!tag) return null
+          return (
+            <span
+              key={index}
+              className="inline-flex items-center rounded-md font-medium border px-2 py-0.5 text-xs flex-shrink-0"
+              style={getTagChipStyle(tag.color, theme)}
+            >
+              <span
+                className="cursor-pointer"
+                onClick={() => {
+                  setTagToEdit(tag)
+                  setIsTagModalOpen(true)
+                }}
+              >
+                {tag.name}
+              </span>
+              <button
+                className="ml-1 focus:outline-none"
+                onClick={() => handleRemoveTag(tag.name)}
+              >
+                <X
+                  className="h-3 w-3 transition-opacity hover:opacity-75"
+                  style={{ color: getTagChipStyle(tag.color, theme).color }}
+                />
+              </button>
+            </span>
+          )
+        })}
+        {hasTags ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 flex-shrink-0"
+            onClick={() => { setTagToEdit(null); setIsTagModalOpen(true) }}
+          >
+            <Plus className={`h-3.5 w-3.5 ${getIconClasses()}`} />
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`h-6 px-2 text-xs flex-shrink-0 ${theme === 'fallout' ? 'text-green-600 hover:text-green-400' : theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0]' : theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5]' : 'text-neutral-400 hover:text-neutral-600'}`}
+            onClick={() => { setTagToEdit(null); setIsTagModalOpen(true) }}
+          >
+            <Plus className="h-3 w-3 mr-1" />
+            Add tag
+          </Button>
+        )}
+        {!isMobileRow && (
+          <>
+            <span className={`inline-block w-px h-3 mx-1 flex-shrink-0 ${dividerClass}`} aria-hidden="true" />
+            {currentPage.createdAt && (
+              <span className={`text-xs ${mutedClass}`}>{format(new Date(currentPage.createdAt), 'MMM d, yyyy')}</span>
+            )}
+            {currentPage.createdAt && <span className={`text-xs ${mutedClass}`}>·</span>}
+            <span className={`text-xs ${mutedClass}`}>{wordCount} words</span>
+          </>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div
       className={`${getMainContainerClasses()} ${isMacElectron ? 'mac-electron' : ''}`}
@@ -4005,7 +4220,7 @@ export default function RichTextEditor() {
                   })()}
                 </div>
               )}
-              {sidebarOpen && (
+              {sidebarOpen && isSmallScreen && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -4074,7 +4289,7 @@ export default function RichTextEditor() {
                       item.pages.forEach(id => folderOwnedPageIds.add(id))
                     }
                   })
-                  return sortedItems.map(item => {
+                  const renderRootItem = (item) => {
                   if (item.type === 'folder') {
                     const folderPageIds = getFolderPageIds(item.id)
                     return (
@@ -4149,7 +4364,34 @@ export default function RichTextEditor() {
                     );
                   }
                   return null
-                })})()}
+                  }
+                  const showSections = sidebarOpen && !isSmallScreen
+                  if (!showSections) return sortedItems.map(renderRootItem)
+                  const rootFolders = sortedItems.filter(item => item.type === 'folder')
+                  const rootNotes = sortedItems.filter(item => item.type !== 'folder' && !item.folderId && !folderOwnedPageIds.has(item.id))
+                  return (
+                    <>
+                      <div className={sidebarSectionLabelClass}>
+                        <span>Folders</span>
+                        <button
+                          type="button"
+                          onClick={() => setIsFolderModalOpen(true)}
+                          title="New folder"
+                          aria-label="New folder"
+                          className={sidebarSectionButtonClass}
+                        >
+                          <FolderPlus className="h-3.5 w-3.5 pointer-events-none" />
+                        </button>
+                      </div>
+                      {rootFolders.map(renderRootItem)}
+                      <div className={`${sidebarSectionLabelClass} mt-1.5`}>
+                        <span>Notes</span>
+                        <SortDropdown compact onSort={setSortOption} theme={theme} activeSortOption={sortOption} sidebarOpen={sidebarOpen} />
+                      </div>
+                      {rootNotes.map(renderRootItem)}
+                    </>
+                  )
+                })()}
               </SortableContext>
               <DragOverlay dropAnimation={null}>
                 {activeDragItem ? (
@@ -4180,7 +4422,7 @@ export default function RichTextEditor() {
             >
               {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-3.5 w-3.5" />}
             </Button>
-            {sidebarOpen && (
+            {sidebarOpen && isSmallScreen && (
               <div className="flex items-center space-x-2">
                 {appVersion && <span className={`text-xs ${getTextClasses()}`}>v{appVersion}</span>}
                 <SortDropdown onSort={setSortOption} theme={theme} activeSortOption={sortOption} sidebarOpen={sidebarOpen} />
@@ -4207,72 +4449,28 @@ export default function RichTextEditor() {
         ) : (
         <>
         {/* Header */}
-        <div className={`flex flex-col px-6 ${isMacElectron ? 'pt-8 pb-3' : 'py-3'} ${theme === 'fallout' ? 'border-b border-green-600/20' : theme === 'dark' ? 'border-b border-[#2e2e2e]' : theme === 'darkblue' ? 'border-b border-[#1c2438]' : 'border-b border-neutral-100'} ${getHeaderClasses()} safe-area-top ${focusMode ? 'hidden' : ''}`}>
+        {isSmallScreen ? (
+        <div className={`flex flex-col px-6 py-3 ${theme === 'fallout' ? 'border-b border-green-600/20' : theme === 'dark' ? 'border-b border-[#2e2e2e]' : theme === 'darkblue' ? 'border-b border-[#1c2438]' : 'border-b border-neutral-100'} ${getHeaderClasses()} safe-area-top ${focusMode ? 'hidden' : ''}`}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center min-w-0 flex-1">
-              {isSmallScreen && (
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="mr-1 p-0.5 flex items-center justify-center flex-shrink-0"
-                  aria-label="Open sidebar"
-                >
-                  <img src="./icons/dash-logo.png" alt="Dash" className="h-9 w-9 rounded-lg" />
-                </button>
-              )}
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="mr-1 p-0.5 flex items-center justify-center flex-shrink-0"
+                aria-label="Open sidebar"
+              >
+                <img src="./icons/dash-logo.png" alt="Dash" className="h-9 w-9 rounded-lg" />
+              </button>
               <Tooltip text="Rename page">
               <h1
-                className={`${isSmallScreen ? 'text-xl' : 'text-lg'} font-semibold cursor-pointer truncate min-w-0 flex-1 py-1 px-1.5 -my-1 rounded-lg transition-colors ${theme === 'fallout' ? 'text-green-400 hover:bg-gray-800/50' : theme === 'dark' ? 'text-[#ececec] hover:bg-[#2f2f2f]/50' : theme === 'darkblue' ? 'text-[#e0e6f0] hover:bg-[#232b42]/50' : 'text-neutral-900 hover:bg-neutral-100'}`}
+                className={`text-xl font-semibold cursor-pointer truncate min-w-0 flex-1 py-1 px-1.5 -my-1 rounded-lg transition-colors ${pageTitleClass}`}
                 onClick={() => handleRenamePage(currentPage)}
               >
                 {currentPage?.title}
               </h1>
               </Tooltip>
-              {currentPage && !currentPage.id?.startsWith('live-') && !isSmallScreen && (
-                <div className="flex items-center ml-2 space-x-1 flex-shrink-0">
-                  <Tooltip text={currentPage.password?.hash && !tempUnlockedPages.has(currentPage.id) ? 'Unlock page' : 'Lock page'}>
-                  <button
-                    onClick={() => handleEncryptBadgeClick(currentPage)}
-                    className={`p-2 rounded-lg transition-colors cursor-pointer ${getButtonHoverClasses()}`}
-                  >
-                    {currentPage.password?.hash && !tempUnlockedPages.has(currentPage.id)
-                      ? <LockKeyhole className="h-3.5 w-3.5 pointer-events-none" />
-                      : <Unlock className="h-3.5 w-3.5 pointer-events-none" />
-                    }
-                  </button>
-                  </Tooltip>
-                  <Tooltip text={currentPage.selfDestructAt ? 'Cancel self-destruct' : 'Self-destruct'}>
-                  <button
-                    onClick={() => {
-                      if (currentPage.selfDestructAt) {
-                        setConfirmModal({
-                          isOpen: true,
-                          title: 'Remove Self-Destruct',
-                          message: `Remove the self-destruct timer from "${currentPage.title}"? The page will no longer be automatically deleted.`,
-                          onConfirm: () => cancelSelfDestruct(currentPage.id),
-                          variant: 'danger',
-                          confirmText: 'Remove Timer',
-                          cancelText: 'Keep Timer',
-                          showCancel: true
-                        })
-                      } else {
-                        handleSelfDestruct(currentPage)
-                      }
-                    }}
-                    className={`p-2 rounded-lg transition-colors cursor-pointer ${getButtonHoverClasses()}`}
-                  >
-                    {currentPage.selfDestructAt
-                      ? <TimerOff className="h-3.5 w-3.5 pointer-events-none" />
-                      : <Timer className="h-3.5 w-3.5 pointer-events-none" />
-                    }
-                  </button>
-                  </Tooltip>
-                </div>
-              )}
             </div>
             <div className="flex items-center space-x-1 flex-shrink-0">
-              {isSmallScreen ? (
-                <>
-                  <ThemeToggle className={`cursor-pointer ${getButtonHoverClasses()}`} />
+              <ThemeToggle className={`cursor-pointer ${getButtonHoverClasses()}`} />
                   <MobileHeaderMenu
                     onLockPage={currentPage && !currentPage.id?.startsWith('live-')
                       ? () => handleEncryptBadgeClick(currentPage)
@@ -4313,168 +4511,104 @@ export default function RichTextEditor() {
                     pageActionsAvailable={!!currentPage && !currentPage.id?.startsWith('live-')}
                     isImporting={isImporting}
                   />
-                </>
-              ) : (
-                <>
-                  <ExportDropdown onExport={handleExport} className={`cursor-pointer ${getButtonHoverClasses()}`} />
-                  {LIVE_SESSIONS_ENABLED && activeSession && currentPage?.id === activeSession.pageId ? (
-                    <LiveSessionChip
-                      participants={participants}
-                      status={sessionStatus}
-                      onEnd={handleEndLiveSession}
-                      theme={theme}
-                      isHost={activeSession.isHost}
-                      link={activeSession?.link}
-                      typingPeers={remoteTyping}
-                      duration={activeSession?.duration}
-                      startedAt={activeSession?.startedAt}
-                      peerColors={liveAllAvatarColors}
-                      remoteCursors={remoteCursors}
-                    />
-                  ) : null}
-                  {!currentPage.id?.startsWith('live-') && (
-                    <>
-                    <Tooltip text="Share encrypted note">
-                    <button
-                      onClick={async () => { const flushed = window.__editorFlush ? await window.__editorFlush() : null; setShareNoteContent(flushed || currentPage?.content); setIsShareModalOpen(true) }}
-                      className={`p-2 rounded-lg cursor-pointer ${getButtonHoverClasses()}`}
-                    >
-                      <Share2 className="h-4 w-4 pointer-events-none" />
-                    </button>
-                    </Tooltip>
-                    {shouldShowMobileInstall() && (
-                      <Tooltip text="Use on your phone">
-                      <button
-                        onClick={() => setIsInstallModalOpen(true)}
-                        className={`p-2 rounded-lg cursor-pointer ${getButtonHoverClasses()}`}
-                      >
-                        <Smartphone className="h-4 w-4 pointer-events-none" />
-                      </button>
-                      </Tooltip>
-                    )}
-                    <Tooltip text={isImporting ? 'Importing…' : 'Import encrypted bundle'}>
-                    <button
-                      onClick={handleImportBundleClick}
-                      className={`p-2 rounded-lg cursor-pointer ${getButtonHoverClasses()}`}
-                      disabled={isImporting}
-                    >
-                      <Import className={`h-4 w-4 pointer-events-none ${isImporting ? 'animate-pulse' : ''}`} />
-                    </button>
-                    </Tooltip>
-                    </>
-                  )}
-                  <Tooltip text="Report a bug">
-                  <button
-                    onClick={() => {
-                      window.open('https://github.com/Efesop/rich-text-editor/issues/new', '_blank', 'noopener,noreferrer');
-                    }}
-                    className={`p-2 rounded-lg cursor-pointer ${getButtonHoverClasses()}`}
-                  >
-                    <Bug className="h-4 w-4 pointer-events-none" />
-                  </button>
-                  </Tooltip>
-                  {/* Bell / update badge — desktop only. iOS / Android
-                      builds rely on the App Store / Play Store for update
-                      delivery, so there's no equivalent surface to render
-                      here. (This branch is already gated behind
-                      !isSmallScreen by the parent ternary.) */}
-                  <Tooltip text={LIVE_SESSIONS_ENABLED && editRequests.length > 0 ? `${editRequests.length} edit request${editRequests.length > 1 ? 's' : ''}` : 'Check for updates'}>
-                  <button
-                    onClick={LIVE_SESSIONS_ENABLED && editRequests.length > 0 ? () => setIsLiveNotificationsOpen(!isLiveNotificationsOpen) : handleBellClick}
-                    disabled={(!LIVE_SESSIONS_ENABLED || editRequests.length === 0) && !canCheckForUpdates}
-                    className={`relative p-2 rounded-lg cursor-pointer ${getIconClasses()} ${getButtonHoverClasses()} ${(!LIVE_SESSIONS_ENABLED || editRequests.length === 0) && !canCheckForUpdates ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    <Bell className={`h-4 w-4 pointer-events-none ${isCheckingForUpdates ? 'animate-pulse' : ''}`} />
-                    {(updateInfo?.available || (LIVE_SESSIONS_ENABLED && editRequests.length > 0)) && (
-                      <span className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full ${LIVE_SESSIONS_ENABLED && editRequests.length > 0 ? 'bg-blue-500' : 'bg-red-500'} ${theme === 'dark' ? 'border border-[#0d0d0d]' : theme === 'darkblue' ? 'border border-[#0c1017]' : theme === 'fallout' ? 'border border-gray-900' : 'border border-white'} shadow-sm`}></span>
-                    )}
-                  </button>
-                  </Tooltip>
-                  <ThemeToggle className={`cursor-pointer ${getButtonHoverClasses()}`} />
-                </>
-              )}
             </div>
+          </div>
+          {!isLivePage && renderPageMeta('mobile')}
         </div>
-        {!currentPage.id?.startsWith('live-') && (() => {
-          const folder = currentPage?.folderId
-            ? (pages || []).find(item => item.id === currentPage.folderId && item.type === 'folder')
-            : (pages || []).find(item => item.type === 'folder' && Array.isArray(item.pages) && item.pages.includes(currentPage?.id))
-          const hasTags = currentPage.tagNames && currentPage.tagNames.length > 0
-          const dividerClass = theme === 'fallout' ? 'bg-green-500/25' : theme === 'dark' ? 'bg-white/10' : theme === 'darkblue' ? 'bg-white/10' : 'bg-neutral-200'
-          return (
-            <div
-              className={`flex items-center gap-1.5 mt-2 ${isSmallScreen ? 'overflow-x-auto flex-nowrap -mx-1 px-1 dash-no-scrollbar' : 'flex-wrap'}`}
-              style={isSmallScreen ? { WebkitOverflowScrolling: 'touch' } : undefined}
-            >
-              {folder && (
-                <>
-                  <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md flex-shrink-0 ${getFolderBadgeClasses()}`}>
-                    {folder.emoji ? (
-                      <span className="inline-block mr-1 text-xs">{folder.emoji}</span>
-                    ) : (
-                      <FolderIcon className="w-3 h-3 inline-block mr-1" />
-                    )}
-                    {truncateFolderName(folder.title || '')}
-                  </span>
-                  {(hasTags) && (
-                    <span className={`inline-block w-px h-4 mx-1 flex-shrink-0 ${dividerClass}`} aria-hidden="true" />
-                  )}
-                </>
-              )}
-              {hasTags && currentPage.tagNames.map((tagName, index) => {
-                const tag = (tags || []).find(t => t.name === tagName)
-                if (!tag) return null
-                return (
-                  <span
-                    key={index}
-                    className="inline-flex items-center rounded-md font-medium border px-2 py-0.5 text-xs flex-shrink-0"
-                    style={getTagChipStyle(tag.color, theme)}
-                  >
-                    <span
-                      className="cursor-pointer"
-                      onClick={() => {
-                        setTagToEdit(tag)
-                        setIsTagModalOpen(true)
-                      }}
-                    >
-                      {tag.name}
-                    </span>
-                    <button
-                      className="ml-1 focus:outline-none"
-                      onClick={() => handleRemoveTag(tag.name)}
-                    >
-                      <X
-                        className="h-3 w-3 transition-opacity hover:opacity-75"
-                        style={{ color: getTagChipStyle(tag.color, theme).color }}
-                      />
-                    </button>
-                  </span>
-                )
-              })}
-              {hasTags ? (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5 flex-shrink-0"
-                  onClick={() => { setTagToEdit(null); setIsTagModalOpen(true) }}
-                >
-                  <Plus className={`h-3.5 w-3.5 ${getIconClasses()}`} />
-                </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`h-6 px-2 text-xs flex-shrink-0 ${theme === 'fallout' ? 'text-green-600 hover:text-green-400' : theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0]' : theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5]' : 'text-neutral-400 hover:text-neutral-600'}`}
-                  onClick={() => { setTagToEdit(null); setIsTagModalOpen(true) }}
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  Add tag
-                </Button>
-              )}
-            </div>
-          )
-        })()}
-    </div>
+        ) : (
+        <>
+        {/* Desktop toolbar — lives in the title-bar strip. Page actions on the
+            left of the group (lock, self-destruct), then Export, Settings, ⋯. */}
+        <div className={`dash-toolbar flex items-center justify-end gap-0.5 px-3 h-10 flex-shrink-0 ${getHeaderClasses()} ${focusMode ? 'hidden' : ''}`}>
+          {!isLivePage && (
+            <>
+              <Tooltip text={pageLocked ? 'Unlock page' : 'Lock page'}>
+              <button
+                onClick={() => handleEncryptBadgeClick(currentPage)}
+                className={toolbarButtonClass}
+                aria-label={pageLocked ? 'Unlock page' : 'Lock page'}
+              >
+                {pageLocked
+                  ? <LockKeyhole className="h-4 w-4 pointer-events-none" />
+                  : <Unlock className="h-4 w-4 pointer-events-none" />}
+              </button>
+              </Tooltip>
+              <Tooltip text={currentPage.selfDestructAt ? 'Cancel self-destruct' : 'Self-destruct'}>
+              <button
+                onClick={handleSelfDestructToolbarClick}
+                className={toolbarButtonClass}
+                aria-label={currentPage.selfDestructAt ? 'Cancel self-destruct' : 'Self-destruct'}
+              >
+                {currentPage.selfDestructAt
+                  ? <TimerOff className="h-4 w-4 pointer-events-none" />
+                  : <Timer className="h-4 w-4 pointer-events-none" />}
+              </button>
+              </Tooltip>
+              <span className={`w-px h-4 mx-1.5 ${toolbarDividerClass}`} aria-hidden="true" />
+            </>
+          )}
+          <ExportDropdown iconOnly onExport={handleExport} className={toolbarButtonClass} />
+          <Tooltip text="Settings">
+          <button
+            ref={settingsButtonRef}
+            onClick={() => setIsSettingsOpen(open => !open)}
+            className={toolbarButtonClass}
+            aria-label="Settings"
+            aria-haspopup="dialog"
+            aria-expanded={isSettingsOpen}
+          >
+            <SlidersHorizontal className="h-4 w-4 pointer-events-none" />
+          </button>
+          </Tooltip>
+          <PageMenu
+            theme={theme}
+            buttonClassName={toolbarButtonClass}
+            pageActionsAvailable={!isLivePage}
+            updateAvailable={!!updateInfo?.available}
+            updateVersion={updateInfo?.latestVersion}
+            onShowUpdate={() => setShowUpdateNotification(true)}
+            onShare={handleSharePage}
+            onVersionHistory={() => handleVersionHistory(currentPage)}
+            onMoveToFolder={() => handleMoveToFolder(currentPage)}
+            onDuplicate={() => handleDuplicatePage(currentPage)}
+            onImportBundle={handleImportBundleClick}
+            isImporting={isImporting}
+            showPhoneSetup={shouldShowMobileInstall()}
+            onPhoneSetup={() => setIsInstallModalOpen(true)}
+            onReportBug={() => { window.open('https://github.com/Efesop/rich-text-editor/issues/new', '_blank', 'noopener,noreferrer') }}
+            onDelete={() => handleDeletePage(currentPage)}
+          />
+        </div>
+        <SettingsPopover
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          anchorRef={settingsButtonRef}
+          theme={theme}
+          onChooseTheme={chooseTheme}
+          matchSystem={matchSystemAppearance}
+          onToggleMatchSystem={toggleMatchSystemAppearance}
+          appLockEnabled={appLock.isEnabled}
+          biometricEnabled={appLock.biometricEnabled}
+          onOpenAppLock={() => { if (appLock.isEnabled) setIsAppLockSettingsOpen(true); else setIsAppLockSetupOpen(true) }}
+          syncAvailable={SYNC_AVAILABLE}
+          syncLabel={syncSettingsLabel}
+          syncDotClass={syncSettingsDot}
+          onOpenSync={() => setIsSyncSettingsOpen(true)}
+          backupLabel={backupSettingsLabel}
+          onOpenBackup={() => setIsBackupSettingsOpen(true)}
+          trashCount={trashedPages.length}
+          onOpenTrash={() => setIsTrashModalOpen(true)}
+          onOpenShortcuts={() => setIsShortcutsModalOpen(true)}
+          appVersion={appVersion}
+          updateAvailable={!!updateInfo?.available}
+          updateVersion={updateInfo?.latestVersion}
+          isCheckingForUpdates={isCheckingForUpdates}
+          canCheckForUpdates={canCheckForUpdates}
+          onCheckForUpdates={handleBellClick}
+          onShowUpdate={() => setShowUpdateNotification(true)}
+        />
+        </>
+        )}
 
         {/* Live Session Bar */}
         {/* Editor */ }
@@ -4483,6 +4617,19 @@ export default function RichTextEditor() {
     <div className={`${focusMode ? 'max-w-2xl mx-auto w-full' : ''} ${focusMode && paragraphDimming ? 'paragraph-dimming' : ''} ${focusMode && typewriterMode ? 'pb-[50vh]' : ''}`}>
       {currentPage && (
         <div className="relative">
+          {!isSmallScreen && (
+            <div className="dash-doc-header mx-auto" style={{ maxWidth: 650 }}>
+              <Tooltip text="Rename page">
+              <h1
+                className={`text-[34px] font-bold leading-[1.2] tracking-[-0.01em] break-words cursor-pointer rounded-lg px-1.5 -mx-1.5 py-1 transition-colors ${pageTitleClass}`}
+                onClick={() => handleRenamePage(currentPage)}
+              >
+                {currentPage?.title}
+              </h1>
+              </Tooltip>
+              {!isLivePage && renderPageMeta('desktop')}
+            </div>
+          )}
           {/* Read-only banner for guest live pages when session is not active */}
           {currentPage.id?.startsWith('live-') && !activeSession && (() => {
             const roomId = currentPage.id.replace('live-', '')
@@ -4626,14 +4773,56 @@ export default function RichTextEditor() {
   ) : (
   <div className={`footer-fixed flex justify-between items-center px-6 py-2 text-xs ${getFooterClasses()} safe-area-bottom ${focusMode ? 'hidden' : ''}`}>
     <div className="flex items-center space-x-3">
-      {currentPage.createdAt && (
-        <span>{format(new Date(currentPage.createdAt), 'MMM d, yyyy')}</span>
-      )}
       <EncryptionStatusIndicator
         currentPage={currentPage}
         onEncryptPage={() => handleEncryptBadgeClick(currentPage)}
         appLockEnabled={appLock.isEnabled}
       />
+      {SYNC_AVAILABLE && (() => {
+        // Build a tooltip with the same detail (timestamp / pendingCount /
+        // error) that used to live inline in the button — keeps the chip
+        // itself uncluttered while still letting hover surface specifics.
+        const s = sync?.status
+        const tip = (() => {
+          if (!s?.enabled) return 'Set up sync across devices'
+          if (s.stage === 'error' || s.stage === 'rate-limited') return s.lastError || 'Sync error'
+          if (!s.unlocked) return 'Vault locked — unlock in Sync settings'
+          if (s.stage === 'flushing' || s.stage === 'queued') return s.pendingCount > 0 ? `Sending ${s.pendingCount} change${s.pendingCount === 1 ? '' : 's'}` : 'Sending…'
+          if (s.stage === 'pulling') return 'Receiving from peer'
+          if (s.stage === 'paused') return 'Sync paused'
+          if (s.lastSuccessAt) {
+            const ms = Date.now() - s.lastSuccessAt
+            if (ms < 5000) return 'Just synced'
+            if (ms < 60000) return `Synced ${Math.floor(ms / 1000)}s ago`
+            if (ms < 3600000) return `Synced ${Math.floor(ms / 60000)}m ago`
+            if (ms < 86400000) return `Synced ${Math.floor(ms / 3600000)}h ago`
+            return `Synced ${Math.floor(ms / 86400000)}d ago`
+          }
+          return 'Ready to sync'
+        })()
+        return (
+          <Tooltip text={tip}>
+            <SyncStatusIndicator
+              status={s}
+              onClick={() => setIsSyncSettingsOpen(true)}
+              theme={theme}
+            />
+          </Tooltip>
+        )
+      })()}
+      {/* Saved / Saving / Error — wrapped in tooltip with detail. */}
+      <Tooltip text={
+        saveStatus === 'saving' ? 'Saving to disk…'
+          : saveStatus === 'saved' ? 'All changes saved locally'
+            : saveStatus === 'error' ? (loadError ? 'Your notes could not be read — saving is paused this session so nothing on disk is overwritten. See the console for recovery steps.' : 'Save failed — check console for details')
+              : 'Save status'
+      }>
+        <span aria-live="polite" aria-atomic="true">
+          {saveStatus === 'saving' && <span className={theme === 'fallout' ? 'text-yellow-400' : 'text-yellow-500'}>Saving...</span>}
+          {saveStatus === 'saved' && <span className={theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-[#6b6b6b]' : theme === 'darkblue' ? 'text-[#445068]' : 'text-neutral-400'}>Saved</span>}
+          {saveStatus === 'error' && <span className="text-red-500">{loadError ? 'Storage error' : 'Error saving'}</span>}
+        </span>
+      </Tooltip>
     </div>
     <div className="flex items-center space-x-3">
       {currentPage.selfDestructAt && (
@@ -4657,9 +4846,6 @@ export default function RichTextEditor() {
         </button>
         </Tooltip>
       )}
-      <span
-        className=""
-      >{wordCount} words</span>
       <Tooltip text={showMiniOutline ? 'Hide contents' : 'Table of contents'}>
       <button
         onClick={toggleMiniOutline}
@@ -4723,95 +4909,6 @@ export default function RichTextEditor() {
           </div>
         )}
       </div>
-      <Tooltip text="Keyboard shortcuts">
-      <button
-        onClick={() => setIsShortcutsModalOpen(true)}
-        className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-colors ${
-          theme === 'fallout' ? 'text-green-600 hover:text-green-400 hover:bg-green-900/30' :
-          theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0] hover:bg-[#2a2a2a]' :
-          theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5] hover:bg-[#1c2438]' :
-          'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100'
-        }`}
-      >
-        <Keyboard size={12} className="pointer-events-none" />
-      </button>
-      </Tooltip>
-      {/* Saved / Saving / Error — wrapped in tooltip with detail. */}
-      <Tooltip text={
-        saveStatus === 'saving' ? 'Saving to disk…'
-          : saveStatus === 'saved' ? 'All changes saved locally'
-            : saveStatus === 'error' ? (loadError ? 'Your notes could not be read — saving is paused this session so nothing on disk is overwritten. See the console for recovery steps.' : 'Save failed — check console for details')
-              : 'Save status'
-      }>
-        <span aria-live="polite" aria-atomic="true">
-          {saveStatus === 'saving' && <span className={theme === 'fallout' ? 'text-yellow-400' : 'text-yellow-500'}>Saving...</span>}
-          {saveStatus === 'saved' && <span className={theme === 'fallout' ? 'text-green-400' : theme === 'dark' ? 'text-[#6b6b6b]' : theme === 'darkblue' ? 'text-[#445068]' : 'text-neutral-400'}>Saved</span>}
-          {saveStatus === 'error' && <span className="text-red-500">{loadError ? 'Storage error' : 'Error saving'}</span>}
-        </span>
-      </Tooltip>
-      {SYNC_AVAILABLE && (() => {
-        // Build a tooltip with the same detail (timestamp / pendingCount /
-        // error) that used to live inline in the button — keeps the chip
-        // itself uncluttered while still letting hover surface specifics.
-        const s = sync?.status
-        const tip = (() => {
-          if (!s?.enabled) return 'Set up sync across devices'
-          if (s.stage === 'error' || s.stage === 'rate-limited') return s.lastError || 'Sync error'
-          if (!s.unlocked) return 'Vault locked — unlock in Sync settings'
-          if (s.stage === 'flushing' || s.stage === 'queued') return s.pendingCount > 0 ? `Sending ${s.pendingCount} change${s.pendingCount === 1 ? '' : 's'}` : 'Sending…'
-          if (s.stage === 'pulling') return 'Receiving from peer'
-          if (s.stage === 'paused') return 'Sync paused'
-          if (s.lastSuccessAt) {
-            const ms = Date.now() - s.lastSuccessAt
-            if (ms < 5000) return 'Just synced'
-            if (ms < 60000) return `Synced ${Math.floor(ms / 1000)}s ago`
-            if (ms < 3600000) return `Synced ${Math.floor(ms / 60000)}m ago`
-            if (ms < 86400000) return `Synced ${Math.floor(ms / 3600000)}h ago`
-            return `Synced ${Math.floor(ms / 86400000)}d ago`
-          }
-          return 'Ready to sync'
-        })()
-        return (
-          <Tooltip text={tip}>
-            <SyncStatusIndicator
-              status={s}
-              onClick={() => setIsSyncSettingsOpen(true)}
-              theme={theme}
-            />
-          </Tooltip>
-        )
-      })()}
-      {trashedPages.length > 0 && (
-        <Tooltip text={`Trash · ${trashedPages.length} item${trashedPages.length === 1 ? '' : 's'} (auto-purges after 30 days)`}>
-          <button
-            onClick={() => setIsTrashModalOpen(true)}
-            className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-colors text-xs ${
-              theme === 'fallout' ? 'text-green-600 hover:text-green-400 hover:bg-green-900/30'
-                : theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5] hover:bg-[#1c2438]'
-                  : theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0] hover:bg-[#2a2a2a]'
-                    : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100'
-            }`}
-            aria-label={`Trash, ${trashedPages.length} items`}
-          >
-            <Trash2 className="w-3 h-3 pointer-events-none" />
-            <span className="pointer-events-none tabular-nums">{trashedPages.length}</span>
-          </button>
-        </Tooltip>
-      )}
-      <Tooltip text="Backup settings">
-        <button
-          onClick={() => setIsBackupSettingsOpen(true)}
-          className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-colors text-xs ${
-            theme === 'fallout' ? 'text-green-600 hover:text-green-400 hover:bg-green-900/30'
-              : theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5] hover:bg-[#1c2438]'
-                : theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0] hover:bg-[#2a2a2a]'
-                  : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100'
-          }`}
-          aria-label="Backup settings"
-        >
-          <Archive className="w-3 h-3 pointer-events-none" />
-        </button>
-      </Tooltip>
     </div>
   </div>
   )}

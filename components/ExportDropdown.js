@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Download } from 'lucide-react';
 import { useTheme } from 'next-themes';
 
-const ExportDropdown = ({ onExport, className: wrapperClassName = '' }) => {
+const ExportDropdown = ({ onExport, className: wrapperClassName = '', iconOnly = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
   const { theme } = useTheme();
@@ -75,10 +75,14 @@ const ExportDropdown = ({ onExport, className: wrapperClassName = '' }) => {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`p-2 rounded-lg transition-colors flex items-center text-sm ${wrapperClassName}`}
+        title={iconOnly ? 'Export' : undefined}
+        aria-label="Export"
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        className={`${iconOnly ? 'pl-2 pr-1 py-2' : 'p-2'} rounded-lg transition-colors flex items-center text-sm ${wrapperClassName}`}
       >
-        Export
-        <ChevronDown className="ml-1 h-4 w-4" style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 200ms ease' }} />
+        {iconOnly ? <Download className="h-4 w-4 pointer-events-none" /> : 'Export'}
+        <ChevronDown className={`${iconOnly ? 'ml-0.5 h-3 w-3' : 'ml-1 h-4 w-4'} pointer-events-none`} style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 200ms ease' }} />
       </button>
       {isOpen && (
         <div className={`absolute right-0 mt-2 w-48 rounded-lg shadow-lg ${getDropdownClasses()} border z-[60]`} style={{ animation: 'dash-dropdown-in 120ms ease-out forwards' }}>

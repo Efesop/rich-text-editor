@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from 'react'
-import { X, Sparkles, Search, Timer, ShieldCheck, Focus, Code, Palette, Lock, GripVertical, Undo2, Keyboard, Link, KeyRound, ShieldAlert, Share2, ImageOff, Bot } from 'lucide-react'
+import { X, Sparkles, Search, Timer, ShieldCheck, Focus, Code, Palette, Lock, GripVertical, Undo2, Keyboard, Link, KeyRound, ShieldAlert, Share2, ImageOff, Bot, LayoutTemplate, SlidersHorizontal, Monitor, Table } from 'lucide-react'
 import useWhatsNewStore from '../store/whatsNewStore'
 import { releaseNotes } from '@/lib/releaseNotes'
 
 const iconMap = {
+  LayoutTemplate,
+  SlidersHorizontal,
+  Monitor,
+  Table,
   Sparkles,
   Search,
   Timer,

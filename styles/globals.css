@@ -1257,58 +1257,64 @@
 
 /* Your custom styles */
 
+/* Heading scale (Sep 2026 UI refresh): tightened from 2.5em/2em/1.75em so
+   the page title (34px) is the largest text on screen and body headings
+   read as structure rather than banners. */
 .codex-editor h1 {
-  font-size: 2.5em;
-  font-weight: bold;
-  margin-top: 0;
-  padding-top: 1em;
-  margin-bottom: 0.5em;
-  line-height: 1.3;
-}
-
-.codex-editor h2 {
   font-size: 2em;
   font-weight: bold;
   margin-top: 0;
-  padding-top: 0.83em;
-  margin-bottom: 0.5em;
+  padding-top: 1em;
+  margin-bottom: 0.4em;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.codex-editor h2 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-top: 0;
+  padding-top: 1em;
+  margin-bottom: 0.4em;
   line-height: 1.3;
 }
 
 .codex-editor h3 {
-  font-size: 1.75em;
+  font-size: 1.25em;
   font-weight: bold;
   margin-top: 0;
   padding-top: 1em;
-  margin-bottom: 0.5em;
+  margin-bottom: 0.4em;
   line-height: 1.3;
 }
 
 .codex-editor h4 {
-  font-size: 1.5em;
+  font-size: 1.125em;
   font-weight: bold;
   margin-top: 0;
-  padding-top: 1.33em;
-  margin-bottom: 0.5em;
+  padding-top: 1.1em;
+  margin-bottom: 0.4em;
   line-height: 1.3;
 }
 
 .codex-editor h5 {
-  font-size: 1.25em;
+  font-size: 1em;
   font-weight: bold;
   margin-top: 0;
-  padding-top: 1.67em;
-  margin-bottom: 0.5em;
+  padding-top: 1.2em;
+  margin-bottom: 0.4em;
   line-height: 1.3;
 }
 
 .codex-editor h6 {
-  font-size: 1em;
+  font-size: 0.9em;
   font-weight: bold;
   margin-top: 0;
-  padding-top: 2.33em;
-  margin-bottom: 0.5em;
+  padding-top: 1.3em;
+  margin-bottom: 0.4em;
   line-height: 1.3;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 /* Reduce top padding on first block headers */
@@ -1959,6 +1965,25 @@
 
 .tc-cell {
   border-color: #d1d5db !important;
+}
+
+/* Sep 2026 UI refresh: horizontal rules only (no vertical grid lines),
+   a tinted heading row and 36px rows. The colours still come from the
+   per-theme --color-* variables below. */
+.tc-cell {
+  border-right: 0 !important;
+  border-left: 0 !important;
+  padding: 8px 12px !important;
+}
+
+.tc-table--heading .tc-row:first-child {
+  background: var(--color-background);
+}
+
+.tc-table--heading .tc-row:first-child .tc-cell {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
 }
 
 .tc-popover {
