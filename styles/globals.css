@@ -39,7 +39,10 @@
 }
 
 /* Import a monospace font for terminal effect */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+/* Terminal theme uses the system monospace stack (SF Mono on macOS via
+   ui-monospace). The former Google Fonts import for JetBrains Mono was
+   blocked by the Electron CSP (font-src 'self'), so the Mac app silently
+   fell back to Courier New, and it leaked every PWA load to Google. */
 
 @layer base {
   :root {
@@ -121,43 +124,46 @@
 
   /* Fallout 4 Terminal Theme */
   .fallout {
-    --background: 0 0% 8%;
+    /* Sep 2026 refresh: phosphor greens (Tailwind green-300/400/500/600) on a
+       faintly green-tinted black instead of #66ff66 on neutral grey. */
+    --background: 120 12% 6%;
+    --dash-mono: ui-monospace, 'SF Mono', Menlo, 'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace;
     /* Very dark background - consistent everywhere */
-    --foreground: 120 100% 70%;
+    --foreground: 142 69% 58%;
     /* Bright green text */
-    --card: 0 0% 8%;
+    --card: 120 14% 9%;
     /* Same dark background for cards/modals */
-    --card-foreground: 120 100% 70%;
+    --card-foreground: 142 69% 58%;
     /* Green text on cards */
-    --popover: 0 0% 8%;
+    --popover: 120 14% 9%;
     /* Dark popover background */
-    --popover-foreground: 120 100% 70%;
+    --popover-foreground: 142 69% 58%;
     /* Green popover text */
-    --primary: 120 100% 50%;
+    --primary: 142 71% 45%;
     /* Pure green for primary elements */
-    --primary-foreground: 0 0% 8%;
+    --primary-foreground: 120 12% 6%;
     /* Dark text on green backgrounds */
-    --secondary: 0 0% 12%;
+    --secondary: 120 12% 13%;
     /* Slightly lighter dark for secondary elements */
-    --secondary-foreground: 120 80% 60%;
+    --secondary-foreground: 142 77% 73%;
     /* Slightly dimmer green */
-    --muted: 0 0% 12%;
+    --muted: 120 12% 13%;
     /* Muted backgrounds */
-    --muted-foreground: 120 60% 50%;
+    --muted-foreground: 142 76% 36%;
     /* Muted green text */
-    --accent: 120 100% 40%;
+    --accent: 142 76% 36%;
     /* Darker green for accents */
-    --accent-foreground: 120 100% 90%;
+    --accent-foreground: 141 79% 85%;
     /* Light green on dark green */
     --destructive: 0 84% 60%;
     /* Red for destructive actions */
     --destructive-foreground: 0 0% 98%;
     /* White text on red */
-    --border: 120 50% 25%;
+    --border: 142 30% 18%;
     /* Green borders */
-    --input: 0 0% 12%;
+    --input: 120 12% 10%;
     /* Dark input backgrounds */
-    --ring: 120 100% 50%;
+    --ring: 142 71% 45%;
     /* Green focus rings */
     --radius: 0.5rem;
   }
@@ -172,13 +178,13 @@
 
   /* Terminal styling for fallout theme */
   .fallout {
-    font-family: 'JetBrains Mono', 'Courier New', monospace !important;
+    font-family: var(--dash-mono) !important;
   }
 
   .fallout body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-family: var(--dash-mono);
   }
 
   /* Reduced glow effects - only subtle glow on interactive elements */
@@ -212,7 +218,7 @@
     background-color: hsl(var(--card));
     border: 1px solid hsl(var(--border));
     color: hsl(var(--card-foreground));
-    box-shadow: 0 0 10px hsla(120, 100%, 50%, 0.2);
+    box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.06), 0 16px 40px rgba(0, 0, 0, 0.55);
   }
 
   /* Terminal-style inputs */
@@ -222,16 +228,20 @@
     border-color: hsl(var(--border));
     background-color: hsl(var(--input));
     color: hsl(var(--foreground));
-    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-family: var(--dash-mono);
   }
 
-  .fallout button {
+  /* `:where()` keeps these at class-level specificity so a component's own
+     Tailwind classes (text-gray-900, hover:bg-green-400 …) still win; the
+     old `.fallout button:hover` outranked them and turned every primary
+     green button dark grey on hover. */
+  .fallout :where(button) {
     color: hsl(var(--foreground));
-    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-family: var(--dash-mono);
     transition: all 0.2s ease;
   }
 
-  .fallout button:hover {
+  .fallout :where(button):hover {
     background-color: hsl(var(--secondary));
   }
 
@@ -255,12 +265,12 @@
   }
 
   .fallout ::-webkit-scrollbar-thumb {
-    background: hsl(var(--primary));
+    background: rgba(34, 197, 94, 0.35);
     border-radius: 4px;
   }
 
   .fallout ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--accent));
+    background: rgba(34, 197, 94, 0.55);
   }
 
   /* Dark theme scrollbars */
@@ -393,8 +403,8 @@
 }
 
 .fallout .sidebar-panel-fallout {
-  background: linear-gradient(to bottom, #1f2a1f, #111a11) !important;
-  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.15) !important;
+  background: linear-gradient(to bottom, #141b14, #0f140f) !important;
+  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.12) !important;
 }
 
 .darkblue .sidebar-panel-darkblue {
@@ -1677,7 +1687,7 @@
 
 /* Editor.js fallout mode styles — mirrors dark/darkblue pattern */
 .fallout .codex-editor {
-  font-family: 'JetBrains Mono', 'Courier New', monospace !important;
+  font-family: var(--dash-mono) !important;
 }
 
 .fallout .codex-editor .ce-toolbar__content,
@@ -1685,7 +1695,7 @@
 .fallout .codex-editor .ce-inline-toolbar,
 .fallout .codex-editor .ce-conversion-toolbar,
 .fallout .codex-editor .ce-settings {
-  color: #22c55e;
+  color: #4ade80;
   background-color: transparent;
 }
 
@@ -1695,7 +1705,7 @@
 .fallout .codex-editor .ce-conversion-tool,
 .fallout .codex-editor .ce-settings__button {
   color: #22c55e !important;
-  background-color: #1a1a1a !important;
+  background-color: #151b15 !important;
 }
 
 .fallout .codex-editor .ce-toolbar__plus:hover,
@@ -1703,7 +1713,7 @@
 .fallout .codex-editor .ce-inline-tool:hover,
 .fallout .codex-editor .ce-conversion-tool:hover,
 .fallout .codex-editor .ce-settings__button:hover {
-  background-color: #222222 !important;
+  background-color: #1f291f !important;
 }
 
 /* Hide toolbar shortcut hint that can show as artifact dots */
@@ -1722,7 +1732,7 @@
 }
 
 .fallout .codex-editor .ce-inline-toolbar {
-  background-color: #1a1a1a;
+  background-color: #151b15;
   color: #22c55e;
 }
 
@@ -1732,7 +1742,7 @@
 }
 
 .fallout .codex-editor .ce-inline-toolbar .ce-inline-tool:hover {
-  background-color: #2a2a2a;
+  background-color: #1f291f;
 }
 
 .fallout .codex-editor .ce-inline-toolbar .ce-inline-tool svg {
@@ -3753,14 +3763,14 @@ button:focus {
 
 /* FALLOUT THEME: Override Editor.js CSS custom properties */
 .fallout .ce-popover {
-  --color-background: #1a1a1a;
+  --color-background: #131913;
   --color-text-primary: #22c55e;
   --color-text-secondary: #16a34a;
   --color-border: rgba(34, 197, 94, 0.3);
   --color-shadow: rgba(0, 0, 0, 0.3);
   --color-border-icon: transparent;
   --color-border-icon-disabled: transparent;
-  --color-background-item-hover: #222222;
+  --color-background-item-hover: #1c261c;
   --color-background-item-focus: rgba(34, 197, 94, 0.15);
   --color-shadow-item-focus: rgba(34, 197, 94, 0.15);
   --color-text-icon-active: #4ade80;
@@ -3770,7 +3780,7 @@ button:focus {
 }
 
 .fallout .ce-popover__container {
-  background: #1a1a1a !important;
+  background: #131913 !important;
 }
 
 .fallout .ce-popover-item__title {
@@ -3790,12 +3800,21 @@ button:focus {
 }
 
 .fallout .ce-popover__search .cdx-search-field {
-  background: #0a0a0a !important;
+  background: #0b0e0b !important;
   border-color: rgba(34, 197, 94, 0.3) !important;
 }
 
 .fallout .ce-popover__search .cdx-search-field__input {
   color: #22c55e !important;
+}
+
+.fallout .ce-popover__search .cdx-search-field__input:focus {
+  box-shadow: none;
+  border-color: transparent;
+}
+
+.fallout .ce-popover__search .cdx-search-field:focus-within {
+  border-color: rgba(34, 197, 94, 0.6) !important;
 }
 
 .fallout .ce-popover__search .cdx-search-field__input::placeholder {
@@ -3930,6 +3949,42 @@ button:focus {
 
 .code-block__textarea::placeholder {
   -webkit-text-fill-color: initial;
+}
+
+/* Inline code (`inline-code` from @editorjs/inline-code). The tool only
+   ships light-theme colours; each theme gets its own chip. */
+.inline-code,
+.ce-block code:not(.hljs) {
+  padding: 2px 5px;
+  border-radius: 5px;
+  font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 0.875em;
+  letter-spacing: 0;
+}
+
+.dark .inline-code,
+.dark .ce-block code:not(.hljs) {
+  background: #2f2f2f;
+  color: #f9a8a8;
+}
+
+.darkblue .inline-code,
+.darkblue .ce-block code:not(.hljs) {
+  background: #1a2035;
+  color: #fca5a5;
+}
+
+.light .inline-code,
+.light .ce-block code:not(.hljs) {
+  background: #f3f4f6;
+  color: #b91c1c;
+}
+
+.fallout .inline-code,
+.fallout .ce-block code:not(.hljs) {
+  background: #0a0d0a;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #86efac;
 }
 
 /* ---- Light theme ---- */
@@ -4237,8 +4292,8 @@ button:focus {
 
 /* ---- Fallout theme ---- */
 .fallout .code-block {
-  background: #0a0a0a;
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  background: #0a0d0a;
+  border: 1px solid rgba(34, 197, 94, 0.25);
 }
 
 .fallout .code-block__header {
@@ -4262,6 +4317,15 @@ button:focus {
 
 .fallout .code-block__textarea::placeholder {
   color: #16a34a;
+}
+
+/* The generic `.fallout textarea` rule (opaque --input background, green
+   text) outranks the base `.code-block__textarea` rule and painted over the
+   highlighted layer underneath — code was invisible in Terminal. */
+.fallout .code-block__textarea {
+  background: transparent;
+  color: transparent;
+  border: none;
 }
 
 /* Fallout theme syntax colors (terminal green) */
@@ -6003,7 +6067,7 @@ button:focus {
   line-height: 1.5;
 }
 .dash-ai-md code {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: ui-monospace, 'SF Mono', Menlo, 'JetBrains Mono', Consolas, monospace;
   font-size: 0.8rem;
   padding: 0.1rem 0.35rem;
   border-radius: 0.25rem;
@@ -6063,3 +6127,59 @@ button:focus {
 [data-theme="fallout"] .dash-ai-md td { border-color: #166534; }
 [data-theme="fallout"] .dash-ai-md th { background: rgba(74,222,128,0.06); }
 [data-theme="fallout"] .dash-ai-md a { color: #4ade80; }
+
+/* ── Terminal theme refresh (Sep 2026) ─────────────────────────────────
+   Base surface used by themeUtils for the shell (main, header, footer). */
+.fallout .dash-base-bg {
+  background-color: hsl(var(--background));
+}
+
+/* Components style Terminal surfaces with Tailwind's blue-tinted greys
+   (gray-900 = #111827). Remap them to green-blacks so every panel sits on
+   the same phosphor palette. Generated from the tokens used in components/. */
+.fallout .bg-gray-700 { background-color: #263226; }
+.fallout .bg-gray-800 { background-color: #1c261c; }
+.fallout .bg-gray-800\/50 { background-color: rgba(28, 38, 28, 0.5); }
+.fallout .bg-gray-800\/60 { background-color: rgba(28, 38, 28, 0.6); }
+.fallout .bg-gray-900 { background-color: #131913; }
+.fallout .bg-gray-900\/40 { background-color: rgba(19, 25, 19, 0.4); }
+.fallout .bg-gray-900\/80 { background-color: rgba(19, 25, 19, 0.8); }
+.fallout .bg-gray-900\/95 { background-color: rgba(19, 25, 19, 0.95); }
+.fallout .hover\:bg-gray-700:hover { background-color: #263226; }
+.fallout .hover\:bg-gray-800:hover { background-color: #1c261c; }
+.fallout .hover\:bg-gray-800\/50:hover { background-color: rgba(28, 38, 28, 0.5); }
+
+.fallout .border-gray-700,
+.fallout .border-gray-800 {
+  border-color: rgba(74, 222, 128, 0.16);
+}
+
+/* Typography: headings one step brighter than body, a faint bloom on the
+   document title only, green selection and caret. */
+.fallout .codex-editor h1,
+.fallout .codex-editor h2,
+.fallout .codex-editor h3,
+.fallout .codex-editor h4,
+.fallout .codex-editor h5,
+.fallout .codex-editor h6,
+.fallout .dash-doc-header h1 {
+  color: #86efac;
+}
+
+.fallout .dash-doc-header h1 {
+  text-shadow: 0 0 16px rgba(74, 222, 128, 0.22);
+}
+
+.fallout ::selection {
+  background: rgba(34, 197, 94, 0.3);
+  color: #ecfdf5;
+}
+
+.fallout .codex-editor {
+  caret-color: #4ade80;
+}
+
+.fallout .codex-editor a {
+  color: #86efac;
+  text-decoration-color: rgba(134, 239, 172, 0.5);
+}

@@ -3714,12 +3714,13 @@ export default function RichTextEditor() {
           box-shadow: none !important;
         }
         
-        /* Clean Editor.js dropdown menus */
-        .fallout .ce-popover,
-        .fallout .ce-popover.ce-popover--opened,
+        /* Legacy conversion toolbar only. NB: never style .ce-popover
+           itself: in Editor.js 2.30 it is a 0x0 wrapper when closed and a
+           border on it renders as a 2px dot beside the block handles; the
+           visible box is .ce-popover__container, themed in globals.css. */
         .fallout .ce-conversion-toolbar {
           background: #111111 !important;
-          border: 1px solid #16a34a !important;
+          border: 1px solid rgba(34, 197, 94, 0.3) !important;
           color: #16a34a !important;
           box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important;
         }

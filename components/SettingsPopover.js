@@ -11,7 +11,7 @@ const THEME_TILES = [
   { value: 'light', label: 'Light', sidebar: '#f0f0f0', content: '#ffffff', text: '#171717', muted: '#a3a3a3', border: '#e5e5e5' },
   { value: 'dark', label: 'Dark', sidebar: '#1a1a1a', content: '#0d0d0d', text: '#ececec', muted: '#6b6b6b', border: '#2e2e2e' },
   { value: 'darkblue', label: 'Night', sidebar: '#111827', content: '#0c1017', text: '#e0e6f0', muted: '#5d6b88', border: '#1c2438' },
-  { value: 'fallout', label: 'Terminal', sidebar: '#1a251a', content: '#111827', text: '#4ade80', muted: '#16a34a', border: 'rgba(34,197,94,0.3)' }
+  { value: 'fallout', label: 'Terminal', sidebar: '#141b14', content: '#0e120e', text: '#86efac', muted: '#16a34a', border: 'rgba(34,197,94,0.3)' }
 ]
 
 const POPOVER_WIDTH = 340

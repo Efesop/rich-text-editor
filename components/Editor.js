@@ -449,6 +449,9 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
         },
         seedPhrase: {
           class: SeedPhraseTool,
+          // Hidden from the + / slash menu (Sep 2026); existing seed-phrase
+          // blocks still render and can be edited.
+          toolbox: false,
         },
         attachment: {
           class: AttachmentTool,
@@ -877,7 +880,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
 
   useEffect(() => {
     const handleLinkClick = (event) => {
-      const link = event.target.closest('a')
+      const link = event.target?.closest?.('a')
       if (!link) return
 
       // Check for internal page link first
@@ -1037,31 +1040,9 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
             box-shadow: none !important;
           }
 
-          /* Override Editor.js CSS custom properties for Fallout theme */
-          .fallout .ce-popover {
-            --color-background: #1a1a1a;
-            --color-text-primary: #22c55e;
-            --color-text-secondary: #16a34a;
-            --color-border: #22c55e;
-            --color-shadow: rgba(0,0,0,0.3);
-            --color-border-icon: rgba(34,197,94,0.3);
-            --color-background-item-hover: #2a2a2a;
-            --color-background-item-focus: rgba(34,197,94,0.15);
-            --color-text-icon-active: #4ade80;
-            --color-background-icon-active: rgba(34,197,94,0.2);
-          }
-          .fallout .ce-popover__container {
-            background: #1a1a1a !important;
-          }
-          .fallout .ce-popover-item__title {
-            color: #22c55e !important;
-          }
-          .fallout .ce-popover-item__icon svg {
-            color: #22c55e !important;
-          }
-          .fallout .ce-popover-item-separator__line {
-            background: rgba(34,197,94,0.3) !important;
-          }
+          /* Popover colours live in globals.css (.fallout .ce-popover);
+             the copy that used to sit here set a solid #22c55e border and
+             fought the stylesheet. */
 
           /* Multi-block converter styles for fallout theme */
           .fallout .multi-block-indicator {

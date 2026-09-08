@@ -43,7 +43,7 @@ export function getThemeClasses(theme) {
   return {
     // Main container classes
     mainContainer: isFallout
-      ? 'fallout flex h-screen bg-gray-900 text-green-400 font-mono'
+      ? 'fallout flex h-screen dash-base-bg text-green-400 font-mono'
       : isDarkBlue
         ? 'darkblue flex h-screen bg-[#0c1017] text-[#e0e6f0]'
         : isDark
@@ -70,7 +70,7 @@ export function getThemeClasses(theme) {
 
     // Header classes
     header: isFallout
-      ? 'bg-gray-900 border-green-600/30 text-green-400'
+      ? 'dash-base-bg border-green-600/30 text-green-400'
       : isDarkBlue
         ? 'bg-[#0c1017] border-[#1c2438] text-[#e0e6f0]'
         : isDark
@@ -79,7 +79,7 @@ export function getThemeClasses(theme) {
 
     // Main content area classes
     mainContent: isFallout
-      ? 'bg-gray-900 text-green-400'
+      ? 'dash-base-bg text-green-400'
       : isDarkBlue
         ? 'bg-[#0c1017] text-[#e0e6f0]'
         : isDark
@@ -88,7 +88,7 @@ export function getThemeClasses(theme) {
 
     // Footer classes
     footer: isFallout
-      ? 'bg-gray-900 text-green-300 border-t border-green-600/30'
+      ? 'dash-base-bg text-green-300 border-t border-green-600/30'
       : isDarkBlue
         ? 'bg-[#0c1017] text-[#445068] border-t border-[#1c2438]'
         : isDark
@@ -163,7 +163,7 @@ export function getThemeClasses(theme) {
 
     // Modal container classes
     modal: isFallout
-      ? 'bg-gray-900 border-2 border-green-500/60 shadow-[0_0_40px_rgba(34,197,94,0.15)]'
+      ? 'bg-gray-900 border border-green-500/60 shadow-[0_0_40px_rgba(34,197,94,0.15)]'
       : isDarkBlue
         ? 'bg-[#141825] border border-[#1c2438] shadow-2xl'
         : isDark
