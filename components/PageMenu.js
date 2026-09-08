@@ -7,7 +7,7 @@ import Tooltip from './Tooltip'
 // one-click affordances plus the rare app-level actions that used to
 // crowd the header (import, phone setup, bug report, update).
 
-const MENU_WIDTH = 236
+const MENU_WIDTH = 256
 
 export default function PageMenu ({
   theme,
@@ -70,15 +70,19 @@ export default function PageMenu ({
   const accentIcon = isFallout ? 'text-green-400' : 'text-blue-500'
   const dangerClass = isFallout ? 'text-red-400 hover:bg-red-500/10' : 'text-red-500 hover:bg-red-500/10'
 
-  const Item = ({ icon: Icon, label, kbd, onClick, className = '', iconClass = '', disabled = false, trailing = null }) => (
+  // Plain render helper, deliberately NOT a nested component: a component
+  // defined inside render gets a new identity on every re-render, which
+  // remounts the button between mousedown and mouseup (the editor blurs on
+  // mousedown and re-renders the app) — and the click never fires.
+  const renderItem = ({ icon: Icon, label, kbd, onClick, className = '', iconClass = '', disabled = false, trailing = null }) => (
     <button
       type="button"
       role="menuitem"
       disabled={disabled}
       onClick={() => { setIsOpen(false); onClick && onClick() }}
-      className={`w-full flex items-center gap-2.5 h-8 px-2.5 rounded-md text-[13px] transition-colors disabled:opacity-50 ${className}`}
+      className={`w-full flex items-center gap-3 h-9 px-3 rounded-lg text-[14px] transition-colors disabled:opacity-50 ${className}`}
     >
-      <Icon className={`h-[15px] w-[15px] flex-shrink-0 pointer-events-none ${iconClass}`} />
+      <Icon className={`h-4 w-4 flex-shrink-0 pointer-events-none ${iconClass}`} />
       <span className="flex-1 text-left truncate">{label}</span>
       {trailing}
       {kbd && <span className={`text-[11px] tracking-wide ${kbdClass}`}>{kbd}</span>}
@@ -106,38 +110,40 @@ export default function PageMenu ({
         <div
           ref={menuRef}
           role="menu"
-          className={`fixed z-[70] rounded-xl border p-1 ${classes.dropdown}`}
+          className={`fixed z-[70] rounded-xl border p-1.5 ${classes.dropdown}`}
           style={{ top: pos.top, left: pos.left, width: MENU_WIDTH, animation: 'dash-dropdown-in 120ms ease-out forwards' }}
+          // Keep focus (and the caret) in the editor: a menu shouldn't steal it.
+          onMouseDown={(event) => event.preventDefault()}
         >
           {updateAvailable && (
             <>
-              <Item
-                icon={Download}
-                iconClass={accentIcon}
-                label={`Update to Dash ${updateVersion || ''}`.trim()}
-                className={`${primaryText} ${itemHover}`}
-                onClick={onShowUpdate}
-                trailing={<span className={`inline-block w-[7px] h-[7px] rounded-full ${accentDot}`} />}
-              />
+              {renderItem({
+                icon: Download,
+                iconClass: accentIcon,
+                label: `Update to Dash ${updateVersion || ''}`.trim(),
+                className: `${primaryText} ${itemHover}`,
+                onClick: onShowUpdate,
+                trailing: <span className={`inline-block w-[7px] h-[7px] rounded-full ${accentDot}`} />
+              })}
               <div className={`h-px my-1 mx-1.5 ${dividerClass}`} />
             </>
           )}
           {pageActionsAvailable && (
             <>
-              <Item icon={Share2} label="Share encrypted note…" className={`${itemText} ${itemHover}`} onClick={onShare} />
-              <Item icon={History} label="Version history" className={`${itemText} ${itemHover}`} onClick={onVersionHistory} />
-              <Item icon={FolderInput} label="Move to folder…" className={`${itemText} ${itemHover}`} onClick={onMoveToFolder} />
-              <Item icon={Copy} label="Duplicate" kbd={`${mod}⇧D`} className={`${itemText} ${itemHover}`} onClick={onDuplicate} />
+              {renderItem({ icon: Share2, label: 'Share encrypted note…', className: `${itemText} ${itemHover}`, onClick: onShare })}
+              {renderItem({ icon: History, label: 'Version history', className: `${itemText} ${itemHover}`, onClick: onVersionHistory })}
+              {renderItem({ icon: FolderInput, label: 'Move to folder…', className: `${itemText} ${itemHover}`, onClick: onMoveToFolder })}
+              {renderItem({ icon: Copy, label: 'Duplicate', kbd: `${mod}⇧D`, className: `${itemText} ${itemHover}`, onClick: onDuplicate })}
               <div className={`h-px my-1 mx-1.5 ${dividerClass}`} />
             </>
           )}
-          <Item icon={Import} label={isImporting ? 'Importing…' : 'Import encrypted bundle…'} disabled={isImporting} className={`${itemText} ${itemHover}`} onClick={onImportBundle} />
-          {showPhoneSetup && <Item icon={Smartphone} label="Use on your phone…" className={`${itemText} ${itemHover}`} onClick={onPhoneSetup} />}
-          <Item icon={Bug} label="Report a bug" className={`${itemText} ${itemHover}`} onClick={onReportBug} />
+          {renderItem({ icon: Import, label: isImporting ? 'Importing…' : 'Import encrypted bundle…', disabled: isImporting, className: `${itemText} ${itemHover}`, onClick: onImportBundle })}
+          {showPhoneSetup && renderItem({ icon: Smartphone, label: 'Use on your phone…', className: `${itemText} ${itemHover}`, onClick: onPhoneSetup })}
+          {renderItem({ icon: Bug, label: 'Report a bug', className: `${itemText} ${itemHover}`, onClick: onReportBug })}
           {pageActionsAvailable && (
             <>
               <div className={`h-px my-1 mx-1.5 ${dividerClass}`} />
-              <Item icon={Trash2} label="Move to Trash" kbd={`${mod}⇧⌫`} className={dangerClass} onClick={onDelete} />
+              {renderItem({ icon: Trash2, label: 'Move to Trash', kbd: `${mod}⇧⌫`, className: dangerClass, onClick: onDelete })}
             </>
           )}
         </div>

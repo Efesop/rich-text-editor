@@ -190,6 +190,35 @@ export function FolderItem({
     }
   }
 
+  // Expanded folders (desktop): the title brightens and a chevron takes the
+  // count badge's place so an open section is legible at a glance even when
+  // the folder has an emoji instead of the open-folder icon.
+  const getExpandedTitleClasses = () => {
+    switch (theme) {
+      case 'fallout':
+        return 'text-green-300'
+      case 'dark':
+        return 'text-[#ececec]'
+      case 'darkblue':
+        return 'text-[#e0e6f0]'
+      default:
+        return 'text-neutral-900'
+    }
+  }
+
+  const getExpandedChevronClasses = () => {
+    switch (theme) {
+      case 'fallout':
+        return 'text-green-600'
+      case 'dark':
+        return 'text-[#6b6b6b]'
+      case 'darkblue':
+        return 'text-[#5d6b88]'
+      default:
+        return 'text-neutral-400'
+    }
+  }
+
   const getFolderIconClasses = () => {
     if (isExpanded) {
       switch (theme) {
@@ -243,14 +272,16 @@ export function FolderItem({
           ) : (
             <Folder className={`h-4 w-4 mr-1.5 flex-shrink-0 ${getFolderIconClasses()}`} strokeWidth={1.5} />
           )}
-          <span className="truncate font-medium flex-1 min-w-0" title={folder.title}>
+          <span className={`truncate flex-1 min-w-0 ${isExpanded && !isMobile ? `font-semibold ${getExpandedTitleClasses()}` : 'font-medium'}`} title={folder.title}>
             {folder.title}
           </span>
-          {pagesCount > 0 && (
-            <span className={`text-xs px-1.5 ml-1 rounded-full flex-shrink-0 ${getFolderCountClasses()}`}>
-              {pagesCount}
-            </span>
-          )}
+          {isExpanded && !isMobile
+            ? <ChevronDown className={`h-3.5 w-3.5 ml-1 flex-shrink-0 ${getExpandedChevronClasses()}`} strokeWidth={2} aria-hidden="true" />
+            : pagesCount > 0 && (
+              <span className={`text-xs px-1.5 ml-1 rounded-full flex-shrink-0 ${getFolderCountClasses()}`}>
+                {pagesCount}
+              </span>
+            )}
         </div>
         ) : (
         <Tooltip text={`${folder.title}${pagesCount > 0 ? ` (${pagesCount})` : ''}`} side="right" delay={150}>

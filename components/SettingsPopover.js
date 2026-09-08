@@ -14,7 +14,7 @@ const THEME_TILES = [
   { value: 'fallout', label: 'Terminal', sidebar: '#1a251a', content: '#111827', text: '#4ade80', muted: '#16a34a', border: 'rgba(34,197,94,0.3)' }
 ]
 
-const POPOVER_WIDTH = 316
+const POPOVER_WIDTH = 340
 
 export default function SettingsPopover ({
   isOpen,
@@ -84,6 +84,7 @@ export default function SettingsPopover ({
   const iconClass = isFallout ? 'text-green-500' : isDarkBlue ? 'text-[#5d6b88]' : isDark ? 'text-[#8e8e8e]' : 'text-neutral-400'
   const dividerClass = isFallout ? 'bg-green-600/30' : isDarkBlue ? 'bg-[#1c2438]' : isDark ? 'bg-[#3a3a3a]' : 'bg-neutral-200'
   const rowHover = isFallout ? 'hover:bg-gray-800' : isDarkBlue ? 'hover:bg-[#232b42]' : isDark ? 'hover:bg-[#3a3a3a]' : 'hover:bg-neutral-100'
+  const chevronHover = isFallout ? 'group-hover:text-green-400' : isDarkBlue ? 'group-hover:text-[#8b99b5]' : isDark ? 'group-hover:text-[#c0c0c0]' : 'group-hover:text-neutral-600'
   const accentRing = isFallout ? 'ring-green-500' : 'ring-blue-500'
   const accentBg = isFallout ? 'bg-green-500' : 'bg-blue-500'
   const accentText = isFallout ? 'text-green-400' : 'text-blue-500'
@@ -91,23 +92,28 @@ export default function SettingsPopover ({
   const toggleOff = isFallout ? 'bg-gray-800' : isDarkBlue ? 'bg-[#232b42]' : isDark ? 'bg-[#3a3a3a]' : 'bg-neutral-300'
   const kbdClass = isFallout ? 'border-green-600/40 text-green-600' : isDarkBlue ? 'border-[#1c2438] text-[#445068]' : isDark ? 'border-[#3a3a3a] text-[#6b6b6b]' : 'border-neutral-200 text-neutral-400'
 
-  const Row = ({ icon: Icon, label, value, dot, kbd, onClick }) => (
+  // Plain render helper, deliberately NOT a nested component: a component
+  // defined inside render gets a new identity every time the parent
+  // re-renders, which remounts the button between mousedown and mouseup
+  // (the editor blurs on mousedown and re-renders the app) — and the click
+  // never fires. Rendering the JSX directly keeps the DOM node stable.
+  const renderRow = ({ icon: Icon, label, value, dot, kbd, onClick }) => (
     <button
       type="button"
       onClick={() => { onClose(); onClick && onClick() }}
-      className={`w-full flex items-center gap-2.5 h-[34px] px-2.5 rounded-md text-[13px] transition-colors ${primaryText} ${rowHover}`}
+      className={`group w-full flex items-center gap-3 h-[38px] px-3 rounded-lg text-[14px] transition-colors ${primaryText} ${rowHover}`}
     >
-      <Icon className={`h-[15px] w-[15px] flex-shrink-0 pointer-events-none ${iconClass}`} />
+      <Icon className={`h-4 w-4 flex-shrink-0 pointer-events-none ${iconClass}`} />
       <span className="flex-1 text-left truncate">{label}</span>
       {value && (
-        <span className={`inline-flex items-center gap-1.5 text-xs ${secondaryText}`}>
+        <span className={`inline-flex items-center gap-1.5 text-[13px] ${secondaryText}`}>
           {dot && <span className={`inline-block w-1.5 h-1.5 rounded-full ${dot}`} />}
           {value}
         </span>
       )}
       {kbd
-        ? <span className={`text-[10px] font-medium border rounded px-1.5 py-px ${kbdClass}`}>{kbd}</span>
-        : <ChevronRight className={`h-3.5 w-3.5 flex-shrink-0 pointer-events-none ${labelClass}`} />}
+        ? <span className={`text-[11px] font-medium border rounded px-1.5 py-px ${kbdClass}`}>{kbd}</span>
+        : <ChevronRight className={`h-4 w-4 flex-shrink-0 pointer-events-none transition-colors ${labelClass} ${chevronHover}`} />}
     </button>
   )
 
@@ -116,11 +122,13 @@ export default function SettingsPopover ({
       ref={popoverRef}
       role="dialog"
       aria-label="Settings"
-      className={`fixed z-[70] rounded-xl border p-1.5 ${classes.dropdown}`}
+      className={`fixed z-[70] rounded-xl border p-2 ${classes.dropdown}`}
       style={{ top: pos.top, left: pos.left, width: POPOVER_WIDTH, animation: 'dash-dropdown-in 120ms ease-out forwards' }}
+      // Keep focus (and the caret) in the editor: a menu shouldn't steal it.
+      onMouseDown={(event) => event.preventDefault()}
     >
-      <div className={`px-2.5 pt-2 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] ${labelClass}`}>Appearance</div>
-      <div className="grid grid-cols-4 gap-2 px-2 pb-1.5">
+      <div className={`px-3 pt-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.06em] ${labelClass}`}>Appearance</div>
+      <div className="grid grid-cols-4 gap-2 px-2 pb-2">
         {THEME_TILES.map(tile => {
           const active = theme === tile.value
           return (
@@ -132,13 +140,13 @@ export default function SettingsPopover ({
               aria-pressed={active}
             >
               <span
-                className={`relative w-[62px] h-10 rounded-[7px] overflow-hidden flex ${active ? `ring-2 ${accentRing}` : 'border'} transition-transform group-hover:scale-[1.03]`}
+                className={`relative w-[68px] h-11 rounded-lg overflow-hidden flex ${active ? `ring-2 ${accentRing}` : 'border'} transition-transform group-hover:scale-[1.03]`}
                 style={{ background: tile.content, borderColor: active ? undefined : tile.border }}
               >
-                <span className="block w-[22px] h-full" style={{ background: tile.sidebar }} />
+                <span className="block w-6 h-full" style={{ background: tile.sidebar }} />
                 <span className="flex-1 px-1.5 py-2 flex flex-col gap-1">
-                  <span className="block h-[3px] w-[18px] rounded-sm" style={{ background: tile.text }} />
-                  <span className="block h-[2px] w-[26px] rounded-sm" style={{ background: tile.muted }} />
+                  <span className="block h-[3px] w-[20px] rounded-sm" style={{ background: tile.text }} />
+                  <span className="block h-[2px] w-[28px] rounded-sm" style={{ background: tile.muted }} />
                 </span>
                 {active && (
                   <span className={`absolute right-1 bottom-1 w-3.5 h-3.5 rounded-full flex items-center justify-center ${accentBg}`}>
@@ -146,7 +154,7 @@ export default function SettingsPopover ({
                   </span>
                 )}
               </span>
-              <span className={`text-[11px] ${active ? `font-semibold ${primaryText}` : secondaryText}`}>{tile.label}</span>
+              <span className={`text-[12px] ${active ? `font-semibold ${primaryText}` : secondaryText}`}>{tile.label}</span>
             </button>
           )
         })}
@@ -154,24 +162,24 @@ export default function SettingsPopover ({
       <button
         type="button"
         onClick={onToggleMatchSystem}
-        className={`w-full flex items-center gap-2.5 h-[34px] px-2.5 rounded-md text-[13px] transition-colors ${secondaryText} ${rowHover}`}
+        className={`w-full flex items-center gap-3 h-[38px] px-3 rounded-lg text-[14px] transition-colors ${secondaryText} ${rowHover}`}
         role="switch"
         aria-checked={!!matchSystem}
       >
-        <Monitor className={`h-[15px] w-[15px] flex-shrink-0 pointer-events-none ${iconClass}`} />
+        <Monitor className={`h-4 w-4 flex-shrink-0 pointer-events-none ${iconClass}`} />
         <span className="flex-1 text-left">Match {systemName} appearance</span>
-        <span className={`relative inline-block w-[30px] h-[18px] rounded-full transition-colors ${matchSystem ? toggleOn : toggleOff}`}>
-          <span className={`absolute top-[2px] w-3.5 h-3.5 rounded-full bg-white shadow transition-all ${matchSystem ? 'left-[14px]' : 'left-[2px]'}`} />
+        <span className={`relative inline-block w-[34px] h-5 rounded-full transition-colors ${matchSystem ? toggleOn : toggleOff}`}>
+          <span className={`absolute top-[2px] w-4 h-4 rounded-full bg-white shadow transition-all ${matchSystem ? 'left-4' : 'left-[2px]'}`} />
         </span>
       </button>
-      <div className={`h-px my-1 mx-1.5 ${dividerClass}`} />
-      <Row icon={Lock} label="App lock" value={appLockEnabled ? (biometricEnabled ? 'Touch ID · On' : 'On') : 'Off'} onClick={onOpenAppLock} />
-      {syncAvailable && <Row icon={RefreshCw} label="Dash Sync" value={syncLabel} dot={syncDotClass} onClick={onOpenSync} />}
-      <Row icon={HardDrive} label="Backups" value={backupLabel} onClick={onOpenBackup} />
-      <Row icon={Trash2} label="Trash" value={trashCount > 0 ? `${trashCount} item${trashCount === 1 ? '' : 's'}` : undefined} onClick={onOpenTrash} />
-      <Row icon={Keyboard} label="Keyboard shortcuts" kbd="?" onClick={onOpenShortcuts} />
-      <div className={`h-px my-1 mx-1.5 ${dividerClass}`} />
-      <div className={`flex items-center justify-between h-[30px] px-2.5 text-xs ${labelClass}`}>
+      <div className={`h-px my-1.5 mx-2 ${dividerClass}`} />
+      {renderRow({ icon: Lock, label: 'App lock', value: appLockEnabled ? (biometricEnabled ? 'Touch ID · On' : 'On') : 'Off', onClick: onOpenAppLock })}
+      {syncAvailable && renderRow({ icon: RefreshCw, label: 'Dash Sync', value: syncLabel, dot: syncDotClass, onClick: onOpenSync })}
+      {renderRow({ icon: HardDrive, label: 'Backups', value: backupLabel, onClick: onOpenBackup })}
+      {renderRow({ icon: Trash2, label: 'Trash', value: trashCount > 0 ? `${trashCount} item${trashCount === 1 ? '' : 's'}` : undefined, onClick: onOpenTrash })}
+      {renderRow({ icon: Keyboard, label: 'Keyboard shortcuts', kbd: '?', onClick: onOpenShortcuts })}
+      <div className={`h-px my-1.5 mx-2 ${dividerClass}`} />
+      <div className={`flex items-center justify-between h-8 px-3 text-[12px] ${labelClass}`}>
         <span>{appVersion ? `Dash ${appVersion}` : 'Dash'}</span>
         {updateAvailable
           ? (

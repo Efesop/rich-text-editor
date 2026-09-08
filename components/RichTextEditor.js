@@ -4714,7 +4714,11 @@ export default function RichTextEditor() {
         {/* Live Session Bar */}
         {/* Editor */ }
   <div className="flex-1 relative overflow-hidden">
-  <div ref={editorScrollRef} className={`h-full overflow-auto p-6 md:pl-[72px] ${getMainContentClasses()} ${focusMode ? 'focus-mode-scroll pt-16' : ''} ${currentPage && selfDestructingPages.has(currentPage.id) ? 'pointer-events-none' : ''}`}>
+  <div ref={editorScrollRef} className={`h-full overflow-auto ${getMainContentClasses()} ${focusMode ? 'focus-mode-scroll' : ''} ${currentPage && selfDestructingPages.has(currentPage.id) ? 'pointer-events-none' : ''}`}>
+    {/* Padding lives on this wrapper, not the scroller: Chrome insets sticky
+        children by the scroll container's own padding, which left a 24px gap
+        above stuck table headings. */}
+    <div className={`p-6 md:pl-[72px] ${focusMode ? 'pt-16' : ''}`}>
     <div className={`${focusMode ? 'max-w-2xl mx-auto w-full' : ''} ${focusMode && paragraphDimming ? 'paragraph-dimming' : ''} ${focusMode && typewriterMode ? 'pb-[50vh]' : ''}`}>
       {currentPage && (
         <div className="relative">
@@ -4823,6 +4827,7 @@ export default function RichTextEditor() {
           ))}
         </div>
       )}
+    </div>
     </div>
   </div>
   {currentPage && !isSmallScreen && (

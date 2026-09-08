@@ -39,8 +39,7 @@ export default function EncryptionStatusIndicator ({ currentPage, onEncryptPage,
         title="Your data is encrypted with AES-256-GCM and PBKDF2-SHA256 key derivation. All data stays on your device."
       >
         <ShieldCheck className="w-3 h-3 mr-1.5" />
-        <span className="hidden sm:inline">AES-256 Encrypted</span>
-        <span className="sm:hidden">Encrypted</span>
+        <span>Encrypted</span>
       </div>
     )
   }
