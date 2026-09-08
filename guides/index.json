@@ -95,11 +95,11 @@
       "slug": "features",
       "title": "All Features",
       "subtitle": "Complete Feature Guide for Dash",
-      "description": "A comprehensive overview of every feature in Dash — encryption, encrypted sharing, multi-device sync, local AI, EXIF stripping, decoy app, self-destructing notes, markdown paste, focus mode, themes, keyboard shortcuts, and more.",
+      "description": "A comprehensive overview of every feature in Dash — encryption, encrypted sharing, multi-device sync, local AI, EXIF stripping, decoy app, self-destructing notes, markdown paste, focus mode, themes with match-system appearance, swipe actions on iPhone, keyboard shortcuts, and more.",
       "file": "features.md",
       "tags": ["features", "overview", "guide", "security", "editor", "sharing", "privacy", "sync", "ai"],
       "relatedFeatures": ["encryption", "app-lock", "focus-mode", "themes", "shortcuts", "encrypted-sharing", "exif-stripping", "decoy-app", "sync", "markdown-paste", "local-ai"],
-      "lastUpdated": "2026-07-10"
+      "lastUpdated": "2026-09-08"
     }
   ]
 }

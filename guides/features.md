@@ -248,7 +248,7 @@ Distraction-free writing mode that hides the sidebar and dims everything except 
 
 ### Keyboard Shortcuts
 
-Comprehensive keyboard shortcut support. Press `?` or click the keyboard icon in the footer to see all available shortcuts at a glance in a themed modal.
+Comprehensive keyboard shortcut support. Press `?` or open Settings → Keyboard shortcuts (the gear in the Mac title bar, or the Settings sheet on iPhone) to see all available shortcuts at a glance in a themed modal.
 
 - `?` — Show shortcuts reference
 - `Cmd+P` — Quick switcher
@@ -280,16 +280,24 @@ Multiple sort modes for organizing pages in the sidebar:
 - Date created (newest/oldest first)
 - Date modified (recently edited first)
 
+### Swipe Actions (iPhone)
+
+On iPhone the notes list is a full-width screen. Swipe a note left to move it to Trash, or right to lock or unlock it. Press and hold still starts a drag for reordering. Filter chips above the list narrow it to All, one tag, or Locked notes.
+
 ### Four Themes
 
-Every screen in Dash is fully themed. Choose from four distinct visual themes:
+Every screen in Dash is fully themed. Choose from four distinct visual themes (labelled Light, Dark, Night, and Terminal since v1.6; the last two were previously called "Dark Blue" and "Fallout"):
 
 - **Light** — Clean white background with neutral accents
 - **Dark** — True dark theme with soft grays
-- **Dark Blue** — Deep navy blue with cool-toned accents
-- **Fallout** — Terminal-style green-on-black with monospace fonts and glow effects
+- **Night** — Deep navy blue with cool-toned accents
+- **Terminal** — Green-on-black with monospace fonts and glow effects
 
-All themes apply consistently across the editor, sidebar, modals, settings, and footer.
+Pick a theme from the visible swatches in Settings (the gear in the Mac title bar) or from the Appearance sheet on iPhone (sun/moon icon in the header). All themes apply consistently across the editor, sidebar, modals, settings, and footer.
+
+### Match System Appearance
+
+Turn on **Match macOS appearance** (Mac) or **Match iOS appearance** (iPhone) and Dash follows the system light/dark setting — Light when the system is light, and your preferred dark theme (whichever of Dark, Night, or Terminal you last chose) when it is dark. Picking a theme by hand turns matching off again.
 
 ---
 
@@ -299,13 +307,17 @@ All themes apply consistently across the editor, sidebar, modals, settings, and 
 
 A slide-over panel accessible from the Sparkles icon in the bottom bar. Browse all Dash features organized by category (Security, Editor, Navigation) with animated illustrations and keyboard shortcut badges. Filter by category using chips at the top.
 
+### Settings
+
+All preferences live in one place. On Mac, the gear in the title bar opens a Settings popover: theme swatches, Match macOS appearance, App lock, Dash Sync, Backups, Trash, Keyboard shortcuts, version and Check for updates. On iPhone, the footer opens a Settings sheet with the same items plus Appearance and the table of contents. Page actions — share encrypted note, version history, move to folder, duplicate, import encrypted bundle, use on your phone, report a bug, move to Trash — live in the ⋯ menu next to the gear on Mac.
+
 ### What's New
 
 An auto-showing modal that appears when Dash is updated to a new version. Features are grouped by release date so you can see what was added recently. Dismisses automatically and won't show again until the next update.
 
 ### Auto-Updates
 
-The desktop app checks for updates automatically in the background. When an update is available, a notification appears with options to download and install. Update checks are silent — no notifications when offline or when already on the latest version.
+The desktop app checks for updates automatically in the background. When an update is available, an update card appears (Later / Download) and the ⋯ menu shows a dot with an "Update to Dash x.y.z" row. Update checks are silent — no notifications when offline or when already on the latest version.
 
 ---
 

@@ -5,6 +5,83 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.3] - 2026-09-08
+
+### Fixed
+- **Update card filled the window on Mac.** The corner card's container had
+  `relative` appended after `fixed`; Tailwind emits `relative` later, so it
+  won, the card fell into the main flex row and stretched to full height. The
+  extra class is gone and every card state (available, downloading, ready,
+  failed, offline) renders as the 320px bottom-right card in all four themes.
+
+## [1.6.2] - 2026-09-08
+
+### Fixed
+- **Desktop menus were not clickable.** Rows in the new Settings popover and
+  the page ⋯ menu were re-created on every render, so the button under the
+  pointer remounted between mousedown and mouseup and the click never fired.
+  Rows are now plain elements, the editor keeps focus on mousedown, and both
+  menus are slightly larger (14px text).
+- **Sticky table headings sat 24px below the top of the editor** because
+  Chrome insets sticky children by the scroll container's padding. The
+  padding moved to an inner wrapper so headings sit flush.
+- Expanded desktop folders show a semibold title and a chevron instead of the
+  count badge, so it is obvious which folder is open.
+- The footer encryption chip reads "Encrypted".
+
+## [1.6.1] - 2026-09-07
+
+iPhone half of the September 2026 layout refresh (the Mac half shipped in
+1.6.0). iOS project bumped to 1.6.1 / build 78.
+
+### Changed
+- **Full-width Notes screen** replaces the 88%-width drawer: large "Notes"
+  title, search bar, filter chips (All / tags / Locked), FOLDERS and NOTES
+  sections with folders expanding in place, 48px rows, and a "New note"
+  button within thumb reach. Swipe left on empty space to close it.
+- **Swipe actions on notes.** Swipe a note left to move it to Trash, right to
+  lock or unlock it. Press-and-hold still starts a drag for reordering.
+- **Appearance sheet** opens from the sun/moon icon in the header: four
+  visible theme swatches (Light, Dark, Night, Terminal) plus "Match iOS
+  appearance", which follows the system light/dark setting using your
+  preferred dark theme.
+- **Settings sheet** replaces the footer "more" sheet: Appearance, App lock,
+  Dash Sync, Backups, Trash, table of contents, Keyboard shortcuts, Report a
+  bug, and the app version.
+
+## [1.6.0] - 2026-09-07
+
+Mac half of the September 2026 layout refresh. The phone layout was left
+untouched in this release (see 1.6.1).
+
+### Changed
+- **Page title moves into the document.** The title sits at the top of the
+  editor column with tags, date, and word count on a line beneath it. The old
+  header bar and its border are gone.
+- **Toolbar in the title bar:** Lock page, Self-destruct, Export, a Settings
+  gear, and a ⋯ menu. The ⋯ menu holds Share encrypted note, Version history,
+  Move to folder, Duplicate (⌘⇧D), Import encrypted bundle, Use on your phone,
+  Report a bug, and Move to Trash (⌘⇧⌫). An available update shows as a dot on
+  ⋯ plus an "Update to Dash x.y.z" row.
+- **Settings popover** (from the gear): theme swatches (Light, Dark, Night,
+  Terminal — the last two were labelled "Dark Blue" and "Fallout" before),
+  "Match macOS appearance", App lock, Dash Sync, Backups, Trash, Keyboard
+  shortcuts, version and Check for updates. These no longer live at the bottom
+  of the sidebar.
+- **Match system appearance.** Dash can follow the macOS light/dark setting,
+  switching to your preferred dark theme when the system is dark. Picking a
+  theme by hand turns matching off again.
+- **Sidebar sections:** FOLDERS and NOTES labels, with new-folder on the
+  Folders label and sort on the Notes label. The version string and the old
+  footer buttons are gone; the sidebar footer is just the collapse button.
+- **Update notification** redesigned as a card (app icon, version, what's-new
+  line, Later / Download) with Available, Downloading, and Ready states.
+- **Status bar** trimmed to the encryption chip and sync status on the left,
+  outline / AI / features on the right.
+- **Lighter tables and headings.** Tables use horizontal rules with a tinted
+  heading row; heading sizes are tighter (H2 2em → 1.5em).
+- Sort dropdown gained a compact mode; Export button can render icon-only.
+
 ## [1.5.6] - 2026-09-06
 
 ### Fixed

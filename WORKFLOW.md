@@ -42,7 +42,7 @@ git push origin main --follow-tags
 - **Never** include "Co-Authored-By: Claude" or any AI attribution in commits
 - Keep commit messages concise but descriptive
 - Use conventional commit style: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `perf:`
-- **Release tags**: pushing a `v*` tag triggers the GitHub Actions macOS DMG build. Tags currently stop at `v1.3.165` even though `package.json` is `1.5.0` — the iOS app ships via Xcode archive + Transporter (App Store), not git tags, and the Mac DMG tag for 1.5.0 hasn't been pushed.
+- **Release tags**: `npm version patch|minor` creates the tag; pushing it (`git push origin main --follow-tags`) triggers the GitHub Actions macOS DMG build and the PWA deploy. Tags are current (latest `v1.6.3`, Sep 8 2026). The iOS app ships separately via Xcode archive + App Store Connect, not git tags — bump `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` in `ios/App/App.xcodeproj/project.pbxproj` on every upload.
 
 ## Open Source Guidelines
 

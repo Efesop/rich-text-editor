@@ -151,9 +151,9 @@ sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Automatic;\n        
 
 (Replace `YOUR_TEAM_ID` with your 10-char Team ID.) `CURRENT_PROJECT_VERSION = 1` is fine for first build — bump on every upload, App Store Connect rejects duplicate build numbers.
 
-> **Dash's current values (v1.5.x):** `MARKETING_VERSION = 1.5.0`,
-> `CURRENT_PROJECT_VERSION = 70` (the shipping build is 70, after several
-> App Store resubmissions). Team ID `9888FL2CQ6`, bundle `io.dashnote.app`,
+> **Dash's current values (Sep 2026):** `MARKETING_VERSION = 1.6.1`,
+> `CURRENT_PROJECT_VERSION = 78` (build 77 = 1.5.6 is the build live on the
+> App Store; 78 is built but not yet uploaded). Team ID `9888FL2CQ6`, bundle `io.dashnote.app`,
 > ASC App ID `6766192836`.
 
 ## Step 6 — Export options plist

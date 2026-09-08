@@ -47,7 +47,7 @@ Browser mode **won't work** for:
 - **Functional components**: Always use hooks, never class components — the sole exception is `components/ErrorBoundary.js`, which must be a class (React error boundaries have no hook equivalent)
 - **Descriptive naming**: `isLoading`, `hasError`, `handleSubmit`
 - **File organization**: Component → Subcomponents → Helpers → Static content
-- **Theme support**: Always handle all four themes — Light, Dark, Dark Blue, and Fallout
+- **Theme support**: Always handle all four themes — Light, Dark, Night (`darkblue`, labelled "Dark Blue" before v1.6), and Terminal (`fallout`, labelled "Fallout" before v1.6) — plus the "Match system appearance" toggle
 
 ### Project Structure
 

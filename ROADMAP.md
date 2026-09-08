@@ -19,6 +19,7 @@ Future feature ideas and enhancements for Dash.
 ## Note Management
 - ~~Trash / recently deleted with 30-day recovery~~ ✓ **Shipped** — soft-delete with 30-day auto-purge; restore or permanently delete from the Trash modal (always on, independent of sync)
 - ~~Note versioning / revision history~~ ✓ **Shipped in v1.3.159** — see [FEATURES.md#version-history](./FEATURES.md#version-history)
+- ~~Swipe actions on iPhone (left = Trash, right = lock)~~ ✓ **Shipped in v1.6.1**
 - Pinned notes and favorites
 - Smart filters (by date, tag, word count, locked status)
 - Nested folders (sub-folders)
@@ -70,6 +71,7 @@ Future feature ideas and enhancements for Dash.
 - Prompt library: save and reuse custom prompts
 
 ## Themes & Customization
+- ~~Match system (macOS / iOS) light-dark appearance~~ ✓ **Shipped in v1.6.0** (Mac) and **v1.6.1** (iPhone)
 - Custom theme editor
 - Font selection
 - Adjustable editor width

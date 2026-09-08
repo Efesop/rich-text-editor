@@ -123,6 +123,7 @@ Real-time word count displayed in the editor footer.
 - Locked pages show with a lock icon in search results
 - Combine search with tag filters
 - Instant results as you type
+- On iPhone, filter chips above the list narrow it to All, one tag, or Locked notes
 
 ### Quick Switcher (Cmd+P)
 - VS Code-style fuzzy search overlay to jump to any page instantly
@@ -136,14 +137,36 @@ Real-time word count displayed in the editor footer.
 
 Four built-in themes, each fully applied to the editor, sidebar, modals, and all UI elements:
 
-| Theme | Description |
-|-------|-------------|
-| **Light** | Clean, bright interface |
-| **Dark** | Pure neutral dark mode (no blue tint) |
-| **Dark Blue** | Professional navy-tinted dark mode |
-| **Fallout** | Retro terminal aesthetic — green on black |
+| Theme (UI label) | Internal id | Description |
+|-------|-------------|-------------|
+| **Light** | `light` | Clean, bright interface |
+| **Dark** | `dark` | Pure neutral dark mode (no blue tint) |
+| **Night** | `darkblue` | Navy-tinted dark mode (labelled "Dark Blue" before v1.6) |
+| **Terminal** | `fallout` | Retro terminal aesthetic — green on black (labelled "Fallout" before v1.6) |
 
-Theme preference persists across sessions.
+Themes are picked from visible swatches in Settings (the gear in the Mac title bar) or from the Appearance sheet on iPhone (sun/moon icon in the header). Theme preference persists across sessions.
+
+### Match system appearance (v1.6)
+
+Turn on **Match macOS appearance** (Mac) or **Match iOS appearance** (iPhone) and Dash follows the system light/dark setting: Light when the system is light, and your preferred dark theme (Dark, Night, or Terminal — whichever you last chose) when it is dark. Picking a theme by hand turns matching off again.
+
+---
+
+## Layout (v1.6)
+
+### Mac
+- **Title in the document** — the page title sits at the top of the editor column with tags, date, and word count beneath it. There is no separate header bar.
+- **Title-bar toolbar** — Lock page, Self-destruct, Export, Settings (gear), and a ⋯ menu.
+- **⋯ menu** — Share encrypted note, Version history, Move to folder, Duplicate (⌘⇧D), Import encrypted bundle, Use on your phone, Report a bug, Move to Trash (⌘⇧⌫). When an update is available the menu shows a dot and an "Update to Dash x.y.z" row.
+- **Settings popover** — theme swatches, Match macOS appearance, App lock, Dash Sync, Backups, Trash, Keyboard shortcuts, version and Check for updates.
+- **Sidebar** — FOLDERS and NOTES sections; new-folder on the Folders label, sort on the Notes label; the footer is just the collapse button. Expanded folders show a chevron and a bright title.
+- **Status bar** — encryption chip and sync status on the left; outline, AI, and features on the right.
+
+### iPhone
+- **Notes screen** — full-width list with a large title, search bar, filter chips (All, tags, Locked), FOLDERS and NOTES sections, and a New note button within thumb reach.
+- **Swipe actions** — swipe a note left to move it to Trash, right to lock or unlock it. Press-and-hold still drags for reordering.
+- **Appearance sheet** — from the sun/moon icon in the header: theme swatches plus Match iOS appearance.
+- **Settings sheet** — from the footer: Appearance, App lock, Dash Sync, Backups, Trash, table of contents, Keyboard shortcuts, Report a bug, version.
 
 ---
 
@@ -163,7 +186,7 @@ Theme preference persists across sessions.
 - Master password required to unlock
 - **Touch ID / Face ID biometric unlock** — use Touch ID on macOS or Face ID (Touch ID on older devices) on iOS, via `@aparajita/capacitor-biometric-auth`, as an alternative to typing your password
 - Biometrics also available for unlocking individual locked pages
-- Instant lock with Cmd+Shift+L shortcut or sidebar lock button
+- Instant lock with Cmd+Shift+L
 - Locks automatically on app launch if enabled
 - Settings persist across app updates
 
@@ -228,7 +251,7 @@ Browse and restore previous versions of any page.
 
 Optional end-to-end-encrypted sync keeps notes, folders, tags, attachments, and version history in step across Mac, iPhone, iPad, and the PWA. Sync requires a **Dash Sync** subscription ($4.99/mo or $47.99/yr, 7-day free trial) on every platform; with it turned off, Dash is 100% local and offline exactly as before.
 
-- **Zero-knowledge relay** — the sync server (`dash-relay.efesop.deno.net`) only ever stores encrypted blobs. It never sees note contents and never holds your vault key.
+- **Zero-knowledge relay** — the sync server (`dash-relay.efesop.deno.net`, with an automatic fallback through `dashnote.io/relay` on networks that block deno.net) only ever stores encrypted blobs. It never sees note contents and never holds your vault key.
 - **Client-side vault encryption** — a per-account vault key encrypts everything before upload; the key is derived on-device and never leaves it.
 - **Magic-link sign-in** — sign in with your email and a 6-digit code (no password to remember). Identity only ties your subscription to your devices.
 - **Trash & auto-backup** — deleted pages sync to a recoverable Trash (30-day retention); scheduled encrypted `.dashpack` backups run independently of sync.
@@ -312,7 +335,7 @@ All exports can optionally be **encrypted with a passphrase** (AES-GCM-256).
 
 ## Desktop Features (Electron)
 
-- **Auto-update** — checks for updates automatically, download and install in-app
+- **Auto-update** — silent background checks; an available update shows as a card (Later / Download) and as a dot on the ⋯ menu. Nothing downloads or installs without confirmation
 - **Native file storage** — pages saved as local JSON files
 - **Bug reporting** — built-in GitHub issue creator
 - **macOS Applications folder prompt** — guides users to install correctly
@@ -321,11 +344,11 @@ All exports can optionally be **encrypted with a passphrase** (AES-GCM-256).
 
 ---
 
-## Mobile Features (PWA)
+## Mobile Features (iOS app & PWA)
 
 - **Install as app** — add to home screen on iOS/Android
 - **Offline support** — full service worker caching
-- **Touch-optimized UI** — action sheets replace dropdowns, responsive layout
+- **Touch-optimized UI** — bottom sheets replace dropdowns; full-width Notes screen with swipe actions (v1.6.1)
 - **Mobile install guide** — step-by-step prompt for first-time mobile visitors
 - **IndexedDB storage** — persistent storage that survives browser cache clearing
 

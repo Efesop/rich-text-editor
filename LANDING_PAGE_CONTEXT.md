@@ -4,7 +4,7 @@
 
 > **HISTORICAL SNAPSHOT — READ FIRST.** This document describes Dash as of
 > **v1.3.101 (March 1, 2026)** and is kept for reference. The current app is
-> **v1.5.0**, which added **Dash Sync** — optional, end-to-end-encrypted
+> **v1.6.3 (September 8, 2026)**. v1.5 added **Dash Sync** — optional, end-to-end-encrypted
 > multi-device cloud sync sold as a subscription (**$4.99/mo or $47.99/yr,
 > 7-day free trial**, with magic-link email sign-in) — plus a **native iOS
 > App Store app** (Capacitor). Several claims below are now out of date; the
@@ -13,6 +13,15 @@
 > offline core — Dash Sync exists as a paid add-on and requires an email
 > sign-in. The Mac desktop app is a **$14.99 one-time purchase** (desktop
 > license only); only macOS ships as a desktop binary.
+>
+> **v1.6 (September 2026)** refreshed the layout. Mac: the page title sits in
+> the document, the toolbar moved into the title bar with a Settings gear and a
+> ⋯ menu, and themes are labelled Light / Dark / Night / Terminal with a
+> "Match macOS appearance" option. iPhone: the notes list is a full-width
+> screen with swipe-to-trash / swipe-to-lock and Appearance / Settings sheets.
+> **Every screenshot or video captured before September 2026 shows the old
+> layout.** The up-to-date product context lives in
+> `/Users/ollie/DashLandingPage/PRODUCT_CONTEXT.md`.
 
 ---
 
@@ -108,6 +117,7 @@ Dash is a beautiful, privacy-first note-taking app that keeps your thoughts comp
 | Light Theme | Clean, bright interface | Comfortable daytime use |
 | Dark Theme | Easy on the eyes | Late night writing |
 | Fallout Theme | Retro terminal aesthetic | Unique, fun experience |
+| Night Theme | Navy-tinted dark mode (added after this snapshot as "Dark Blue") | 4th theme. Since v1.6 the four are labelled Light / Dark / Night / Terminal, with a "Match system appearance" option |
 | Responsive Design | Works on any screen | Desktop to mobile |
 | Minimal Interface | Distraction-free | Focus on writing |
 

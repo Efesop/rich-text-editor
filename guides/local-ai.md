@@ -123,7 +123,7 @@ After the AI generates a response:
 
 ### Markdown Rendering
 
-AI responses render as formatted markdown in real-time as they stream. Headings, bold, italic, lists, code blocks, tables, blockquotes, and links all display correctly within the panel. Styles adapt to all four Dash themes (Light, Dark, Dark Blue, Fallout).
+AI responses render as formatted markdown in real-time as they stream. Headings, bold, italic, lists, code blocks, tables, blockquotes, and links all display correctly within the panel. Styles adapt to all four Dash themes (Light, Dark, Night, Terminal).
 
 ### Keyboard Shortcuts
 
@@ -322,13 +322,13 @@ Four complete glass color sets that match Dash's themes:
 - Specular: light blue (0.35 → 0)
 - Shadow: rgba(0, 0, 0, 0.3)
 
-**Dark Blue:**
+**Night (Dark Blue):**
 - Frost: medium blue (0.05 → 0.22 opacity)
 - Rim: rgba(80, 130, 240, 0.35)
 - Specular: light blue (0.4 → 0)
 - Shadow: rgba(0, 10, 40, 0.35)
 
-**Fallout:**
+**Terminal (Fallout):**
 - Frost: green tints (0.04 → 0.2 opacity)
 - Rim: rgba(74, 222, 128, 0.35)
 - Specular: bright green (0.38 → 0)

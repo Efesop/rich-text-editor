@@ -16,6 +16,18 @@ Comprehensive audit of all pages on dashnote.io with recommendations for copy, f
 > gated off (`LIVE_SESSIONS_ENABLED = false` in `RichTextEditor.js`). Treat
 > every recommendation below to market "live collaboration" or "live sessions"
 > as obsolete; it is in development, not available.
+>
+> **September 2026 update.** The app is now **v1.6.3**. v1.6 changed the
+> layout (in-document title, title-bar toolbar with a Settings gear and ⋯ menu
+> on Mac; full-width Notes screen with swipe actions on iPhone) and relabelled
+> the themes Light / Dark / Night / Terminal with a match-system option.
+> **Every screenshot, video, and mockup on dashnote.io shows the pre-1.6
+> layout** and should be re-captured. On Sep 8 2026 the copy that still said
+> "no cloud sync", "no subscriptions", "live collaboration", "Windows/Linux",
+> or "PWA is the only mobile option" was corrected (homepage FAQ + JSON-LD,
+> comparison table, download page, every use-case and guide page, share page,
+> privacy policy). The hero / metadata positioning ("no cloud, no tracking, no
+> accounts") was deliberately left as a marketing choice — revisit.
 
 ---
 

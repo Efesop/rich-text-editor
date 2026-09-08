@@ -29,13 +29,14 @@ Dash is a privacy-first, offline-first note-taking app. Everything is stored loc
 - **AES-256 Encryption** - Lock individual notes or the entire app with password protection.
 - **Rich Editor** - 15+ block types: headers, lists, code, tables, images, embeds, seed phrase storage, and more.
 - **Page Linking** - Type `[[` to create wiki-style links between pages, or highlight text and link via the toolbar.
-- **4 Themes** - Light, Dark, Dark Blue, and Fallout (retro terminal).
+- **4 Themes** - Light, Dark, Night, and Terminal, or match your system's light/dark setting.
 - **Folders & Tags** - Organize with drag-and-drop folders and color-coded tags.
 - **Quick Switcher** - Cmd+P to jump to any note instantly.
 - **Self-Destructing Notes** - Set notes to auto-delete after a time period.
 - **Duress Password** - A secondary password that silently shows decoy notes under coercion (real data stays encrypted on disk).
 - **Seed Phrase Storage** - Secure numbered grid for crypto wallet recovery phrases with BIP-39 validation.
 - **Touch ID & Face ID** - Biometric unlock on macOS and iOS.
+- **Built for iPhone** - Full-width notes screen with swipe to trash or lock, plus a native App Store app.
 - **Focus Mode** - Distraction-free writing with typewriter scrolling, paragraph dimming, and session stats.
 - **Export Anywhere** - PDF, Markdown, Word, RTF, JSON, XML, CSV. All optionally encrypted.
 - **Dash Sync (optional)** - End-to-end-encrypted sync across Mac, iPhone, iPad, and the web. Subscription-based; the relay only ever sees ciphertext.

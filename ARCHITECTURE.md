@@ -46,6 +46,11 @@ dash/
 │   ├── SyncSettingsPanel.js    # Dash Sync settings (pair devices, status, disable)
 │   ├── SignInModal.js          # Magic-link email sign-in (Mac/PWA)
 │   ├── PaywallModal.js         # iOS subscription paywall (RevenueCat)
+│   ├── SettingsPopover.js      # Mac Settings popover: themes, match-system, app lock, sync, backups, trash, shortcuts, updates (v1.6)
+│   ├── PageMenu.js             # Mac ⋯ menu: share, history, move, duplicate, import, phone, bug, trash, update row (v1.6)
+│   ├── AppearanceSheet.js      # iPhone theme sheet: swatches + match-system (v1.6.1)
+│   ├── MobileFooter.js         # iPhone footer + Settings sheet
+│   ├── UpdateNotification.js   # Desktop update card (Available / Downloading / Ready)
 │   └── ...
 ├── hooks/
 │   ├── usePagesManager.js    # Page/folder CRUD + DnD reorder operations
@@ -368,16 +373,28 @@ const currentPageRef = useRef(null)
 
 ## Themes
 
-Four themes are supported:
-1. **Light**: Clean, professional look
-2. **Dark**: Easy on the eyes for night use
-3. **Dark Blue**: Professional navy-tinted dark mode
-4. **Fallout**: Terminal-style green phosphor aesthetic
+Four themes are supported (internal id → label shown in the UI since v1.6):
+1. `light` → **Light**: Clean, professional look
+2. `dark` → **Dark**: Easy on the eyes for night use
+3. `darkblue` → **Night**: Navy-tinted dark mode (was labelled "Dark Blue")
+4. `fallout` → **Terminal**: Green phosphor aesthetic (was labelled "Fallout")
 
 Theme is applied via:
 - Tailwind CSS classes with theme conditions
 - next-themes for persistence
-- Component-level theme class generators
+- Component-level theme class generators in `utils/themeUtils.js` (note: that file is **not** in the Tailwind content globs, so classes used only there are never generated — use explicit classes in components)
+
+### Match system appearance (v1.6)
+
+`RichTextEditor.js` owns a `matchSystemAppearance` flag persisted as
+`localStorage['dash:match-system']` (`'1'`/`'0'`). While it is on, a
+`matchMedia('(prefers-color-scheme: dark)')` listener sets the theme to
+`light` or to the stored dark variant in `localStorage['dash:system-dark-theme']`
+(the last non-light theme the user picked, default `dark`). Choosing a theme
+by hand records it as the dark variant (if it is not `light`) and switches
+matching off. The same logic drives the Mac `SettingsPopover` and the iPhone
+`AppearanceSheet`; the label reads "Match macOS appearance" or "Match iOS
+appearance" depending on platform.
 
 ## Export Formats
 
@@ -524,12 +541,15 @@ every platform. Full architecture is in [SYNC.md](./SYNC.md); in brief:
 
 The desktop app supports auto-updates via `electron-updater`:
 
-1. User manually checks for updates
-2. If available, downloads in background
-3. User confirms to install
-4. App restarts with new version
+1. `electron-main.js` checks silently on launch and on a timer (`autoDownload`
+   and `autoInstallOnAppQuit` are both `false`, so nothing is fetched yet)
+2. The renderer shows an update card (`UpdateNotification.js`: Available →
+   Downloading → Ready, with Later / Download) and a dot on the ⋯ menu plus an
+   "Update to Dash x.y.z" row; Settings also has "Check for updates"
+3. The user starts the download and confirms the install
+4. App restarts with the new version
 
-No automatic background update checks - user initiates all update checks.
+No update is downloaded or installed without the user's confirmation.
 
 ## Accessibility
 
