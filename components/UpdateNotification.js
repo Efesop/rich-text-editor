@@ -435,9 +435,12 @@ export default function UpdateNotification({
   const content = renderContent()
   if (!content) return null
 
-  // Regular notifications use the corner card with an X in the corner
+  // Regular notifications use the corner card with an X in the corner.
+  // NB: no `relative` here — Tailwind emits it after `fixed`, so it would
+  // override the fixed positioning and drop the card into the flex row
+  // (full-height panel bug in v1.6.1). `fixed` already anchors the X.
   return (
-    <div className={`${styles.container} relative`} role="status" aria-live="polite" style={{ animation: 'dash-dropdown-in 160ms ease-out forwards' }}>
+    <div className={styles.container} role="status" aria-live="polite" style={{ animation: 'dash-dropdown-in 160ms ease-out forwards' }}>
       {content}
       <CloseButton />
     </div>
