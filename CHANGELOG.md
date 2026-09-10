@@ -50,9 +50,11 @@ attachments are safe before imports add thousands more.
 - Sync settings show storage used out of 500 MB, attachments waiting with a
   time estimate, notes too large to sync, and attachments that couldn't be
   transferred, with Try again. Each paired device shows its app version.
-- Attachment uploads stop at 90% of sync storage so notes keep room to sync,
-  and the relay stops taking attachments when its own storage is nearly full
-  instead of failing for everyone.
+- Attachment uploads stop at 90% of sync storage so notes keep room to sync.
+  The relay stops taking attachments when its own storage is nearly full or
+  this month's attachment allowance is used, and stores a large note at most
+  once a minute while it is being edited, so a busy month can't take the relay
+  down for everyone.
 
 ## [1.6.3] - 2026-09-08
 

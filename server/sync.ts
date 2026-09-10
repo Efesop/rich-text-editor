@@ -142,6 +142,17 @@ export const ABANDONED_UPLOAD_MS = 24 * 60 * 60 * 1000
 export const MAX_EXISTS_IDS = 200
 // Pulls refresh a vault's lastActivityAt at most this often.
 const ACTIVITY_REFRESH_MS = 24 * 60 * 60 * 1000
+// Guards that keep the Free Deno Deploy plan's monthly allowance from running
+// out, which would pause the relay for everyone. Attachments stop for the rest
+// of the month once this much has been uploaded relay-wide (about half the
+// plan's write allowance, if writes are counted per KiB); notes are never held
+// back by it. Override with MONTHLY_ATTACHMENT_BUDGET_BYTES.
+export const MONTHLY_ATTACHMENT_BUDGET_BYTES = Number(Deno.env.get('MONTHLY_ATTACHMENT_BUDGET_BYTES')) || 250 * 1024 * 1024
+// An envelope larger than INLINE_BLOB_BYTES is stored at most once per this
+// interval per resource. A faster push gets 429 with Retry-After; the client
+// keeps its latest version and sends it when the window passes. Typing in a
+// large note would otherwise rewrite the whole note every few seconds.
+export const LARGE_ENVELOPE_INTERVAL_MS = 60 * 1000
 // App versions a device may report, e.g. "1.6.8" or "1.7.0-beta.2".
 const APP_VERSION_RE = /^\d{1,4}\.\d{1,4}\.\d{1,4}(?:[-+][0-9A-Za-z.-]{1,32})?$/
 export const TIMESTAMP_SKEW_MS = 5 * 60 * 1000 // 5 min
@@ -405,6 +416,26 @@ export async function relayUsageBytes(kv: Deno.Kv): Promise<number> {
   }
   const total = baseline + counterValue(added) - counterValue(freed)
   return total > 0n ? Number(total) : 0
+}
+
+let monthlyAttachmentBudgetBytes = MONTHLY_ATTACHMENT_BUDGET_BYTES
+/** Tests only: change the monthly attachment budget. */
+export function setMonthlyAttachmentBudgetForTests(bytes: number): void {
+  monthlyAttachmentBudgetBytes = bytes
+}
+export function resetMonthlyAttachmentBudget(): void {
+  monthlyAttachmentBudgetBytes = MONTHLY_ATTACHMENT_BUDGET_BYTES
+}
+
+/** Counter of attachment bytes uploaded relay-wide in the UTC month of `ts`. */
+function attachmentMonthKey(ts: number): Deno.KvKey {
+  const d = new Date(ts)
+  return ['kv-meta', 'attachment-bytes', `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`]
+}
+
+function secondsUntilNextMonth(ts: number): number {
+  const d = new Date(ts)
+  return Math.max(1, Math.ceil((Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1) - ts) / 1000))
 }
 
 async function recordFreedBytes(kv: Deno.Kv, bytes: number): Promise<void> {
@@ -1105,6 +1136,23 @@ export async function handlePush(
     decoded.push({ e, bytes, size })
   }
 
+  // Large envelopes are stored at most once per LARGE_ENVELOPE_INTERVAL_MS per
+  // resource. Clients treat 429 as "wait": they keep the latest version and
+  // send it when Retry-After passes, so nothing is lost.
+  for (const d of decoded) {
+    if (d.size <= INLINE_BLOB_BYTES) continue
+    const latest = kv.list<SyncBlob>(
+      { prefix: ['v', auth.vaultId, d.e.resourceType, d.e.resourceId] },
+      { reverse: true, limit: 1 },
+    )
+    for await (const entry of latest) {
+      const elapsed = now() - entry.value.uploadedAt
+      if (elapsed < LARGE_ENVELOPE_INTERVAL_MS) {
+        return rateLimitedResponse(Math.max(1, Math.ceil((LARGE_ENVELOPE_INTERVAL_MS - elapsed) / 1000)))
+      }
+    }
+  }
+
   const indexKey = ['v', auth.vaultId, 'index']
 
   // Refuse up front when the vault can't take the batch, before storing any
@@ -1625,7 +1673,18 @@ export async function handleAttachmentUpload(
   if (await isKvFull(kv, bytes.byteLength)) {
     return errorResponse('capacity', 503, {
       message: 'Relay storage is at capacity; attachment uploads are paused',
+      reason: 'storage',
     }, { 'Retry-After': '3600' })
+  }
+  // Monthly budget: once this month's uploads reach it, the rest wait until
+  // next month, and Retry-After says when that is.
+  const month = await kv.get<Deno.KvU64>(attachmentMonthKey(now()))
+  const uploadedThisMonth = month.value instanceof Deno.KvU64 ? Number(month.value.value) : 0
+  if (uploadedThisMonth + bytes.byteLength > monthlyAttachmentBudgetBytes) {
+    return errorResponse('capacity', 503, {
+      message: "This month's attachment allowance is used; uploads resume next month",
+      reason: 'monthly-budget',
+    }, { 'Retry-After': String(secondsUntilNextMonth(now())) })
   }
 
   const chunks = bytes.byteLength > INLINE_BLOB_BYTES ? await writeChunks(kv, auth.vaultId, bytes) : null
@@ -1667,6 +1726,7 @@ export async function handleAttachmentUpload(
         lastActivityAt: ts,
       })
       .sum(USAGE_ADDED_KEY, BigInt(bytes.byteLength))
+      .sum(attachmentMonthKey(ts), BigInt(bytes.byteLength))
     if (chunks) tx = tx.delete(pendingUploadKey(chunks.uploadId))
 
     const committed = await tx.commit()

@@ -23,6 +23,7 @@ import {
   clearRateLimits,
   getWsConnectionCount,
   INACTIVE_VAULT_TTL_MS,
+  LARGE_ENVELOPE_INTERVAL_MS,
   MAX_BATCH_BYTES,
   MAX_BATCH_COUNT,
   MAX_DEVICES_PER_VAULT,
@@ -35,9 +36,11 @@ import {
   relayUsageBytes,
   resetClock,
   resetKvCeiling,
+  resetMonthlyAttachmentBudget,
   routeSyncRequest,
   setClock,
   setKvCeilingForTests,
+  setMonthlyAttachmentBudgetForTests,
   sweepAbandonedUploads,
   TOMBSTONE_PERMANENT_MS,
 } from './sync.ts'
@@ -135,6 +138,7 @@ function setupTeardown<T>(fn: (kv: Deno.Kv) => Promise<T>): () => Promise<T> {
     clearRateLimits()
     resetClock()
     resetKvCeiling()
+    resetMonthlyAttachmentBudget()
     const kv = await freshKv()
     try {
       return await fn(kv)
@@ -1352,10 +1356,13 @@ Deno.test('eviction: evicted note versions take their chunks and bytes with them
   await relayUsageBytes(kv)
   const size = 100 * 1024
   const t0 = Date.now()
+  // Large envelopes are stored at most once a minute per note.
+  const step = LARGE_ENVELOPE_INTERVAL_MS + 1000
   for (let i = 0; i < MAX_NOTE_VERSIONS + 1; i++) {
-    setClock(() => t0 + i * 3000)
-    assertEquals((await pushNote(kv, 'evict-chunks', mkCipher(size))).status, 200, `push ${i + 1}`)
+    setClock(() => t0 + i * step)
+    assertEquals((await pushNote(kv, 'evict-chunks', mkCipher(size), { timestamp: t0 + i * step })).status, 200, `push ${i + 1}`)
   }
+  resetClock()
   const uploads = new Set((await listKeys(kv, ['v', VAULT_A, 'chunk'])).map((k) => k[3]))
   assertEquals(uploads.size, MAX_NOTE_VERSIONS)
   const index = await (await callSync(kv, 'GET', '/sync/vault/index')).json()
@@ -1475,4 +1482,53 @@ Deno.test('share: large payloads round-trip through chunks, small ones stay sing
   await kv.delete(['share-chunk', 'partial', 1])
   assertEquals(await readShare(kv, 'partial'), null)
   assertEquals((await handleShareRequest(kv, new Request('http://localhost/share/missing'), cors))?.status, 404)
+}))
+
+// ── Free-plan guards ───────────────────────────────────────────────────
+
+Deno.test('large envelopes: stored at most once a minute per resource, with Retry-After', setupTeardown(async (kv) => {
+  await registerDevice(kv)
+  const t0 = Date.now()
+  setClock(() => t0)
+  assertEquals((await pushNote(kv, 'big', mkCipher(100 * 1024), { timestamp: t0 })).status, 200)
+
+  const again = await pushNote(kv, 'big', mkCipher(100 * 1024), { timestamp: t0 })
+  assertEquals(again.status, 429)
+  const retryAfter = Number(again.headers.get('Retry-After'))
+  assert(retryAfter > 0 && retryAfter <= LARGE_ENVELOPE_INTERVAL_MS / 1000, `Retry-After ${retryAfter}`)
+  assertEquals((await again.json()).error, 'rate-limited')
+
+  // Small envelopes, and large ones for other resources, are not held back.
+  assertEquals((await pushNote(kv, 'big', mkCipher(1024), { timestamp: t0 })).status, 200)
+  assertEquals((await pushNote(kv, 'other-big', mkCipher(100 * 1024), { timestamp: t0 })).status, 200)
+
+  const later = t0 + LARGE_ENVELOPE_INTERVAL_MS
+  setClock(() => later)
+  assertEquals((await pushNote(kv, 'big', mkCipher(100 * 1024), { timestamp: later })).status, 200)
+}))
+
+Deno.test('capacity: attachments stop for the month once its budget is used, then resume next month', setupTeardown(async (kv) => {
+  await registerDevice(kv)
+  setMonthlyAttachmentBudgetForTests(100 * 1024)
+  const lateSeptember = Date.UTC(2026, 8, 30, 23, 0, 0)
+  setClock(() => lateSeptember)
+  const upload = (id: string, at: number) =>
+    callSync(kv, 'POST', `/sync/attachment/${id}`, { ciphertext: base64Encode(mkCipher(60 * 1024)) }, { timestamp: at })
+
+  assertEquals((await upload('month-1', lateSeptember)).status, 200)
+  const refused = await upload('month-2', lateSeptember)
+  assertEquals(refused.status, 503)
+  // An hour until October starts.
+  assertEquals(refused.headers.get('Retry-After'), '3600')
+  const body = await refused.json()
+  assertEquals(body.error, 'capacity')
+  assertEquals(body.reason, 'monthly-budget')
+  assertEquals((await callSync(kv, 'GET', '/sync/attachment/month-2', undefined, { timestamp: lateSeptember })).status, 404)
+
+  // Notes are unaffected by the attachment budget.
+  assertEquals((await pushNote(kv, 'note-in-budget-month', mkCipher(2048), { timestamp: lateSeptember })).status, 200)
+
+  const october = Date.UTC(2026, 9, 1, 0, 0, 5)
+  setClock(() => october)
+  assertEquals((await upload('month-2', october)).status, 200)
 }))

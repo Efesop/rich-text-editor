@@ -745,7 +745,7 @@ function UnlockedState ({
 
       {transfers?.uploadsPausedUntil && !transfers?.uploadsHeld && (
         <SyncNotice title="Attachment uploads are paused" titleClasses={titleClasses} subtitleClasses={subtitleClasses}>
-          The sync server is out of space for attachments right now. They stay on this device and upload later.
+          The sync server is not taking new attachments right now. They stay on this device and upload later.
         </SyncNotice>
       )}
 
