@@ -568,10 +568,17 @@ describe('Content Sanitization — sanitizeEditorContent', () => {
     assert.equal(result.blocks[0].data.content[0][1], 'safe')
   })
 
-  it('escapes HTML in code blocks', () => {
+  // Code is stored raw. Escaping it here compounded on every save (CodeBlock
+  // reads it back from a textarea) and protected nothing — every renderer
+  // escapes on its own. The render-side guarantees are asserted in
+  // tests/block-sanitize.test.mjs.
+  it('stores code blocks raw so they survive repeated saves', () => {
     if (!sanitizeEditorContent) return
-    const result = sanitizeEditorContent({ blocks: [{ type: 'code', data: { code: '<script>alert(1)</script>' } }] })
-    assert.ok(result.blocks[0].data.code.includes('&lt;script&gt;'))
+    const code = '<script>alert(1)</script> && "q"'
+    const once = sanitizeEditorContent({ blocks: [{ type: 'code', data: { code } }] })
+    const twice = sanitizeEditorContent(once)
+    assert.equal(once.blocks[0].data.code, code)
+    assert.equal(twice.blocks[0].data.code, code)
   })
 
   it('preserves checklist checked state', () => {

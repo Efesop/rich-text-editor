@@ -239,7 +239,9 @@ export default class CodeBlock {
   save() {
     return {
       code: this._data.code,
-      language: this._data.language
+      language: this._data.language,
+      // Never escaped, so utils/migrateBlocks.js must not undo old escaping here.
+      encoding: 'raw'
     }
   }
 
@@ -250,7 +252,8 @@ export default class CodeBlock {
   static get sanitize() {
     return {
       code: true,
-      language: false
+      language: false,
+      encoding: false
     }
   }
 

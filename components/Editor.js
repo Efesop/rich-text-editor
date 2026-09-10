@@ -75,7 +75,7 @@ export function parseMarkdownToBlocks (markdown) {
         i++
       }
       i++ // skip closing ```
-      blocks.push({ type: 'code', data: { code: codeLines.join('\n') } })
+      blocks.push({ type: 'code', data: { code: codeLines.join('\n'), encoding: 'raw' } })
       continue
     }
 

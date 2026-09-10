@@ -1,4 +1,13 @@
 import DOMPurify from 'isomorphic-dompurify'
+import { CALLOUT_ORDER } from '../lib/markdownShortcuts.js'
+
+const ALIGNMENTS = ['left', 'center', 'right']
+const QUOTE_ALIGNMENTS = ['left', 'center']
+// The services enabled in the embed tool's config (components/Editor.js).
+const EMBED_SERVICES = ['youtube', 'vimeo', 'github', 'twitter']
+// A code block's language is only compared and handed to highlight.js, never
+// written into HTML, so an identifier shape is enough to keep it safe.
+const CODE_LANGUAGE = /^[a-z0-9+#-]{1,24}$/i
 
 // Configure DOMPurify for Editor.js content
 const sanitizerConfig = {
@@ -41,11 +50,20 @@ export function sanitizeEditorContent(content) {
       data: {}
     }
 
+    // Tunes ride beside data. Alignment is the only tune that saves anything
+    // (AIBlockTune.save() returns undefined), so it is the only one kept.
+    const alignment = block.tunes?.alignment?.alignment
+    if (ALIGNMENTS.includes(alignment)) {
+      sanitizedBlock.tunes = { alignment: { alignment } }
+    }
+
     // Sanitize block data based on type
     switch (block.type) {
+      // String fields are kept even when empty, so every block comes back
+      // exactly as its tool saved it.
       case 'paragraph':
       case 'header':
-        if (block.data?.text) {
+        if (typeof block.data?.text === 'string') {
           sanitizedBlock.data.text = DOMPurify.sanitize(block.data.text, sanitizerConfig)
         }
         if (block.data?.level && typeof block.data.level === 'number') {
@@ -75,18 +93,34 @@ export function sanitizeEditorContent(content) {
         break
 
       case 'quote':
-        if (block.data?.text) {
+        if (typeof block.data?.text === 'string') {
           sanitizedBlock.data.text = DOMPurify.sanitize(block.data.text, sanitizerConfig)
         }
-        if (block.data?.caption) {
+        if (typeof block.data?.caption === 'string') {
           sanitizedBlock.data.caption = DOMPurify.sanitize(block.data.caption, sanitizerConfig)
+        }
+        if (QUOTE_ALIGNMENTS.includes(block.data?.alignment)) {
+          sanitizedBlock.data.alignment = block.data.alignment
         }
         break
 
       case 'code':
-        if (block.data?.code) {
-          // For code blocks, we want to preserve the exact content but escape HTML
-          sanitizedBlock.data.code = escapeHtml(block.data.code)
+        // Stored raw. Escaping here compounded on every save: CodeBlock loads
+        // code into a textarea via .value, so "&lt;" came back literally and
+        // was escaped again. Everywhere code is rendered escapes on its own —
+        // CodeBlock (textarea, textContent, highlight.js), pages/share.js and
+        // VersionHistoryModal (React text).
+        if (typeof block.data?.code === 'string') {
+          sanitizedBlock.data.code = block.data.code
+        }
+        if (typeof block.data?.language === 'string' && CODE_LANGUAGE.test(block.data.language)) {
+          sanitizedBlock.data.language = block.data.language
+        }
+        // Set by CodeBlock.save() and parseMarkdownToBlocks. Tells
+        // utils/migrateBlocks.js the code was never escaped, so the one-time
+        // repair of the old escaping must leave it alone.
+        if (block.data?.encoding === 'raw') {
+          sanitizedBlock.data.encoding = 'raw'
         }
         break
 
@@ -100,6 +134,9 @@ export function sanitizeEditorContent(content) {
         }
         if (block.data?.withHeadings !== undefined) {
           sanitizedBlock.data.withHeadings = Boolean(block.data.withHeadings)
+        }
+        if (block.data?.stretched !== undefined) {
+          sanitizedBlock.data.stretched = Boolean(block.data.stretched)
         }
         break
 
@@ -123,8 +160,13 @@ export function sanitizeEditorContent(content) {
             url: sanitizeImageUrl(block.data.file.url)
           }
         }
-        if (block.data?.caption) {
+        if (typeof block.data?.caption === 'string') {
           sanitizedBlock.data.caption = DOMPurify.sanitize(block.data.caption, sanitizerConfig)
+        }
+        for (const flag of ['withBorder', 'withBackground', 'stretched']) {
+          if (block.data?.[flag] !== undefined) {
+            sanitizedBlock.data[flag] = Boolean(block.data[flag])
+          }
         }
         break
 
@@ -135,20 +177,30 @@ export function sanitizeEditorContent(content) {
         if (block.data?.embed && isValidUrl(block.data.embed)) {
           sanitizedBlock.data.embed = sanitizeUrl(block.data.embed)
         }
-        if (block.data?.caption) {
+        if (typeof block.data?.caption === 'string') {
           sanitizedBlock.data.caption = DOMPurify.sanitize(block.data.caption, sanitizerConfig)
+        }
+        // Without `service` the embed tool renders an empty div.
+        if (EMBED_SERVICES.includes(block.data?.service)) {
+          sanitizedBlock.data.service = block.data.service
+        }
+        for (const dimension of ['width', 'height']) {
+          const value = block.data?.[dimension]
+          if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+            sanitizedBlock.data[dimension] = value
+          }
         }
         break
 
       case 'bulletListItem':
       case 'numberedListItem':
-        if (block.data?.text) {
+        if (typeof block.data?.text === 'string') {
           sanitizedBlock.data.text = DOMPurify.sanitize(block.data.text, sanitizerConfig)
         }
         break
 
       case 'checklistItem':
-        if (block.data?.text) {
+        if (typeof block.data?.text === 'string') {
           sanitizedBlock.data.text = DOMPurify.sanitize(block.data.text, sanitizerConfig)
         }
         sanitizedBlock.data.checked = Boolean(block.data?.checked)
@@ -172,6 +224,21 @@ export function sanitizeEditorContent(content) {
           mimeType: typeof block.data?.mimeType === 'string' ? block.data.mimeType.slice(0, 100) : '',
           size: typeof block.data?.size === 'number' ? block.data.size : 0,
           preview: typeof block.data?.preview === 'string' && block.data.preview.startsWith('data:image/') ? block.data.preview : ''
+        }
+        break
+
+      case 'callout':
+        sanitizedBlock.data = {
+          text: DOMPurify.sanitize(typeof block.data?.text === 'string' ? block.data.text : '', sanitizerConfig),
+          variant: CALLOUT_ORDER.includes(block.data?.variant) ? block.data.variant : 'info'
+        }
+        break
+
+      case 'toggle':
+        sanitizedBlock.data = {
+          summary: DOMPurify.sanitize(typeof block.data?.summary === 'string' ? block.data.summary : '', sanitizerConfig),
+          content: DOMPurify.sanitize(typeof block.data?.content === 'string' ? block.data.content : '', sanitizerConfig),
+          defaultCollapsed: Boolean(block.data?.defaultCollapsed)
         }
         break
 
@@ -203,23 +270,11 @@ function sanitizeBlockType(type) {
   const allowedTypes = [
     'paragraph', 'header', 'list', 'checklist', 'quote', 'code',
     'table', 'linkTool', 'image', 'embed', 'delimiter', 'marker',
-    'inlineCode', 'nestedlist', 'bulletListItem', 'numberedListItem', 'checklistItem', 'seedPhrase', 'attachment'
+    'inlineCode', 'nestedlist', 'bulletListItem', 'numberedListItem', 'checklistItem', 'seedPhrase', 'attachment',
+    'callout', 'toggle'
   ]
   
   return allowedTypes.includes(type) ? type : 'paragraph'
-}
-
-// Escape HTML characters for code blocks
-function escapeHtml(text) {
-  const map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  }
-  
-  return text.replace(/[&<>"']/g, m => map[m])
 }
 
 // Validate URL format - does NOT allow data: URLs by default (use isValidImageUrl for images)
