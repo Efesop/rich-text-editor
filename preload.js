@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld('electron', {
       'save-decoy-pages',
       'save-attachment',
       'load-attachment',
+      'has-attachment',
       'delete-attachment',
       'open-attachment',
       'read-versions',

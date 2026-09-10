@@ -37,13 +37,16 @@ import { captureVersion } from '../lib/versionStorage.js'
 import {
   pushAttachment as syncPushAttachment,
   pullAttachment as syncPullAttachment,
+  attachmentsExist as syncAttachmentsExist,
   extractAttachmentIds,
   newAttachmentIds
 } from '../lib/syncAttachments.js'
+import { createAttachmentTransferQueue } from '../lib/attachmentTransferQueue.js'
 import { fetchVersionList, fetchVersion } from '../lib/syncVersions.js'
 import { getEntitlementIds } from '../lib/entitlementId.js'
 import { buildSyncHeaders, generateAuthProof } from '../lib/syncAuth.js'
 import useTagStore from '../store/tagStore'
+import packageJson from '../package.json'
 
 // Persist backend for the queue itself (separate from vault metadata).
 function createQueuePersistBackend () {
@@ -63,6 +66,33 @@ function createQueuePersistBackend () {
   }
 }
 
+// Persist backend for attachment transfers: IndexedDB on every platform
+// (Electron's renderer has it too), beside the push queue.
+function createTransferPersistBackend () {
+  if (typeof window === 'undefined') return null
+  return {
+    read: () => mobileStorage.readAttachmentTransfers(),
+    write: (state) => mobileStorage.saveAttachmentTransfers(state)
+  }
+}
+
+// Notes the relay refused as too large to ever store. Kept on this device so
+// Sync settings can list them until they sync.
+const OVERSIZE_NOTES_KEY = 'dash:sync:oversize-notes'
+function readOversizeNotes () {
+  try {
+    const list = JSON.parse(localStorage.getItem(OVERSIZE_NOTES_KEY) || '[]')
+    return Array.isArray(list) ? list : []
+  } catch {
+    return []
+  }
+}
+function writeOversizeNotes (list) {
+  try { localStorage.setItem(OVERSIZE_NOTES_KEY, JSON.stringify(list)) } catch { /* unavailable */ }
+}
+
+const APP_VERSION = packageJson.version
+
 /**
  * @typedef {Object} SyncStatus
  * @property {boolean} enabled - is sync enabled at all?
@@ -75,10 +105,14 @@ function createQueuePersistBackend () {
  * @property {string|null} deviceId
  * @property {string|null} deviceName
  * @property {Array} pairedDevices
+ * @property {object|null} transfers - attachment transfer summary
+ * @property {Array} oversizeNotes - notes the relay refused as too large to store
  */
 
 export function useSyncQueue ({
   pagesRef,         // ref to the latest pages array (from usePagesManager)
+  getLatestPages,   // () => the pages right now (usePagesManager's pagesRef)
+  arePagesLoaded,   // () => false until usePagesManager has read the pages
   hasInFlightEdit,  // (pageId) => boolean — caller's dirty-page detector
   isAppLocked,      // boolean ref or value — when true, sync is paused
   duressActive,     // boolean ref or value — when true, sync is cleared
@@ -91,12 +125,16 @@ export function useSyncQueue ({
   const metadataRef = useRef(null) // reactive copy: { vaultId, deviceId, deviceName, syncEnabled, ... }
   const lastSyncedSnapshotRef = useRef([]) // pages array as last seen by sync
   const pullingRef = useRef(false)
-  // Phase 2.6: track attachments we've pushed/pulled in this session to
-  // avoid redundant network calls for attachments we know are already at
-  // the server / already cached locally. Server is content-addressed so
-  // this is just a cost optimization, not a correctness requirement.
-  const pushedAttachmentsRef = useRef(new Set())
-  const pulledAttachmentsRef = useRef(new Set())
+  // Phase 2.6: attachment bytes move through a durable transfer queue.
+  const transferQueueRef = useRef(null)
+  // Latest known vault usage, so photo uploads leave room for notes.
+  const usageRef = useRef(null)
+  const oversizeNotesRef = useRef(typeof window !== 'undefined' ? readOversizeNotes() : [])
+  const getLatestPagesRef = useRef(getLatestPages)
+  getLatestPagesRef.current = getLatestPages
+  const arePagesLoadedRef = useRef(arePagesLoaded)
+  arePagesLoadedRef.current = arePagesLoaded
+  const sessionStartedRef = useRef(false)
   // Phase 2.10c: refs to functions defined later in the hook body — used
   // by adoptVault (declared earlier) without taking them as deps (which
   // would TDZ at the useCallback site). Same render → same closure.
@@ -114,7 +152,9 @@ export function useSyncQueue ({
     vaultId: null,
     deviceId: null,
     deviceName: null,
-    pairedDevices: []
+    pairedDevices: [],
+    transfers: null,
+    oversizeNotes: oversizeNotesRef.current
   })
 
   const updateStatus = useCallback((partial) => {
@@ -124,6 +164,13 @@ export function useSyncQueue ({
       return next
     })
   }, [onStatusChange])
+
+  // The pages right now. usePagesManager's ref is fresher than the React
+  // state RichTextEditor mirrors into pagesRef.
+  const latestPages = useCallback(() => {
+    const fresh = typeof getLatestPagesRef.current === 'function' ? getLatestPagesRef.current() : null
+    return Array.isArray(fresh) ? fresh : (pagesRef?.current || [])
+  }, [pagesRef])
 
   // ── Initialization ─────────────────────────────────────────────────────
 
@@ -238,6 +285,36 @@ export function useSyncQueue ({
     const queue = createSyncQueue({
       getCredentials,
       persistBackend,
+      // Entries past the queue's payload budget are pushed from the pages as
+      // they are at push time.
+      resolvePayload: (resourceType, resourceId) => {
+        if (resourceType === 'tombstone') return { tombstoned: true }
+        const pages = latestPages()
+        // Pages not loaded yet: wait, rather than conclude the page is gone.
+        if (pages.length === 0) return undefined
+        if (resourceType === 'meta') {
+          return resourceId === 'manifest' ? buildManifestPayload(pages, useTagStore.getState().tags || []) : undefined
+        }
+        const page = pages.find(p => p && p.id === resourceId)
+        if (!page) return null
+        // Same rule as enqueueChangedPages: peers can't read app-lock ciphertext.
+        if (page.appLockEncrypted === true && (!page.content || !Array.isArray(page.content?.blocks))) return undefined
+        return page
+      },
+      onDrop: ({ resourceType, resourceId, reason }) => {
+        if (resourceType !== 'note') return
+        const next = [...oversizeNotesRef.current.filter(n => n.resourceId !== resourceId), { resourceId, reason, at: Date.now() }]
+        oversizeNotesRef.current = next
+        writeOversizeNotes(next)
+        updateStatus({ oversizeNotes: next })
+      },
+      onPushed: ({ resourceType, resourceId }) => {
+        if (resourceType !== 'note' || !oversizeNotesRef.current.some(n => n.resourceId === resourceId)) return
+        const next = oversizeNotesRef.current.filter(n => n.resourceId !== resourceId)
+        oversizeNotesRef.current = next
+        writeOversizeNotes(next)
+        updateStatus({ oversizeNotes: next })
+      },
       canPush: () => {
         const al = isAppLockedRef.current
         const da = duressActiveRef.current
@@ -260,6 +337,47 @@ export function useSyncQueue ({
     return () => {
       queue.dispose?.()
       queueRef.current = null
+    }
+    // Intentionally exclude isAppLocked/duressActive — read via refs above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [getCredentials, updateStatus, latestPages])
+
+  // ── Attachment transfers (Phase 2.6) ───────────────────────────────────
+
+  useEffect(() => {
+    const storage = () => import('../lib/attachmentStorage.js')
+    const transfers = createAttachmentTransferQueue({
+      relay: {
+        upload: async (attachmentId, bytes) => syncPushAttachment({ attachmentId, bytes, credentials: await getCredentials() }),
+        download: async (attachmentId) => syncPullAttachment({ attachmentId, credentials: await getCredentials() }),
+        exists: async (ids) => syncAttachmentsExist({ ids, credentials: await getCredentials() })
+      },
+      store: {
+        load: async (id) => (await storage()).loadAttachment(id),
+        save: async (id, bytes) => {
+          const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+          await (await storage()).saveAttachment(id, buffer)
+        },
+        has: async (id) => (await storage()).hasAttachment(id)
+      },
+      persist: createTransferPersistBackend(),
+      getUsage: () => usageRef.current,
+      canRun: () => {
+        const store = vaultStoreRef.current
+        if (!store || !metadataRef.current?.syncEnabled || !store.isUnlocked()) return false
+        const al = isAppLockedRef.current
+        const da = duressActiveRef.current
+        if (typeof al === 'function' ? al() : al) return false
+        if (typeof da === 'function' ? da() : da) return false
+        return true
+      },
+      onChange: (summary) => updateStatus({ transfers: summary })
+    })
+    transferQueueRef.current = transfers
+    transfers.restore().catch(() => {})
+    return () => {
+      transfers.dispose()
+      transferQueueRef.current = null
     }
     // Intentionally exclude isAppLocked/duressActive — read via refs above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -295,26 +413,13 @@ export function useSyncQueue ({
         payload: page,
         parentVersion: meta.lastSyncedVersion?.[pageId] ?? null
       })
-      // Phase 2.6: push any attachments newly referenced by this page.
-      // Fire-and-forget background tasks — note envelope can land before
-      // attachments arrive at server; recipient devices lazy-pull on
-      // first view.
+      // Phase 2.6: upload attachments this page newly references. The
+      // transfer queue retries until each one lands; the note envelope can
+      // arrive first, and other devices download on their side.
       try {
         const baselinePage = (baseline || []).find(p => p.id === pageId) || null
         const newIds = newAttachmentIds(baselinePage, page)
-        for (const attId of newIds) {
-          if (pushedAttachmentsRef.current.has(attId)) continue
-          pushedAttachmentsRef.current.add(attId) // optimistic mark
-          // Clear the marker on ANY non-success — early bail (sync
-          // disabled mid-flight, no creds, attachment missing locally)
-          // returns false; throw also clears. Without the boolean check,
-          // a request that hung across iOS suspend left the marker set
-          // and the attachment was never re-pushed (peers never saw it
-          // even though sync status said "synced").
-          pushAttachmentInBackground(attId)
-            .then((ok) => { if (!ok) pushedAttachmentsRef.current.delete(attId) })
-            .catch(() => { pushedAttachmentsRef.current.delete(attId) })
-        }
+        if (newIds.length > 0) transferQueueRef.current?.enqueueUpload(newIds)
       } catch (err) {
         console.error('useSyncQueue: attachment scan failed', err)
       }
@@ -348,81 +453,6 @@ export function useSyncQueue ({
   // body relative to those callbacks via the ref).
   enqueueChangedPagesRef.current = enqueueChangedPages
 
-  // ── Attachment push (Phase 2.6) — fire-and-forget background helper ──
-  // Reads bytes from the local attachment store, pushes to relay. No retry
-  // here (server is idempotent — if it fails we'll re-attempt on the next
-  // save that touches the page).
-  // Returns true on confirmed success, false on bail/failure. Caller
-  // uses the boolean to decide whether to clear the optimistic
-  // `pushedAttachmentsRef` marker — pre-fix only THROWS cleared the
-  // marker, so any "bail-out" path (sync disabled mid-flight, no
-  // credentials, attachment missing locally) left the marker set
-  // forever and the attachment never re-pushed. Visible bug:
-  // "sync says synced but peer never sees the image."
-  const pushAttachmentInBackground = useCallback(async (attachmentId) => {
-    const meta = metadataRef.current
-    const store = vaultStoreRef.current
-    if (!meta?.syncEnabled || !store?.isUnlocked()) return false
-    const creds = await getCredentials().catch(() => null)
-    if (!creds) return false
-    const { loadAttachment } = await import('../lib/attachmentStorage.js')
-    const data = await loadAttachment(attachmentId)
-    if (!data) {
-      console.warn('useSyncQueue: attachment not found locally', attachmentId)
-      return false
-    }
-    const bytes = data instanceof ArrayBuffer ? new Uint8Array(data)
-      : (data instanceof Uint8Array ? data : new Uint8Array(data))
-    const result = await syncPushAttachment({
-      attachmentId,
-      bytes,
-      credentials: creds
-    })
-    if (!result.ok) {
-      console.warn('useSyncQueue: pushAttachment failed', attachmentId, result.errorCode)
-      throw new Error(result.errorCode || 'push failed')
-    }
-    return true
-  }, [getCredentials])
-
-  // Pull missing attachments after applying pulled note envelopes.
-  const pullMissingAttachments = useCallback(async (appliedPages) => {
-    if (!appliedPages || appliedPages.length === 0) return
-    const meta = metadataRef.current
-    const store = vaultStoreRef.current
-    if (!meta?.syncEnabled || !store?.isUnlocked()) return
-    const creds = await getCredentials().catch(() => null)
-    if (!creds) return
-    const { loadAttachment, saveAttachment } = await import('../lib/attachmentStorage.js')
-    const seen = new Set()
-    for (const page of appliedPages) {
-      const ids = extractAttachmentIds(page)
-      for (const attId of ids) {
-        if (seen.has(attId)) continue
-        seen.add(attId)
-        if (pulledAttachmentsRef.current.has(attId)) continue
-        // Check local cache first
-        const local = await loadAttachment(attId).catch(() => null)
-        if (local) {
-          pulledAttachmentsRef.current.add(attId)
-          continue
-        }
-        // Fetch from server
-        const result = await syncPullAttachment({ attachmentId: attId, credentials: creds })
-        if (result.ok && result.bytes) {
-          try {
-            await saveAttachment(attId, result.bytes.buffer.slice(result.bytes.byteOffset, result.bytes.byteOffset + result.bytes.byteLength))
-            pulledAttachmentsRef.current.add(attId)
-          } catch (err) {
-            console.error('useSyncQueue: failed to write pulled attachment', attId, err)
-          }
-        } else {
-          console.warn('useSyncQueue: pullAttachment failed', attId, result.errorCode)
-        }
-      }
-    }
-  }, [getCredentials])
-
   // Wire the global callback so usePagesManager can hand off changes without
   // taking a hard import dependency on this hook.
   useEffect(() => {
@@ -445,6 +475,10 @@ export function useSyncQueue ({
     const store = vaultStoreRef.current
     const meta = metadataRef.current
     if (!store || !meta?.syncEnabled || !store.isUnlocked()) return
+    // Never apply a pull before the local pages have loaded: the empty list
+    // would be taken as this device's pages, and the save that follows would
+    // replace them on disk. The next pull (focus, doorbell, timer) catches up.
+    if (typeof arePagesLoadedRef.current === 'function' && !arePagesLoadedRef.current()) return
     if (pullingRef.current) return
     pullingRef.current = true
     updateStatus({ stage: 'pulling' })
@@ -461,8 +495,9 @@ export function useSyncQueue ({
         // alive-envelopes for ids we permanently deleted on this
         // device — protects against the peer-resurrect race.
         const isHardDeleted = makeIsHardDeleted()
+        const base = latestPages()
         const apply = await applyPulledChanges(
-          pagesRef?.current || [],
+          base,
           result.envelopes,
           {
             hasInFlightEdit,
@@ -472,15 +507,20 @@ export function useSyncQueue ({
             }
           }
         )
-        applyRemoteChanges?.(apply.newPages, apply.manifest)
-        // Phase 2.6: lazy-pull attachments referenced by newly-applied
-        // pages but missing from local store. Fire-and-forget.
-        const appliedPagesData = apply.applied
-          .map(id => apply.newPages.find(p => p.id === id))
-          .filter(Boolean)
-        pullMissingAttachments(appliedPagesData).catch(err => {
-          console.error('useSyncQueue: pullMissingAttachments failed', err)
+        // The caller rebases onto the pages as they are now: anything changed
+        // locally while this pull ran is missing from apply.newPages.
+        applyRemoteChanges?.(apply.newPages, apply.manifest, {
+          base,
+          changedIds: [...apply.applied, ...apply.deleted]
         })
+        // Phase 2.6: download attachments the applied pages reference and
+        // this device lacks. The transfer queue skips ones already here.
+        const referenced = new Set()
+        const appliedIds = new Set(apply.applied)
+        for (const page of apply.newPages) {
+          if (appliedIds.has(page.id)) extractAttachmentIds(page).forEach(id => referenced.add(id))
+        }
+        if (referenced.size > 0) transferQueueRef.current?.enqueueDownload([...referenced])
       }
       // Persist new cursor + per-page versions
       const newMeta = {
@@ -506,7 +546,7 @@ export function useSyncQueue ({
     } finally {
       pullingRef.current = false
     }
-  }, [getCredentials, hasInFlightEdit, applyRemoteChanges, pagesRef, updateStatus])
+  }, [getCredentials, hasInFlightEdit, applyRemoteChanges, latestPages, updateStatus])
 
   // Keep the ref aligned so adoptVault (defined earlier) can call pull()
   // after registration without taking it as a dep (which would TDZ).
@@ -530,6 +570,8 @@ export function useSyncQueue ({
       const meta = metadataRef.current
       if (!store || !meta?.syncEnabled || !store.isUnlocked()) return
       pull().catch(err => console.warn('[sync] pull threw (suppressed)', err))
+      // Also a chance for attachment transfers that were waiting to start.
+      transferQueueRef.current?.kick()
     }
     const flushPending = () => {
       // Order matters: flush LOCAL save debounce (150 ms in
@@ -609,6 +651,85 @@ export function useSyncQueue ({
       }
     }
   }, [pull])
+
+  // ── Session start: report the app version, learn usage, reconcile attachments ──
+
+  const refreshUsage = useCallback(async () => {
+    const ar = authenticatedRequestRef.current
+    if (!ar) return null
+    try {
+      const index = await ar('GET', '/sync/vault/index')
+      if (index && typeof index.totalBytes === 'number') {
+        usageRef.current = { totalBytes: index.totalBytes }
+        // Held photo uploads may fit now.
+        transferQueueRef.current?.refresh()
+      }
+      return index
+    } catch (err) {
+      console.warn('[sync] vault usage refresh failed', err?.message || err)
+      return null
+    }
+  }, [])
+
+  // Tell the relay which app version this device runs, so a newer device can
+  // tell when every device understands newer data. Re-registering an existing
+  // device is idempotent.
+  const reportAppVersion = useCallback(async () => {
+    const meta = metadataRef.current
+    const ar = authenticatedRequestRef.current
+    if (!meta?.vaultId || !meta?.deviceId || !ar) return
+    try {
+      await ar('POST', '/sync/vault/register', {
+        vaultId: meta.vaultId,
+        deviceId: meta.deviceId,
+        ...(meta.deviceName ? { deviceName: meta.deviceName } : {}),
+        appVersion: APP_VERSION
+      })
+    } catch (err) {
+      console.warn('[sync] app version report failed', err?.message || err)
+    }
+  }, [])
+
+  // Queue downloads for attachments the pages reference and this device
+  // lacks, and uploads for the ones the relay lacks.
+  const reconcileAttachments = useCallback(async () => {
+    const transfers = transferQueueRef.current
+    const pages = latestPages()
+    if (!transfers || pages.length === 0) return false
+    const ids = new Set()
+    for (const page of pages) extractAttachmentIds(page).forEach(id => ids.add(id))
+    await transfers.reconcile([...ids])
+    return true
+  }, [latestPages])
+
+  useEffect(() => {
+    if (!status.enabled || !status.unlocked) {
+      sessionStartedRef.current = false
+      return
+    }
+    if (sessionStartedRef.current) return
+    sessionStartedRef.current = true
+    let cancelled = false
+    ;(async () => {
+      await reportAppVersion()
+      await refreshUsage()
+      // Pages may still be loading on a cold start; try again for a minute.
+      for (let attempt = 0; attempt < 12 && !cancelled; attempt++) {
+        if (await reconcileAttachments()) break
+        await new Promise(resolve => setTimeout(resolve, 5000))
+      }
+    })().catch(err => console.warn('[sync] session start failed', err))
+    // While photos wait to upload, keep usage current so held ones start
+    // once there is room.
+    const usageTimer = setInterval(() => {
+      const transfers = transferQueueRef.current?.summary()
+      if (transfers && transfers.uploads > 0) refreshUsage()
+    }, 5 * 60 * 1000)
+    return () => {
+      cancelled = true
+      clearInterval(usageTimer)
+    }
+  }, [status.enabled, status.unlocked, reportAppVersion, refreshUsage, reconcileAttachments])
 
   // WebSocket doorbell — server pushes 'new-version' events when peers
   // commit new data. Triggers an immediate pull instead of waiting up to
@@ -764,7 +885,6 @@ export function useSyncQueue ({
     // on this device only.
     lastSyncedSnapshotRef.current = []
     if (typeof window !== 'undefined') window.__syncLastSnapshot = null
-    pushedAttachmentsRef.current = new Set()
     // Register vault + this device on the relay. MUST succeed — without
     // server-side registration the device's auth proofs return 401 and
     // sync is silently broken. On failure, roll back local metadata so
@@ -777,6 +897,7 @@ export function useSyncQueue ({
         vaultId: metadata.vaultId,
         deviceId: metadata.deviceId,
         deviceName: metadata.deviceName,
+        appVersion: APP_VERSION,
         ...entIds
       })
     } catch (err) {
@@ -851,8 +972,6 @@ export function useSyncQueue ({
     // there. Adopted vault is a fresh sync context.
     lastSyncedSnapshotRef.current = []
     if (typeof window !== 'undefined') window.__syncLastSnapshot = null
-    pushedAttachmentsRef.current = new Set()
-    pulledAttachmentsRef.current = new Set()
     // Register the new device with the relay BEFORE flipping status to
     // enabled. If register fails, server has no record of this device →
     // every subsequent sync call returns 401. Better to roll back and
@@ -865,6 +984,7 @@ export function useSyncQueue ({
         vaultId: metadata.vaultId,
         deviceId: metadata.deviceId,
         deviceName: metadata.deviceName,
+        appVersion: APP_VERSION,
         ...entIds
       })
     } catch (err) {
@@ -955,8 +1075,8 @@ export function useSyncQueue ({
     if (typeof window !== 'undefined') {
       window.__syncLastSnapshot = null
     }
-    pushedAttachmentsRef.current = new Set()
-    pulledAttachmentsRef.current = new Set()
+    // Pending transfers belonged to this vault.
+    transferQueueRef.current?.clear()
     updateStatus({
       enabled: false,
       unlocked: false,
@@ -1019,7 +1139,8 @@ export function useSyncQueue ({
       const body = JSON.stringify({
         vaultId: meta.vaultId,
         deviceId: meta.deviceId,
-        deviceName: meta.deviceName
+        deviceName: meta.deviceName,
+        appVersion: APP_VERSION
       })
       const response = await fetch(httpUrl + path, { method: 'POST', headers, body })
       if (response.ok) {
@@ -1097,16 +1218,16 @@ export function useSyncQueue ({
         metadataRef.current = next
         await vaultStoreRef.current?.save(next)
       }
-      pushedAttachmentsRef.current = new Set()
-      pulledAttachmentsRef.current = new Set()
       lastSyncedSnapshotRef.current = []
       updateStatus({ stage: 'idle', lastError: null })
+      // The relay no longer holds this vault's attachments: upload them again.
+      reconcileAttachments().catch(() => {})
       return { ok: true, purgedBytes: result?.purgedBytes }
     } catch (err) {
       updateStatus({ stage: 'error', lastError: `purge failed: ${err.message}` })
       return { ok: false, error: err.message }
     }
-  }, [authenticatedRequest, updateStatus])
+  }, [authenticatedRequest, updateStatus, reconcileAttachments])
 
   // Phase 2.8: synced version history — fetch the list of server-stored
   // versions for a note. Returns { ok, versions } or { ok:false, errorCode }.
@@ -1206,6 +1327,11 @@ export function useSyncQueue ({
       const ar = authenticatedRequestRef.current
       if (!ar) return null
       const res = await ar('GET', '/sync/vault/index')
+      if (res && typeof res.totalBytes === 'number') {
+        usageRef.current = { totalBytes: res.totalBytes }
+        // Held photo uploads may fit now.
+        transferQueueRef.current?.refresh()
+      }
       return res
     } catch (err) {
       console.warn('fetchVaultUsage failed', err)
@@ -1236,7 +1362,9 @@ export function useSyncQueue ({
     flushNow,
     pull,
     // Un-pause after a subscription-required (402) stop, then push + pull once.
-    resumeSync: async () => { try { queueRef.current?.resume?.() } catch { /* ignore */ } await flushNow(); await pull() },
+    resumeSync: async () => { try { queueRef.current?.resume?.(); transferQueueRef.current?.resume() } catch { /* ignore */ } await flushNow(); await pull() },
+    // Try failed and waiting attachment transfers again now.
+    retryAttachmentTransfers: () => transferQueueRef.current?.resume(),
     enableSync,
     adoptVault,
     disableSync,

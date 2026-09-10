@@ -342,3 +342,67 @@ describe('syncAttachments — pullAttachment', () => {
     assert.equal(result.errorCode, 'invalid-response')
   })
 })
+
+// =============================================================================
+// Exists check and relay pacing signals (attachment transfer queue support)
+// =============================================================================
+
+async function transferCredentials () {
+  const vaultKeyBytes = generateVaultKey()
+  return { vaultKeyBytes, vaultCryptoKey: await importVaultKey(vaultKeyBytes), vaultId: 'vault-1', deviceId: 'device-1', relayUrl: 'wss://relay.test' }
+}
+
+const jsonResponse = (status, body, headers = {}) => ({
+  ok: status >= 200 && status < 300,
+  status,
+  headers: { get: (k) => headers[k.toLowerCase()] ?? null },
+  json: async () => body
+})
+
+describe('syncAttachments — attachmentsExist', () => {
+  const { attachmentsExist, MAX_EXISTS_IDS } = syncAttachments
+
+  it('asks the relay which ids it already holds', async () => {
+    const requests = []
+    const fetch = async (url, init) => { requests.push({ url, init }); return jsonResponse(200, { present: ['a'], missing: ['b'] }) }
+    const result = await attachmentsExist({ ids: ['a', 'b'], credentials: await transferCredentials(), fetch })
+    assert.deepEqual(result, { ok: true, present: ['a'], missing: ['b'] })
+    assert.equal(requests[0].url, 'https://relay.test/sync/attachments/exists')
+    assert.equal(requests[0].init.method, 'POST')
+    assert.deepEqual(JSON.parse(requests[0].init.body), { ids: ['a', 'b'] })
+  })
+
+  it('reports a relay that predates the check as not-found', async () => {
+    const fetch = async () => jsonResponse(404, { error: 'not-found' })
+    const result = await attachmentsExist({ ids: ['a'], credentials: await transferCredentials(), fetch })
+    assert.equal(result.ok, false)
+    assert.equal(result.errorCode, 'not-found')
+  })
+
+  it('refuses more ids than the relay answers for in one request', async () => {
+    const ids = Array.from({ length: MAX_EXISTS_IDS + 1 }, (_, i) => `id-${i}`)
+    await assert.rejects(() => attachmentsExist({ ids, credentials: {}, fetch: async () => jsonResponse(200, {}) }))
+  })
+})
+
+describe('syncAttachments — relay pacing signals', () => {
+  it('surfaces Retry-After when an upload is rate-limited', async () => {
+    const fetch = async () => jsonResponse(429, { error: 'rate-limited' }, { 'retry-after': '42' })
+    const result = await pushAttachment({ attachmentId: 'a', bytes: new Uint8Array([1]), credentials: await transferCredentials(), fetch })
+    assert.equal(result.errorCode, 'rate-limited')
+    assert.equal(result.retryAfterMs, 42000)
+  })
+
+  it('surfaces the relay running out of attachment space', async () => {
+    const fetch = async () => jsonResponse(503, { error: 'capacity' }, { 'retry-after': '3600' })
+    const result = await pushAttachment({ attachmentId: 'a', bytes: new Uint8Array([1]), credentials: await transferCredentials(), fetch })
+    assert.equal(result.errorCode, 'capacity')
+    assert.equal(result.retryAfterMs, 3600000)
+  })
+
+  it('surfaces Retry-After when a download is rate-limited', async () => {
+    const fetch = async () => jsonResponse(429, { error: 'rate-limited' }, { 'retry-after': '7' })
+    const result = await pullAttachment({ attachmentId: 'a', credentials: await transferCredentials(), fetch })
+    assert.equal(result.retryAfterMs, 7000)
+  })
+})

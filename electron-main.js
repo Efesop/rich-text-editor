@@ -623,6 +623,17 @@ ipcMain.handle('load-attachment', async (event, attachmentId) => {
   }
 });
 
+// Existence only, without reading the file — sync checks thousands at once.
+ipcMain.handle('has-attachment', async (event, attachmentId) => {
+  if (!isValidAttachmentId(attachmentId)) return false;
+  try {
+    await fs.access(path.join(attachmentsDir, attachmentId));
+    return true;
+  } catch {
+    return false;
+  }
+});
+
 ipcMain.handle('delete-attachment', async (event, attachmentId) => {
   if (!isValidAttachmentId(attachmentId)) return { success: false };
   try {

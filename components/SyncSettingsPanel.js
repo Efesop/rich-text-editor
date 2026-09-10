@@ -10,13 +10,15 @@ import {
   Smartphone,
   Laptop,
   Monitor,
-  Trash2
+  Trash2,
+  AlertTriangle
 } from 'lucide-react'
 import { useEntitlement } from '@/hooks/useEntitlement'
 import PaywallModal from './PaywallModal'
 import SignInModal from './SignInModal'
 import { signOut as identitySignOut, getEmail as getIdentityEmail } from '@/lib/identity'
 import { getMacEntitlementEmail, setMacEntitlementEmail } from '@/lib/entitlementId'
+import { PHOTO_HEADROOM, VAULT_LIMIT_BYTES } from '@/lib/attachmentTransferQueue'
 
 /**
  * Sync settings panel — opens from main Settings, controls all sync behavior.
@@ -39,6 +41,14 @@ const formatRelativeTime = (ts) => {
   if (ms < 3600000) return `${Math.floor(ms / 60000)}m ago`
   if (ms < 86400000) return `${Math.floor(ms / 3600000)}h ago`
   return `${Math.floor(ms / 86400000)}d ago`
+}
+
+// Why an attachment transfer stopped, in the words shown to the user.
+const TRANSFER_FAILURES = {
+  'missing-on-device': 'missing on this device',
+  'too-large': 'too large to sync',
+  unreadable: "couldn't be decrypted",
+  'not-on-relay': 'not uploaded by its device yet'
 }
 
 const STAGE_LABELS = {
@@ -79,6 +89,8 @@ export default function SyncSettingsPanel ({
   onRevokeDevice,
   fetchVaultUsage,    // returns { totalBytes, deviceCount, ... }
   fetchQuota,         // returns { lifetimeUsed, lifetimeLimit, ... }
+  getPageTitle,       // (pageId) => title, for notes too large to sync
+  onRetryTransfers,   // retry attachment transfers that failed or are waiting
   theme
 }) {
   const isFallout = theme === 'fallout'
@@ -415,6 +427,8 @@ export default function SyncSettingsPanel ({
               onOpenSignIn={() => setShowSignIn(true)}
               onSignOut={handleSignOut}
               onRefreshEntitlement={() => refreshEntitlement?.()}
+              getPageTitle={getPageTitle}
+              onRetryTransfers={onRetryTransfers}
             />
           )}
         </div>
@@ -604,7 +618,8 @@ function UnlockedState ({
   cardClasses, primaryBtn, secondaryBtn, dangerBtn, isFallout,
   onSyncNow, onPairNewDevice, onRevokeDevice, onDisableSync,
   confirmStop, setConfirmStop,
-  hasSync, entitlementLoading, signedInEmail, onSubscribe, onOpenSignIn, onSignOut, onRefreshEntitlement
+  hasSync, entitlementLoading, signedInEmail, onSubscribe, onOpenSignIn, onSignOut, onRefreshEntitlement,
+  getPageTitle, onRetryTransfers
 }) {
   const isAnimating = status.stage === 'flushing' || status.stage === 'pulling' || status.stage === 'queued'
   const hasError = status.stage === 'error' || status.stage === 'rate-limited'
@@ -640,6 +655,30 @@ function UnlockedState ({
     const display = mb < 0.1 ? '0 MB' : mb < 10 ? `${mb.toFixed(1)} MB` : `${Math.round(mb)} MB`
     return `${display} used of 500 MB`
   })()
+  const usageRatio = usage && typeof usage.totalBytes === 'number'
+    ? Math.min(1, usage.totalBytes / VAULT_LIMIT_BYTES)
+    : null
+
+  // Attachments move a few a minute, so a big batch gets a time estimate.
+  const transfers = status.transfers
+  const transferText = (() => {
+    if (!transfers || transfers.uploads + transfers.downloads === 0) return null
+    const parts = []
+    if (transfers.uploads > 0) parts.push(`${transfers.uploads} ${transfers.uploads === 1 ? 'attachment' : 'attachments'} to upload`)
+    if (transfers.downloads > 0) parts.push(`${transfers.downloads} to download`)
+    const minutes = Math.max(1, Math.round(transfers.etaMs / 60000))
+    return `${parts.join(', ')}, about ${minutes < 90 ? `${minutes} min` : `${Math.round(minutes / 60)} hours`}`
+  })()
+  const failedTransfers = transfers?.failed || []
+  const failureSummary = (() => {
+    const counts = new Map()
+    for (const f of failedTransfers) counts.set(f.reason, (counts.get(f.reason) || 0) + 1)
+    return [...counts].map(([reason, n]) => `${n} ${TRANSFER_FAILURES[reason] || "couldn't transfer"}`).join(' · ')
+  })()
+  const oversizeNotes = Array.isArray(status.oversizeNotes) ? status.oversizeNotes : []
+  const errorText = /^vault-full/.test(status.lastError || '')
+    ? 'Sync storage is full (500 MB). Everything is still on this device, and syncing resumes once there is space.'
+    : status.lastError
 
   return (
     <div className="space-y-5">
@@ -654,12 +693,25 @@ function UnlockedState ({
             {usageText && (
               <p className={`${subtitleClasses} truncate`}>{usageText}</p>
             )}
+            {usageRatio !== null && (
+              <div className={`mt-1 mb-0.5 h-1 w-40 max-w-full rounded-full overflow-hidden ${isFallout ? 'bg-green-900/50' : 'bg-gray-500/20'}`}>
+                <div
+                  className={`h-full rounded-full ${usageRatio >= PHOTO_HEADROOM ? 'bg-amber-400' : isFallout ? 'bg-green-500' : 'bg-blue-500'}`}
+                  style={{ width: `${Math.max(2, Math.round(usageRatio * 100))}%` }}
+                />
+              </div>
+            )}
             {stageSubLabel && (
               <p className={subtitleClasses}>{stageSubLabel}</p>
             )}
             {!needsSubscription && status.pendingCount > 0 && (
               <p className={subtitleClasses} title="Edits queued to upload — clears once they reach the server">
                 {status.pendingCount} {noun} waiting to upload
+              </p>
+            )}
+            {!needsSubscription && transferText && (
+              <p className={subtitleClasses} title="Attachments transfer a few at a time, so a large batch takes a while">
+                {transferText}
               </p>
             )}
           </div>
@@ -684,6 +736,52 @@ function UnlockedState ({
           )}
         </div>
       </div>
+
+      {transfers?.uploadsHeld && (
+        <SyncNotice title="Sync storage is almost full" titleClasses={titleClasses} subtitleClasses={subtitleClasses}>
+          Attachments are waiting on this device so your notes still have room to sync.
+        </SyncNotice>
+      )}
+
+      {transfers?.uploadsPausedUntil && !transfers?.uploadsHeld && (
+        <SyncNotice title="Attachment uploads are paused" titleClasses={titleClasses} subtitleClasses={subtitleClasses}>
+          The sync server is out of space for attachments right now. They stay on this device and upload later.
+        </SyncNotice>
+      )}
+
+      {oversizeNotes.length > 0 && (
+        <SyncNotice
+          title={`${oversizeNotes.length} ${oversizeNotes.length === 1 ? 'note is' : 'notes are'} too large to sync`}
+          titleClasses={titleClasses}
+          subtitleClasses={subtitleClasses}
+        >
+          <p>They stay on this device. Splitting a note into smaller notes lets it sync.</p>
+          <ul className="mt-1 space-y-0.5">
+            {oversizeNotes.slice(0, 5).map(n => (
+              <li key={n.resourceId} className="truncate">{getPageTitle ? getPageTitle(n.resourceId) : 'Untitled'}</li>
+            ))}
+            {oversizeNotes.length > 5 && <li>and {oversizeNotes.length - 5} more</li>}
+          </ul>
+        </SyncNotice>
+      )}
+
+      {failedTransfers.length > 0 && (
+        <SyncNotice
+          title={`${failedTransfers.length} ${failedTransfers.length === 1 ? 'attachment' : 'attachments'} couldn't be transferred`}
+          titleClasses={titleClasses}
+          subtitleClasses={subtitleClasses}
+          action={onRetryTransfers && (
+            <button
+              onClick={onRetryTransfers}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium flex-shrink-0 transition-all duration-200 ${secondaryBtn}`}
+            >
+              Try again
+            </button>
+          )}
+        >
+          {failureSummary}
+        </SyncNotice>
+      )}
 
       {confirmStop && (
         <div className={`p-3 rounded-lg space-y-3 ${cardClasses} border border-red-500/20`}>
@@ -710,7 +808,7 @@ function UnlockedState ({
       {hasError && status.lastError && !needsSubscription && (
         <div className="px-4 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20 flex items-start gap-2">
           <AlertCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5 pointer-events-none" />
-          <p className="text-xs text-red-400 leading-relaxed">{status.lastError}</p>
+          <p className="text-xs text-red-400 leading-relaxed">{errorText}</p>
         </div>
       )}
 
@@ -792,7 +890,10 @@ function UnlockedState ({
               <DeviceRow
                 key={d.deviceId}
                 label={d.deviceName || 'Untitled device'}
-                sublabel={d.lastSeenAt ? `Last seen ${formatRelativeTime(new Date(d.lastSeenAt).getTime())}` : 'Not yet synced'}
+                sublabel={[
+                  d.appVersion ? `Dash ${d.appVersion}` : null,
+                  d.lastSeenAt ? `Last seen ${formatRelativeTime(new Date(d.lastSeenAt).getTime())}` : 'Not yet synced'
+                ].filter(Boolean).join(' · ')}
                 icon={Smartphone}
                 cardClasses={cardClasses}
                 titleClasses={titleClasses}
@@ -815,6 +916,20 @@ function UnlockedState ({
         </div>
       </div>
       <p className={`text-[11px] leading-relaxed ${subtitleClasses}`}>Turning off sync keeps every note on this device. It only stops uploading.</p>
+    </div>
+  )
+}
+
+// A warning that needs no action to keep data safe, but is worth knowing.
+function SyncNotice ({ title, children, action, titleClasses, subtitleClasses }) {
+  return (
+    <div className="px-4 py-3 rounded-xl flex items-start gap-3 bg-amber-500/10 border border-amber-500/20">
+      <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5 pointer-events-none" />
+      <div className="min-w-0 flex-1 space-y-0.5">
+        {title && <p className={`text-sm font-medium ${titleClasses}`}>{title}</p>}
+        <div className={`${subtitleClasses} leading-relaxed`}>{children}</div>
+      </div>
+      {action}
     </div>
   )
 }

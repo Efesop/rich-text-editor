@@ -99,11 +99,11 @@ Future feature ideas and enhancements for Dash.
     `altitudeAngle`, `azimuthAngle`, `getCoalescedEvents()` and `getPredictedEvents()`.
     NOT exposed to web content: Pencil hover (M2+ iPads), Pencil Pro squeeze / barrel roll /
     haptics — those are `UIPencilInteraction` and PencilKit only.
-  - **Strokes must be attachment-backed, never inline block JSON.** `MAX_ENVELOPE_BYTES` is
-    62 KB (`server/sync.ts`) and a page of handwriting is ~40–150 KB of raw stroke JSON, so
-    inlining breaks sync on the first serious page. `MAX_ATTACHMENT_BYTES` is 10 MB and
-    `lib/syncAttachments.js` already does content-addressed, vault-encrypted, lazy-pull blobs
-    with the local store injected. Store quantized stroke arrays (integer coordinates, 0–255
+  - **Strokes must be attachment-backed, never inline block JSON.** A page of handwriting is
+    ~40–150 KB of raw stroke JSON, and the relay keeps 30 versions of every note, so inlining
+    copies it into every version and every sync. `MAX_ATTACHMENT_BYTES` is 10 MB, and
+    attachments are content-addressed, vault-encrypted blobs moved by the durable transfer
+    queue (`lib/attachmentTransferQueue.js`). Store quantized stroke arrays (integer coordinates, 0–255
     pressure, delta-encoded timestamps) in the blob; keep the attachment id plus a small
     raster preview in the block. Compress before encrypting, never after.
   - No Editor.js drawing plugin exists — this is a twelfth custom tool in
@@ -153,7 +153,10 @@ Future feature ideas and enhancements for Dash.
 - BYO-relay self-host docs (sync server is open-source by source disclosure; package self-host instructions)
 
 ## Import & Export
-- Import from Standard Notes, Evernote, Notion, Markdown files
+- Import from Evernote (.enex), Notion (HTML export), Obsidian / Markdown / Notesnook and Standard Notes (decrypted backup) — **in progress, in three releases**:
+  1. Sync and storage safety — **built, not yet released**: relay stores notes up to 2 MB and attachments up to 10 MB in pieces; durable, paced attachment transfers; iOS attachments and version history in IndexedDB; upload queue that never drops for space; vault-full pause; pulls and app lock applied to the pages as they are now
+  2. Photos stored as attachments (photos already pasted into notes move across once every paired device is up to date), list indentation, exporter fixes
+  3. The four importers: preview before anything is written, one folder per import, a reconciled report, undo
 - Bulk markdown export
 
 ## Security & Privacy

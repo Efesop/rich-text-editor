@@ -91,6 +91,7 @@ import { usePageLinkInterceptor, PageLinkDropdown, PageLinkInlineTool } from './
 // Sync feature (phase 2.0a–2.4). All gated behind SYNC_ENABLED — these imports
 // are tree-shaken out of the bundle when the flag stays false.
 import { useSyncQueue } from '../hooks/useSyncQueue'
+import { rebasePulledPages } from '../lib/syncRebase'
 import SyncSettingsPanel from './SyncSettingsPanel'
 import PairDeviceModal from './PairDeviceModal'
 import AcceptPairModal from './AcceptPairModal'
@@ -544,6 +545,7 @@ export default function RichTextEditor() {
     removeAppLockEncryption,
     setPages,
     getLatestPages,
+    arePagesLoaded,
     isDuressModeRef,
     trashPage,
     restorePage,
@@ -1335,18 +1337,31 @@ export default function RichTextEditor() {
   // never gets initialized (we feed it a memory backend only when enabled).
   const sync = useSyncQueue(SYNC_ENABLED ? {
     pagesRef: syncPagesRef,
+    getLatestPages,
+    arePagesLoaded,
     relayUrl: SYNC_RELAY_URL,
     isAppLocked: () => appLock.isLocked,
     duressActive: () => isDuressModeRef.current === true,
     hasInFlightEdit: (pageId) => syncCurrentPageRef.current?.id === pageId,
-    applyRemoteChanges: (newPages, manifest) => {
+    applyRemoteChanges: (newPages, manifest, rebase) => {
+      // The pull worked on a snapshot of the pages. Apply what it decided to
+      // the pages as they are now, so an edit, new page or import made while
+      // it ran isn't overwritten.
+      let pagesToSet = newPages
+      if (rebase && Array.isArray(rebase.base)) {
+        pagesToSet = rebasePulledPages({
+          base: rebase.base,
+          pulled: newPages,
+          changedIds: rebase.changedIds || [],
+          latest: getLatestPages() || []
+        }).pages
+      }
       // Apply the manifest's structural payload (folder titles/emoji,
       // root order, tag colors). Without this, mobile sees folders
       // missing emojis and tag chips falling back to the hashed-palette
       // colors because no folder/tag *envelope* was emitted on the
       // host's initial push — the manifest is the authoritative source
       // for that metadata.
-      let pagesToSet = newPages
       if (manifest && typeof manifest === 'object') {
         try {
           // 1) Merge folder title + emoji + pages list. Locally-created
@@ -5697,6 +5712,8 @@ export default function RichTextEditor() {
             onSyncNow={() => { if (sync?.resumeSync) sync.resumeSync(); else { sync?.flushNow?.(); sync?.pull?.() } }}
             fetchVaultUsage={() => sync?.fetchVaultUsage?.()}
             fetchQuota={() => sync?.fetchQuota?.()}
+            getPageTitle={(id) => (getLatestPages() || []).find(p => p.id === id)?.title || 'Untitled'}
+            onRetryTransfers={() => sync?.retryAttachmentTransfers?.()}
             onRevokeDevice={async (deviceId) => {
               const result = await sync?.revokeDevice?.(deviceId)
               if (!result?.ok) {

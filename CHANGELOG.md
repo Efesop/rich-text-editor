@@ -5,6 +5,55 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+First stage of note importers: sync and storage fixes, so existing notes and
+attachments are safe before imports add thousands more.
+
+### Fixed
+- **Large notes never synced.** The relay stored each note as one database
+  value capped at 64 KB, so a note over roughly 17 KB of compressed data was
+  refused and dropped from the upload queue for good. The relay now stores
+  notes in pieces, up to 2 MB each, and older app versions benefit without
+  updating.
+- **Attachments over 64 KB never synced.** Photos and PDFs are stored in
+  pieces too, up to the 10 MB attachment limit. They now move through a
+  transfer queue that retries until each one lands, keeps to the relay's
+  allowance of five transfers a minute, and picks up again after a restart.
+  Before, a failed upload was never retried.
+- **The iOS app kept attachments and version history in storage iOS can
+  purge.** Both now use the same on-device database as notes. Anything in
+  the old location moves across and is removed only once its new copy reads
+  back intact.
+- **A long upload queue dropped the oldest changes.** Past 5,000 queued
+  changes the queue now keeps a reference and reads the note again when it
+  uploads.
+- **A full sync vault dropped notes.** The relay's "vault full" answer was
+  treated as "note too large". Sync now pauses with a clear message and keeps
+  everything queued.
+- **An edit made while the previous version of that note was uploading could
+  fail to sync.**
+- **A sync pull could overwrite a change made while it ran**, and locking the
+  app while pages changed could drop that change. Both now apply their result
+  to the pages as they are at that moment.
+- **A pull that arrived before notes had loaded could be saved over them.**
+  Pulls now wait until the notes have loaded.
+- **Trimming a note's old versions on the relay could make other devices skip
+  a change**, by reusing a version number.
+- **A vault that was only read for 90 days could be deleted** by the relay's
+  inactivity cleanup, because reading didn't count as activity.
+- Attachments just under 10 MB were accepted on the device but refused by the
+  relay; the limit now leaves room for encryption.
+- Sharing a note larger than 64 KB through a short link failed on the relay.
+
+### Added
+- Sync settings show storage used out of 500 MB, attachments waiting with a
+  time estimate, notes too large to sync, and attachments that couldn't be
+  transferred, with Try again. Each paired device shows its app version.
+- Attachment uploads stop at 90% of sync storage so notes keep room to sync,
+  and the relay stops taking attachments when its own storage is nearly full
+  instead of failing for everyone.
+
 ## [1.6.3] - 2026-09-08
 
 ### Fixed

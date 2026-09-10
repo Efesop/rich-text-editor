@@ -6,6 +6,7 @@ import useTagStore from '../store/tagStore'
 import { readPages, savePages as savePagesToFallback, saveDecoyPages } from '@/lib/storage'
 import { deleteMultipleAttachments } from '@/lib/attachmentStorage'
 import { captureVersion, deleteVersions } from '@/lib/versionStorage'
+import { encryptPagesUntilStable } from '@/lib/appLockSnapshot'
 import { recordHardDelete } from '@/lib/hardDeletes'
 import { encryptJsonWithPassphrase } from '@/utils/cryptoUtils'
 import { DEMO_PAGES, DEMO_TAGS, isDemoMode } from '@/lib/demoSeed'
@@ -143,7 +144,7 @@ export function usePagesManager() {
       } catch (err) {
         dbg('save', 'decoy save error', err.message)
       }
-      return
+      return { written: false, reason: 'decoy' }
     }
     if (savesBlockedRef.current) {
       dbg('save', 'BLOCKED', loadErrorRef.current ? 'by storage read failure' : 'by duress mode', '— skipping disk write')
@@ -151,7 +152,7 @@ export function usePagesManager() {
       // 'saving'; put it back on the red error state rather than leaving a
       // perpetual "Saving…". (Duress mode must look normal — no status change.)
       if (loadErrorRef.current) setSaveStatus('error')
-      return
+      return { written: false, reason: 'blocked' }
     }
     try {
       // Encrypt temp-unlocked pages before writing to disk
@@ -195,6 +196,7 @@ export function usePagesManager() {
           }
         }
       }
+      return { written: true }
     } catch (error) {
       console.error('Error saving pages:', error)
       dbg('save', 'ERROR v' + version, error.message)
@@ -254,6 +256,38 @@ export function usePagesManager() {
     pendingSaveRef.current = { pages: pagesToSave, version }
     await processSaveQueue()
   }, [processSaveQueue])
+
+  // Whether fetchPages has finished, successfully or not. Until then the page
+  // list is empty only because it hasn't loaded, and nothing may treat it as
+  // this device's pages.
+  const arePagesLoaded = useCallback(() => isInitializedRef.current, [])
+
+  // Write the current pages to disk now, resolving only once they are there.
+  // Throws when the write fails or saves are blocked, for operations that
+  // must not report success before the data is durable (imports, migrations).
+  const saveNowOrThrow = useCallback(async () => {
+    if (!isInitializedRef.current) throw new Error('Pages have not loaded yet')
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+      saveTimeoutRef.current = null
+    }
+    while (saveInProgressRef.current) {
+      await new Promise(resolve => setTimeout(resolve, 25))
+    }
+    saveInProgressRef.current = true
+    try {
+      saveVersionRef.current += 1
+      const pagesToSave = pagesRef.current.filter(p => !p.id?.startsWith('live-'))
+      const result = await executeSave(pagesToSave, saveVersionRef.current)
+      if (!result?.written) {
+        throw new Error(result?.reason === 'blocked' ? 'Saving is blocked on this device' : 'The save did not reach storage')
+      }
+      return result
+    } finally {
+      saveInProgressRef.current = false
+      if (pendingSaveRef.current) processSaveQueue()
+    }
+  }, [executeSave, processSaveQueue])
 
   // Debounced save function to prevent excessive saves.
   // `updatedPages` (when provided) takes precedence over pagesRef.current.
@@ -1582,28 +1616,36 @@ export function usePagesManager() {
     while (saveInProgressRef.current) {
       await new Promise(resolve => setTimeout(resolve, 50))
     }
-    saveVersionRef.current += 1
-    await executeSave(pagesRef.current, saveVersionRef.current)
 
-    // Clear plaintext from in-memory state
-    const encrypted = []
-    for (const page of pagesRef.current) {
-      if (page.type === 'folder' || page.password?.hash || page.appLockEncrypted) {
-        encrypted.push(page)
-      } else if (page.content) {
+    // Save, then clear plaintext from memory. Encryption awaits per page, so a
+    // sync pull or import that replaces the page list meanwhile would be
+    // overwritten by the older list; encryptPagesUntilStable starts over when
+    // that happens, so the change is saved and kept.
+    const result = await encryptPagesUntilStable({
+      read: () => pagesRef.current,
+      save: async (pagesToSave) => {
+        saveVersionRef.current += 1
+        await executeSave(pagesToSave, saveVersionRef.current)
+      },
+      encryptPage: async (page) => {
+        if (page.type === 'folder' || page.password?.hash || page.appLockEncrypted || !page.content) return page
         try {
           const encryptedContent = await encryptJsonWithKey(page.content, appLockKey.key, appLockKey.salt)
-          encrypted.push({ ...page, content: null, encryptedContent, appLockEncrypted: true })
+          return { ...page, content: null, encryptedContent, appLockEncrypted: true }
         } catch (err) {
           console.error('Failed to encrypt page for lock:', page.id, err)
-          encrypted.push(page)
+          return page
         }
-      } else {
-        encrypted.push(page)
       }
+    })
+    if (!result.stable) {
+      // The page list kept changing. Every version was saved encrypted at
+      // rest; plaintext stays in memory rather than risk dropping a change.
+      console.warn('encryptAndClearAppLockPages: pages kept changing; left them in memory')
+      return
     }
-    setPages(encrypted)
-    pagesRef.current = encrypted
+    setPages(result.pages)
+    pagesRef.current = result.pages
     appLockKeyRef.current = null
   }, [executeSave])
 
@@ -1785,7 +1827,9 @@ export function usePagesManager() {
     reEncryptAppLockPages,
     removeAppLockEncryption,
     getLatestPages,
+    arePagesLoaded,
     flushSavesNow,
+    saveNowOrThrow,
     // Phase 2.4 sync — exposed so RichTextEditor can pass the live duress
     // flag into useSyncQueue's canPush gate.
     isDuressModeRef,

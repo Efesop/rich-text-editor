@@ -346,7 +346,7 @@ describe('syncQueue — base64Encode / base64Decode', () => {
  * all requests and returns success by default. Tests can override the mock to
  * simulate failures.
  */
-async function setupQueueFixture () {
+async function setupQueueFixture (extraOpts = {}) {
   const vaultKeyBytes = generateVaultKey()
   const vaultCryptoKey = await importVaultKey(vaultKeyBytes)
 
@@ -393,7 +393,8 @@ async function setupQueueFixture () {
     fetch: mockFetch,
     persistBackend,
     onStateChange: (s) => stateLog.push({ status: s.status, count: s.pendingCount }),
-    tunables: { debounceMs: 50 } // fast for tests
+    tunables: { debounceMs: 50 }, // fast for tests
+    ...extraOpts
   })
 
   return { queue, credentials, requests, setNextResponse, persisted, stateLog }
@@ -699,5 +700,225 @@ describe('syncQueue — batch sizing', () => {
     await q.flushNow()
     await q.flushNow()
     assert.equal(q.pendingCount(), 0)
+  })
+})
+
+// =============================================================================
+// syncQueue — never lose an envelope: space, oversize, vault-full, in flight
+// =============================================================================
+
+async function waitFor (predicate, timeoutMs = 10000) {
+  const start = Date.now()
+  while (!predicate()) {
+    if (Date.now() - start > timeoutMs) throw new Error('waitFor timed out')
+    await new Promise(resolve => setTimeout(resolve, 5))
+  }
+}
+
+async function testCredentials () {
+  const vaultKeyBytes = generateVaultKey()
+  return {
+    vaultKeyBytes,
+    vaultCryptoKey: await importVaultKey(vaultKeyBytes),
+    vaultId: 'vault-test-1',
+    deviceId: 'device-test-A',
+    relayUrl: 'wss://relay.test'
+  }
+}
+
+function acceptingFetch (pushes) {
+  return async (url, init) => {
+    pushes.push(JSON.parse(init.body).envelopes.map(e => e.resourceId))
+    return { ok: true, status: 200, headers: { get: () => null }, json: async () => ({ results: [] }) }
+  }
+}
+
+describe('syncQueue — never drops an envelope for space', () => {
+  it('pushes all 6,000 notes queued at once, resolving the spilled ones at push time', async () => {
+    const live = new Map()
+    const pushes = []
+    let resolved = 0
+    const creds = await testCredentials()
+    const queue = createSyncQueue({
+      getCredentials: async () => creds,
+      fetch: acceptingFetch(pushes),
+      resolvePayload: (type, id) => { resolved++; return live.get(id) ?? null },
+      tunables: { debounceMs: 5 }
+    })
+    for (let i = 0; i < 6000; i++) {
+      const page = { id: `n${i}`, title: `Note ${i}`, content: { blocks: [] } }
+      live.set(page.id, page)
+      queue.enqueue({ resourceType: 'note', resourceId: page.id, payload: page })
+    }
+    assert.equal(queue.pendingCount(), 6000)
+    assert.equal(queue.state().entries.filter(e => e.spilled).length, 6000 - MAX_QUEUE_LENGTH)
+
+    await queue.flushNow()
+    await waitFor(() => queue.pendingCount() === 0, 120000)
+    assert.equal(new Set(pushes.flat()).size, 6000)
+    assert.equal(resolved, 6000 - MAX_QUEUE_LENGTH)
+    queue.dispose()
+  })
+
+  it('keeps every entry when there is no resolver, rather than dropping the oldest', () => {
+    const queue = createSyncQueue({
+      getCredentials: async () => { throw new Error('locked') },
+      fetch: async () => { throw new Error('offline') },
+      tunables: { debounceMs: 60000 }
+    })
+    for (let i = 0; i < MAX_QUEUE_LENGTH + 25; i++) {
+      queue.enqueue({ resourceType: 'note', resourceId: `n${i}`, payload: { i } })
+    }
+    assert.equal(queue.pendingCount(), MAX_QUEUE_LENGTH + 25)
+    assert.equal(queue.state().entries[0].resourceId, 'n0')
+    queue.dispose()
+  })
+
+  it('saves a spilled entry without its payload and pushes it after a restart', async () => {
+    const persisted = []
+    const persistBackend = {
+      async read () { return persisted.at(-1) ?? null },
+      async write (data) { persisted.push(JSON.parse(JSON.stringify(data))) },
+      async clear () { persisted.length = 0 }
+    }
+    const live = new Map(['a', 'b', 'c'].map(id => [id, { id }]))
+    const resolvePayload = (type, id) => live.get(id) ?? null
+    const creds = await testCredentials()
+
+    const first = createSyncQueue({
+      getCredentials: async () => creds,
+      fetch: async () => { throw new Error('offline') },
+      persistBackend,
+      resolvePayload,
+      tunables: { debounceMs: 60000, maxQueueLength: 2 }
+    })
+    for (const id of ['a', 'b', 'c']) first.enqueue({ resourceType: 'note', resourceId: id, payload: live.get(id) })
+    await waitFor(() => persisted.at(-1)?.length === 3)
+    assert.deepEqual(persisted.at(-1).map(e => e.spilled), [false, false, true])
+    assert.equal(persisted.at(-1)[2].payload, null)
+    first.dispose()
+
+    const pushes = []
+    const second = createSyncQueue({
+      getCredentials: async () => creds,
+      fetch: acceptingFetch(pushes),
+      persistBackend,
+      resolvePayload,
+      tunables: { debounceMs: 5, maxQueueLength: 2 }
+    })
+    await second.restore()
+    assert.equal(second.pendingCount(), 3)
+    await second.flushNow()
+    await waitFor(() => second.pendingCount() === 0)
+    assert.deepEqual(pushes.flat().sort(), ['a', 'b', 'c'])
+    second.dispose()
+  })
+
+  it('skips an entry that cannot be read yet, and removes one whose page is gone', async () => {
+    const creds = await testCredentials()
+    const pushes = []
+    let laterReadable = false
+    const queue = createSyncQueue({
+      getCredentials: async () => creds,
+      fetch: acceptingFetch(pushes),
+      resolvePayload: (type, id) => {
+        if (id === 'ready') return { id: 'ready' }
+        if (id === 'later') return laterReadable ? { id: 'later' } : undefined
+        return null
+      },
+      tunables: { debounceMs: 60000, maxQueueLength: 1 }
+    })
+    for (const id of ['keep', 'ready', 'later', 'gone']) {
+      queue.enqueue({ resourceType: 'note', resourceId: id, payload: { id } })
+    }
+    await queue.flushNow()
+    assert.deepEqual(pushes.flat(), ['keep', 'ready'])
+    assert.deepEqual(queue.state().entries.map(e => e.resourceId), ['later'])
+
+    laterReadable = true
+    await queue.flushNow()
+    assert.deepEqual(pushes.flat(), ['keep', 'ready', 'later'])
+    assert.equal(queue.pendingCount(), 0)
+    queue.dispose()
+  })
+
+  it('restores stored entries without losing what was enqueued before restore finished', async () => {
+    const creds = await testCredentials()
+    const stored = [
+      { entryId: 'e1', resourceType: 'note', resourceId: 'old', payload: { id: 'old' }, enqueuedAt: 1, attempts: 0 },
+      { entryId: 'e2', resourceType: 'note', resourceId: 'both', payload: { id: 'both', v: 'stored' }, enqueuedAt: 1, attempts: 0 }
+    ]
+    const queue = createSyncQueue({
+      getCredentials: async () => creds,
+      fetch: async () => { throw new Error('offline') },
+      persistBackend: { async read () { return stored }, async write () {}, async clear () {} },
+      tunables: { debounceMs: 60000 }
+    })
+    queue.enqueue({ resourceType: 'note', resourceId: 'both', payload: { id: 'both', v: 'new' } })
+    queue.enqueue({ resourceType: 'note', resourceId: 'fresh', payload: { id: 'fresh' } })
+    await queue.restore()
+    const entries = queue.state().entries
+    assert.deepEqual(entries.map(e => e.resourceId), ['old', 'both', 'fresh'])
+    assert.equal(entries.find(e => e.resourceId === 'both').payload.v, 'new')
+    queue.dispose()
+  })
+})
+
+describe('syncQueue — relay refusals and in-flight edits', () => {
+  it('pauses on 413 vault-full and keeps every envelope', async () => {
+    const fx = await setupQueueFixture()
+    fx.setNextResponse({
+      ok: false, status: 413, headers: new Map(),
+      json: async () => ({ error: 'vault-full', usage: 1, limit: 1 })
+    })
+    fx.queue.enqueue({ resourceType: 'note', resourceId: 'n1', payload: { x: 1 } })
+    fx.queue.enqueue({ resourceType: 'note', resourceId: 'n2', payload: { x: 2 } })
+    await fx.queue.flushNow()
+    assert.equal(fx.queue.pendingCount(), 2)
+    assert.equal(fx.queue.state().status, 'error')
+    assert.match(fx.queue.state().lastError, /vault-full/)
+    await new Promise(resolve => setTimeout(resolve, 150))
+    assert.equal(fx.requests.length, 1, 'no retry loop while the vault is full')
+    fx.queue.dispose()
+  })
+
+  it('reports the one envelope the relay can never accept', async () => {
+    const drops = []
+    const fx = await setupQueueFixture({ onDrop: (drop) => drops.push(drop) })
+    fx.setNextResponse({
+      ok: false, status: 413, headers: new Map(),
+      json: async () => ({ error: 'payload-too-large' })
+    })
+    fx.queue.enqueue({ resourceType: 'note', resourceId: 'huge', payload: { x: 1 } })
+    await fx.queue.flushNow()
+    assert.deepEqual(drops, [{ resourceType: 'note', resourceId: 'huge', reason: 'too-large' }])
+    fx.queue.dispose()
+  })
+
+  it('still pushes an edit made while the previous version was in flight', async () => {
+    const creds = await testCredentials()
+    let releaseFirst
+    const firstGate = new Promise(resolve => { releaseFirst = resolve })
+    let calls = 0
+    const pushed = []
+    const queue = createSyncQueue({
+      getCredentials: async () => creds,
+      fetch: async () => {
+        calls++
+        if (calls === 1) await firstGate
+        return { ok: true, status: 200, headers: { get: () => null }, json: async () => ({ results: [] }) }
+      },
+      onPushed: (p) => pushed.push(p.resourceId),
+      tunables: { debounceMs: 5 }
+    })
+    queue.enqueue({ resourceType: 'note', resourceId: 'n1', payload: { text: 'first' } })
+    const firstFlush = queue.flushNow()
+    await waitFor(() => calls === 1)
+    queue.enqueue({ resourceType: 'note', resourceId: 'n1', payload: { text: 'second' } })
+    releaseFirst()
+    await firstFlush
+    await waitFor(() => calls === 2 && queue.pendingCount() === 0)
+    assert.deepEqual(pushed, ['n1', 'n1'])
+    queue.dispose()
   })
 })
