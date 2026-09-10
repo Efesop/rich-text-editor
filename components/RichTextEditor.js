@@ -1,10 +1,10 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, Import, X, FolderPlus, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, List, Shield, Copy, Check, AlertCircle, SlidersHorizontal, SunMoon } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, Import, X, FolderPlus, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, List, Shield, Copy, Check, AlertCircle, SlidersHorizontal, SunMoon, ArrowUpLeft } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
@@ -45,6 +45,9 @@ import { MoveToFolderModal } from './MoveToFolderModal'
 import { FolderIcon } from 'lucide-react'
 import UpdateNotification from './UpdateNotification'
 import MiniOutline from './MiniOutline'
+import BacklinksSection from './BacklinksSection'
+import BacklinksPopover from './BacklinksPopover'
+import { findBacklinks } from '@/lib/backlinks'
 import Tooltip from './Tooltip'
 import EncryptionStatusIndicator from './EncryptionStatusIndicator'
 import { useUpdateManager } from '@/hooks/useUpdateManager'
@@ -3774,6 +3777,16 @@ export default function RichTextEditor() {
     }
   }, [theme])
 
+  // Backlinks are scanned once here and shared by the foot-of-note section and
+  // the status-bar chip, so the pass over every page happens a single time.
+  const backlinks = useMemo(
+    () => (currentPage?.id ? findBacklinks(pages, currentPage.id) : []),
+    [pages, currentPage?.id]
+  )
+  const backlinksAnchorRef = useRef(null)
+  const [isBacklinksOpen, setIsBacklinksOpen] = useState(false)
+  useEffect(() => { setIsBacklinksOpen(false) }, [currentPage?.id])
+
   // Handle loading states - these returns must come AFTER all hooks
   if (!isClient) {
     return (
@@ -4822,6 +4835,19 @@ export default function RichTextEditor() {
               readOnly={undefined}
             />
           </EditorErrorBoundary>
+          {/* Linked references. Matches the document column (Editor.js centres its
+              own content at 650px) so the section lines up with the text above it. */}
+          {!focusMode && !isLivePage && (
+            <div className='mx-auto' style={{ maxWidth: 650 }}>
+              <BacklinksSection
+                backlinks={backlinks}
+                pageId={currentPage?.id}
+                theme={theme}
+                isSmallScreen={isSmallScreen}
+                onNavigate={handlePageLinkClick}
+              />
+            </div>
+          )}
           {/* Remote cursor indicators — inside scroll container so they scroll with content */}
           {activeSession && currentPage?.id === activeSession.pageId && Object.entries(remoteCursors).map(([peerId, cursor]) => (
             <RemoteCursorIndicator key={peerId} blockIndex={cursor.blockIndex} color={cursor.color} alias={cursor.alias} />
@@ -4958,6 +4984,38 @@ export default function RichTextEditor() {
           <SelfDestructBadge selfDestructAt={currentPage.selfDestructAt} theme={theme} />
         </button>
         </Tooltip>
+      )}
+      {backlinks.length > 0 && (
+        <>
+        <Tooltip text={`${backlinks.length} note${backlinks.length === 1 ? '' : 's'} link here`}>
+        <button
+          ref={backlinksAnchorRef}
+          onClick={() => setIsBacklinksOpen(open => !open)}
+          className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-colors ${
+            isBacklinksOpen
+              ? (theme === 'fallout' ? 'text-green-400 bg-green-900/30' :
+                 theme === 'dark' ? 'text-[#c0c0c0] bg-[#2a2a2a]' :
+                 theme === 'darkblue' ? 'text-[#8b99b5] bg-[#1c2438]' :
+                 'text-neutral-600 bg-neutral-100')
+              : (theme === 'fallout' ? 'text-green-600 hover:text-green-400 hover:bg-green-900/30' :
+                 theme === 'dark' ? 'text-[#6b6b6b] hover:text-[#c0c0c0] hover:bg-[#2a2a2a]' :
+                 theme === 'darkblue' ? 'text-[#5d6b88] hover:text-[#8b99b5] hover:bg-[#1c2438]' :
+                 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100')
+          }`}
+        >
+          <ArrowUpLeft size={12} className="pointer-events-none" />
+          <span className="pointer-events-none text-[11px] font-medium">{backlinks.length}</span>
+        </button>
+        </Tooltip>
+        <BacklinksPopover
+          isOpen={isBacklinksOpen}
+          onClose={() => setIsBacklinksOpen(false)}
+          anchorRef={backlinksAnchorRef}
+          backlinks={backlinks}
+          theme={theme}
+          onNavigate={handlePageLinkClick}
+        />
+        </>
       )}
       <Tooltip text={showMiniOutline ? 'Hide contents' : 'Table of contents'}>
       <button

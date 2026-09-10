@@ -50,3 +50,6 @@ build.keychain
 
 .v15-launch-secrets.local
 .build-scratch/
+
+# Design canvas working files (seeded artifact payloads are large)
+.design-dash/
