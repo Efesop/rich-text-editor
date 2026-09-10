@@ -14,6 +14,7 @@
  *   DELETE /sync/note/:noteId
  *   POST   /sync/attachment/:attachmentId
  *   GET    /sync/attachment/:attachmentId
+ *   POST   /sync/attachments/exists
  *   WS     /sync/ws/:vaultId
  *   POST   /sync/vault/purge
  *   GET    /sync/vault/purge-token
@@ -47,7 +48,12 @@ export type SyncBlob = {
   authorDeviceId: string
   parentVersion: number | null
   permanent?: boolean
+  // Set when the ciphertext is stored in chunk entries; `ciphertext` is then
+  // empty and `size` is the full length. See writeChunks.
+  chunks?: ChunkRef
 }
+
+export type ChunkRef = { uploadId: string; count: number }
 
 export type VaultIndex = {
   lastVersion: number
@@ -67,6 +73,8 @@ export type DeviceInfo = {
   addedAt: number
   lastSeenAt: number
   deviceName?: string
+  // App version the device last registered with, e.g. "1.6.8".
+  appVersion?: string
 }
 
 export type DevicesMap = Record<string, DeviceInfo>
@@ -102,21 +110,40 @@ export const REGISTER_PER_IP_PER_HOUR = IS_LOCAL_RELAY ? 200 : 20
 // purge so it tracks ACTIVE vaults per IP, not cumulative registers ever.
 // 50 gives a generous ceiling for normal users while still bounding abuse.
 export const REGISTER_PER_IP_LIFETIME = IS_LOCAL_RELAY ? 10000 : 50
-// Soft KV ceiling — refuse new vault registers above this. Free Deno
-// Deploy plan = 1 GiB; 80% leaves headroom.
+// Soft KV ceiling. Above it the relay refuses new vaults and attachment
+// uploads, so existing vaults keep syncing notes. Free Deno Deploy plan =
+// 1 GiB; 80% leaves headroom.
 export const KV_SOFT_CEILING_BYTES = 800 * 1024 * 1024
 // Inactive vault TTL — auto-purged by cron after 90 days no activity.
 export const INACTIVE_VAULT_TTL_MS = 90 * 24 * 60 * 60 * 1000
-// Deno KV has a hard 64 KB cap per value. Each envelope is one KV entry,
-// so this CANNOT be bumped above ~62 KB without changing storage layout
-// (chunked entries). Larger notes need to be split or compressed before
-// the envelope is encrypted.
-export const MAX_ENVELOPE_BYTES = 62 * 1024
-export const MAX_BATCH_BYTES = 200 * 1024
+// Deno KV caps a value at 64 KiB and an atomic operation at 800 KiB of
+// mutations. Ciphertext up to INLINE_BLOB_BYTES lives inside its SyncBlob,
+// as it always has; anything larger is split into CHUNK_BYTES entries that
+// the SyncBlob points at (see writeChunks).
+export const MAX_ENVELOPE_BYTES = 2 * 1024 * 1024
+export const MAX_BATCH_BYTES = 4 * 1024 * 1024
 export const MAX_BATCH_COUNT = 50
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024 // 10 MB
 export const MAX_NOTE_VERSIONS = 30
 export const MAX_PULL_LIMIT = 100
+// A pull response stops adding envelopes before its ciphertext passes this
+// (always returning at least one) and reports hasMore instead.
+export const MAX_PULL_BYTES = 4 * 1024 * 1024
+export const INLINE_BLOB_BYTES = 60 * 1024
+export const CHUNK_BYTES = 60 * 1024
+// Inline ciphertext allowed in one push commit — well under KV's 800 KiB.
+const ATOMIC_INLINE_BUDGET = 512 * 1024
+// Chunks per atomic write: 10 × 60 KiB stays under the same limit.
+const CHUNK_WRITE_GROUP = 10
+// Deno KV's getMany reads at most 10 keys at a time.
+const GET_MANY_LIMIT = 10
+// Chunks from an upload that never committed are swept after this long.
+export const ABANDONED_UPLOAD_MS = 24 * 60 * 60 * 1000
+export const MAX_EXISTS_IDS = 200
+// Pulls refresh a vault's lastActivityAt at most this often.
+const ACTIVITY_REFRESH_MS = 24 * 60 * 60 * 1000
+// App versions a device may report, e.g. "1.6.8" or "1.7.0-beta.2".
+const APP_VERSION_RE = /^\d{1,4}\.\d{1,4}\.\d{1,4}(?:[-+][0-9A-Za-z.-]{1,32})?$/
 export const TIMESTAMP_SKEW_MS = 5 * 60 * 1000 // 5 min
 export const NONCE_TTL_MS = 5 * 60 * 1000 // 5 min
 export const PURGE_TOKEN_TTL_MS = 60 * 1000 // 60s
@@ -185,7 +212,12 @@ export function errorResponse(
   return jsonResponse({ error: code, ...details }, status, extraHeaders)
 }
 
+// Runtimes with the TC39 base64 methods decode and encode natively, which is
+// far cheaper for multi-megabyte attachments. The fallbacks give identical
+// output.
 export function base64Decode(b64: string): Uint8Array {
+  const native = Uint8Array as unknown as { fromBase64?: (b64: string) => Uint8Array }
+  if (typeof native.fromBase64 === 'function') return native.fromBase64(b64)
   const bin = atob(b64)
   const out = new Uint8Array(bin.length)
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
@@ -193,8 +225,12 @@ export function base64Decode(b64: string): Uint8Array {
 }
 
 export function base64Encode(bytes: Uint8Array): string {
+  const native = bytes as unknown as { toBase64?: () => string }
+  if (typeof native.toBase64 === 'function') return native.toBase64()
   let bin = ''
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i])
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000) as unknown as number[])
+  }
   return btoa(bin)
 }
 
@@ -214,6 +250,165 @@ export function resetClock(): void {
 }
 export function now(): number {
   return clockNow()
+}
+
+// ── Blob storage ───────────────────────────────────────────────────────
+//
+// Ciphertext larger than INLINE_BLOB_BYTES is stored as chunk entries under
+// ['v', vaultId, 'chunk', uploadId, i]. Chunks are written first; the
+// SyncBlob naming them is committed last, in the same atomic operation as
+// the vault index, so a half-finished upload is never visible. A pending
+// marker written before the chunks lets sweepAbandonedUploads remove them if
+// the request dies, and the commit deletes it.
+
+type PendingUpload = { vaultId: string; count: number; createdAt: number }
+
+function chunkKey(vaultId: string, uploadId: string, index: number): Deno.KvKey {
+  return ['v', vaultId, 'chunk', uploadId, index]
+}
+
+function pendingUploadKey(uploadId: string): Deno.KvKey {
+  return ['chunk-pending', uploadId]
+}
+
+async function writeChunks(kv: Deno.Kv, vaultId: string, bytes: Uint8Array): Promise<ChunkRef> {
+  const uploadId = crypto.randomUUID()
+  const count = Math.ceil(bytes.byteLength / CHUNK_BYTES)
+  const pending: PendingUpload = { vaultId, count, createdAt: now() }
+  await kv.set(pendingUploadKey(uploadId), pending)
+  for (let start = 0; start < count; start += CHUNK_WRITE_GROUP) {
+    let tx = kv.atomic()
+    for (let i = start; i < Math.min(count, start + CHUNK_WRITE_GROUP); i++) {
+      tx = tx.set(chunkKey(vaultId, uploadId, i), bytes.slice(i * CHUNK_BYTES, (i + 1) * CHUNK_BYTES))
+    }
+    await tx.commit()
+  }
+  return { uploadId, count }
+}
+
+/** Delete an upload's chunks and its pending marker. */
+async function deleteChunks(kv: Deno.Kv, vaultId: string, ref: ChunkRef): Promise<void> {
+  const keys = Array.from({ length: ref.count }, (_, i) => chunkKey(vaultId, ref.uploadId, i))
+  keys.push(pendingUploadKey(ref.uploadId))
+  for (let i = 0; i < keys.length; i += 500) {
+    let tx = kv.atomic()
+    for (const key of keys.slice(i, i + 500)) tx = tx.delete(key)
+    await tx.commit()
+  }
+}
+
+/**
+ * Throw away uploads a request wrote but never committed. Best-effort: if
+ * this fails as well, sweepAbandonedUploads removes them later.
+ */
+async function discardUploads(kv: Deno.Kv, vaultId: string, refs: Array<ChunkRef | null>): Promise<void> {
+  for (const ref of refs) {
+    if (!ref) continue
+    try {
+      await deleteChunks(kv, vaultId, ref)
+    } catch (err) {
+      console.error('[sync] discarding an uncommitted upload failed', err)
+    }
+  }
+}
+
+/** Chunk keys a stored blob points at — none for an inline blob. */
+function chunkKeysOf(vaultId: string, blob: SyncBlob): Deno.KvKey[] {
+  if (!blob.chunks) return []
+  const { uploadId, count } = blob.chunks
+  return Array.from({ length: count }, (_, i) => chunkKey(vaultId, uploadId, i))
+}
+
+/** A blob's ciphertext, reassembled when chunked. Null if a chunk is missing. */
+async function readBlobCiphertext(kv: Deno.Kv, vaultId: string, blob: SyncBlob): Promise<Uint8Array | null> {
+  if (!blob.chunks) return blob.ciphertext
+  const keys = chunkKeysOf(vaultId, blob)
+  const out = new Uint8Array(blob.size)
+  let offset = 0
+  for (let i = 0; i < keys.length; i += GET_MANY_LIMIT) {
+    for (const entry of await kv.getMany<Uint8Array[]>(keys.slice(i, i + GET_MANY_LIMIT))) {
+      const part = entry.value
+      if (!(part instanceof Uint8Array) || offset + part.byteLength > blob.size) return null
+      out.set(part, offset)
+      offset += part.byteLength
+    }
+  }
+  return offset === blob.size ? out : null
+}
+
+/** Stored ciphertext bytes behind a KV value, for purge accounting. */
+function storedSize(value: unknown): number {
+  const size = (value as { size?: unknown } | null)?.size
+  return typeof size === 'number' ? size : 0
+}
+
+/**
+ * Remove chunks from uploads that never committed. Runs from the daily cron;
+ * the age gate keeps it clear of uploads still in flight.
+ */
+export async function sweepAbandonedUploads(kv: Deno.Kv): Promise<number> {
+  const cutoff = now() - ABANDONED_UPLOAD_MS
+  let swept = 0
+  for await (const entry of kv.list<PendingUpload>({ prefix: ['chunk-pending'] })) {
+    const pending = entry.value
+    if (!pending || pending.createdAt > cutoff) continue
+    await deleteChunks(kv, pending.vaultId, { uploadId: entry.key[1] as string, count: pending.count })
+    swept++
+  }
+  return swept
+}
+
+// ── Relay-wide usage ───────────────────────────────────────────────────
+//
+// Bytes stored across every vault = baseline + added − freed. The added and
+// freed counters only grow, through atomic sum(), so vaults never contend on
+// them. The baseline is taken once from the vault indexes, the first time
+// usage is needed; bytes pushed at that moment may be counted twice, which
+// errs toward refusing early.
+
+const USAGE_BASELINE_KEY: Deno.KvKey = ['kv-meta', 'usage-baseline']
+const USAGE_ADDED_KEY: Deno.KvKey = ['kv-meta', 'usage-added']
+const USAGE_FREED_KEY: Deno.KvKey = ['kv-meta', 'usage-freed']
+
+let kvCeilingBytes = KV_SOFT_CEILING_BYTES
+/** Tests only: lower the relay's capacity ceiling. */
+export function setKvCeilingForTests(bytes: number): void {
+  kvCeilingBytes = bytes
+}
+export function resetKvCeiling(): void {
+  kvCeilingBytes = KV_SOFT_CEILING_BYTES
+}
+
+function counterValue(entry: Deno.KvEntryMaybe<Deno.KvU64>): bigint {
+  return entry.value instanceof Deno.KvU64 ? entry.value.value : 0n
+}
+
+export async function relayUsageBytes(kv: Deno.Kv): Promise<number> {
+  const [baselineEntry, added, freed] = await kv.getMany<[Deno.KvU64, Deno.KvU64, Deno.KvU64]>([
+    USAGE_BASELINE_KEY,
+    USAGE_ADDED_KEY,
+    USAGE_FREED_KEY,
+  ])
+  let baseline = counterValue(baselineEntry)
+  if (baselineEntry.value === null) {
+    let scanned = 0
+    for await (const entry of kv.list<VaultIndex>({ prefix: ['v'] })) {
+      if (entry.key.length !== 3 || entry.key[2] !== 'index') continue
+      if (typeof entry.value?.totalBytes === 'number') scanned += entry.value.totalBytes
+    }
+    // Another request may have seeded it meanwhile; the first one wins.
+    await kv.atomic()
+      .check(baselineEntry)
+      .set(USAGE_BASELINE_KEY, new Deno.KvU64(BigInt(scanned)))
+      .commit()
+    baseline = counterValue(await kv.get<Deno.KvU64>(USAGE_BASELINE_KEY))
+  }
+  const total = baseline + counterValue(added) - counterValue(freed)
+  return total > 0n ? Number(total) : 0
+}
+
+async function recordFreedBytes(kv: Deno.Kv, bytes: number): Promise<void> {
+  if (bytes > 0) await kv.atomic().sum(USAGE_FREED_KEY, BigInt(bytes)).commit()
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────
@@ -424,8 +619,10 @@ export async function purgeInactiveVaults(kv: Deno.Kv): Promise<number> {
     const subIter = kv.list({ prefix: ['v', vaultId] })
     let batch = kv.atomic()
     let count = 0
+    let freedBytes = 0
     for await (const e of subIter) {
       batch = batch.delete(e.key)
+      freedBytes += storedSize(e.value)
       count++
       if (count % 100 === 0) {
         await batch.commit()
@@ -433,6 +630,7 @@ export async function purgeInactiveVaults(kv: Deno.Kv): Promise<number> {
       }
     }
     if (count % 100 !== 0) await batch.commit()
+    await recordFreedBytes(kv, freedBytes)
     // Also clean up the device map at ['vault', vaultId, 'devices']
     await kv.delete(['vault', vaultId, 'devices'])
     console.log(`[purgeInactiveVaults] purged vault ${vaultId} (${count} entries)`)
@@ -505,27 +703,11 @@ async function checkRegisterIpQuota(
 }
 
 /**
- * KV size watchdog. Returns true if total KV usage is over the soft
- * ceiling — caller should refuse new registers. Tracked via a running
- * counter at ['kv-meta', 'totalBytes']; updated incrementally on push
- * (already done by VaultIndex.totalBytes per vault) plus a global sum
- * we maintain here.
- *
- * Cheap implementation: read first page of vault indexes, sum totalBytes.
- * Acceptable since this only runs on register (rare).
+ * True when relay-wide stored bytes, plus what a request is about to add,
+ * reach the soft ceiling. Callers refuse new vaults and attachment uploads.
  */
-async function isKvFull(kv: Deno.Kv): Promise<boolean> {
-  let total = 0
-  // Per-vault index lives at ['v', vaultId, 'index']. Iterate ['v'] prefix
-  // and pick out only the index entries (length 3, last segment 'index').
-  const iter = kv.list<VaultIndex>({ prefix: ['v'] })
-  for await (const entry of iter) {
-    if (entry.key.length !== 3 || entry.key[2] !== 'index') continue
-    if (entry.value && typeof entry.value.totalBytes === 'number') {
-      total += entry.value.totalBytes
-    }
-  }
-  return total >= KV_SOFT_CEILING_BYTES
+async function isKvFull(kv: Deno.Kv, incomingBytes = 0): Promise<boolean> {
+  return (await relayUsageBytes(kv)) + incomingBytes >= kvCeilingBytes
 }
 
 // ── WebSocket fan-out ──────────────────────────────────────────────────
@@ -611,7 +793,7 @@ export async function handleVaultRegister(
     }
   }
 
-  let body: { vaultId?: string; deviceId?: string; deviceName?: string; entitlementEmail?: string; rcAppUserId?: string }
+  let body: { vaultId?: string; deviceId?: string; deviceName?: string; appVersion?: string; entitlementEmail?: string; rcAppUserId?: string }
   try {
     body = await req.json()
   } catch {
@@ -641,6 +823,11 @@ export async function handleVaultRegister(
       message: 'deviceName too long (max 100)',
     })
   }
+  if (typeof body.appVersion !== 'undefined' && !(typeof body.appVersion === 'string' && APP_VERSION_RE.test(body.appVersion))) {
+    return errorResponse('invalid-request', 400, {
+      message: 'appVersion must be a version like 1.6.8',
+    })
+  }
 
   const devicesKey = ['vault', auth.vaultId, 'devices']
   const ts = now()
@@ -654,6 +841,7 @@ export async function handleVaultRegister(
     if (devices[auth.deviceId]) {
       devices[auth.deviceId].lastSeenAt = ts
       if (body.deviceName) devices[auth.deviceId].deviceName = body.deviceName
+      if (body.appVersion) devices[auth.deviceId].appVersion = body.appVersion
       const tx = await kv.atomic()
         .check(entry)
         .set(devicesKey, devices)
@@ -673,6 +861,7 @@ export async function handleVaultRegister(
       addedAt: ts,
       lastSeenAt: ts,
       deviceName: body.deviceName,
+      appVersion: body.appVersion,
     }
 
     const tx = await kv.atomic()
@@ -743,13 +932,12 @@ export async function handleRevokeDevice(
       let purgedBytes = 0
       for await (const entry of kv.list({ prefix: ['v', auth.vaultId] })) {
         await kv.delete(entry.key)
-        if (entry.value && typeof (entry.value as any).bytes === 'number') {
-          purgedBytes += (entry.value as any).bytes
-        }
+        purgedBytes += storedSize(entry.value)
       }
       for await (const entry of kv.list({ prefix: ['vault', auth.vaultId] })) {
         await kv.delete(entry.key)
       }
+      await recordFreedBytes(kv, purgedBytes)
 
       // Refund the creator's lifetime quota slot — vault is gone, so a
       // future register from the same IP shouldn't count this one against
@@ -783,6 +971,47 @@ export async function handleRevokeDevice(
   return errorResponse('invalid-request', 500, {
     message: 'Could not revoke device after retries',
   })
+}
+
+function vaultFullResponse(usage: number): Response {
+  return errorResponse('vault-full', 413, { usage, limit: MAX_VAULT_BYTES })
+}
+
+/** The index fields clients use — never the creator's IP hash. */
+function publicIndex(idx: VaultIndex): { lastVersion: number; totalBytes: number; lastActivityAt?: number } {
+  return {
+    lastVersion: idx.lastVersion,
+    totalBytes: idx.totalBytes,
+    ...(typeof idx.lastActivityAt === 'number' ? { lastActivityAt: idx.lastActivityAt } : {}),
+  }
+}
+
+/**
+ * Take freed bytes off a vault's usage. A checked write with retries, so it
+ * can never roll back a concurrent push's lastVersion.
+ */
+async function releaseIndexBytes(kv: Deno.Kv, indexKey: Deno.KvKey, bytes: number): Promise<void> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const cur = await kv.get<VaultIndex>(indexKey)
+    if (!cur.value) break
+    const next: VaultIndex = { ...cur.value, totalBytes: Math.max(0, cur.value.totalBytes - bytes) }
+    const res = await kv.atomic().check(cur).set(indexKey, next).sum(USAGE_FREED_KEY, BigInt(bytes)).commit()
+    if (res.ok) return
+  }
+  await recordFreedBytes(kv, bytes)
+}
+
+/**
+ * Pulls count as activity, so a vault that is only being read is never
+ * purged as inactive. Written at most once per ACTIVITY_REFRESH_MS, and
+ * skipped on conflict — a concurrent write is itself activity.
+ */
+async function touchVaultActivity(kv: Deno.Kv, indexEntry: Deno.KvEntryMaybe<VaultIndex>): Promise<void> {
+  const idx = indexEntry.value
+  if (!idx) return
+  const ts = now()
+  if (typeof idx.lastActivityAt === 'number' && ts - idx.lastActivityAt < ACTIVITY_REFRESH_MS) return
+  await kv.atomic().check(indexEntry).set(indexEntry.key, { ...idx, lastActivityAt: ts }).commit()
 }
 
 /** POST /sync/push */
@@ -876,19 +1105,43 @@ export async function handlePush(
     decoded.push({ e, bytes, size })
   }
 
+  const indexKey = ['v', auth.vaultId, 'index']
+
+  // Refuse up front when the vault can't take the batch, before storing any
+  // chunks.
+  const usageBefore = (await kv.get<VaultIndex>(indexKey)).value?.totalBytes ?? 0
+  if (usageBefore + totalBatchBytes > MAX_VAULT_BYTES) {
+    return vaultFullResponse(usageBefore)
+  }
+
+  // Large envelopes go to chunk storage now. Small ones ride inline in the
+  // commit, up to a budget that keeps the atomic operation under KV's limit.
+  const uploads: Array<ChunkRef | null> = []
+  let inlineBytes = 0
+  try {
+    for (const d of decoded) {
+      if (d.size <= INLINE_BLOB_BYTES && inlineBytes + d.size <= ATOMIC_INLINE_BUDGET) {
+        inlineBytes += d.size
+        uploads.push(null)
+      } else {
+        uploads.push(await writeChunks(kv, auth.vaultId, d.bytes))
+      }
+    }
+  } catch (err) {
+    await discardUploads(kv, auth.vaultId, uploads)
+    throw err
+  }
+
   // Atomic batch write — refetch index and lastVersion, plan all writes,
   // commit. If conflicts, retry whole batch.
-  const indexKey = ['v', auth.vaultId, 'index']
   for (let attempt = 0; attempt < 5; attempt++) {
     const indexEntry = await kv.get<VaultIndex>(indexKey)
     const idx: VaultIndex = indexEntry.value ?? { lastVersion: 0, totalBytes: 0 }
 
     // Quota check
     if (idx.totalBytes + totalBatchBytes > MAX_VAULT_BYTES) {
-      return errorResponse('vault-full', 413, {
-        usage: idx.totalBytes,
-        limit: MAX_VAULT_BYTES,
-      })
+      await discardUploads(kv, auth.vaultId, uploads)
+      return vaultFullResponse(idx.totalBytes)
     }
 
     // Permanent-tombstone check — if any envelope targets a permanent
@@ -899,25 +1152,25 @@ export async function handlePush(
     // (latest-wins) but client is expected to quarantine if the tombstone is
     // permanent. Here we still write — eviction happens on the client.
 
-    const newLast = idx.lastVersion + decoded.length
-    const txStart = idx.lastVersion
     const ts = now()
-
     const writes: Array<{ resourceType: ResourceType; resourceId: string; version: number }> = []
     let tx = kv.atomic().check(indexEntry)
 
-    let nextVersion = txStart + 1
-    for (const d of decoded) {
+    let nextVersion = idx.lastVersion + 1
+    for (let i = 0; i < decoded.length; i++) {
+      const d = decoded[i]
+      const chunks = uploads[i]
       const blob: SyncBlob = {
         v: 1,
-        ciphertext: d.bytes,
+        ciphertext: chunks ? new Uint8Array(0) : d.bytes,
         size: d.size,
         uploadedAt: ts,
         authorDeviceId: auth.deviceId,
         parentVersion: typeof d.e.parentVersion === 'number' ? d.e.parentVersion : null,
+        ...(chunks ? { chunks } : {}),
       }
-      const key = ['v', auth.vaultId, d.e.resourceType, d.e.resourceId, nextVersion]
-      tx = tx.set(key, blob)
+      tx = tx.set(['v', auth.vaultId, d.e.resourceType, d.e.resourceId, nextVersion], blob)
+      if (chunks) tx = tx.delete(pendingUploadKey(chunks.uploadId))
       writes.push({
         resourceType: d.e.resourceType,
         resourceId: d.e.resourceId,
@@ -927,33 +1180,23 @@ export async function handlePush(
     }
 
     const newIndex: VaultIndex = {
-      lastVersion: newLast,
+      ...idx,
+      lastVersion: idx.lastVersion + decoded.length,
       totalBytes: idx.totalBytes + totalBatchBytes,
-      lastActivityAt: now(),
+      lastActivityAt: ts,
     }
-    tx = tx.set(indexKey, newIndex)
+    tx = tx.set(indexKey, newIndex).sum(USAGE_ADDED_KEY, BigInt(totalBatchBytes))
 
     const result = await tx.commit()
     if (!result.ok) continue
 
     // Post-write: version eviction for note resources only (per spec)
-    let totalBytesAfterEviction = newIndex.totalBytes
+    let evictedBytes = 0
     for (const w of writes) {
       if (w.resourceType !== 'note') continue
-      const evicted = await evictOldNoteVersions(kv, auth.vaultId, w.resourceId)
-      totalBytesAfterEviction -= evicted
+      evictedBytes += await evictOldNoteVersions(kv, auth.vaultId, w.resourceId)
     }
-    if (totalBytesAfterEviction !== newIndex.totalBytes) {
-      // Update index totalBytes after eviction (best-effort, non-atomic with
-      // eviction — eviction loop is its own atomic ops)
-      const cur = await kv.get<VaultIndex>(indexKey)
-      if (cur.value) {
-        await kv.set(indexKey, {
-          lastVersion: cur.value.lastVersion,
-          totalBytes: Math.max(0, cur.value.totalBytes - (newIndex.totalBytes - totalBytesAfterEviction)),
-        })
-      }
-    }
+    if (evictedBytes > 0) await releaseIndexBytes(kv, indexKey, evictedBytes)
 
     // Build results
     const results = writes.map((w) => ({
@@ -977,18 +1220,19 @@ export async function handlePush(
 
     return jsonResponse({
       results,
-      vaultIndex: finalIdx,
+      vaultIndex: publicIndex(finalIdx),
     })
   }
 
+  await discardUploads(kv, auth.vaultId, uploads)
   return errorResponse('invalid-request', 500, {
     message: 'Push failed after retries (concurrent writes)',
   })
 }
 
 /**
- * Delete oldest note versions if count > MAX_NOTE_VERSIONS. Returns number
- * of bytes evicted.
+ * Delete oldest note versions if count > MAX_NOTE_VERSIONS, together with
+ * their chunks. Returns number of bytes evicted.
  */
 async function evictOldNoteVersions(
   kv: Deno.Kv,
@@ -996,10 +1240,10 @@ async function evictOldNoteVersions(
   noteId: string,
 ): Promise<number> {
   const prefix = ['v', vaultId, 'note', noteId]
-  const versions: Array<{ version: number; size: number; key: Deno.KvKey }> = []
+  const versions: Array<{ version: number; key: Deno.KvKey; blob: SyncBlob }> = []
   for await (const entry of kv.list<SyncBlob>({ prefix })) {
     const v = entry.key[entry.key.length - 1] as number
-    versions.push({ version: v, size: entry.value.size, key: entry.key })
+    versions.push({ version: v, key: entry.key, blob: entry.value })
   }
   if (versions.length <= MAX_NOTE_VERSIONS) return 0
 
@@ -1007,8 +1251,10 @@ async function evictOldNoteVersions(
   const toEvict = versions.slice(0, versions.length - MAX_NOTE_VERSIONS)
   let evictedBytes = 0
   for (const v of toEvict) {
-    await kv.delete(v.key)
-    evictedBytes += v.size
+    let tx = kv.atomic().delete(v.key)
+    for (const key of chunkKeysOf(vaultId, v.blob)) tx = tx.delete(key)
+    await tx.commit()
+    evictedBytes += v.blob.size
   }
   return evictedBytes
 }
@@ -1046,11 +1292,12 @@ export async function handlePull(
   // cursor is already caught up, return immediately with 1 read.
   const indexEntryEarly = await kv.get<VaultIndex>(['v', auth.vaultId, 'index'])
   const vaultIndexEarly = indexEntryEarly.value ?? { lastVersion: 0, totalBytes: 0 }
+  await touchVaultActivity(kv, indexEntryEarly)
   if (vaultIndexEarly.lastVersion <= since) {
     return jsonResponse({
       envelopes: [],
       hasMore: false,
-      vaultIndex: vaultIndexEarly,
+      vaultIndex: publicIndex(vaultIndexEarly),
     })
   }
 
@@ -1097,12 +1344,27 @@ export async function handlePull(
 
   refs.sort((a, b) => a.version - b.version)
   const windowRefs = refs.slice(0, limit)
-  const hasMore = refs.length > limit
+  let hasMore = refs.length > limit
 
   const collected: PulledEnvelope[] = []
+  let responseBytes = 0
   for (const ref of windowRefs) {
     const blob = (await kv.get<SyncBlob>(ref.key)).value
     if (!blob) continue
+
+    // Stop before the response grows past MAX_PULL_BYTES. The first envelope
+    // always goes out, so the client's cursor can never stall; it pulls the
+    // rest from its new cursor because hasMore is set.
+    if (collected.length > 0 && responseBytes + blob.size > MAX_PULL_BYTES) {
+      hasMore = true
+      break
+    }
+
+    const ciphertext = await readBlobCiphertext(kv, auth.vaultId, blob)
+    if (!ciphertext) {
+      console.error(`[sync] pull: ${ref.resourceType} v${ref.version} is missing chunks vault=${auth.vaultId.slice(0, 8)}`)
+      continue
+    }
 
     // Tombstone permanent flag (lazy)
     let permanent = blob.permanent
@@ -1114,24 +1376,23 @@ export async function handlePull(
     collected.push({
       resourceType: ref.resourceType,
       resourceId: ref.resourceId,
-      ciphertext: base64Encode(blob.ciphertext),
+      ciphertext: base64Encode(ciphertext),
       version: ref.version,
       uploadedAt: blob.uploadedAt,
       authorDeviceId: blob.authorDeviceId,
       parentVersion: blob.parentVersion,
       permanent,
     })
+    responseBytes += blob.size
   }
-  // windowRefs is already the version-sorted lowest-`limit` slice, so `collected`
-  // is in ascending version order — no re-sort needed.
-  const sliced = collected
 
-  // Reuse the index read from the short-circuit check above —
-  // cuts one KV read per non-empty pull.
+  // windowRefs is already the version-sorted lowest-`limit` slice, so
+  // `collected` is in ascending version order — no re-sort needed. The index
+  // read from the short-circuit check above is reused.
   return jsonResponse({
-    envelopes: sliced,
+    envelopes: collected,
     hasMore,
-    vaultIndex: vaultIndexEarly,
+    vaultIndex: publicIndex(vaultIndexEarly),
   })
 }
 
@@ -1196,11 +1457,12 @@ export async function handleNoteVersionGet(
   }
 
   const entry = await kv.get<SyncBlob>(['v', auth.vaultId, 'note', noteId, version])
-  if (!entry.value) {
+  const ciphertext = entry.value ? await readBlobCiphertext(kv, auth.vaultId, entry.value) : null
+  if (!entry.value || !ciphertext) {
     return errorResponse('not-found', 404, { message: 'Version not found' })
   }
   return jsonResponse({
-    ciphertext: base64Encode(entry.value.ciphertext),
+    ciphertext: base64Encode(ciphertext),
     uploadedAt: entry.value.uploadedAt,
     authorDeviceId: entry.value.authorDeviceId,
     parentVersion: entry.value.parentVersion,
@@ -1250,38 +1512,42 @@ export async function handleNoteDelete(
   }
 
   const indexKey = ['v', auth.vaultId, 'index']
+  const chunks = bytes.byteLength > INLINE_BLOB_BYTES ? await writeChunks(kv, auth.vaultId, bytes) : null
   for (let attempt = 0; attempt < 5; attempt++) {
     const indexEntry = await kv.get<VaultIndex>(indexKey)
     const idx: VaultIndex = indexEntry.value ?? { lastVersion: 0, totalBytes: 0 }
 
     if (idx.totalBytes + bytes.byteLength > MAX_VAULT_BYTES) {
-      return errorResponse('vault-full', 413, {
-        usage: idx.totalBytes,
-        limit: MAX_VAULT_BYTES,
-      })
+      await discardUploads(kv, auth.vaultId, [chunks])
+      return vaultFullResponse(idx.totalBytes)
     }
 
     const newVersion = idx.lastVersion + 1
     const ts = now()
     const blob: SyncBlob = {
       v: 1,
-      ciphertext: bytes,
+      ciphertext: chunks ? new Uint8Array(0) : bytes,
       size: bytes.byteLength,
       uploadedAt: ts,
       authorDeviceId: auth.deviceId,
       parentVersion: typeof body.parentVersion === 'number' ? body.parentVersion : null,
+      ...(chunks ? { chunks } : {}),
     }
 
-    const tx = await kv.atomic()
+    let tx = kv.atomic()
       .check(indexEntry)
       .set(['v', auth.vaultId, 'tombstone', noteId, newVersion], blob)
       .set(indexKey, {
+        ...idx,
         lastVersion: newVersion,
         totalBytes: idx.totalBytes + bytes.byteLength,
+        lastActivityAt: ts,
       })
-      .commit()
+      .sum(USAGE_ADDED_KEY, BigInt(bytes.byteLength))
+    if (chunks) tx = tx.delete(pendingUploadKey(chunks.uploadId))
 
-    if (!tx.ok) continue
+    const committed = await tx.commit()
+    if (!committed.ok) continue
 
     broadcastNewVersion(auth.vaultId, {
       type: 'new-version',
@@ -1293,6 +1559,7 @@ export async function handleNoteDelete(
     return jsonResponse({ ok: true, version: newVersion })
   }
 
+  await discardUploads(kv, auth.vaultId, [chunks])
   return errorResponse('invalid-request', 500, {
     message: 'Tombstone push failed after retries',
   })
@@ -1344,55 +1611,71 @@ export async function handleAttachmentUpload(
 
   // Dedup: if attachmentId already exists, return existing without rewriting.
   const key = ['v', auth.vaultId, 'attachment', attachmentId, 1]
-  const existing = await kv.get<SyncBlob>(key)
+  const indexKey = ['v', auth.vaultId, 'index']
+  const [indexBefore, existing] = await kv.getMany<[VaultIndex, SyncBlob]>([indexKey, key])
   if (existing.value) {
     return jsonResponse({ ok: true, dedupKey: attachmentId, existing: true })
   }
+  const usageBefore = indexBefore.value?.totalBytes ?? 0
+  if (usageBefore + bytes.byteLength > MAX_VAULT_BYTES) {
+    return vaultFullResponse(usageBefore)
+  }
+  // Relay-wide ceiling: attachments stop before storage runs out, so notes
+  // keep syncing. The app keeps the file and tries again later.
+  if (await isKvFull(kv, bytes.byteLength)) {
+    return errorResponse('capacity', 503, {
+      message: 'Relay storage is at capacity; attachment uploads are paused',
+    }, { 'Retry-After': '3600' })
+  }
 
-  const indexKey = ['v', auth.vaultId, 'index']
+  const chunks = bytes.byteLength > INLINE_BLOB_BYTES ? await writeChunks(kv, auth.vaultId, bytes) : null
+
   for (let attempt = 0; attempt < 5; attempt++) {
-    const indexEntry = await kv.get<VaultIndex>(indexKey)
+    const [indexEntry, current] = await kv.getMany<[VaultIndex, SyncBlob]>([indexKey, key])
+    if (current.value) {
+      // Another upload of the same attachment committed first.
+      await discardUploads(kv, auth.vaultId, [chunks])
+      return jsonResponse({ ok: true, dedupKey: attachmentId, existing: true })
+    }
     const idx: VaultIndex = indexEntry.value ?? { lastVersion: 0, totalBytes: 0 }
-
     if (idx.totalBytes + bytes.byteLength > MAX_VAULT_BYTES) {
-      return errorResponse('vault-full', 413, {
-        usage: idx.totalBytes,
-        limit: MAX_VAULT_BYTES,
-      })
+      await discardUploads(kv, auth.vaultId, [chunks])
+      return vaultFullResponse(idx.totalBytes)
     }
 
-    const newVersion = idx.lastVersion + 1
+    const ts = now()
     const blob: SyncBlob = {
       v: 1,
-      ciphertext: bytes,
+      ciphertext: chunks ? new Uint8Array(0) : bytes,
       size: bytes.byteLength,
-      uploadedAt: now(),
+      uploadedAt: ts,
       authorDeviceId: auth.deviceId,
       parentVersion: null,
+      ...(chunks ? { chunks } : {}),
     }
 
-    const tx = await kv.atomic()
+    // Attachments take no version number and ring no doorbell: pulls never
+    // return them (notes reference them by id), and bumping lastVersion would
+    // make every device's pull rescan the whole vault while photos upload.
+    let tx = kv.atomic()
       .check(indexEntry)
-      .check(existing) // Re-check existence to avoid race
+      .check(current)
       .set(key, blob)
       .set(indexKey, {
-        lastVersion: newVersion,
+        ...idx,
         totalBytes: idx.totalBytes + bytes.byteLength,
+        lastActivityAt: ts,
       })
-      .commit()
+      .sum(USAGE_ADDED_KEY, BigInt(bytes.byteLength))
+    if (chunks) tx = tx.delete(pendingUploadKey(chunks.uploadId))
 
-    if (!tx.ok) continue
-
-    broadcastNewVersion(auth.vaultId, {
-      type: 'new-version',
-      resourceType: 'attachment',
-      resourceId: attachmentId,
-      version: newVersion,
-    }, auth.deviceId)
+    const committed = await tx.commit()
+    if (!committed.ok) continue
 
     return jsonResponse({ ok: true, dedupKey: attachmentId, existing: false })
   }
 
+  await discardUploads(kv, auth.vaultId, [chunks])
   return errorResponse('invalid-request', 500, {
     message: 'Attachment upload failed after retries',
   })
@@ -1418,14 +1701,58 @@ export async function handleAttachmentGet(
   const entry = await kv.get<SyncBlob>([
     'v', auth.vaultId, 'attachment', attachmentId, 1,
   ])
-  if (!entry.value) {
+  const ciphertext = entry.value ? await readBlobCiphertext(kv, auth.vaultId, entry.value) : null
+  if (!entry.value || !ciphertext) {
     return errorResponse('not-found', 404, { message: 'Attachment not found' })
   }
   return jsonResponse({
-    ciphertext: base64Encode(entry.value.ciphertext),
+    ciphertext: base64Encode(ciphertext),
     uploadedAt: entry.value.uploadedAt,
     authorDeviceId: entry.value.authorDeviceId,
   })
+}
+
+/**
+ * POST /sync/attachments/exists — which of up to MAX_EXISTS_IDS attachment
+ * ids the relay already holds. Counted in the 'other' bucket, so checking
+ * never spends the attachment transfer allowance.
+ */
+export async function handleAttachmentsExist(
+  kv: Deno.Kv,
+  req: Request,
+): Promise<Response> {
+  const auth = await authenticate(kv, req)
+  if (!auth.ok) return auth.response
+
+  const rl = checkRateLimit(auth.vaultId, auth.deviceId, 'other')
+  if (!rl.ok) return rateLimitedResponse(rl.retryAfter)
+
+  let body: { ids?: unknown }
+  try {
+    body = await req.json()
+  } catch {
+    return errorResponse('invalid-request', 400, { message: 'Invalid JSON' })
+  }
+  const ids = body.ids
+  if (!Array.isArray(ids) || ids.length === 0 || ids.length > MAX_EXISTS_IDS || !ids.every((id) => isValidId(id))) {
+    return errorResponse('invalid-request', 400, {
+      message: `ids must be 1 to ${MAX_EXISTS_IDS} attachment ids`,
+    })
+  }
+
+  const unique = [...new Set(ids as string[])]
+  const present: string[] = []
+  const missing: string[] = []
+  for (let i = 0; i < unique.length; i += GET_MANY_LIMIT) {
+    const group = unique.slice(i, i + GET_MANY_LIMIT)
+    const keys = group.map((id) => ['v', auth.vaultId, 'attachment', id, 1])
+    const entries = await kv.getMany<SyncBlob[]>(keys)
+    for (let j = 0; j < group.length; j++) {
+      if (entries[j].value) present.push(group[j])
+      else missing.push(group[j])
+    }
+  }
+  return jsonResponse({ present, missing })
 }
 
 /** WS /sync/ws/:vaultId */
@@ -1586,6 +1913,7 @@ export async function handleVaultPurge(
     for (const k of toDelete.slice(i, i + 100)) tx = tx.delete(k)
     await tx.commit()
   }
+  await recordFreedBytes(kv, purgedBytes)
 
   // Refund creator's lifetime quota slot (same logic as auto-purge in revoke).
   if (creatorIpHash) {
@@ -1630,6 +1958,7 @@ export async function handleVaultIndex(
     addedAt: info.addedAt,
     lastSeenAt: info.lastSeenAt,
     deviceName: info.deviceName,
+    appVersion: info.appVersion,
   }))
 
   return jsonResponse({
@@ -1873,6 +2202,10 @@ async function routeSyncRequestInner(
   const noteDeleteMatch = path.match(/^\/sync\/note\/([a-zA-Z0-9_-]+)$/)
   if (noteDeleteMatch && req.method === 'DELETE') {
     return handleNoteDelete(kv, req, noteDeleteMatch[1])
+  }
+
+  if (path === '/sync/attachments/exists' && req.method === 'POST') {
+    return handleAttachmentsExist(kv, req)
   }
 
   // Attachment endpoints

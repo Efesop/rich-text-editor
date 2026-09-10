@@ -16,19 +16,32 @@ import {
 } from 'https://deno.land/std@0.224.0/assert/mod.ts'
 
 import {
+  ABANDONED_UPLOAD_MS,
   base64Decode,
   base64Encode,
+  CHUNK_BYTES,
   clearRateLimits,
   getWsConnectionCount,
+  INACTIVE_VAULT_TTL_MS,
+  MAX_BATCH_BYTES,
+  MAX_BATCH_COUNT,
   MAX_DEVICES_PER_VAULT,
   MAX_ENVELOPE_BYTES,
+  MAX_EXISTS_IDS,
   MAX_NOTE_VERSIONS,
+  MAX_PULL_BYTES,
   MAX_VAULT_BYTES,
+  purgeInactiveVaults,
+  relayUsageBytes,
   resetClock,
+  resetKvCeiling,
   routeSyncRequest,
   setClock,
+  setKvCeilingForTests,
+  sweepAbandonedUploads,
   TOMBSTONE_PERMANENT_MS,
 } from './sync.ts'
+import { handleShareRequest, readShare, storeShare } from './share.ts'
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -110,7 +123,10 @@ async function registerDevice(
 
 function mkCipher(size: number): Uint8Array {
   const out = new Uint8Array(size)
-  crypto.getRandomValues(out)
+  // getRandomValues fills at most 65,536 bytes per call.
+  for (let i = 0; i < size; i += 65536) {
+    crypto.getRandomValues(out.subarray(i, Math.min(size, i + 65536)))
+  }
   return out
 }
 
@@ -118,6 +134,7 @@ function setupTeardown<T>(fn: (kv: Deno.Kv) => Promise<T>): () => Promise<T> {
   return async () => {
     clearRateLimits()
     resetClock()
+    resetKvCeiling()
     const kv = await freshKv()
     try {
       return await fn(kv)
@@ -201,7 +218,7 @@ Deno.test('push: batch is atomic (all-or-nothing)', setupTeardown(async (kv) => 
   assertEquals(body.vaultIndex.lastVersion, 3)
 }))
 
-Deno.test('push: oversize envelope (>50KB) returns 413', setupTeardown(async (kv) => {
+Deno.test('push: envelope over MAX_ENVELOPE_BYTES returns 413', setupTeardown(async (kv) => {
   await registerDevice(kv)
   const ct = base64Encode(mkCipher(MAX_ENVELOPE_BYTES + 1))
   const res = await callSync(kv, 'POST', '/sync/push', {
@@ -212,10 +229,11 @@ Deno.test('push: oversize envelope (>50KB) returns 413', setupTeardown(async (kv
   assertEquals(body.error, 'payload-too-large')
 }))
 
-Deno.test('push: oversize batch (>200KB total) returns 413', setupTeardown(async (kv) => {
+Deno.test('push: batch over MAX_BATCH_BYTES in total returns 413', setupTeardown(async (kv) => {
   await registerDevice(kv)
   const big = base64Encode(mkCipher(MAX_ENVELOPE_BYTES))
-  // 5 envelopes of 62 KB each = 310 KB > 200 KB
+  // 5 envelopes at the per-envelope cap exceed the batch cap
+  assert(5 * MAX_ENVELOPE_BYTES > MAX_BATCH_BYTES)
   const envelopes = []
   for (let i = 0; i < 5; i++) {
     envelopes.push({
@@ -1164,4 +1182,297 @@ Deno.test('auth: invalid token format → null from verifySessionToken', setupTe
   assertEquals(await verifySessionToken(kv, 'garbage'), null)
   assertEquals(await verifySessionToken(kv, 'tok_short.sig'), null)
   assertEquals(await verifySessionToken(kv, ''), null)
+}))
+
+// ── Chunked storage: notes and attachments larger than one KV value ────
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.byteLength !== b.byteLength) return false
+  for (let i = 0; i < a.byteLength; i++) if (a[i] !== b[i]) return false
+  return true
+}
+
+async function listKeys(kv: Deno.Kv, prefix: Deno.KvKey): Promise<Deno.KvKey[]> {
+  const keys: Deno.KvKey[] = []
+  for await (const entry of kv.list({ prefix })) keys.push(entry.key)
+  return keys
+}
+
+async function pushNote(kv: Deno.Kv, resourceId: string, bytes: Uint8Array, authOpts: AuthOpts = {}): Promise<Response> {
+  return await callSync(kv, 'POST', '/sync/push', {
+    envelopes: [{ resourceType: 'note', resourceId, ciphertext: base64Encode(bytes), parentVersion: null }],
+  }, authOpts)
+}
+
+Deno.test('base64: multi-megabyte buffers round-trip', () => {
+  const bytes = mkCipher(3 * 1024 * 1024 + 7)
+  assert(sameBytes(base64Decode(base64Encode(bytes)), bytes))
+})
+
+Deno.test('chunks: a 1.5 MiB note pulls back byte-identical, with its version history', setupTeardown(async (kv) => {
+  await registerDevice(kv)
+  const bytes = mkCipher(1.5 * 1024 * 1024)
+  assertEquals((await pushNote(kv, 'big-note', bytes)).status, 200)
+
+  const stored = await kv.get<{ ciphertext: Uint8Array; chunks?: { count: number } }>(['v', VAULT_A, 'note', 'big-note', 1])
+  assertEquals(stored.value?.chunks?.count, Math.ceil(bytes.byteLength / CHUNK_BYTES))
+  assertEquals(stored.value?.ciphertext.byteLength, 0)
+
+  const pull = await (await callSync(kv, 'GET', '/sync/pull?since=0&limit=100')).json()
+  assertEquals(pull.envelopes.length, 1)
+  assert(sameBytes(base64Decode(pull.envelopes[0].ciphertext), bytes))
+
+  const versions = await (await callSync(kv, 'GET', '/sync/note/big-note/versions')).json()
+  assertEquals(versions.versions[0].size, bytes.byteLength)
+  const version = await (await callSync(kv, 'GET', '/sync/note/big-note/version/1')).json()
+  assert(sameBytes(base64Decode(version.ciphertext), bytes))
+
+  // A committed upload leaves no pending marker behind.
+  assertEquals(await listKeys(kv, ['chunk-pending']), [])
+}))
+
+Deno.test('chunks: a full batch of 60 KiB envelopes commits despite KV\'s 800 KiB atomic limit', setupTeardown(async (kv) => {
+  await registerDevice(kv)
+  const payloads: Uint8Array[] = []
+  const envelopes = []
+  for (let i = 0; i < MAX_BATCH_COUNT; i++) {
+    const bytes = mkCipher(60 * 1024)
+    payloads.push(bytes)
+    envelopes.push({ resourceType: 'note', resourceId: `batch-${i}`, ciphertext: base64Encode(bytes), parentVersion: null })
+  }
+  assertEquals((await callSync(kv, 'POST', '/sync/push', { envelopes })).status, 200)
+
+  const pull = await (await callSync(kv, 'GET', '/sync/pull?since=0&limit=100')).json()
+  assertEquals(pull.envelopes.length, MAX_BATCH_COUNT)
+  for (const e of pull.envelopes as Array<{ resourceId: string; ciphertext: string }>) {
+    const i = Number(e.resourceId.slice('batch-'.length))
+    assert(sameBytes(base64Decode(e.ciphertext), payloads[i]), e.resourceId)
+  }
+}))
+
+Deno.test('pull: splits at MAX_PULL_BYTES with hasMore, and skips nothing', setupTeardown(async (kv) => {
+  await registerDevice(kv)
+  const size = 1.5 * 1024 * 1024
+  assert(3 * size > MAX_PULL_BYTES)
+  const payloads = [mkCipher(size), mkCipher(size), mkCipher(size), mkCipher(size)]
+  for (let i = 0; i < payloads.length; i++) {
+    assertEquals((await pushNote(kv, `page-${i}`, payloads[i])).status, 200)
+  }
+
+  const seen: string[] = []
+  let since = 0
+  let rounds = 0
+  while (rounds < 10) {
+    rounds++
+    const body = await (await callSync(kv, 'GET', `/sync/pull?since=${since}&limit=100`)).json()
+    let bytes = 0
+    for (const e of body.envelopes as Array<{ resourceId: string; ciphertext: string; version: number }>) {
+      const decoded = base64Decode(e.ciphertext)
+      bytes += decoded.byteLength
+      assert(sameBytes(decoded, payloads[Number(e.resourceId.slice('page-'.length))]), e.resourceId)
+      seen.push(e.resourceId)
+      since = Math.max(since, e.version)
+    }
+    assert(body.envelopes.length === 1 || bytes <= MAX_PULL_BYTES, `response carried ${bytes} bytes`)
+    if (!body.hasMore) break
+  }
+  assertEquals(seen, ['page-0', 'page-1', 'page-2', 'page-3'])
+  assert(rounds > 1, 'the byte budget should have split the pull')
+}))
+
+Deno.test('attachment: 1 MB and 9.9 MB files round-trip byte-identical', setupTeardown(async (kv) => {
+  await registerDevice(kv)
+  const cases: Array<[string, number]> = [['att-1mb', 1024 * 1024], ['att-9mb', Math.floor(9.9 * 1024 * 1024)]]
+  for (const [id, size] of cases) {
+    const bytes = mkCipher(size)
+    assertEquals((await callSync(kv, 'POST', `/sync/attachment/${id}`, { ciphertext: base64Encode(bytes) })).status, 200, id)
+    const down = await callSync(kv, 'GET', `/sync/attachment/${id}`)
+    assertEquals(down.status, 200, id)
+    assert(sameBytes(base64Decode((await down.json()).ciphertext), bytes), id)
+  }
+}))
+
+Deno.test('attachment: uploads leave lastVersion alone, so pulls stay caught up', setupTeardown(async (kv) => {
+  await registerDevice(kv)
+  assertEquals((await pushNote(kv, 'n1', mkCipher(100))).status, 200)
+  const photo = mkCipher(200 * 1024)
+  assertEquals((await callSync(kv, 'POST', '/sync/attachment/photo-1', { ciphertext: base64Encode(photo) })).status, 200)
+  const index = await (await callSync(kv, 'GET', '/sync/vault/index')).json()
+  assertEquals(index.lastVersion, 1)
+  assertEquals(index.totalBytes, 100 + photo.byteLength)
+}))
+
+Deno.test('legacy: blobs stored as one value before chunking still pull and download', setupTeardown(async (kv) => {
+  await registerDevice(kv)
+  const note = mkCipher(40 * 1024)
+  const attachment = mkCipher(50 * 1024)
+  const legacyBlob = (ciphertext: Uint8Array) => ({
+    v: 1, ciphertext, size: ciphertext.byteLength, uploadedAt: Date.now(), authorDeviceId: DEVICE_A1, parentVersion: null,
+  })
+  await kv.set(['v', VAULT_A, 'note', 'legacy-note', 1], legacyBlob(note))
+  await kv.set(['v', VAULT_A, 'attachment', 'legacy-att', 1], legacyBlob(attachment))
+  await kv.set(['v', VAULT_A, 'index'], { lastVersion: 1, totalBytes: note.byteLength + attachment.byteLength })
+
+  const pull = await (await callSync(kv, 'GET', '/sync/pull?since=0&limit=100')).json()
+  assert(sameBytes(base64Decode(pull.envelopes[0].ciphertext), note))
+  const down = await (await callSync(kv, 'GET', '/sync/attachment/legacy-att')).json()
+  assert(sameBytes(base64Decode(down.ciphertext), attachment))
+}))
+
+Deno.test('chunks: an upload that never committed stays invisible and is swept a day later', setupTeardown(async (kv) => {
+  await registerDevice(kv)
+  const t0 = Date.now()
+  await kv.set(['chunk-pending', 'upload-stale'], { vaultId: VAULT_A, count: 2, createdAt: t0 - ABANDONED_UPLOAD_MS - 1 })
+  await kv.set(['v', VAULT_A, 'chunk', 'upload-stale', 0], mkCipher(1024))
+  await kv.set(['v', VAULT_A, 'chunk', 'upload-stale', 1], mkCipher(1024))
+  await kv.set(['chunk-pending', 'upload-fresh'], { vaultId: VAULT_A, count: 1, createdAt: t0 })
+  await kv.set(['v', VAULT_A, 'chunk', 'upload-fresh', 0], mkCipher(1024))
+
+  const pull = await (await callSync(kv, 'GET', '/sync/pull?since=0&limit=100')).json()
+  assertEquals(pull.envelopes.length, 0)
+
+  assertEquals(await sweepAbandonedUploads(kv), 1)
+  assertEquals(await listKeys(kv, ['v', VAULT_A, 'chunk', 'upload-stale']), [])
+  assertEquals((await listKeys(kv, ['v', VAULT_A, 'chunk', 'upload-fresh'])).length, 1)
+  assertEquals((await listKeys(kv, ['chunk-pending'])).map((k) => k[1]), ['upload-fresh'])
+}))
+
+Deno.test('chunks: a push refused as vault-full stores nothing', setupTeardown(async (kv) => {
+  await registerDevice(kv)
+  await kv.set(['v', VAULT_A, 'index'], { lastVersion: 0, totalBytes: MAX_VAULT_BYTES - 1024 })
+  const res = await pushNote(kv, 'too-big', mkCipher(200 * 1024))
+  assertEquals(res.status, 413)
+  assertEquals((await res.json()).error, 'vault-full')
+  assertEquals(await listKeys(kv, ['v', VAULT_A, 'chunk']), [])
+  assertEquals(await listKeys(kv, ['chunk-pending']), [])
+}))
+
+Deno.test('eviction: evicted note versions take their chunks and bytes with them', setupTeardown(async (kv) => {
+  await registerDevice(kv)
+  await relayUsageBytes(kv)
+  const size = 100 * 1024
+  const t0 = Date.now()
+  for (let i = 0; i < MAX_NOTE_VERSIONS + 1; i++) {
+    setClock(() => t0 + i * 3000)
+    assertEquals((await pushNote(kv, 'evict-chunks', mkCipher(size))).status, 200, `push ${i + 1}`)
+  }
+  const uploads = new Set((await listKeys(kv, ['v', VAULT_A, 'chunk'])).map((k) => k[3]))
+  assertEquals(uploads.size, MAX_NOTE_VERSIONS)
+  const index = await (await callSync(kv, 'GET', '/sync/vault/index')).json()
+  assertEquals(index.totalBytes, MAX_NOTE_VERSIONS * size)
+  assertEquals(await relayUsageBytes(kv), MAX_NOTE_VERSIONS * size)
+}))
+
+Deno.test('purge: removes chunks and gives the bytes back to the relay', setupTeardown(async (kv) => {
+  await registerDevice(kv)
+  await relayUsageBytes(kv)
+  assertEquals((await pushNote(kv, 'purge-me', mkCipher(300 * 1024))).status, 200)
+  assertEquals(await relayUsageBytes(kv), 300 * 1024)
+
+  const { token } = await (await callSync(kv, 'GET', '/sync/vault/purge-token')).json()
+  assertEquals((await callSync(kv, 'POST', '/sync/vault/purge', { confirmToken: token })).status, 200)
+  assertEquals(await listKeys(kv, ['v', VAULT_A]), [])
+  assertEquals(await relayUsageBytes(kv), 0)
+}))
+
+Deno.test('attachments/exists: reports which ids the relay holds', setupTeardown(async (kv) => {
+  await registerDevice(kv)
+  await callSync(kv, 'POST', '/sync/attachment/have-1', { ciphertext: base64Encode(mkCipher(100)) })
+  await callSync(kv, 'POST', '/sync/attachment/have-2', { ciphertext: base64Encode(mkCipher(70 * 1024)) })
+  const ids = ['have-1', 'have-2', ...Array.from({ length: 15 }, (_, i) => `gone-${i}`)]
+  const res = await callSync(kv, 'POST', '/sync/attachments/exists', { ids })
+  assertEquals(res.status, 200)
+  const body = await res.json()
+  assertEquals([...body.present].sort(), ['have-1', 'have-2'])
+  assertEquals(body.missing.length, 15)
+
+  const tooMany = Array.from({ length: MAX_EXISTS_IDS + 1 }, (_, i) => `id-${i}`)
+  assertEquals((await callSync(kv, 'POST', '/sync/attachments/exists', { ids: tooMany })).status, 400)
+  assertEquals((await callSync(kv, 'POST', '/sync/attachments/exists', { ids: ['../etc'] })).status, 400)
+  assertEquals((await callSync(kv, 'POST', '/sync/attachments/exists', { ids: [] })).status, 400)
+}))
+
+Deno.test('capacity: attachment uploads stop at the relay ceiling while notes keep syncing', setupTeardown(async (kv) => {
+  await registerDevice(kv)
+  await relayUsageBytes(kv)
+  setKvCeilingForTests(100 * 1024)
+  assertEquals((await pushNote(kv, 'still-syncs', mkCipher(50 * 1024))).status, 200)
+
+  const res = await callSync(kv, 'POST', '/sync/attachment/refused', { ciphertext: base64Encode(mkCipher(60 * 1024)) })
+  assertEquals(res.status, 503)
+  assertExists(res.headers.get('Retry-After'))
+  assertEquals((await res.json()).error, 'capacity')
+  assertEquals((await callSync(kv, 'GET', '/sync/attachment/refused')).status, 404)
+
+  assertEquals((await pushNote(kv, 'still-syncs-2', mkCipher(80 * 1024))).status, 200)
+}))
+
+Deno.test('register: stores appVersion and lists it in the vault index', setupTeardown(async (kv) => {
+  const register = (deviceId: string, appVersion: unknown) =>
+    callSync(kv, 'POST', '/sync/vault/register', { vaultId: VAULT_A, deviceId, appVersion }, { deviceId })
+  assertEquals((await register(DEVICE_A1, '1.6.8')).status, 200)
+  assertEquals((await register(DEVICE_A2, undefined)).status, 200)
+  assertEquals((await register(DEVICE_A1, '1.7.0-beta.2')).status, 200)
+  assertEquals((await register(DEVICE_A1, 'not a version')).status, 400)
+  assertEquals((await register(DEVICE_A1, 168)).status, 400)
+
+  const index = await (await callSync(kv, 'GET', '/sync/vault/index')).json()
+  const versions = Object.fromEntries(
+    (index.pairedDevices as Array<{ deviceId: string; appVersion?: string }>).map((d) => [d.deviceId, d.appVersion]),
+  )
+  assertEquals(versions[DEVICE_A1], '1.7.0-beta.2')
+  assertEquals(versions[DEVICE_A2], undefined)
+}))
+
+Deno.test('index: attachment uploads and tombstones keep lastActivityAt and the creator IP hash', setupTeardown(async (kv) => {
+  await registerDevice(kv)
+  const created = (await kv.get<{ creatorIpHash?: string }>(['v', VAULT_A, 'index'])).value
+  assertExists(created?.creatorIpHash)
+  assertEquals((await pushNote(kv, 'n1', mkCipher(100))).status, 200)
+  assertEquals((await callSync(kv, 'POST', '/sync/attachment/a1', { ciphertext: base64Encode(mkCipher(100)) })).status, 200)
+  assertEquals((await callSync(kv, 'DELETE', '/sync/note/n1', { tombstoneCiphertext: base64Encode(mkCipher(64)), parentVersion: 1 })).status, 200)
+
+  const index = (await kv.get<{ creatorIpHash?: string; lastActivityAt?: number }>(['v', VAULT_A, 'index'])).value
+  assertEquals(index?.creatorIpHash, created?.creatorIpHash)
+  assertEquals(typeof index?.lastActivityAt, 'number')
+
+  // Clients never see the creator's IP hash.
+  const pull = await (await callSync(kv, 'GET', '/sync/pull?since=0&limit=100')).json()
+  assertEquals(pull.vaultIndex.creatorIpHash, undefined)
+}))
+
+Deno.test('pull: a vault that is only read is not purged as inactive', setupTeardown(async (kv) => {
+  const VAULT_B = 'vault-bbbbbbbbbbbbbbbbbbbbbb1'
+  const DEVICE_B1 = 'device-bbbbbbbbbbbbbbbbbb1'
+  const longAgo = Date.now() - INACTIVE_VAULT_TTL_MS - 24 * 60 * 60 * 1000
+  setClock(() => longAgo)
+  for (const [vaultId, deviceId] of [[VAULT_A, DEVICE_A1], [VAULT_B, DEVICE_B1]]) {
+    assertEquals((await registerDevice(kv, vaultId, deviceId, undefined, longAgo)).status, 200)
+    assertEquals((await pushNote(kv, 'n1', mkCipher(100), { vaultId, deviceId, timestamp: longAgo })).status, 200)
+  }
+  resetClock()
+
+  // Vault A is still being read; vault B was abandoned.
+  assertEquals((await callSync(kv, 'GET', '/sync/pull?since=1&limit=100')).status, 200)
+  assertEquals(await purgeInactiveVaults(kv), 1)
+  assertExists((await kv.get(['v', VAULT_A, 'index'])).value)
+  assertEquals((await kv.get(['v', VAULT_B, 'index'])).value, null)
+}))
+
+Deno.test('share: large payloads round-trip through chunks, small ones stay single values', setupTeardown(async (kv) => {
+  const cors = { 'Access-Control-Allow-Origin': '*' }
+  for (const size of [2 * 1024, 1024 * 1024]) {
+    const payload = mkCipher(size)
+    const post = await handleShareRequest(kv, new Request('http://localhost/share', { method: 'POST', body: payload as Uint8Array<ArrayBuffer> }), cors)
+    assertEquals(post?.status, 200)
+    const { id } = await post!.json()
+    const get = await handleShareRequest(kv, new Request(`http://localhost/share/${id}`), cors)
+    assertEquals(get?.status, 200)
+    assert(sameBytes(new Uint8Array(await get!.arrayBuffer()), payload), `${size} bytes`)
+  }
+
+  await storeShare(kv, 'partial', mkCipher(200 * 1024))
+  await kv.delete(['share-chunk', 'partial', 1])
+  assertEquals(await readShare(kv, 'partial'), null)
+  assertEquals((await handleShareRequest(kv, new Request('http://localhost/share/missing'), cors))?.status, 404)
 }))

@@ -18,7 +18,8 @@
  *   /sync/vault/index
  */
 
-import { routeSyncRequest, purgeInactiveVaults } from './sync.ts'
+import { routeSyncRequest, purgeInactiveVaults, sweepAbandonedUploads } from './sync.ts'
+import { handleShareRequest } from './share.ts'
 import { routeEntitlements } from './entitlements.ts'
 import { routeAuth } from './auth.ts'
 
@@ -31,8 +32,6 @@ const rooms = new Map<string, Set<WebSocket>>()
 const MAX_BLOB_SIZE = 5 * 1024 * 1024
 // Edit requests expire after 7 days
 const REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000
-// Share payloads expire after 30 days
-const SHARE_TTL_MS = 30 * 24 * 60 * 60 * 1000
 
 // CORS headers for cross-origin requests from Dash
 const corsHeaders = {
@@ -45,7 +44,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Vault-Id, X-Device-Id, X-Timestamp, X-Auth, X-RC-AppUserId',
 }
 
+/**
+ * Every request enters here. An unexpected failure — a storage limit, a body
+ * a handler didn't anticipate — becomes a JSON 500 with CORS headers, which
+ * the app can read, instead of a bare platform error that browsers report as
+ * a network failure.
+ */
 export async function handleRequest(req: Request): Promise<Response> {
+  try {
+    return await routeRequest(req)
+  } catch (err) {
+    console.error(`[relay] ${req.method} ${new URL(req.url).pathname} failed:`, err)
+    return new Response(JSON.stringify({ error: 'server-error', message: 'The relay hit an unexpected error' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+}
+
+async function routeRequest(req: Request): Promise<Response> {
   const url = new URL(req.url)
   const path = url.pathname
 
@@ -108,7 +125,7 @@ export async function handleRequest(req: Request): Promise<Response> {
   // reset KV state during iteration; refuses to mount in prod.
   if (!Deno.env.get('DENO_DEPLOYMENT_ID') && path === '/debug/wipe' && req.method === 'POST') {
     let count = 0
-    for (const prefix of [['v'], ['vault'], ['ip-rate'], ['ip-lifetime'], ['nonce'], ['kv-meta']]) {
+    for (const prefix of [['v'], ['vault'], ['ip-rate'], ['ip-lifetime'], ['nonce'], ['kv-meta'], ['chunk-pending']]) {
       for await (const entry of kv.list({ prefix })) {
         await kv.delete(entry.key)
         count++
@@ -213,7 +230,7 @@ export async function handleRequest(req: Request): Promise<Response> {
         })
       }
 
-      return new Response(result.value, {
+      return new Response(result.value as Uint8Array<ArrayBuffer>, {
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/octet-stream',
@@ -271,47 +288,8 @@ export async function handleRequest(req: Request): Promise<Response> {
   }
 
   // ── Share Storage: Short Links for Encrypted Notes ───────────────
-  if (path === '/share' && req.method === 'POST') {
-    const body = await req.arrayBuffer()
-    if (body.byteLength > MAX_BLOB_SIZE) {
-      return new Response(JSON.stringify({ error: 'Payload too large' }), {
-        status: 413,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    // Generate a short ID (9 random bytes → 12 base64url chars)
-    const idBytes = crypto.getRandomValues(new Uint8Array(9))
-    const id = btoa(String.fromCharCode(...idBytes))
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-
-    await kv.set(['shares', id], new Uint8Array(body), {
-      expireIn: SHARE_TTL_MS,
-    })
-
-    return new Response(JSON.stringify({ ok: true, id }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
-  }
-
-  const shareMatch = path.match(/^\/share\/([a-zA-Z0-9_-]+)$/)
-  if (shareMatch && req.method === 'GET') {
-    const id = shareMatch[1]
-    const result = await kv.get<Uint8Array>(['shares', id])
-    if (!result.value) {
-      return new Response(JSON.stringify({ error: 'Not found or expired' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    return new Response(result.value, {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/octet-stream',
-      },
-    })
-  }
+  const shared = await handleShareRequest(kv, req, corsHeaders)
+  if (shared) return shared
 
   // 404 fallback
   return new Response(JSON.stringify({ error: 'Not found' }), {
@@ -329,8 +307,9 @@ export async function handleRequest(req: Request): Promise<Response> {
 export function startServer() {
   Deno.serve({ port: 8000 }, handleRequest)
 
-  // Daily cron: purge vaults inactive for 90+ days. Frees KV without any
-  // user action. Deno Deploy supports Deno.cron natively.
+  // Daily cron: purge vaults inactive for 90+ days and chunks from uploads
+  // that never committed. Frees KV without any user action. Deno Deploy
+  // supports Deno.cron natively.
   if (typeof Deno.cron === 'function') {
     Deno.cron('purge-inactive-vaults', '17 3 * * *', async () => {
       try {
@@ -338,6 +317,12 @@ export function startServer() {
         console.log(`[cron] purgeInactiveVaults: ${purged} vault(s) purged`)
       } catch (err) {
         console.error('[cron] purgeInactiveVaults failed', err)
+      }
+      try {
+        const swept = await sweepAbandonedUploads(kv)
+        console.log(`[cron] sweepAbandonedUploads: ${swept} abandoned upload(s) removed`)
+      } catch (err) {
+        console.error('[cron] sweepAbandonedUploads failed', err)
       }
     })
   }
