@@ -448,6 +448,10 @@ export type AuthResult =
   | { ok: true; vaultId: string; deviceId: string }
   | { ok: false; response: Response }
 
+// authenticate() rewrites a device's lastSeenAt at most this often, so a
+// routine request doesn't cost a devices-map write.
+export const LAST_SEEN_WRITE_INTERVAL_MS = 5 * 60 * 1000 // 5 min
+
 /**
  * Validate sync request auth headers.
  *
@@ -456,7 +460,8 @@ export type AuthResult =
  * - Store new nonce.
  * - Reject 401 if device not registered in vault (skipRegistrationCheck=true
  *   for /sync/vault/register).
- * - Update lastSeenAt on success.
+ * - Update lastSeenAt on success (compare-and-set, at most once per
+ *   LAST_SEEN_WRITE_INTERVAL_MS).
  */
 export async function authenticate(
   kv: Deno.Kv,
@@ -546,9 +551,19 @@ export async function authenticate(
         }),
       }
     }
-    // Update lastSeenAt
-    devices[deviceId].lastSeenAt = now()
-    await kv.set(['vault', vaultId, 'devices'], devices)
+    // Update lastSeenAt — best-effort, and only once the stored value is
+    // stale. Compare-and-set against the entry read above: a blind set would
+    // overwrite a revoke or register that committed in between (bringing a
+    // revoked device back, or dropping a just-registered one). On conflict,
+    // skip it; a later request records it.
+    const ts = now()
+    if (ts - (devices[deviceId].lastSeenAt ?? 0) >= LAST_SEEN_WRITE_INTERVAL_MS) {
+      devices[deviceId].lastSeenAt = ts
+      await kv.atomic()
+        .check(devicesEntry)
+        .set(['vault', vaultId, 'devices'], devices)
+        .commit()
+    }
   }
 
   return { ok: true, vaultId, deviceId }

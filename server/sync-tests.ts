@@ -477,6 +477,119 @@ Deno.test('auth: revoked device (not in devices map) returns 401', setupTeardown
   assertEquals(res.status, 401)
 }))
 
+// authenticate() reads the devices map, then writes lastSeenAt back to it.
+// A revoke or register that commits in between must survive that write.
+
+import { LAST_SEEN_WRITE_INTERVAL_MS } from './sync.ts'
+
+/**
+ * Wrap `kv` so `between` runs right after the first read of the vault's
+ * devices map (authenticate's read) and before that read is returned —
+ * i.e. deterministically inside authenticate's read-then-write window.
+ */
+function interleaveAfterDevicesRead(
+  kv: Deno.Kv,
+  vaultId: string,
+  between: () => Promise<void>,
+): Deno.Kv {
+  let fired = false
+  return new Proxy(kv, {
+    get(target, prop) {
+      if (prop === 'get') {
+        return async (key: Deno.KvKey, options?: { consistency?: Deno.KvConsistencyLevel }) => {
+          const entry = await target.get(key, options)
+          if (!fired && key.length === 3 && key[0] === 'vault' && key[1] === vaultId && key[2] === 'devices') {
+            fired = true
+            await between()
+          }
+          return entry
+        }
+      }
+      const value = Reflect.get(target, prop, target)
+      return typeof value === 'function' ? value.bind(target) : value
+    },
+  })
+}
+
+Deno.test('auth: lastSeenAt write racing a revoke does not bring the device back', setupTeardown(async (kv) => {
+  const t0 = 1_700_000_000_000
+  setClock(() => t0)
+  await registerDevice(kv, VAULT_A, DEVICE_A1, undefined, t0)
+  await registerDevice(kv, VAULT_A, DEVICE_A2, undefined, t0)
+  // Past the throttle, so A1's next request does write lastSeenAt.
+  const t1 = t0 + LAST_SEEN_WRITE_INTERVAL_MS + 1000
+  setClock(() => t1)
+
+  // A2 revokes A1 while A1's request sits between the read and the write.
+  let revokeStatus = 0
+  const racyKv = interleaveAfterDevicesRead(kv, VAULT_A, async () => {
+    const res = await callSync(kv, 'DELETE', `/sync/vault/devices/${DEVICE_A1}`, undefined, {
+      deviceId: DEVICE_A2, timestamp: t1,
+    })
+    revokeStatus = res.status
+  })
+  const inFlight = await callSync(racyKv, 'GET', '/sync/vault/index', undefined, {
+    deviceId: DEVICE_A1, timestamp: t1,
+  })
+  assertEquals(revokeStatus, 200)
+  // Authorised before the revoke landed; the skipped write doesn't fail it.
+  assertEquals(inFlight.status, 200)
+
+  const devices = await kv.get<Record<string, unknown>>(['vault', VAULT_A, 'devices'])
+  assertEquals(Object.keys(devices.value ?? {}), [DEVICE_A2])
+  const after = await callSync(kv, 'GET', '/sync/vault/index', undefined, {
+    deviceId: DEVICE_A1, timestamp: t1,
+  })
+  assertEquals(after.status, 401)
+}))
+
+Deno.test('auth: lastSeenAt write racing a register does not drop the new device', setupTeardown(async (kv) => {
+  const t0 = 1_700_000_000_000
+  setClock(() => t0)
+  await registerDevice(kv, VAULT_A, DEVICE_A1, undefined, t0)
+  const t1 = t0 + LAST_SEEN_WRITE_INTERVAL_MS + 1000
+  setClock(() => t1)
+
+  // A2 joins while A1's request sits between the read and the write.
+  let registerStatus = 0
+  const racyKv = interleaveAfterDevicesRead(kv, VAULT_A, async () => {
+    registerStatus = (await registerDevice(kv, VAULT_A, DEVICE_A2, undefined, t1)).status
+  })
+  const inFlight = await callSync(racyKv, 'GET', '/sync/vault/index', undefined, {
+    deviceId: DEVICE_A1, timestamp: t1,
+  })
+  assertEquals(registerStatus, 200)
+  assertEquals(inFlight.status, 200)
+
+  const joined = await callSync(kv, 'GET', '/sync/vault/index', undefined, {
+    deviceId: DEVICE_A2, timestamp: t1,
+  })
+  assertEquals(joined.status, 200)
+}))
+
+Deno.test('auth: lastSeenAt is only rewritten once LAST_SEEN_WRITE_INTERVAL_MS has passed', setupTeardown(async (kv) => {
+  const t0 = 1_700_000_000_000
+  setClock(() => t0)
+  await registerDevice(kv, VAULT_A, DEVICE_A1, undefined, t0)
+  const devicesKey = ['vault', VAULT_A, 'devices']
+  const registered = await kv.get(devicesKey)
+
+  // Still fresh: the request authenticates without writing the devices map.
+  const t1 = t0 + LAST_SEEN_WRITE_INTERVAL_MS - 1000
+  setClock(() => t1)
+  const fresh = await callSync(kv, 'GET', '/sync/vault/index', undefined, { timestamp: t1 })
+  assertEquals(fresh.status, 200)
+  assertEquals((await kv.get(devicesKey)).versionstamp, registered.versionstamp)
+
+  // Stale: the next request records it.
+  const t2 = t0 + LAST_SEEN_WRITE_INTERVAL_MS
+  setClock(() => t2)
+  const stale = await callSync(kv, 'GET', '/sync/vault/index', undefined, { timestamp: t2 })
+  assertEquals(stale.status, 200)
+  const devices = await kv.get<Record<string, { lastSeenAt: number }>>(devicesKey)
+  assertEquals(devices.value?.[DEVICE_A1].lastSeenAt, t2)
+}))
+
 // ── 8. Rate limits ─────────────────────────────────────────────────────
 
 Deno.test('rate limit: 60+ pushes in a minute → 429', setupTeardown(async (kv) => {
