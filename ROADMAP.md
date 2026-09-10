@@ -60,9 +60,23 @@ Future feature ideas and enhancements for Dash.
 - Native Android app (currently PWA only)
 
 ## Editor Enhancements
-- Callout / admonition blocks (info, warning, tip, etc.)
-- Toggle / collapsible blocks
-- Markdown shortcuts (e.g., `# ` for heading, `- ` for bullet)
+- ~~Callout / admonition blocks (info, warning, tip, etc.)~~ ✓ **Built Sep 10 2026**
+  — `components/editor-tools/Callout.js`. Five variants (info, tip, done, warning,
+  danger) sharing the quote block's vocabulary: tinted fill, 8px radius, coloured
+  icon, no rule down the side. Variant switcher in the block's tune menu; trigger
+  is `[!info] ` and friends, including GitHub's `[!NOTE]` spelling.
+- ~~Toggle / collapsible blocks~~ ✓ **Built Sep 10 2026** — `components/editor-tools/Toggle.js`.
+  `defaultCollapsed` is saved in the block so the author controls how a note opens;
+  whether YOU have it open right now is per-device in localStorage, because folding
+  a section to read it is not an edit. Body is rich text: Editor.js is a flat block
+  list, so arbitrary nested blocks are NOT supported.
+- ~~Markdown shortcuts (e.g., `# ` for heading, `- ` for bullet)~~ ✓ **Built Sep 10 2026**
+  — `lib/markdownShortcuts.js` (pure matching, tested) + `components/editor-tools/markdownInput.js`
+  (DOM + Editor.js wiring). Blocks convert on keydown with `preventDefault` so the
+  trigger character never lands; inline wrappers (`**b**`, `*i*`, `` `c` ``, `~~s~~`,
+  `==h==`) fire on the closing delimiter. Heading levels use the SAME clamp as
+  `parseMarkdownToBlocks`, so typing and pasting markdown agree — which is why both
+  `#` and `##` give the biggest heading.
 - LaTeX / math equation support
 - Mermaid diagram rendering
 - Table of contents block (auto-generated from headings)

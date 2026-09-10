@@ -7,6 +7,9 @@ import { AIInlineTool } from './editor-tools/AIInlineTool'
 import { AIBlockTool } from './editor-tools/AIBlockTool'
 import { stripImageMetadata } from '@/utils/imageUtils'
 import AttachmentTool from './editor-tools/AttachmentTool'
+import CalloutTool from './editor-tools/Callout'
+import ToggleTool from './editor-tools/Toggle'
+import { attachMarkdownShortcuts } from './editor-tools/markdownInput'
 
 // Auto-linkify plain-text URLs in a string, skipping URLs already inside <a> tags
 function autoLinkify(html) {
@@ -206,6 +209,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
   const dataRef = useRef(data)
   const onChangeRef = useRef(onChange)
   const multiBlockEnhancerRef = useRef(null)
+  const markdownShortcutsCleanupRef = useRef(null)
   const lastSavedRef = useRef(null) // Dedup: prevent MutationObserver feedback loops
   const pageIdRef = useRef(pageId) // Pin page ID for unmount flush
 
@@ -485,6 +489,14 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
             captionPlaceholder: 'Quote\'s author'
           }
         },
+        callout: {
+          class: CalloutTool,
+          inlineToolbar: true
+        },
+        toggle: {
+          class: ToggleTool,
+          inlineToolbar: true
+        },
         code: {
           class: CodeBlock,
           config: {
@@ -681,6 +693,12 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
             }, 100)
           }
           editorEl.addEventListener('paste', pasteHandler)
+
+          // Markdown shortcuts as you type. The paste handler below covers
+          // pasted markdown; this covers typing it, and both use the same
+          // heading-level clamp so they agree.
+          const detachMarkdownShortcuts = attachMarkdownShortcuts(editorRef.current, editorEl)
+          markdownShortcutsCleanupRef.current = detachMarkdownShortcuts
 
           // Markdown paste handler — intercepts plain text that looks like markdown
           const markdownPasteHandler = async (e) => {
@@ -1299,6 +1317,11 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
       if (multiBlockEnhancerRef.current) {
         multiBlockEnhancerRef.current.destroy()
         multiBlockEnhancerRef.current = null
+      }
+
+      if (markdownShortcutsCleanupRef.current) {
+        markdownShortcutsCleanupRef.current()
+        markdownShortcutsCleanupRef.current = null
       }
 
       const editor = editorRef.current
