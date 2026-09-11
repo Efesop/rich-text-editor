@@ -1,5 +1,6 @@
 import DOMPurify from 'isomorphic-dompurify'
-import { queuePasteItems } from '../../utils/pasteQueue'
+import { clampListIndent, withIndent } from '../../lib/listIndent.js'
+import { applyIndent, changeListIndent, listConversionConfig, listIndentMenu, renumberLists } from './listIndentRuntime'
 
 const ORDERED_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><line x1="12" x2="19" y1="7" y2="7" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><line x1="12" x2="19" y1="12" y2="12" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><line x1="12" x2="19" y1="17" y2="17" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M7.79999 14L7.79999 7.2135C7.79999 7.12872 7.7011 7.0824 7.63597 7.13668L4.79999 9.5"/></svg>'
 
@@ -12,10 +13,7 @@ export default class NumberedListItem {
   }
 
   static get conversionConfig() {
-    return {
-      export: (data) => data.text,
-      import: (text) => ({ text })
-    }
+    return listConversionConfig(text => ({ text }))
   }
 
   static get enableLineBreaks() {
@@ -24,12 +22,6 @@ export default class NumberedListItem {
 
   static get isReadOnlySupported() {
     return true
-  }
-
-  static get pasteConfig() {
-    return {
-      tags: ['OL']
-    }
   }
 
   static get sanitize() {
@@ -55,68 +47,12 @@ export default class NumberedListItem {
     }
   }
 
-  static renumberAll() {
-    const blocks = document.querySelectorAll('.codex-editor .ce-block')
-    let counter = 0
-    blocks.forEach(block => {
-      const numItem = block.querySelector('.dash-numbered-item')
-      if (numItem) {
-        counter++
-        numItem.dataset.number = counter
-      } else {
-        counter = 0
-      }
-    })
-  }
-
-  constructor({ data, api, config, readOnly }) {
+  constructor({ data, api, config, readOnly, block }) {
     this.api = api
+    this.block = block
     this.readOnly = readOnly
-    this._data = { text: data.text || '' }
+    this._data = { text: data.text || '', indent: clampListIndent(data.indent) }
     this._element = null
-  }
-
-  onPaste(event) {
-    const element = event.detail.data
-    const items = this._extractListItems(element)
-    if (items.length === 0) return
-
-    this._data.text = items[0]
-    if (this._element) {
-      this._element.innerHTML = DOMPurify.sanitize(items[0])
-    }
-
-    // Defer remaining items — inserting during onPaste conflicts with Editor.js paste flow
-    if (items.length > 1) {
-      queuePasteItems(this.api.blocks, this, items.slice(1), 'numberedListItem')
-    }
-  }
-
-  _extractListItems(element) {
-    const items = []
-    if (element.tagName === 'LI') {
-      items.push(this._getItemContent(element))
-    } else {
-      const lis = element.querySelectorAll(':scope > li')
-      lis.forEach(li => items.push(this._getItemContent(li)))
-    }
-    return items.filter(text => text.trim() !== '')
-  }
-
-  _getItemContent(li) {
-    const clone = li.cloneNode(true)
-    clone.querySelectorAll('ul, ol').forEach(el => el.remove())
-    let html = clone.innerHTML.trim()
-    html = NumberedListItem._autoLinkUrls(html)
-    return DOMPurify.sanitize(html)
-  }
-
-  static _autoLinkUrls(html) {
-    const parts = html.split(/(<a[^>]*>.*?<\/a>)/gi)
-    return parts.map(part => {
-      if (part.match(/^<a\s/i)) return part
-      return part.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
-    }).join('')
   }
 
   render() {
@@ -125,14 +61,26 @@ export default class NumberedListItem {
     this._element.contentEditable = !this.readOnly
     this._element.innerHTML = DOMPurify.sanitize(this._data.text)
     this._element.dataset.placeholder = 'List item'
+    applyIndent(this._element, this._data.indent)
 
-    setTimeout(() => NumberedListItem.renumberAll(), 0)
+    setTimeout(() => renumberLists(), 0)
 
     if (!this.readOnly) {
       this._element.addEventListener('keydown', this._handleKeyDown.bind(this))
     }
 
     return this._element
+  }
+
+  // Indent and Outdent in the block menu
+  renderSettings() {
+    return listIndentMenu(this.api, this.block, this._data.indent)
+  }
+
+  // Called by listIndentRuntime through BlockAPI.call
+  setIndent(level) {
+    this._data.indent = clampListIndent(level)
+    applyIndent(this._element, this._data.indent)
   }
 
   _handleKeyDown(e) {
@@ -143,7 +91,7 @@ export default class NumberedListItem {
       this.api.blocks.insert('paragraph', { text: '' }, {}, currentIndex + 1, true)
       this.api.blocks.delete(currentIndex)
       setTimeout(() => {
-        NumberedListItem.renumberAll()
+        renumberLists()
         const block = document.querySelectorAll('.ce-block')[currentIndex]
         const contentEl = block?.querySelector('[contenteditable]')
         if (contentEl) {
@@ -161,9 +109,11 @@ export default class NumberedListItem {
 
       if (this._element.textContent.trim() === '') {
         const currentIndex = this.api.blocks.getCurrentBlockIndex()
+        // An empty nested item steps out a level before it stops being a list item
+        if (this._data.indent > 0 && changeListIndent(this.api, [currentIndex], -1)) return
         this.api.blocks.insert('paragraph', { text: '' }, {}, currentIndex + 1, true)
         this.api.blocks.delete(currentIndex)
-        setTimeout(() => NumberedListItem.renumberAll(), 50)
+        setTimeout(() => renumberLists(), 50)
         return
       }
 
@@ -172,11 +122,12 @@ export default class NumberedListItem {
       this._element.innerHTML = this._data.text
 
       const currentIndex = this.api.blocks.getCurrentBlockIndex()
-      this.api.blocks.insert('numberedListItem', { text: DOMPurify.sanitize(afterCaret) }, {}, currentIndex + 1, true)
+      // The new item starts at the same level
+      this.api.blocks.insert('numberedListItem', withIndent({ text: DOMPurify.sanitize(afterCaret) }, this._data.indent), {}, currentIndex + 1, true)
 
       setTimeout(() => {
         this.api.caret.setToBlock(currentIndex + 1, 'start')
-        NumberedListItem.renumberAll()
+        renumberLists()
       }, 50)
     }
 
@@ -194,6 +145,9 @@ export default class NumberedListItem {
           e.stopPropagation()
 
           const currentIndex = this.api.blocks.getCurrentBlockIndex()
+          // A nested item steps out a level first
+          if (this._data.indent > 0 && changeListIndent(this.api, [currentIndex], -1)) return
+
           const currentText = this._element.innerHTML
 
           if (currentText.trim() === '') {
@@ -205,7 +159,7 @@ export default class NumberedListItem {
             this.api.blocks.insert('paragraph', { text: currentText }, {}, currentIndex + 1, true)
             this.api.blocks.delete(currentIndex)
           }
-          setTimeout(() => NumberedListItem.renumberAll(), 50)
+          setTimeout(() => renumberLists(), 50)
         }
       }
     }
@@ -241,16 +195,12 @@ export default class NumberedListItem {
   }
 
   save() {
-    return {
+    return withIndent({
       text: this._element ? this._element.innerHTML : this._data.text
-    }
+    }, this._data.indent)
   }
 
   validate(savedData) {
     return true
   }
-}
-
-if (typeof window !== 'undefined') {
-  window._renumberListItems = () => NumberedListItem.renumberAll()
 }

@@ -5,6 +5,7 @@ import { deriveKeyFromPassphrase, encryptJsonWithKey, decryptJsonWithKey } from 
 import useTagStore from '../store/tagStore'
 import { readPages, savePages as savePagesToFallback, saveDecoyPages } from '@/lib/storage'
 import { deleteMultipleAttachments } from '@/lib/attachmentStorage'
+import { attachmentIdsInPage, attachmentIdsSafeToDelete } from '@/lib/attachmentRefs'
 import { captureVersion, deleteVersions } from '@/lib/versionStorage'
 import { encryptPagesUntilStable } from '@/lib/appLockSnapshot'
 import { recordHardDelete } from '@/lib/hardDeletes'
@@ -678,13 +679,17 @@ export function usePagesManager() {
     } catch (err) {
       console.error('permanentlyDeletePage: deleteVersions failed for', pageToDelete.id, err)
     }
-    if (latestPage.content?.blocks) {
-      const attachmentIds = latestPage.content.blocks
-        .filter(b => b.type === 'attachment' && b.data?.attachmentId)
-        .map(b => b.data.attachmentId)
-      if (attachmentIds.length > 0) {
+    // Only delete files and photos no other note uses: a block copied into
+    // another note, or a duplicated note, shares the same attachment. Nothing
+    // is deleted while some note can't be read, or in duress mode.
+    const attachmentIds = attachmentIdsInPage(latestPage)
+    if (attachmentIds.length > 0 && !isDuressModeRef.current && !savesBlockedRef.current) {
+      const deletable = attachmentIdsSafeToDelete(attachmentIds, pagesRef.current)
+      if (deletable === null) {
+        dbg('pages', 'keeping attachments: a locked note may use them')
+      } else if (deletable.length > 0) {
         try {
-          await deleteMultipleAttachments(attachmentIds)
+          await deleteMultipleAttachments(deletable)
         } catch (err) {
           console.error('permanentlyDeletePage: deleteMultipleAttachments failed', err)
         }
@@ -1225,29 +1230,8 @@ export function usePagesManager() {
       createdAt: new Date().toISOString(),
     }
 
-    // Duplicate attachment files so each page owns independent copies
-    if (newPage.content?.blocks) {
-      const attachmentIds = newPage.content.blocks
-        .filter(b => b.type === 'attachment' && b.data?.attachmentId)
-        .map(b => b.data.attachmentId)
-      if (attachmentIds.length > 0) {
-        try {
-          const { duplicateAttachments } = await import('@/lib/attachmentStorage')
-          const idMap = await duplicateAttachments(attachmentIds)
-          newPage.content = {
-            ...newPage.content,
-            blocks: newPage.content.blocks.map(b => {
-              if (b.type === 'attachment' && b.data?.attachmentId && idMap[b.data.attachmentId]) {
-                return { ...b, data: { ...b.data, attachmentId: idMap[b.data.attachmentId] } }
-              }
-              return b
-            })
-          }
-        } catch (err) {
-          console.error('Failed to duplicate attachments:', err)
-        }
-      }
-    }
+    // The copy shares the original's files and photos. Deleting either note
+    // for good only removes attachments no remaining note uses.
 
     // Use pagesRef.current (source of truth) to preserve in-flight edits
     let newPages = [...pagesRef.current]
@@ -1771,6 +1755,35 @@ export function usePagesManager() {
 
   // Returns latest pages from pagesRef (source of truth).
   // React `pages` state can be stale because savePage() only updates pagesRef.
+  // Replace a page only if it is still exactly `expected`: a background job
+  // must never overwrite an edit made while it worked.
+  const replacePageIfUnchanged = useCallback((next, expected) => {
+    const current = pagesRef.current
+    const index = current.findIndex(p => p.id === next?.id)
+    if (index === -1 || current[index] !== expected) return false
+    const updated = current.slice()
+    updated[index] = next
+    pagesRef.current = updated
+    setPages(updated)
+    return true
+  }, [])
+
+  // A page as storage holds it now, decrypted with the app lock key when it
+  // was saved encrypted. For checking that a save really landed.
+  const readSavedPage = useCallback(async (pageId) => {
+    const data = await readPages()
+    const page = (Array.isArray(data) ? data : []).find(p => p?.id === pageId)
+    if (!page) return null
+    if (page.appLockEncrypted && page.encryptedContent) {
+      const appLockKey = appLockKeyRef.current
+      if (!appLockKey) return null
+      const content = await decryptJsonWithKey(page.encryptedContent, appLockKey.key)
+      const { appLockEncrypted: _flag, encryptedContent: _cipher, ...rest } = page
+      return { ...rest, content }
+    }
+    return page
+  }, [])
+
   const getLatestPages = useCallback(() => pagesRef.current, [])
 
   return {
@@ -1830,6 +1843,8 @@ export function usePagesManager() {
     arePagesLoaded,
     flushSavesNow,
     saveNowOrThrow,
+    replacePageIfUnchanged,
+    readSavedPage,
     // Phase 2.4 sync — exposed so RichTextEditor can pass the live duress
     // flag into useSyncQueue's canPush gate.
     isDuressModeRef,

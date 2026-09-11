@@ -1,5 +1,7 @@
 import DOMPurify from 'isomorphic-dompurify'
 import { CALLOUT_ORDER } from '../lib/markdownShortcuts.js'
+import { clampListIndent } from '../lib/listIndent.js'
+import { IMAGE_MIME_TYPES, cleanAttachmentFilename, isAttachmentId, isImageDimension } from '../lib/attachmentRefs.js'
 
 const ALIGNMENTS = ['left', 'center', 'right']
 const QUOTE_ALIGNMENTS = ['left', 'center']
@@ -32,6 +34,13 @@ const sanitizerConfig = {
 }
 
 // Sanitize Editor.js content blocks
+// A list item's nesting level (lib/listIndent.js). Level 0 isn't stored, and
+// `indent` goes last, the order the list tools save in.
+function keepListIndent(block, sanitizedBlock) {
+  const indent = clampListIndent(block.data?.indent)
+  if (indent > 0) sanitizedBlock.data.indent = indent
+}
+
 export function sanitizeEditorContent(content) {
   if (!content || typeof content !== 'object') {
     return {
@@ -155,6 +164,11 @@ export function sanitizeEditorContent(content) {
         break
 
       case 'image':
+        // A photo stored as an attachment (lib/attachmentRefs.js). Its file.url
+        // is a stub data URL naming the same attachment.
+        if (isAttachmentId(block.data?.attachmentId)) {
+          sanitizedBlock.data.attachmentId = block.data.attachmentId
+        }
         if (block.data?.file?.url && isValidImageUrl(block.data.file.url)) {
           sanitizedBlock.data.file = {
             url: sanitizeImageUrl(block.data.file.url)
@@ -167,6 +181,16 @@ export function sanitizeEditorContent(content) {
           if (block.data?.[flag] !== undefined) {
             sanitizedBlock.data[flag] = Boolean(block.data[flag])
           }
+        }
+        if (IMAGE_MIME_TYPES.includes(block.data?.mimeType)) {
+          sanitizedBlock.data.mimeType = block.data.mimeType
+        }
+        if (isImageDimension(block.data?.width) && isImageDimension(block.data?.height)) {
+          sanitizedBlock.data.width = block.data.width
+          sanitizedBlock.data.height = block.data.height
+        }
+        if (cleanAttachmentFilename(block.data?.filename)) {
+          sanitizedBlock.data.filename = cleanAttachmentFilename(block.data.filename)
         }
         break
 
@@ -197,6 +221,7 @@ export function sanitizeEditorContent(content) {
         if (typeof block.data?.text === 'string') {
           sanitizedBlock.data.text = DOMPurify.sanitize(block.data.text, sanitizerConfig)
         }
+        keepListIndent(block, sanitizedBlock)
         break
 
       case 'checklistItem':
@@ -204,6 +229,7 @@ export function sanitizeEditorContent(content) {
           sanitizedBlock.data.text = DOMPurify.sanitize(block.data.text, sanitizerConfig)
         }
         sanitizedBlock.data.checked = Boolean(block.data?.checked)
+        keepListIndent(block, sanitizedBlock)
         break
 
       case 'delimiter':

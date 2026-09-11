@@ -486,10 +486,11 @@ describe('Data Safety Invariants — codebase scan', () => {
     assert.ok(code.includes('safeCaption'), 'must escape caption')
   })
 
-  it('RTF export escapes special characters', () => {
-    const code = readSrc('utils/exportUtils.js')
-    assert.ok(code.includes('escRTF'), 'must use escRTF function')
-    assert.ok(code.includes("replace(/[\\\\{}]/g"), 'escRTF must escape backslash and braces')
+  it('RTF export escapes special characters', async () => {
+    const { rtfEscape, toRtf } = await import('../utils/exportBlocks.js')
+    assert.equal(rtfEscape('{\\rtf1 injected}'), '\\{\\\\rtf1 injected\\}', 'backslash and braces must be escaped')
+    const rtf = toRtf({ blocks: [{ type: 'paragraph', data: { text: '{\\field injected}' } }] })
+    assert.ok(!rtf.includes('{\\field injected}'), 'note text must not open an RTF group')
   })
 
   it('share passphrase uses 4+ words for adequate entropy', () => {

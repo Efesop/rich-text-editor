@@ -107,6 +107,15 @@ describe('syncCrypto — encryptBytes / decryptBytes', () => {
 // extractAttachmentIds / newAttachmentIds
 // =============================================================================
 
+// Attachment ids are UUID-shaped; anything else is not an attachment.
+const ID1 = '11111111-1111-4111-8111-111111111111'
+const ID2 = '22222222-2222-4222-8222-222222222222'
+const ID3 = '33333333-3333-4333-8333-333333333333'
+const IDA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+const IDB = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+const IDC = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+const { imageStubUrl } = await import('../lib/attachmentRefs.js')
+
 describe('syncAttachments — extractAttachmentIds', () => {
   it('returns empty for null/empty', () => {
     assert.deepEqual(extractAttachmentIds(null), [])
@@ -119,24 +128,24 @@ describe('syncAttachments — extractAttachmentIds', () => {
       content: {
         blocks: [
           { type: 'paragraph', data: { text: 'hi' } },
-          { type: 'attachment', data: { attachmentId: 'att-1', filename: 'a.png' } },
-          { type: 'attachment', data: { attachmentId: 'att-2', filename: 'b.pdf' } }
+          { type: 'attachment', data: { attachmentId: ID1, filename: 'a.png' } },
+          { type: 'attachment', data: { attachmentId: ID2, filename: 'b.pdf' } }
         ]
       }
     }
-    assert.deepEqual(extractAttachmentIds(page).sort(), ['att-1', 'att-2'])
+    assert.deepEqual(extractAttachmentIds(page).sort(), [ID1, ID2])
   })
 
   it('deduplicates', () => {
     const page = {
       content: {
         blocks: [
-          { type: 'attachment', data: { attachmentId: 'att-1' } },
-          { type: 'attachment', data: { attachmentId: 'att-1' } }
+          { type: 'attachment', data: { attachmentId: ID1 } },
+          { type: 'attachment', data: { attachmentId: ID1 } }
         ]
       }
     }
-    assert.deepEqual(extractAttachmentIds(page), ['att-1'])
+    assert.deepEqual(extractAttachmentIds(page), [ID1])
   })
 
   it('skips blocks with missing attachmentId', () => {
@@ -145,42 +154,56 @@ describe('syncAttachments — extractAttachmentIds', () => {
         blocks: [
           { type: 'attachment', data: {} },
           { type: 'attachment' },
-          { type: 'attachment', data: { attachmentId: 'att-good' } }
+          { type: 'attachment', data: { attachmentId: ID3 } }
         ]
       }
     }
-    assert.deepEqual(extractAttachmentIds(page), ['att-good'])
+    assert.deepEqual(extractAttachmentIds(page), [ID3])
+  })
+
+  it('includes photos stored as attachments, from attachmentId or the stub an older app kept', () => {
+    const page = {
+      content: {
+        blocks: [
+          { type: 'image', data: { attachmentId: ID1, file: { url: imageStubUrl(ID1) } } },
+          { type: 'image', data: { file: { url: imageStubUrl(ID2) } } },
+          { type: 'image', data: { file: { url: 'https://example.com/a.png' } } },
+          { type: 'attachment', data: { attachmentId: 'not-an-id' } }
+        ]
+      }
+    }
+    assert.deepEqual(extractAttachmentIds(page), [ID1, ID2])
   })
 })
 
 describe('syncAttachments — newAttachmentIds', () => {
   it('returns IDs added between prev and next', () => {
-    const prev = { content: { blocks: [{ type: 'attachment', data: { attachmentId: 'a' } }] } }
+    const prev = { content: { blocks: [{ type: 'attachment', data: { attachmentId: IDA } }] } }
     const next = {
       content: {
         blocks: [
-          { type: 'attachment', data: { attachmentId: 'a' } },
-          { type: 'attachment', data: { attachmentId: 'b' } },
-          { type: 'attachment', data: { attachmentId: 'c' } }
+          { type: 'attachment', data: { attachmentId: IDA } },
+          { type: 'attachment', data: { attachmentId: IDB } },
+          { type: 'attachment', data: { attachmentId: IDC } }
         ]
       }
     }
-    assert.deepEqual(newAttachmentIds(prev, next).sort(), ['b', 'c'])
+    assert.deepEqual(newAttachmentIds(prev, next).sort(), [IDB, IDC])
   })
 
   it('null prev → all next IDs', () => {
-    const next = { content: { blocks: [{ type: 'attachment', data: { attachmentId: 'a' } }] } }
-    assert.deepEqual(newAttachmentIds(null, next), ['a'])
+    const next = { content: { blocks: [{ type: 'attachment', data: { attachmentId: IDA } }] } }
+    assert.deepEqual(newAttachmentIds(null, next), [IDA])
   })
 
   it('removed IDs not returned (only ADDED)', () => {
     const prev = {
       content: { blocks: [
-        { type: 'attachment', data: { attachmentId: 'a' } },
-        { type: 'attachment', data: { attachmentId: 'b' } }
+        { type: 'attachment', data: { attachmentId: IDA } },
+        { type: 'attachment', data: { attachmentId: IDB } }
       ] }
     }
-    const next = { content: { blocks: [{ type: 'attachment', data: { attachmentId: 'a' } }] } }
+    const next = { content: { blocks: [{ type: 'attachment', data: { attachmentId: IDA } }] } }
     assert.deepEqual(newAttachmentIds(prev, next), [])
   })
 })

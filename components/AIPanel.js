@@ -425,7 +425,7 @@ export default function AIPanel ({ isOpen, onClose, theme, currentPage, contextT
     if (!text || !onInsertBlocks || insertingRef.current) return
     insertingRef.current = true
     try {
-      const { parseMarkdownToBlocks } = await import('./Editor')
+      const { parseMarkdownToBlocks } = await import('@/lib/markdownBlocks')
       const { sanitizeEditorContent } = await import('@/utils/securityUtils')
       const rawBlocks = parseMarkdownToBlocks(text)
       const sanitized = sanitizeEditorContent({ blocks: rawBlocks })

@@ -23,7 +23,8 @@ let _timer = null
  *   - {text, checked} for checklist items
  *   - {tool, data} for mixed-tool mode (each item specifies its own tool)
  * @param {string|null} tool - tool name, or null if items use mixed-tool format
- * @param {boolean} replaceFirst - if true, replace the source block with the first item
+ * @param {boolean} replaceFirst - if true, replace the source block with the first item;
+ *   with no items, remove the source block
  */
 export function queuePasteItems(api, toolInstance, items, tool, replaceFirst = false) {
   _queue.push({ api, toolInstance, items, tool, replaceFirst })
@@ -45,7 +46,7 @@ function resolveItem(item, defaultTool) {
 }
 
 function flushQueue() {
-  let inserted = 0
+  let changed = 0
 
   for (const entry of _queue) {
     // Read _element NOW (after render() has been called)
@@ -63,29 +64,36 @@ function flushQueue() {
     }
     if (idx === -1) continue
 
-    if (entry.replaceFirst && entry.items.length > 0) {
+    // Nothing worth keeping came out of the paste: remove the block it made
+    if (entry.replaceFirst && entry.items.length === 0) {
+      entry.api.delete(idx)
+      changed++
+      continue
+    }
+
+    if (entry.replaceFirst) {
       const first = resolveItem(entry.items[0], entry.tool)
       entry.api.insert(first.tool, first.data, {}, idx + 1, true)
       entry.api.delete(idx)
       for (let i = 1; i < entry.items.length; i++) {
         const resolved = resolveItem(entry.items[i], entry.tool)
         entry.api.insert(resolved.tool, resolved.data, {}, idx + i, true)
-        inserted++
+        changed++
       }
-      inserted++
+      changed++
       continue
     }
 
     for (let i = 0; i < entry.items.length; i++) {
       const resolved = resolveItem(entry.items[i], entry.tool)
       entry.api.insert(resolved.tool, resolved.data, {}, idx + 1 + i, true)
-      inserted++
+      changed++
     }
   }
 
   _queue = []
 
-  if (inserted > 0 && typeof window !== 'undefined' && window._renumberListItems) {
+  if (changed > 0 && typeof window !== 'undefined' && window._renumberListItems) {
     window._renumberListItems()
   }
 }

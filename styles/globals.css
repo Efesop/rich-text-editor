@@ -508,17 +508,134 @@
 .ce-tune-alignment--center { text-align: center; }
 .ce-tune-alignment--right { text-align: right; }
 
-/* ── Image tool ── */
+/* ── Image tool (components/editor-tools/ImageTool.js) ──
+   Base rules carried over from @editorjs/image, which injected them itself,
+   then Dash's own look. State lives on .image-tool__image[data-state]. */
+.image-tool {
+  --bg-color: #cdd1e0;
+  --front-color: #388ae5;
+  --border-color: #e8e8eb;
+  padding-bottom: 50px;
+}
 .image-tool__image {
   max-width: 100%;
   border-radius: 8px;
   overflow: hidden;
+  margin-bottom: 10px;
+  padding-bottom: 0;
+}
+.image-tool__image-picture {
+  vertical-align: bottom;
+  display: block;
 }
 .image-tool__image img {
   max-height: 500px;
   width: auto;
+  height: auto;
   max-width: 100%;
   object-fit: contain;
+}
+.image-tool__image[data-state="empty"] {
+  overflow: visible;
+}
+.image-tool__image[data-state="uploading"] {
+  min-height: 200px;
+  display: flex;
+  border: 1px solid var(--border-color);
+  background-color: #fff;
+}
+.image-tool__image-preloader {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  margin: auto;
+  position: relative;
+  background-color: var(--bg-color);
+}
+.image-tool__image-preloader::after {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-color);
+  border-top-color: var(--front-color);
+  left: 50%;
+  top: 50%;
+  margin-top: -30px;
+  margin-left: -30px;
+  animation: image-preloader-spin 2s infinite linear;
+  box-sizing: border-box;
+}
+@keyframes image-preloader-spin {
+  0% { transform: rotate(0); }
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .image-tool__image-preloader::after { animation: none; }
+}
+/* A photo that is loading, still downloading, or can't be shown */
+.image-tool__placeholder {
+  min-height: 120px;
+  max-height: 500px;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  box-sizing: border-box;
+  background: rgba(127, 127, 127, 0.12);
+  color: rgba(127, 127, 127, 0.95);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+}
+.image-tool .cdx-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.image-tool .cdx-button svg {
+  height: auto;
+  margin: 0 6px 0 0;
+}
+.image-tool--withBorder .image-tool__image {
+  border: 1px solid var(--border-color);
+}
+.image-tool--withBackground .image-tool__image {
+  padding: 15px;
+  background: var(--bg-color);
+}
+.image-tool--withBackground .image-tool__image-picture {
+  max-width: 60%;
+  margin: 0 auto;
+}
+.image-tool--stretched .image-tool__image-picture {
+  width: 100%;
+}
+.image-tool__caption {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  margin-bottom: 10px;
+}
+.image-tool__image[data-state="empty"] + .image-tool__caption,
+.image-tool__image[data-state="uploading"] + .image-tool__caption {
+  visibility: hidden !important;
+}
+.image-tool__caption[contenteditable="true"][data-placeholder]::before {
+  position: absolute !important;
+  content: attr(data-placeholder);
+  color: #707684;
+  font-weight: 400;
+  display: none;
+}
+.image-tool__caption[contenteditable="true"][data-placeholder]:empty::before {
+  display: block;
+}
+.image-tool__caption[contenteditable="true"][data-placeholder]:empty:focus::before {
+  display: none;
 }
 /* Hide caption input until focused/has content */
 .image-tool__caption[contenteditable] {
@@ -1366,8 +1483,10 @@
 .dash-numbered-item::before {
   content: attr(data-number) ".";
   position: absolute;
-  left: 0;
-  min-width: 1.5em;
+  /* Pinned by its right edge, so a long label (100., viii.) grows into the
+     margin rather than over the text */
+  right: calc(100% - 1.5em);
+  white-space: nowrap;
   text-align: right;
   line-height: 1.6;
 }
@@ -1433,6 +1552,39 @@
   content: attr(data-placeholder);
   color: #9ca3af;
   pointer-events: none;
+}
+
+/* Nested list items: one step per indent level. lib/listIndent.js stops at 8. */
+.dash-bullet-item,
+.dash-numbered-item,
+.dash-checklist-item {
+  --dash-list-step: 1.5em;
+}
+
+@media (max-width: 640px) {
+  .dash-bullet-item,
+  .dash-numbered-item,
+  .dash-checklist-item {
+    --dash-list-step: 1.125em;
+  }
+}
+
+:is(.dash-bullet-item, .dash-numbered-item, .dash-checklist-item)[data-indent="1"] { margin-left: var(--dash-list-step); }
+:is(.dash-bullet-item, .dash-numbered-item, .dash-checklist-item)[data-indent="2"] { margin-left: calc(var(--dash-list-step) * 2); }
+:is(.dash-bullet-item, .dash-numbered-item, .dash-checklist-item)[data-indent="3"] { margin-left: calc(var(--dash-list-step) * 3); }
+:is(.dash-bullet-item, .dash-numbered-item, .dash-checklist-item)[data-indent="4"] { margin-left: calc(var(--dash-list-step) * 4); }
+:is(.dash-bullet-item, .dash-numbered-item, .dash-checklist-item)[data-indent="5"] { margin-left: calc(var(--dash-list-step) * 5); }
+:is(.dash-bullet-item, .dash-numbered-item, .dash-checklist-item)[data-indent="6"] { margin-left: calc(var(--dash-list-step) * 6); }
+:is(.dash-bullet-item, .dash-numbered-item, .dash-checklist-item)[data-indent="7"] { margin-left: calc(var(--dash-list-step) * 7); }
+:is(.dash-bullet-item, .dash-numbered-item, .dash-checklist-item)[data-indent="8"] { margin-left: calc(var(--dash-list-step) * 8); }
+
+/* Bullets change shape by level: disc, circle, square, then round again */
+.dash-bullet-item:is([data-indent="1"], [data-indent="4"], [data-indent="7"])::before {
+  content: "\25E6";
+}
+
+.dash-bullet-item:is([data-indent="2"], [data-indent="5"], [data-indent="8"])::before {
+  content: "\25AA";
 }
 
 /* Multi-block convert popover */

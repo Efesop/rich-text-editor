@@ -26,6 +26,9 @@ import {
   exportToXML,
   downloadFile
 } from '@/utils/exportUtils'
+import { resolveExportImages } from '@/utils/exportImages'
+import { clearPhotoUrls } from '@/utils/photoUpload'
+import { loadAttachment } from '@/lib/attachmentStorage'
 import TagModal from '@/components/TagModal'
 import useTagStore from '../store/tagStore'
 import { format } from 'date-fns'
@@ -104,6 +107,7 @@ import TrashModal from './TrashModal'
 // always-on safety net for users who lose all paired devices.
 import BackupSettingsModal from './BackupSettingsModal'
 import { useAutoBackup } from '../hooks/useAutoBackup'
+import useImageMigration from '../hooks/useImageMigration'
 
 const DynamicEditor = dynamic(() => import('@/components/Editor'), { ssr: false })
 
@@ -552,6 +556,9 @@ export default function RichTextEditor() {
     permanentlyDeletePage,
     savePagesToStorage,
     flushSavesNow,
+    saveNowOrThrow,
+    replacePageIfUnchanged,
+    readSavedPage,
   } = usePagesManager()
 
   const {
@@ -1479,6 +1486,25 @@ export default function RichTextEditor() {
     }
   } : { /* sync disabled — hook still mounts but no-ops */ })
 
+  // Photos stay in memory as object URLs while shown. Let them go when the
+  // app locks; the editor asks for them again after unlocking.
+  useEffect(() => {
+    if (appLock.isLocked) clearPhotoUrls()
+  }, [appLock.isLocked])
+
+  // Photos pasted into notes before attachment photos move out of the notes
+  // (hooks/useImageMigration.js). Off until the Stage 3 release.
+  useImageMigration({
+    canRun: () => !appLock.isLocked && isDuressModeRef.current !== true && !isImporting && !loadError && arePagesLoaded(),
+    syncEnabled: Boolean(SYNC_ENABLED && sync?.status?.enabled),
+    getPairedDevices: async () => (await sync?.fetchVaultUsage?.())?.pairedDevices || null,
+    getPages: getLatestPages,
+    getOpenPageId: () => syncCurrentPageRef.current?.id ?? null,
+    replacePageIfUnchanged,
+    saveNowOrThrow,
+    readSavedPage
+  })
+
   // Load app lock data on mount
   useEffect(() => {
     appLock.loadData()
@@ -2313,7 +2339,7 @@ export default function RichTextEditor() {
 
   const handleAISaveAsNote = useCallback(async (markdownText) => {
     if (!markdownText) return
-    const { parseMarkdownToBlocks } = await import('./Editor')
+    const { parseMarkdownToBlocks } = await import('@/lib/markdownBlocks')
     const { sanitizeEditorContent } = await import('@/utils/securityUtils')
     const rawBlocks = parseMarkdownToBlocks(markdownText)
     const sanitized = sanitizeEditorContent({ blocks: rawBlocks })
@@ -2926,13 +2952,17 @@ export default function RichTextEditor() {
       const flushed = window.__editorFlush ? await window.__editorFlush() : null
       const content = flushed || currentPage.content
       const fileName = currentPage.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()
+      // Photos stored as attachments, read once for the formats that hold pictures.
+      const images = ['pdf', 'markdown', 'rtf', 'docx'].includes(exportType)
+        ? await resolveExportImages(content, { loadAttachment })
+        : new Map()
 
       switch (exportType) {
         case 'pdf':
-          exportToPDF(content, fileName)
+          exportToPDF(content, fileName, { images })
           break
         case 'markdown':
-          const markdown = exportToMarkdown(content)
+          const markdown = exportToMarkdown(content, { images })
           downloadFile(markdown, `${fileName}.md`, 'text/markdown')
           break
         case 'text':
@@ -2940,11 +2970,11 @@ export default function RichTextEditor() {
           downloadFile(text, `${fileName}.txt`, 'text/plain')
           break
         case 'rtf':
-          const rtf = exportToRTF(content)
+          const rtf = exportToRTF(content, { images })
           downloadFile(rtf, `${fileName}.rtf`, 'application/rtf')
           break
         case 'docx':
-          const docxBuffer = await exportToDocx(content)
+          const docxBuffer = await exportToDocx(content, { images })
           const docxBlob = new Blob([docxBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
           const docxUrl = URL.createObjectURL(docxBlob)
           const a = document.createElement('a')

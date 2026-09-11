@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { History, X, RotateCcw, Clock, FileText, Cloud, Laptop } from 'lucide-react'
 import { readVersions } from '@/lib/versionStorage'
 import DOMPurify from 'isomorphic-dompurify'
+import { formatListNumber, listIndentOf, numberListItems } from '@/lib/listIndent'
 
 function formatTimestamp (isoStr) {
   const date = new Date(isoStr)
@@ -23,7 +24,8 @@ function formatTimestamp (isoStr) {
   return { relative, detail: `${dateStr}, ${time}` }
 }
 
-function renderBlockPreview (block) {
+// `number` is a numbered item's place in its list, from numberListItems.
+function renderBlockPreview (block, number) {
   if (!block || !block.type) return null
   const data = block.data || {}
 
@@ -35,9 +37,13 @@ function renderBlockPreview (block) {
       return <Tag className="font-bold mb-1" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(data.text || '') }} />
     case 'bulletListItem':
     case 'numberedListItem':
-      return <div className="ml-4 mb-0.5">&#8226; <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(data.text || '') }} /></div>
-    case 'checklistItem':
-      return <div className="ml-4 mb-0.5">{data.checked ? '\u2611' : '\u2610'} <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(data.text || '') }} /></div>
+    case 'checklistItem': {
+      const indent = listIndentOf(block)
+      const marker = block.type === 'checklistItem'
+        ? (data.checked ? '\u2611' : '\u2610')
+        : block.type === 'numberedListItem' ? `${formatListNumber(number || 1, indent)}.` : '\u2022'
+      return <div className="mb-0.5" style={{ marginLeft: `${1 + indent * 1.5}rem` }}>{marker} <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(data.text || '') }} /></div>
+    }
     case 'code':
       return <pre className="text-xs p-2 rounded mb-1 opacity-70 overflow-x-auto">{data.code || ''}</pre>
     case 'quote':
@@ -53,6 +59,12 @@ function renderBlockPreview (block) {
     default:
       return <div className="text-xs opacity-60 mb-1">[{block.type}]</div>
   }
+}
+
+// A version's blocks, with numbered items labelled the way the editor labels them.
+function renderBlockPreviews (blocks) {
+  const numbers = numberListItems(blocks)
+  return blocks.map((block, i) => <div key={i}>{renderBlockPreview(block, numbers[i])}</div>)
 }
 
 export default function VersionHistoryModal ({
@@ -408,7 +420,7 @@ export default function VersionHistoryModal ({
                 <div className={`text-sm ${isFallout ? 'text-green-500/70 font-mono' : 'text-gray-500'}`}>Decrypting…</div>
               ) : cloudPreview && cloudBlocks ? (
                 <div className={`text-sm leading-relaxed ${isFallout ? 'text-green-300' : isDarkBlue ? 'text-[#c8d0e0]' : isDark ? 'text-[#d0d0d0]' : 'text-gray-700'}`}>
-                  {cloudBlocks.map((block, i) => <div key={i}>{renderBlockPreview(block)}</div>)}
+                  {renderBlockPreviews(cloudBlocks)}
                   {cloudBlocks.length === 0 && <p className="opacity-50 italic">Empty page</p>}
                 </div>
               ) : (
@@ -421,9 +433,7 @@ export default function VersionHistoryModal ({
               )
             ) : selectedVersion ? (
               <div className={`text-sm leading-relaxed ${isFallout ? 'text-green-300' : isDarkBlue ? 'text-[#c8d0e0]' : isDark ? 'text-[#d0d0d0]' : 'text-gray-700'}`}>
-                {selectedVersion.blocks?.map((block, i) => (
-                  <div key={i}>{renderBlockPreview(block)}</div>
-                ))}
+                {selectedVersion.blocks && renderBlockPreviews(selectedVersion.blocks)}
                 {(!selectedVersion.blocks || selectedVersion.blocks.length === 0) && (
                   <p className="opacity-50 italic">Empty page</p>
                 )}

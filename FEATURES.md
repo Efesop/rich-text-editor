@@ -29,16 +29,23 @@ Block-based editor powered by Editor.js with 15+ content types:
 |-----------|-------------|
 | Paragraph | Standard text with inline formatting |
 | Header | H2, H3, H4 levels |
-| Bullet List | Individual bullet items, each its own block |
-| Numbered List | Individual numbered items with auto-numbering |
-| Checklist | Interactive checkbox items, each its own block |
+| Bullet List | Individual bullet items, each its own block; nest up to 8 levels |
+| Numbered List | Individual numbered items, numbered per level (1, a, i) |
+| Checklist | Interactive checkbox items, each its own block; nest like any list |
 | Quote | Block quotes with author caption |
 | Code | Syntax-highlighted code blocks (20 languages) |
 | Table | Rows, columns, and optional headings |
-| Image | Drag-and-drop or file picker (up to 5MB, stored locally) |
+| Image | Paste, drag-and-drop or file picker; location and camera data removed, shrunk to at most 2048 px, stored as an attachment |
 | Embed | YouTube, Vimeo, GitHub, Twitter |
 | Delimiter | Visual section separator |
 | Seed Phrase | Secure numbered grid for cryptocurrency recovery phrases (12 or 24 words) with BIP-39 validation |
+
+### Nested Lists
+
+- **Tab / Shift+Tab** indent and outdent bullet, numbered and checklist items, up to 8 levels; sub-items move with their item
+- **Indent / Outdent** in a list item's block menu (⋮⋮), for touch screens
+- **Enter** keeps the level; Enter on an empty nested item, or Backspace at its start, steps out a level first
+- Nesting is kept when pasting lists from web pages, Google Docs or Markdown, and in share links, version history and every export
 
 ### Multi-Block Selection & Conversion
 
@@ -227,9 +234,10 @@ Attach images and PDFs directly to notes via the `+` block menu or drag-and-drop
 - **Storage** — files stored separately from the page JSON: Electron uses `userData/attachments/`, PWA uses IndexedDB, browser uses localStorage base64
 - **Card UI** — attachment blocks render as a compact card with file icon, filename, and size badge; click opens the file (Electron uses `shell.openPath`, web uses a blob URL)
 - **Dashpack export** bundles attachment data as base64
-- **Page duplicate** copies attachment files with new UUIDs
-- **Share** replaces attachment blocks with `[Attachment: filename]` placeholders (attachments are not transmitted in share links)
-- **Page delete** cleans up associated attachment files
+- **Photos** — images added to a note are stored as attachments too (except in a plain browser tab, where they stay in the note); a device still downloading a synced photo shows a placeholder
+- **Page duplicate** shares the original's attachment files
+- **Share** replaces attachments and photos with placeholders (attachments are not transmitted in share links)
+- **Deleting a note for good** removes only the attachment files no other note uses
 
 ---
 
@@ -323,13 +331,13 @@ Generate read-only, encrypted share links of any note.
 - XML
 - CSV
 
+Exports keep nested lists (numbered per level), callouts, toggles and inline formatting. PDF, Word and RTF include photos; Markdown embeds them.
+
 All exports can optionally be **encrypted with a passphrase** (AES-GCM-256).
 
 ### Import
-- Import from JSON, Markdown, Plain Text, DOCX, or CSV
-- Supports passphrase-protected encrypted files
-- Up to 50MB file size
-- Bulk import multiple pages at once
+- Import an encrypted bundle (.dashpack) exported from Dash, with its attachments (⋯ menu → Import encrypted bundle)
+- Importing from other apps (Evernote, Notion, Obsidian and other Markdown apps, Standard Notes) is on the roadmap; there is no import from JSON, Markdown, plain text, DOCX or CSV
 
 ---
 

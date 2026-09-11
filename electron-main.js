@@ -150,9 +150,10 @@ function createWindow() {
           "default-src 'self'; " +
           scriptSrc + '; ' +
           "style-src 'self' 'unsafe-inline'; " +
-          "img-src 'self' data:; " +
+          // blob: for photos stored as attachments (utils/photoUpload.js)
+          "img-src 'self' data: blob:; " +
           "font-src 'self' data:; " +
-          "connect-src 'self' https://sync.dashnote.io wss://sync.dashnote.io https://dash-relay.efesop.deno.net wss://dash-relay.efesop.deno.net http://localhost:* http://127.0.0.1:*" + connectExtras + '; ' +
+          "connect-src 'self' blob: https://sync.dashnote.io wss://sync.dashnote.io https://dash-relay.efesop.deno.net wss://dash-relay.efesop.deno.net http://localhost:* http://127.0.0.1:*" + connectExtras + '; ' +
           "frame-src 'none'; " +
           "object-src 'none';"
         ]

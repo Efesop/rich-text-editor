@@ -24,6 +24,9 @@ import {
   decodeLegacyCodeEscaping,
   inferEmbedService
 } from '../utils/migrateBlocks.js'
+import { MAX_LIST_INDENT } from '../lib/listIndent.js'
+import { buildImageBlockData } from '../lib/imageAttachments.js'
+import { imageStubUrl } from '../lib/attachmentRefs.js'
 
 const readSrc = (file) => readFileSync(resolve(process.cwd(), file), 'utf8')
 
@@ -213,7 +216,7 @@ describe('code is escaped where it is rendered, not where it is stored', () => {
 
   it('both producers of fresh code mark it raw', () => {
     assert.match(readSrc('components/editor-tools/CodeBlock.js'), /encoding: 'raw'/)
-    assert.match(readSrc('components/Editor.js'), /type: 'code', data: \{ code: codeLines\.join\('\\n'\), encoding: 'raw' \}/)
+    assert.match(readSrc('lib/markdownBlocks.js'), /type: 'code', data: \{ code: codeLines\.join\('\\n'\), encoding: 'raw' \}/)
   })
 })
 
@@ -372,5 +375,111 @@ describe('repair and sanitizer agree', () => {
     }
     const repaired = migrateEditorData(damaged)
     assert.deepEqual(sanitizeEditorContent(repaired).blocks, repaired.blocks)
+  })
+})
+
+describe('list nesting survives a save', () => {
+  for (const type of ['bulletListItem', 'numberedListItem', 'checklistItem']) {
+    it(`keeps the indent on a ${type}`, () => {
+      const input = { id: `nested-${type}`, type, data: { ...structuredClone(FIXTURES[type].data), indent: 3 } }
+      assert.deepEqual(sanitizeOne(input), input)
+    })
+  }
+
+  it('clamps an indent past the deepest level', () => {
+    assert.equal(sanitizeOne({ id: 'a', type: 'bulletListItem', data: { text: 'x', indent: 40 } }).data.indent, MAX_LIST_INDENT)
+  })
+
+  it('stores no indent at the top level, or for a value that is not a number', () => {
+    for (const indent of [0, -2, '3', null, NaN]) {
+      const out = sanitizeOne({ id: 'b', type: 'numberedListItem', data: { text: 'x', indent } })
+      assert.equal('indent' in out.data, false, String(indent))
+    }
+  })
+
+  it('writes indent last, the order the list tools save in', () => {
+    const out = sanitizeOne({ id: 'c', type: 'checklistItem', data: { indent: 2, checked: true, text: 'x' } })
+    assert.deepEqual(Object.keys(out.data), ['text', 'checked', 'indent'])
+  })
+
+  it('turns a nested legacy list into indented items', () => {
+    const migrated = migrateEditorData({
+      blocks: [{
+        type: 'nestedlist',
+        data: {
+          style: 'ordered',
+          items: [
+            { content: 'one', items: [{ content: 'one.a', items: [{ content: 'deep', items: [] }] }] },
+            { content: 'two', items: [] }
+          ]
+        }
+      }]
+    })
+    assert.deepEqual(migrated.blocks, [
+      { type: 'numberedListItem', data: { text: 'one' } },
+      { type: 'numberedListItem', data: { text: 'one.a', indent: 1 } },
+      { type: 'numberedListItem', data: { text: 'deep', indent: 2 } },
+      { type: 'numberedListItem', data: { text: 'two' } }
+    ])
+  })
+
+  it('has every list tool save its indent', () => {
+    for (const file of ['BulletListItem', 'NumberedListItem', 'ChecklistItem']) {
+      const src = readSrc(`components/editor-tools/${file}.js`)
+      const save = src.slice(src.indexOf('  save() {'), src.indexOf('  validate('))
+      assert.match(save, /withIndent\(/, `${file}.save() must keep the indent`)
+    }
+  })
+
+  it('gives every list tag to one tool, so a pasted <ol> is not split into bullets', () => {
+    const owners = ['BulletListItem', 'NumberedListItem', 'ChecklistItem']
+      .filter(file => readSrc(`components/editor-tools/${file}.js`).includes('static get pasteConfig'))
+    assert.deepEqual(owners, ['BulletListItem'])
+    assert.match(readSrc('components/editor-tools/BulletListItem.js'), /tags: \['UL', 'OL'/)
+  })
+})
+
+describe('photos stored as attachments survive a save', () => {
+  const PHOTO_ID = '0f8fad5b-d9cb-869f-a165-70867728950e'
+
+  it('keeps the attachment id, type, size and file name, in the order ImageTool saves them', () => {
+    const input = {
+      id: 'photo',
+      type: 'image',
+      data: buildImageBlockData({ attachmentId: PHOTO_ID, mimeType: 'image/jpeg', width: 4032, height: 3024, filename: 'IMG_0001.jpg', caption: 'Beach', withBorder: true })
+    }
+    const saved = sanitizeOne(input)
+    assert.deepEqual(saved, input)
+    assert.deepEqual(Object.keys(saved.data), Object.keys(input.data))
+  })
+
+  it('drops an attachment id, type, size or file name that is not valid', () => {
+    const saved = sanitizeOne({
+      id: 'p',
+      type: 'image',
+      data: { attachmentId: '../x', file: { url: 'https://example.com/a.png' }, caption: '', mimeType: 'text/html', width: 10, height: -1, filename: '  ' }
+    })
+    assert.deepEqual(saved.data, { file: { url: 'https://example.com/a.png' }, caption: '' })
+  })
+
+  it('keeps a photo that has an attachment id but no URL', () => {
+    const saved = sanitizeOne({ id: 'p', type: 'image', data: { attachmentId: PHOTO_ID, caption: '' } })
+    assert.equal(saved.type, 'image')
+    assert.equal(saved.data.attachmentId, PHOTO_ID)
+  })
+
+  it('gives back the attachment id an app from 1.6.8 or earlier dropped, from the stub it kept', () => {
+    const legacySave = { id: 'old', type: 'image', data: { caption: 'Beach', withBorder: false, withBackground: false, stretched: false, file: { url: imageStubUrl(PHOTO_ID) } } }
+    const migrated = migrateEditorData({ blocks: [legacySave] })
+    assert.equal(migrated.blocks[0].data.attachmentId, PHOTO_ID)
+    assert.equal(migrated.blocks[0].data.file.url, imageStubUrl(PHOTO_ID))
+    assert.equal(migrated.blocks[0].data.caption, 'Beach')
+    const again = { blocks: migrated.blocks }
+    assert.equal(migrateEditorData(again), again)
+  })
+
+  it('leaves web and inline images alone when migrating', () => {
+    const data = { blocks: [{ id: 'w', type: 'image', data: structuredClone(FIXTURES.image.data) }] }
+    assert.equal(migrateEditorData(data), data)
   })
 })

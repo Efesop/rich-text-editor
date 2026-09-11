@@ -45,6 +45,7 @@ import { createAttachmentTransferQueue } from '../lib/attachmentTransferQueue.js
 import { fetchVersionList, fetchVersion } from '../lib/syncVersions.js'
 import { getEntitlementIds } from '../lib/entitlementId.js'
 import { buildSyncHeaders, generateAuthProof } from '../lib/syncAuth.js'
+import { setAttachmentIdVaultKey } from '../lib/attachmentIdKey.js'
 import useTagStore from '../store/tagStore'
 import packageJson from '../package.json'
 
@@ -705,12 +706,20 @@ export function useSyncQueue ({
   useEffect(() => {
     if (!status.enabled || !status.unlocked) {
       sessionStartedRef.current = false
+      // Photos added now get ids from this device's own key.
+      setAttachmentIdVaultKey(null)
       return
     }
     if (sessionStartedRef.current) return
     sessionStartedRef.current = true
     let cancelled = false
     ;(async () => {
+      // Paired devices give the same photo the same attachment id.
+      try {
+        await setAttachmentIdVaultKey((await getCredentials()).vaultKeyBytes)
+      } catch (err) {
+        console.warn('[sync] photo id key unavailable', err)
+      }
       await reportAppVersion()
       await refreshUsage()
       // Pages may still be loading on a cold start; try again for a minute.
@@ -729,7 +738,7 @@ export function useSyncQueue ({
       cancelled = true
       clearInterval(usageTimer)
     }
-  }, [status.enabled, status.unlocked, reportAppVersion, refreshUsage, reconcileAttachments])
+  }, [status.enabled, status.unlocked, getCredentials, reportAppVersion, refreshUsage, reconcileAttachments])
 
   // WebSocket doorbell — server pushes 'new-version' events when peers
   // commit new data. Triggers an immediate pull instead of waiting up to

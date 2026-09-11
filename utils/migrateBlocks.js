@@ -1,4 +1,6 @@
 import { CALLOUT_ORDER } from '../lib/markdownShortcuts.js'
+import { withIndent } from '../lib/listIndent.js'
+import { attachmentIdFromStub, isAttachmentId } from '../lib/attachmentRefs.js'
 
 /**
  * Bring stored Editor.js data up to the shapes the current tools expect.
@@ -9,12 +11,15 @@ import { CALLOUT_ORDER } from '../lib/markdownShortcuts.js'
  * migrating.
  *
  * Migrations:
- *   - nestedlist / checklist blocks → individual item blocks
+ *   - nestedlist / checklist blocks → individual item blocks, with a nested
+ *     item's depth kept as its indent
  *   - callout and toggle blocks the v1.6.6 sanitizer flattened into
  *     paragraphs (a toggle rendered empty, since a paragraph has no `text`)
  *   - code the pre-v1.6.7 sanitizer HTML-escaped, which compounded on every
  *     save because CodeBlock reads code back out of a textarea
  *   - embeds whose `service` that sanitizer dropped, which render blank
+ *   - photos an app from 1.6.8 or earlier saved: it drops `attachmentId` but
+ *     keeps the stub URL that names the attachment
  */
 export function migrateEditorData(data) {
   if (!data || !Array.isArray(data.blocks)) return data
@@ -55,17 +60,18 @@ export function migrateEditorData(data) {
   }
 }
 
-function flattenNestedItems(items, result, toolType) {
+function flattenNestedItems(items, result, toolType, depth = 0) {
   for (const item of items) {
     const text = item.content || item.text || ''
-    if (text || (item.items && item.items.length > 0)) {
+    const hasChildren = Boolean(item.items && item.items.length > 0)
+    if (text || hasChildren) {
       result.push({
         type: toolType,
-        data: { text }
+        data: withIndent({ text }, depth)
       })
     }
-    if (item.items && item.items.length > 0) {
-      flattenNestedItems(item.items, result, toolType)
+    if (hasChildren) {
+      flattenNestedItems(item.items, result, toolType, depth + 1)
     }
   }
 }
@@ -102,6 +108,13 @@ function repairBlock(block) {
       ...block,
       data: { ...data, code: decodeLegacyCodeEscaping(data.code), encoding: 'raw' }
     }
+  }
+
+  if (block.type === 'image') {
+    if (isAttachmentId(data.attachmentId)) return block
+    const attachmentId = attachmentIdFromStub(data.file?.url)
+    if (!attachmentId) return block
+    return { ...block, data: { attachmentId, ...data } }
   }
 
   if (block.type === 'embed') {

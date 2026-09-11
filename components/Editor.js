@@ -5,30 +5,13 @@ import { migrateEditorData } from '@/utils/migrateBlocks'
 import { PageLinkInlineTool } from './editor-tools/PageLink'
 import { AIInlineTool } from './editor-tools/AIInlineTool'
 import { AIBlockTool } from './editor-tools/AIBlockTool'
-import { stripImageMetadata } from '@/utils/imageUtils'
+import { acquirePhotoUrl, releasePhotoUrl, storePhotoFile, storePhotoUrl } from '@/utils/photoUpload'
 import AttachmentTool from './editor-tools/AttachmentTool'
 import CalloutTool from './editor-tools/Callout'
 import ToggleTool from './editor-tools/Toggle'
 import { attachMarkdownShortcuts } from './editor-tools/markdownInput'
-
-// Auto-linkify plain-text URLs in a string, skipping URLs already inside <a> tags
-function autoLinkify(html) {
-  if (!html || typeof html !== 'string') return html
-  const urlPattern = /(?:https?:\/\/)[^\s<>"'`,)}\]]+/gi
-  const escapeAttr = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
-  const linkify = (text) => text.replace(urlPattern, url => {
-    // Strip trailing punctuation that's likely not part of the URL
-    const cleaned = url.replace(/[.,;:!?]+$/, '')
-    const trailing = url.slice(cleaned.length)
-    return `<a href="${escapeAttr(cleaned)}" target="_blank" rel="noopener noreferrer">${cleaned}</a>${trailing}`
-  })
-  // If it already contains an <a tag, only linkify text outside existing links
-  if (html.includes('<a ')) {
-    const parts = html.split(/(<a\s[^>]*>.*?<\/a>)/gi)
-    return parts.map(part => /^<a\s/i.test(part) ? part : linkify(part)).join('')
-  }
-  return linkify(html)
-}
+import { attachListIndentKeys, renumberLists } from './editor-tools/listIndentRuntime'
+import { autoLinkify, parseMarkdownToBlocks } from '@/lib/markdownBlocks'
 
 // Process table blocks to auto-linkify URLs in cells
 function linkifyTableBlocks(blocks) {
@@ -51,150 +34,6 @@ function linkifyTableBlocks(blocks) {
   return anyChanged ? result : blocks
 }
 
-/**
- * Parse markdown text into Editor.js block objects.
- * Supports: headings, bold/italic, lists, checkboxes, code blocks, blockquotes, links, horizontal rules.
- */
-export function parseMarkdownToBlocks (markdown) {
-  const lines = markdown.split('\n')
-  const blocks = []
-  let i = 0
-
-  while (i < lines.length) {
-    const line = lines[i]
-
-    // Skip empty lines
-    if (!line.trim()) { i++; continue }
-
-    // Code block (fenced)
-    if (line.trim().startsWith('```')) {
-      const codeLines = []
-      i++
-      while (i < lines.length && !lines[i].trim().startsWith('```')) {
-        codeLines.push(lines[i])
-        i++
-      }
-      i++ // skip closing ```
-      blocks.push({ type: 'code', data: { code: codeLines.join('\n'), encoding: 'raw' } })
-      continue
-    }
-
-    // Heading
-    const headingMatch = line.match(/^(#{1,6})\s+(.+)/)
-    if (headingMatch) {
-      const level = Math.min(Math.max(headingMatch[1].length, 2), 4) // Clamp to 2-4 (Editor.js range)
-      blocks.push({ type: 'header', data: { text: convertInlineMarkdown(headingMatch[2]), level } })
-      i++; continue
-    }
-
-    // Horizontal rule
-    if (/^[-*_]{3,}\s*$/.test(line.trim())) {
-      blocks.push({ type: 'delimiter', data: {} })
-      i++; continue
-    }
-
-    // Image ![alt](url)
-    const imgMatch = line.match(/^!\[([^\]]*)\]\(([^)]+)\)/)
-    if (imgMatch) {
-      blocks.push({ type: 'image', data: { file: { url: imgMatch[2] }, caption: imgMatch[1] } })
-      i++; continue
-    }
-
-    // Checkbox list item (supports indented/nested — flattened to top level)
-    const checkMatch = line.match(/^\s*[-*+]\s+\[([ xX])\]\s+(.*)/)
-    if (checkMatch) {
-      blocks.push({ type: 'checklistItem', data: { text: convertInlineMarkdown(checkMatch[2]), checked: checkMatch[1].toLowerCase() === 'x' } })
-      i++; continue
-    }
-
-    // Unordered list item (supports indented/nested — flattened to top level)
-    const ulMatch = line.match(/^\s*[-*+]\s+(.+)/)
-    if (ulMatch) {
-      blocks.push({ type: 'bulletListItem', data: { text: convertInlineMarkdown(ulMatch[1]) } })
-      i++; continue
-    }
-
-    // Ordered list item (supports indented/nested — flattened to top level)
-    const olMatch = line.match(/^\s*\d+\.\s+(.+)/)
-    if (olMatch) {
-      blocks.push({ type: 'numberedListItem', data: { text: convertInlineMarkdown(olMatch[1]) } })
-      i++; continue
-    }
-
-    // Markdown table (| col | col | with separator row |---|---|)
-    if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
-      const tableRows = []
-      let j = i
-      // Collect consecutive lines that look like table rows
-      while (j < lines.length && lines[j].trim().startsWith('|') && lines[j].trim().endsWith('|')) {
-        const row = lines[j].trim()
-        tableRows.push(row)
-        j++
-      }
-      // Need at least 2 rows (header + separator, or header + data)
-      if (tableRows.length >= 2) {
-        const parseRow = (row) => row.split('|').slice(1, -1).map(cell => convertInlineMarkdown(cell.trim()))
-        const content = []
-        let withHeadings = false
-        for (let r = 0; r < tableRows.length; r++) {
-          // Skip separator rows (|---|---|)
-          if (/^\|[\s:]*[-]+[\s:]*(\|[\s:]*[-]+[\s:]*)+\|$/.test(tableRows[r])) {
-            withHeadings = r === 1 // separator after first row means first row is header
-            continue
-          }
-          content.push(parseRow(tableRows[r]))
-        }
-        if (content.length > 0) {
-          blocks.push({ type: 'table', data: { content, withHeadings } })
-          i = j
-          continue
-        }
-      }
-    }
-
-    // Blockquote
-    if (line.startsWith('>')) {
-      const quoteLines = []
-      while (i < lines.length && lines[i].startsWith('>')) {
-        quoteLines.push(lines[i].replace(/^>\s?/, ''))
-        i++
-      }
-      blocks.push({ type: 'quote', data: { text: convertInlineMarkdown(quoteLines.join('<br>')), caption: '' } })
-      continue
-    }
-
-    // Regular paragraph
-    blocks.push({ type: 'paragraph', data: { text: convertInlineMarkdown(line) } })
-    i++
-  }
-
-  return blocks
-}
-
-/** Convert inline markdown (bold, italic, code, links, strikethrough) to HTML */
-function convertInlineMarkdown (text) {
-  if (!text) return ''
-  let result = text
-    // Links: [text](url)
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
-    // Bold+italic: ***text*** or ___text___
-    .replace(/\*{3}([^*]+)\*{3}/g, '<b><i>$1</i></b>')
-    // Bold: **text** or __text__
-    .replace(/\*{2}([^*]+)\*{2}/g, '<b>$1</b>')
-    .replace(/_{2}([^_]+)_{2}/g, '<b>$1</b>')
-    // Italic: *text* or _text_
-    .replace(/\*([^*]+)\*/g, '<i>$1</i>')
-    .replace(/(?<![a-zA-Z0-9])_([^_]+)_(?![a-zA-Z0-9])/g, '<i>$1</i>')
-    // Inline code: `text`
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    // Strikethrough: ~~text~~
-    .replace(/~~([^~]+)~~/g, '<s>$1</s>')
-    // Mark/highlight: ==text==
-    .replace(/==([^=]+)==/g, '<mark>$1</mark>')
-  // Auto-linkify bare URLs that aren't already inside <a> tags
-  return autoLinkify(result)
-}
-
 // Local AI (Ollama / LM Studio / LocalAI) needs a model server on localhost,
 // which cannot run inside the iOS/Android Capacitor WebView — so every AI
 // entry point errors on a phone. Hide them on native builds (App Review
@@ -210,6 +49,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
   const onChangeRef = useRef(onChange)
   const multiBlockEnhancerRef = useRef(null)
   const markdownShortcutsCleanupRef = useRef(null)
+  const listIndentKeysCleanupRef = useRef(null)
   const lastSavedRef = useRef(null) // Dedup: prevent MutationObserver feedback loops
   const pageIdRef = useRef(pageId) // Pin page ID for unmount flush
 
@@ -269,10 +109,8 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
     },
     onChange: async (api, event) => {
       try {
-        // Renumber ordered list items on any editor change
-        if (typeof window !== 'undefined' && window._renumberListItems) {
-          window._renumberListItems()
-        }
+        // Relabel numbered list items; only labels that changed are written
+        renumberLists()
 
         // Debounce the onChange to prevent excessive saves
         if (editorRef.current?.onChange) {
@@ -355,7 +193,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
         import('@editorjs/inline-code').then(m => m.default),
         import('@editorjs/marker').then(m => m.default),
         import('@editorjs/table').then(m => m.default),
-        import('@editorjs/image').then(m => m.default),
+        import('./editor-tools/ImageTool').then(m => m.default),
         import('@editorjs/embed').then(m => m.default),
         import('@editorjs/delimiter').then(m => m.default),
         import('@editorjs/paragraph').then(m => m.default),
@@ -534,24 +372,14 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
           class: ImageTool,
 
           config: {
-            uploader: {
-              async uploadByFile (file) {
-                // Pre-shrink check used to be a hard reject at 5 MB
-                // (typical iPhone photo is 6-8 MB → blocked).
-                // stripImageMetadata now auto-shrinks to <=2048 px on
-                // longest edge → re-encoded JPEG usually 0.5-2 MB.
-                // Keep a generous 25 MB pre-shrink ceiling so a user
-                // dropping a 4K screenshot or RAW file still works.
-                const MAX_INPUT_BYTES = 25 * 1024 * 1024
-                if (file.size > MAX_INPUT_BYTES) {
-                  throw new Error('Image too large. Maximum size is 25MB.')
-                }
-                const url = await stripImageMetadata(file)
-                return { success: 1, file: { url } }
-              }
-            },
-            captionPlaceholder: 'Caption (optional)',
-            withCaption: false
+            // Photos are cleaned, shrunk to at most 2048 px and stored as
+            // attachments (utils/photoUpload.js). A pasted web address stays
+            // a link to the web.
+            storePhotoFile,
+            storePhotoUrl,
+            acquirePhotoUrl,
+            releasePhotoUrl,
+            captionPlaceholder: 'Caption (optional)'
           }
         },
         embed: {
@@ -699,6 +527,10 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
           // heading-level clamp so they agree.
           const detachMarkdownShortcuts = attachMarkdownShortcuts(editorRef.current, editorEl)
           markdownShortcutsCleanupRef.current = detachMarkdownShortcuts
+
+          // Tab and Shift+Tab nest list items
+          listIndentKeysCleanupRef.current?.()
+          listIndentKeysCleanupRef.current = attachListIndentKeys(editorRef.current, editorEl)
 
           // Markdown paste handler — intercepts plain text that looks like markdown
           const markdownPasteHandler = async (e) => {
@@ -1322,6 +1154,11 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
       if (markdownShortcutsCleanupRef.current) {
         markdownShortcutsCleanupRef.current()
         markdownShortcutsCleanupRef.current = null
+      }
+
+      if (listIndentKeysCleanupRef.current) {
+        listIndentKeysCleanupRef.current()
+        listIndentKeysCleanupRef.current = null
       }
 
       const editor = editorRef.current

@@ -1,4 +1,6 @@
 import DOMPurify from 'isomorphic-dompurify'
+import { clampListIndent, withIndent } from '../../lib/listIndent.js'
+import { applyIndent, changeListIndent, listConversionConfig, listIndentMenu } from './listIndentRuntime'
 
 const CHECKLIST_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M9.2 12L11.0586 13.8586C11.1367 13.9367 11.2633 13.9367 11.3414 13.8586L14.7 10.5"/><rect width="14" height="14" x="5" y="5" stroke="currentColor" stroke-width="2" rx="4"/></svg>'
 const CHECK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M7 12L10.4884 15.8372C10.5677 15.9245 10.705 15.9245 10.7844 15.8372L17 9"/></svg>'
@@ -12,10 +14,7 @@ export default class ChecklistItem {
   }
 
   static get conversionConfig() {
-    return {
-      export: (data) => data.text,
-      import: (text) => ({ text, checked: false })
-    }
+    return listConversionConfig(text => ({ text, checked: false }))
   }
 
   static get enableLineBreaks() {
@@ -49,12 +48,14 @@ export default class ChecklistItem {
     }
   }
 
-  constructor({ data, api, config, readOnly }) {
+  constructor({ data, api, config, readOnly, block }) {
     this.api = api
+    this.block = block
     this.readOnly = readOnly
     this._data = {
       text: data.text || '',
-      checked: Boolean(data.checked)
+      checked: Boolean(data.checked),
+      indent: clampListIndent(data.indent)
     }
     this._wrapper = null
     this._textEl = null
@@ -64,6 +65,7 @@ export default class ChecklistItem {
   render() {
     this._wrapper = document.createElement('div')
     this._wrapper.classList.add('dash-checklist-item')
+    applyIndent(this._wrapper, this._data.indent)
 
     // Checkbox
     this._checkbox = document.createElement('span')
@@ -95,6 +97,17 @@ export default class ChecklistItem {
     return this._wrapper
   }
 
+  // Indent and Outdent in the block menu
+  renderSettings() {
+    return listIndentMenu(this.api, this.block, this._data.indent)
+  }
+
+  // Called by listIndentRuntime through BlockAPI.call
+  setIndent(level) {
+    this._data.indent = clampListIndent(level)
+    applyIndent(this._wrapper, this._data.indent)
+  }
+
   _handleKeyDown(e) {
     // Convert to paragraph on '/' in empty block so Editor.js slash menu appears
     if (e.key === '/' && this._textEl.textContent.trim() === '') {
@@ -120,6 +133,8 @@ export default class ChecklistItem {
 
       if (this._textEl.textContent.trim() === '') {
         const currentIndex = this.api.blocks.getCurrentBlockIndex()
+        // An empty nested item steps out a level before it stops being a list item
+        if (this._data.indent > 0 && changeListIndent(this.api, [currentIndex], -1)) return
         this.api.blocks.insert('paragraph', { text: '' }, {}, currentIndex + 1, true)
         this.api.blocks.delete(currentIndex)
         return
@@ -130,7 +145,8 @@ export default class ChecklistItem {
       this._textEl.innerHTML = this._data.text
 
       const currentIndex = this.api.blocks.getCurrentBlockIndex()
-      this.api.blocks.insert('checklistItem', { text: DOMPurify.sanitize(afterCaret), checked: false }, {}, currentIndex + 1, true)
+      // The new item starts at the same level
+      this.api.blocks.insert('checklistItem', withIndent({ text: DOMPurify.sanitize(afterCaret), checked: false }, this._data.indent), {}, currentIndex + 1, true)
 
       // For ChecklistItem, the contentEditable is inside a wrapper,
       // so api.caret won't find it. Manually focus the new block's text element.
@@ -164,6 +180,9 @@ export default class ChecklistItem {
           e.stopPropagation()
 
           const currentIndex = this.api.blocks.getCurrentBlockIndex()
+          // A nested item steps out a level first
+          if (this._data.indent > 0 && changeListIndent(this.api, [currentIndex], -1)) return
+
           const currentText = this._textEl.innerHTML
 
           if (currentText.trim() === '') {
@@ -210,10 +229,10 @@ export default class ChecklistItem {
   }
 
   save() {
-    return {
+    return withIndent({
       text: this._textEl ? this._textEl.innerHTML : this._data.text,
       checked: this._data.checked
-    }
+    }, this._data.indent)
   }
 
   validate(savedData) {

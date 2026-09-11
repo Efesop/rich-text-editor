@@ -26,13 +26,12 @@ describe('matchBlockShortcut — headings', () => {
     assert.equal(m('###### Six').data.level, 4)
   })
 
-  // Typing markdown and pasting it must land on the same block, so this
-  // mirrors the clamp in parseMarkdownToBlocks (components/Editor.js).
-  it('matches the level clamp the markdown paste handler already uses', () => {
-    const pasteLevel = (hashes) => Math.min(Math.max(hashes, 2), 4)
+  // Typing markdown and pasting it must land on the same block.
+  it('gives the same heading level as pasting the same markdown', async () => {
+    const { parseMarkdownToBlocks } = await import('../lib/markdownBlocks.js')
     for (let hashes = 1; hashes <= 6; hashes++) {
-      const typed = m('#'.repeat(hashes) + ' Heading')
-      assert.equal(typed.data.level, pasteLevel(hashes), `${hashes} hashes`)
+      const line = '#'.repeat(hashes) + ' Heading'
+      assert.equal(m(line).data.level, parseMarkdownToBlocks(line)[0].data.level, `${hashes} hashes`)
     }
   })
 

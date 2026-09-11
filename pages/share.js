@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import Head from 'next/head'
 import DOMPurify from 'dompurify'
 import { decryptSharePayload, bytesToBase64Url } from '@/utils/shareDecrypt'
+import { isListItemType, listNumberStyle, listRunEnd, nestListItems } from '@/lib/listIndent'
+import { isImageStubUrl } from '@/lib/attachmentRefs'
 
 const RELAY_URL = 'https://dash-relay.efesop.deno.net'
 
@@ -24,6 +26,24 @@ function convertInlineMarkdown(text) {
     .replace(/==([^=]+)==/g, '<mark>$1</mark>')
 }
 
+/** Lists from nestListItems (lib/listIndent.js) as nested <ul> and <ol>. */
+function renderListGroups(groups, depth) {
+  return groups.map(function (group) {
+    const items = group.items.map(function (node) {
+      const d = node.block.data || {}
+      const box = group.type === 'checklistItem' ? (d.checked ? '\u2611' : '\u2610') + ' ' : ''
+      return '<li>' + box + convertInlineMarkdown(d.text || '') + renderListGroups(node.children, depth + 1) + '</li>'
+    }).join('')
+    if (group.type === 'numberedListItem') {
+      return '<ol style="list-style-type:' + listNumberStyle(group.indent) + '">' + items + '</ol>'
+    }
+    if (group.type === 'checklistItem') {
+      return '<ul style="list-style:none;padding-left:' + (depth === 0 ? '0' : '1.5em') + '">' + items + '</ul>'
+    }
+    return '<ul>' + items + '</ul>'
+  }).join('')
+}
+
 function renderBlocks(blocks) {
   let html = ''
   let i = 0
@@ -31,37 +51,12 @@ function renderBlocks(blocks) {
     const b = blocks[i]
     const d = b.data || {}
 
-    // Group consecutive bulletListItem blocks into a single <ul>
-    if (b.type === 'bulletListItem') {
-      html += '<ul>'
-      while (i < blocks.length && blocks[i].type === 'bulletListItem') {
-        html += '<li>' + convertInlineMarkdown(blocks[i].data?.text || '') + '</li>'
-        i++
-      }
-      html += '</ul>'
-      continue
-    }
-
-    // Group consecutive numberedListItem blocks into a single <ol>
-    if (b.type === 'numberedListItem') {
-      html += '<ol>'
-      while (i < blocks.length && blocks[i].type === 'numberedListItem') {
-        html += '<li>' + convertInlineMarkdown(blocks[i].data?.text || '') + '</li>'
-        i++
-      }
-      html += '</ol>'
-      continue
-    }
-
-    // Group consecutive checklistItem blocks into a single <ul>
-    if (b.type === 'checklistItem') {
-      html += '<ul style="list-style:none;padding-left:0">'
-      while (i < blocks.length && blocks[i].type === 'checklistItem') {
-        const ck = blocks[i].data?.checked ? '\u2611' : '\u2610'
-        html += '<li>' + ck + ' ' + convertInlineMarkdown(blocks[i].data?.text || '') + '</li>'
-        i++
-      }
-      html += '</ul>'
+    // A run of list items becomes nested lists, split and numbered the way
+    // the editor numbers them
+    if (isListItemType(b.type)) {
+      const end = listRunEnd(blocks, i)
+      html += renderListGroups(nestListItems(blocks.slice(i, end)), 0)
+      i = end
       continue
     }
 
@@ -116,6 +111,11 @@ function renderBlocks(blocks) {
         break
       case 'image': {
         const url = d.file ? d.file.url : (d.url || '')
+        // A photo stored as an attachment: its bytes never travel in a link.
+        if (d.attachmentId || isImageStubUrl(url)) {
+          html += '<p><em>[Photo not included in this link]</em></p>'
+          break
+        }
         // Validate URL scheme to prevent javascript: XSS
         if (url && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:image/'))) {
           const safeUrl = url.replace(/"/g, '&quot;')

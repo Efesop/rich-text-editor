@@ -4,6 +4,8 @@
  * allowing batch conversion via a popover menu.
  */
 
+import { isListItemType, listIndentOf, withIndent } from '../lib/listIndent.js'
+
 const SETTINGS_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 18 18"><circle cx="9" cy="4" r="1.5"/><circle cx="9" cy="9" r="1.5"/><circle cx="9" cy="14" r="1.5"/><circle cx="4" cy="4" r="1.5"/><circle cx="4" cy="9" r="1.5"/><circle cx="4" cy="14" r="1.5"/></svg>'
 const AI_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><defs><filter id="om-bl"><feGaussianBlur stdDeviation="2.5"/></filter></defs><clipPath id="om-cp"><circle cx="12" cy="12" r="10"/></clipPath><g clip-path="url(#om-cp)" filter="url(#om-bl)"><circle cx="9" cy="9" r="8" fill="rgba(70,120,255,0.9)"/><circle cx="16" cy="10" r="7" fill="rgba(140,80,250,0.8)"/><circle cx="12" cy="16" r="6" fill="rgba(230,90,180,0.7)"/><circle cx="7" cy="14" r="6" fill="rgba(40,180,255,0.65)"/></g><circle cx="12" cy="12" r="10" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/></svg>'
 
@@ -617,6 +619,7 @@ export default class MultiBlockTuneEnhancer {
       })
 
       let convertedCount = 0
+      let firstConverted = -1
 
       // Modify blocks at selected indices
       savedData.blocks = savedData.blocks.map((block, i) => {
@@ -624,8 +627,11 @@ export default class MultiBlockTuneEnhancer {
         if (block.type === targetTool && !extraData.level) return block
 
         const text = this._extractText(block)
-        const newData = { ...this._prepareData(targetTool, text), ...extraData }
+        const prepared = { ...this._prepareData(targetTool, text), ...extraData }
+        // Switching between list types keeps an item's nesting
+        const newData = isListItemType(targetTool) ? withIndent(prepared, listIndentOf(block)) : prepared
         convertedCount++
+        if (firstConverted === -1) firstConverted = i
         return { type: targetTool, data: newData }
       })
 
@@ -635,6 +641,12 @@ export default class MultiBlockTuneEnhancer {
 
       // Re-render the entire editor with modified content
       await this.editor.render(savedData)
+
+      // render() loads data without reporting a change, so the conversion
+      // wasn't saved until the next edit. Report it.
+      if (firstConverted !== -1) {
+        this.editor.blocks.getBlockByIndex(firstConverted)?.dispatchChange()
+      }
 
 
       const friendlyName = FRIENDLY_NAMES[targetTool] || targetTool

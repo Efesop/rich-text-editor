@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { X, Lock, Link2, QrCode, Share2, Check, AlertTriangle, Shield, Copy } from 'lucide-react'
+import { imageAttachmentId } from '@/lib/attachmentRefs'
 
 export default function ShareModal ({ isOpen, onClose, noteContent, noteTitle, theme }) {
   const [shareLink, setShareLink] = useState('')
@@ -31,15 +32,20 @@ export default function ShareModal ({ isOpen, onClose, noteContent, noteTitle, t
     setError(null)
     setTooLarge(false)
     try {
-      // Strip attachment blocks (binary files can't be shared via links) — replace with placeholder
+      // Files and photos stored as attachments can't travel in a link: each
+      // becomes a line saying what was left out.
       const shareContent = noteContent?.blocks
         ? {
             ...noteContent,
-            blocks: noteContent.blocks.map(b =>
-              b.type === 'attachment'
-                ? { ...b, type: 'paragraph', data: { text: `[Attachment: ${b.data?.filename || 'File'}]` } }
-                : b
-            )
+            blocks: noteContent.blocks.map(b => {
+              if (b.type === 'attachment') {
+                return { ...b, type: 'paragraph', data: { text: `[Attachment: ${b.data?.filename || 'File'}]` } }
+              }
+              if (b.type === 'image' && imageAttachmentId(b.data)) {
+                return { ...b, type: 'paragraph', data: { text: `[Photo not included${b.data?.caption ? ': ' + b.data.caption : ''}]` } }
+              }
+              return b
+            })
           }
         : noteContent
       const { generateShareLink } = await import('@/utils/shareUtils')

@@ -1,5 +1,8 @@
 import DOMPurify from 'isomorphic-dompurify'
 import { queuePasteItems } from '../../utils/pasteQueue'
+import { clampListIndent, withIndent } from '../../lib/listIndent.js'
+import { listBlocksFromPaste } from '../../lib/listPaste.js'
+import { applyIndent, changeListIndent, listConversionConfig, listIndentMenu } from './listIndentRuntime'
 
 const BULLET_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><line x1="9" x2="19" y1="7" y2="7" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><line x1="9" x2="19" y1="12" y2="12" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><line x1="9" x2="19" y1="17" y2="17" stroke="currentColor" stroke-linecap="round" stroke-width="2"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M5.00001 17H4.99002"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M5.00001 12H4.99002"/><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M5.00001 7H4.99002"/></svg>'
 
@@ -12,10 +15,7 @@ export default class BulletListItem {
   }
 
   static get conversionConfig() {
-    return {
-      export: (data) => data.text,
-      import: (text) => ({ text })
-    }
+    return listConversionConfig(text => ({ text }))
   }
 
   static get enableLineBreaks() {
@@ -27,8 +27,12 @@ export default class BulletListItem {
   }
 
   static get pasteConfig() {
+    // Every list tag belongs to this tool, so Editor.js hands over a whole
+    // list with its nesting. While NumberedListItem owned <ol>, Editor.js split
+    // an <ol> into its <li>s and they pasted as bullets. The <li> and <input>
+    // rules keep what marks a checklist item.
     return {
-      tags: ['UL', 'LI']
+      tags: ['UL', 'OL', { li: { 'aria-checked': true } }, { input: { type: true, checked: true } }]
     }
   }
 
@@ -55,85 +59,39 @@ export default class BulletListItem {
     }
   }
 
-  constructor({ data, api, config, readOnly }) {
+  constructor({ data, api, config, readOnly, block }) {
     this.api = api
+    this.block = block
     this.readOnly = readOnly
-    this._data = { text: data.text || '' }
+    this._data = { text: data.text || '', indent: clampListIndent(data.indent) }
     this._element = null
   }
 
   onPaste(event) {
-    const element = event.detail.data
-    const parsed = this._extractListItems(element)
-    if (parsed.length === 0) return
+    const items = listBlocksFromPaste(event.detail.data, html => DOMPurify.sanitize(BulletListItem._autoLinkUrls(html)))
 
-    const first = parsed[0]
-
-    // If the first item is a checklist item, replace this bullet block with a checklist block
-    if (first.isChecklist) {
-      this._data.text = first.text
-      if (this._element) {
-        this._element.innerHTML = DOMPurify.sanitize(first.text)
-      }
-      // Build all items to insert in order, replacing this block with the first one
-      const allItems = parsed.map(p => ({
-        tool: p.isChecklist ? 'checklistItem' : 'bulletListItem',
-        data: p.isChecklist ? { text: p.text, checked: p.checked } : { text: p.text }
-      }))
-      queuePasteItems(this.api.blocks, this, allItems, null, true)
+    // Inserts are deferred — inserting during onPaste conflicts with Editor.js paste flow
+    if (items.length === 0) {
+      // A checkbox pasted outside a list, or a list with no text: remove this block
+      queuePasteItems(this.api.blocks, this, [], null, true)
       return
     }
 
-    this._data.text = first.text
+    const [first, ...rest] = items
+    if (first.tool !== 'bulletListItem') {
+      // Replace this bullet block with the first item's own type
+      queuePasteItems(this.api.blocks, this, items, null, true)
+      return
+    }
+
+    this._data.text = first.data.text
+    this.setIndent(first.data.indent)
     if (this._element) {
-      this._element.innerHTML = DOMPurify.sanitize(first.text)
+      this._element.innerHTML = DOMPurify.sanitize(first.data.text)
     }
-
-    // Defer remaining items — inserting during onPaste conflicts with Editor.js paste flow
-    if (parsed.length > 1) {
-      const remaining = parsed.slice(1).map(p => ({
-        tool: p.isChecklist ? 'checklistItem' : 'bulletListItem',
-        data: p.isChecklist ? { text: p.text, checked: p.checked } : { text: p.text }
-      }))
-      queuePasteItems(this.api.blocks, this, remaining, null)
+    if (rest.length > 0) {
+      queuePasteItems(this.api.blocks, this, rest, null)
     }
-  }
-
-  _extractListItems(element) {
-    const items = []
-    if (element.tagName === 'LI') {
-      items.push(this._parseListItem(element))
-    } else {
-      const lis = element.querySelectorAll(':scope > li')
-      lis.forEach(li => items.push(this._parseListItem(li)))
-    }
-    return items.filter(item => item.text.trim() !== '')
-  }
-
-  _parseListItem(li) {
-    const checkbox = li.querySelector('input[type="checkbox"]')
-    let isChecklist = !!checkbox
-    let checked = checkbox ? checkbox.checked : false
-
-    const clone = li.cloneNode(true)
-    // Remove checkboxes from the content
-    clone.querySelectorAll('input[type="checkbox"]').forEach(el => el.remove())
-    // Remove nested lists (they'd be separate blocks)
-    clone.querySelectorAll('ul, ol').forEach(el => el.remove())
-    let html = clone.innerHTML.trim()
-
-    // Detect text-based checkbox patterns: [x], [X], [ ] at start of text
-    if (!isChecklist) {
-      const textCheckbox = html.match(/^(\[([xX ])\])\s*/)
-      if (textCheckbox) {
-        isChecklist = true
-        checked = textCheckbox[2].toLowerCase() === 'x'
-        html = html.slice(textCheckbox[0].length)
-      }
-    }
-
-    html = BulletListItem._autoLinkUrls(html)
-    return { text: DOMPurify.sanitize(html), isChecklist, checked }
   }
 
   static _autoLinkUrls(html) {
@@ -150,12 +108,24 @@ export default class BulletListItem {
     this._element.contentEditable = !this.readOnly
     this._element.innerHTML = DOMPurify.sanitize(this._data.text)
     this._element.dataset.placeholder = 'List item'
+    applyIndent(this._element, this._data.indent)
 
     if (!this.readOnly) {
       this._element.addEventListener('keydown', this._handleKeyDown.bind(this))
     }
 
     return this._element
+  }
+
+  // Indent and Outdent in the block menu
+  renderSettings() {
+    return listIndentMenu(this.api, this.block, this._data.indent)
+  }
+
+  // Called by listIndentRuntime through BlockAPI.call
+  setIndent(level) {
+    this._data.indent = clampListIndent(level)
+    applyIndent(this._element, this._data.indent)
   }
 
   _handleKeyDown(e) {
@@ -183,6 +153,8 @@ export default class BulletListItem {
 
       if (this._element.textContent.trim() === '') {
         const currentIndex = this.api.blocks.getCurrentBlockIndex()
+        // An empty nested item steps out a level before it stops being a list item
+        if (this._data.indent > 0 && changeListIndent(this.api, [currentIndex], -1)) return
         this.api.blocks.insert('paragraph', { text: '' }, {}, currentIndex + 1, true)
         this.api.blocks.delete(currentIndex)
         return
@@ -193,7 +165,8 @@ export default class BulletListItem {
       this._element.innerHTML = this._data.text
 
       const currentIndex = this.api.blocks.getCurrentBlockIndex()
-      this.api.blocks.insert('bulletListItem', { text: DOMPurify.sanitize(afterCaret) }, {}, currentIndex + 1, true)
+      // The new item starts at the same level
+      this.api.blocks.insert('bulletListItem', withIndent({ text: DOMPurify.sanitize(afterCaret) }, this._data.indent), {}, currentIndex + 1, true)
 
       // Ensure caret lands in the new block
       setTimeout(() => {
@@ -215,6 +188,9 @@ export default class BulletListItem {
           e.stopPropagation()
 
           const currentIndex = this.api.blocks.getCurrentBlockIndex()
+          // A nested item steps out a level first
+          if (this._data.indent > 0 && changeListIndent(this.api, [currentIndex], -1)) return
+
           const currentText = this._element.innerHTML
 
           if (currentText.trim() === '') {
@@ -261,9 +237,9 @@ export default class BulletListItem {
   }
 
   save() {
-    return {
+    return withIndent({
       text: this._element ? this._element.innerHTML : this._data.text
-    }
+    }, this._data.indent)
   }
 
   validate(savedData) {
