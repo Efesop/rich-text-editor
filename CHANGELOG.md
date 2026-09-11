@@ -5,6 +5,20 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.10] - 2026-09-11
+
+Third stage of note importers: bring your notes in from other apps.
+
+### Added
+- **Import notes** from Evernote, Notion, Obsidian, Notesnook, Standard Notes and folders of Markdown or text files (⋯ menu → Import notes). A preview shows what will be imported, which notes are already in Dash, and anything that can't come across exactly, before anything is written. Each import gets its own folder, a report of everything left out and why, and undo. If Dash stops part way through an import, the next launch takes back the photos and files it had stored, and no notes are added.
+- Imported photos keep their full quality. Location and camera details are removed without re-compressing, and HEIC photos become JPEG on Mac.
+- Exports Dash can't read, like Notion's Markdown export or an encrypted Standard Notes backup, are recognised with steps to make the right one.
+- THIRD_PARTY_NOTICES.md lists the open-source libraries the importers use.
+
+### Changed
+- Photos pasted into notes before 1.6.9 now move into attachment storage in the background, one note at a time. Each photo is read back before its note changes, notes that are open, locked or in Trash are left alone, and with Dash Sync on it waits until every device has updated.
+- Sync pulls, moving photos into attachment storage, and locking the app all wait while an import saves its notes.
+
 ## [1.6.9] - 2026-09-11
 
 Second stage of note importers: photos stored as attachments, nested lists,

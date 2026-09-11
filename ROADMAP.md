@@ -155,8 +155,8 @@ Future feature ideas and enhancements for Dash.
 ## Import & Export
 - Import from Evernote (.enex), Notion (HTML export), Obsidian / Markdown / Notesnook and Standard Notes (decrypted backup) — **in progress, in three releases**:
   1. Sync and storage safety — **released in 1.6.8** (Mac and web; iPhone to follow): relay stores notes up to 2 MB and attachments up to 10 MB in pieces; durable, paced attachment transfers; iOS attachments and version history in IndexedDB; upload queue that never drops for space; vault-full pause; pulls and app lock applied to the pages as they are now
-  2. Photos stored as attachments, nested lists, exporter fixes — **released in 1.6.9** (Mac and web; iPhone to follow): photos stored once and shown with a placeholder while they sync; nested lists with Tab, Shift+Tab and block-menu Indent/Outdent, kept through paste, Markdown, share links, version history and every export; exports rebuilt so callouts, toggles, captions, empty tables, formatting and long PDFs come through. Moving photos already in notes is built and tested, and switches on with stage 3
-  3. The four importers: preview before anything is written, one folder per import, a reconciled report, undo
+  2. Photos stored as attachments, nested lists, exporter fixes — **released in 1.6.9** (Mac and web; iPhone to follow): photos stored once and shown with a placeholder while they sync; nested lists with Tab, Shift+Tab and block-menu Indent/Outdent, kept through paste, Markdown, share links, version history and every export; exports rebuilt so callouts, toggles, captions, empty tables, formatting and long PDFs come through. Moving photos already in notes switched on in 1.6.10
+  3. The four importers: preview before anything is written, one folder per import, a reconciled report, undo — **released in 1.6.10** (Mac and web; iPhone to follow): Evernote, Notion, Obsidian and Markdown folders, Notesnook, Standard Notes; photos keep full quality without location data; recent imports can be undone
 - Bulk markdown export
 
 ## Security & Privacy
