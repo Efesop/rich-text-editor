@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { MoreHorizontal, Download, Share2, History, FolderInput, Copy, Import, Smartphone, Bug, Trash2 } from 'lucide-react'
+import { MoreHorizontal, Download, Share2, History, FolderInput, Copy, Import, FileInput, Smartphone, Bug, Trash2 } from 'lucide-react'
 import { getThemeClasses } from '@/utils/themeUtils'
 import Tooltip from './Tooltip'
 
@@ -21,6 +21,7 @@ export default function PageMenu ({
   onMoveToFolder,
   onDuplicate,
   onImportBundle,
+  onImportNotes,
   isImporting,
   showPhoneSetup,
   onPhoneSetup,
@@ -137,6 +138,7 @@ export default function PageMenu ({
               <div className={`h-px my-1 mx-1.5 ${dividerClass}`} />
             </>
           )}
+          {onImportNotes && renderItem({ icon: FileInput, label: 'Import notes…', disabled: isImporting, className: `${itemText} ${itemHover}`, onClick: onImportNotes })}
           {renderItem({ icon: Import, label: isImporting ? 'Importing…' : 'Import encrypted bundle…', disabled: isImporting, className: `${itemText} ${itemHover}`, onClick: onImportBundle })}
           {showPhoneSetup && renderItem({ icon: Smartphone, label: 'Use on your phone…', className: `${itemText} ${itemHover}`, onClick: onPhoneSetup })}
           {renderItem({ icon: Bug, label: 'Report a bug', className: `${itemText} ${itemHover}`, onClick: onReportBug })}

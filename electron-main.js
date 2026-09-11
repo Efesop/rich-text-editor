@@ -643,6 +643,35 @@ ipcMain.handle('delete-attachment', async (event, attachmentId) => {
   return { success: true };
 });
 
+// --- Photos for note imports ---
+// Chromium can't decode HEIC, so the Mac app asks macOS for a JPEG. The
+// import removes location data from the result. Temporary files stay in the
+// app's own folder and are removed straight away.
+const importTempDir = path.join(app.getPath('userData'), 'import-tmp');
+fs.rm(importTempDir, { recursive: true, force: true }).catch(() => {});
+
+ipcMain.handle('convert-heic', async (event, input) => {
+  if (process.platform !== 'darwin') return null;
+  if (!(input instanceof Uint8Array) || input.byteLength === 0 || input.byteLength > 64 * 1024 * 1024) return null;
+  await fs.mkdir(importTempDir, { recursive: true });
+  const id = require('crypto').randomUUID();
+  const source = path.join(importTempDir, `${id}.heic`);
+  const target = path.join(importTempDir, `${id}.jpg`);
+  try {
+    await fs.writeFile(source, Buffer.from(input.buffer, input.byteOffset, input.byteLength));
+    await new Promise((resolve, reject) => {
+      require('child_process').execFile('/usr/bin/sips', ['-s', 'format', 'jpeg', '-s', 'formatOptions', '95', source, '--out', target], { timeout: 60000 }, (error) => (error ? reject(error) : resolve()));
+    });
+    return new Uint8Array(await fs.readFile(target));
+  } catch (error) {
+    log.warn('convert-heic failed:', error.message);
+    return null;
+  } finally {
+    await fs.rm(source, { force: true }).catch(() => {});
+    await fs.rm(target, { force: true }).catch(() => {});
+  }
+});
+
 ipcMain.handle('open-attachment', async (event, attachmentId, filename, mimeType) => {
   if (!isValidAttachmentId(attachmentId)) return { opened: false };
   try {

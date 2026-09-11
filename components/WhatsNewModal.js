@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
-import { X, Sparkles, Search, Timer, ShieldCheck, Focus, Code, Palette, Lock, GripVertical, Undo2, Keyboard, Link, KeyRound, ShieldAlert, Share2, ImageOff, Bot, LayoutTemplate, SlidersHorizontal, Monitor, Table, ListTree, Image as ImageIcon, FileDown } from 'lucide-react'
+import { X, Sparkles, Search, Timer, ShieldCheck, Focus, Code, Palette, Lock, GripVertical, Undo2, Keyboard, Link, KeyRound, ShieldAlert, Share2, ImageOff, Bot, LayoutTemplate, SlidersHorizontal, Monitor, Table, ListTree, Image as ImageIcon, FileDown, FileInput } from 'lucide-react'
 import useWhatsNewStore from '../store/whatsNewStore'
 import { releaseNotes } from '@/lib/releaseNotes'
 
 const iconMap = {
+  FileInput,
   ListTree,
   Image: ImageIcon,
   FileDown,

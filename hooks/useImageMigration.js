@@ -3,7 +3,7 @@
  * attachment storage, in the background. The work and its proofs live in
  * lib/imageMigration.js; this decides when it may run.
  *
- * Off until the Stage 3 release (IMAGE_MIGRATION_ENABLED). When on, it runs
+ * On from the Stage 3 release (IMAGE_MIGRATION_ENABLED). It runs
  * only while all of these hold:
  *   - every device syncing the vault can show photos stored as attachments
  *   - canRun(): unlocked, not in duress, saves not blocked, no import running
@@ -25,14 +25,13 @@ import { storeImageBytes } from '@/lib/imageAttachments'
 import { getAttachmentIdKey } from '@/lib/attachmentIdKey'
 import { attachmentBackend, deleteAttachment, loadAttachment, saveAttachment } from '@/lib/attachmentStorage'
 
-export const IMAGE_MIGRATION_ENABLED = false
+export const IMAGE_MIGRATION_ENABLED = true
 
 const MONTHLY_SYNC_BUDGET_BYTES = 50 * 1024 * 1024
 const FIRST_RUN_DELAY_MS = 30 * 1000
 const RUN_EVERY_MS = 10 * 60 * 1000
 const PAUSE_BETWEEN_NOTES_MS = 250
 
-const JOURNAL_KEY = 'dash:image-migration:journal'
 const REPORT_KEY = 'dash:image-migration:report'
 const BUDGET_KEY = 'dash:image-migration:budget'
 
@@ -56,23 +55,20 @@ function writeJson (key, value) {
 }
 
 // A note's original content can be megabytes of inline photos, so the
-// journal keeps it in attachment storage under its own id, with only that id
-// in localStorage.
+// journal keeps it in attachment storage. It lives under one fixed id rather
+// than behind a pointer in localStorage: a crash can lose the last second of
+// localStorage writes, which left journals that nothing would ever clear.
+const JOURNAL_ATTACHMENT_ID = '00000000-0000-0000-0000-00006a6f7572'
+
 const journal = {
   async write (entry) {
-    const id = crypto.randomUUID()
     const bytes = new TextEncoder().encode(JSON.stringify(entry))
-    await saveAttachment(id, bytes.slice().buffer)
-    const back = await loadAttachment(id)
+    await saveAttachment(JOURNAL_ATTACHMENT_ID, bytes.slice().buffer)
+    const back = await loadAttachment(JOURNAL_ATTACHMENT_ID)
     if (!back || back.byteLength !== bytes.byteLength) throw new Error('The migration journal did not save')
-    const previous = localStorage.getItem(JOURNAL_KEY)
-    localStorage.setItem(JOURNAL_KEY, id)
-    if (previous && previous !== id) await deleteAttachment(previous).catch(() => {})
   },
   async read () {
-    const id = localStorage.getItem(JOURNAL_KEY)
-    if (!id) return null
-    const data = await loadAttachment(id)
+    const data = await loadAttachment(JOURNAL_ATTACHMENT_ID)
     if (!data) return null
     try {
       return JSON.parse(new TextDecoder().decode(new Uint8Array(data)))
@@ -81,9 +77,7 @@ const journal = {
     }
   },
   async clear () {
-    const id = localStorage.getItem(JOURNAL_KEY)
-    localStorage.removeItem(JOURNAL_KEY)
-    if (id) await deleteAttachment(id).catch(() => {})
+    await deleteAttachment(JOURNAL_ATTACHMENT_ID).catch(() => {})
   }
 }
 
@@ -178,7 +172,8 @@ export default function useImageMigration ({
           if (options.syncEnabled) writeJson(BUDGET_KEY, { month: monthKey(), bytes: budgetUsed() + result.bytes })
           updateReport(current => ({ moved: current.moved + result.photos, bytes: current.bytes + result.bytes }))
         }
-        const reason = result.outcome === 'moved' && result.stayedInline > 0 ? 'photo-too-large' : result.reason
+        const partlyMoved = result.outcome === 'moved' && result.stayedInline > 0
+        const reason = partlyMoved ? (result.tooLarge > 0 ? 'photo-too-large' : 'unreadable-photo') : result.reason
         if (LEFT_AS_IS.has(reason) || result.outcome === 'failed') {
           updateReport(current => ({
             leftAsIs: [...current.leftAsIs.filter(item => item.pageId !== entry.pageId), { pageId: entry.pageId, reason, at: Date.now() }]

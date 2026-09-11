@@ -4,7 +4,7 @@ import { sanitizeEditorContent, validatePageStructure } from '@/utils/securityUt
 import { deriveKeyFromPassphrase, encryptJsonWithKey, decryptJsonWithKey } from '@/utils/cryptoUtils'
 import useTagStore from '../store/tagStore'
 import { readPages, savePages as savePagesToFallback, saveDecoyPages } from '@/lib/storage'
-import { deleteMultipleAttachments } from '@/lib/attachmentStorage'
+import { deleteMultipleAttachments, hasAttachment } from '@/lib/attachmentStorage'
 import { attachmentIdsInPage, attachmentIdsSafeToDelete } from '@/lib/attachmentRefs'
 import { captureVersion, deleteVersions } from '@/lib/versionStorage'
 import { encryptPagesUntilStable } from '@/lib/appLockSnapshot'
@@ -1784,6 +1784,105 @@ export function usePagesManager() {
     return page
   }, [])
 
+  // --- Note imports (lib/import/commit.js) -----------------------------------
+
+  // Adds an import's notes and its folder in one step, saves, and confirms
+  // every one reached storage. An import only appends: nothing already here
+  // changes. When anything fails, the import comes back out of the note list
+  // before this throws.
+  const mergeImport = useCallback(async ({ pages: importedPages, folder }) => {
+    if (!isInitializedRef.current) throw new Error('Notes have not loaded yet')
+    if (savesBlockedRef.current || loadErrorRef.current || isDuressModeRef.current) {
+      throw new Error("Notes can't be saved on this device right now")
+    }
+    const incoming = [folder, ...importedPages]
+    const incomingIds = new Set(incoming.map(item => item?.id))
+    const taken = new Set(pagesRef.current.map(item => item.id))
+    if (incomingIds.size !== incoming.length || incoming.some(item => !item?.id || taken.has(item.id))) {
+      throw new Error('An imported note has the same id as another note')
+    }
+
+    dbg('pages', 'importing', importedPages.length, 'notes into', folder.title)
+    pagesRef.current = [folder, ...pagesRef.current, ...importedPages]
+    setPages(pagesRef.current)
+    try {
+      await saveNowOrThrow()
+      const saved = await readPages()
+      const savedIds = new Set((Array.isArray(saved) ? saved : []).map(item => item?.id))
+      const missing = incoming.filter(item => !savedIds.has(item.id)).length
+      if (missing > 0) throw new Error(`${missing} imported notes did not reach storage`)
+    } catch (error) {
+      // Take the import back out, keeping anything else that changed meanwhile
+      pagesRef.current = pagesRef.current.filter(item => !incomingIds.has(item.id))
+      setPages(pagesRef.current)
+      try {
+        await saveNowOrThrow()
+      } catch (restoreError) {
+        console.error('mergeImport: saving the note list back failed', restoreError)
+      }
+      throw error
+    }
+  }, [saveNowOrThrow])
+
+  // Removes files an import created that no note uses, and says which are
+  // still stored. It is only given ids the import itself created, so a note
+  // that can't be read (password or app lock) can't be using them. It
+  // refuses in duress mode or while saves are blocked, and the import's
+  // journal keeps the ids for the next launch.
+  const discardImportAttachments = useCallback(async (ids) => {
+    const candidates = [...new Set(Array.isArray(ids) ? ids : [])].filter(id => typeof id === 'string' && id)
+    if (candidates.length === 0) return { remaining: [] }
+    if (isDuressModeRef.current || savesBlockedRef.current || !isInitializedRef.current) {
+      throw new Error("Files can't be removed on this device right now")
+    }
+    const inUse = new Set(pagesRef.current.flatMap(page => attachmentIdsInPage(page)))
+    const deletable = candidates.filter(id => !inUse.has(id))
+    for (let start = 0; start < deletable.length; start += 200) {
+      await deleteMultipleAttachments(deletable.slice(start, start + 200))
+    }
+    const remaining = []
+    for (const id of deletable) {
+      if (await hasAttachment(id).catch(() => true)) remaining.push(id)
+    }
+    return { remaining }
+  }, [])
+
+  // Undoes an import: its notes go to Trash (recoverable for 30 days, edits
+  // and all) and its folder is removed, in one save. Notes moved into the
+  // folder since then move back out.
+  const undoImport = useCallback(async ({ folderId, pageIds }) => {
+    if (!isInitializedRef.current || savesBlockedRef.current || loadErrorRef.current || isDuressModeRef.current) {
+      throw new Error("Notes can't be saved on this device right now")
+    }
+    const ids = new Set(pageIds)
+    const now = Date.now()
+    let moved = 0
+    const updated = []
+    for (const item of pagesRef.current) {
+      if (item.type === 'folder' && item.id === folderId) continue
+      if (item.type !== 'folder' && (ids.has(item.id) || item.folderId === folderId)) {
+        const { restoredAt: _restoredAt, ...rest } = item
+        const next = ids.has(item.id) && !item.trashed
+          ? { ...rest, trashed: true, trashedAt: now, lastEdited: now }
+          : { ...item }
+        if (next.folderId === folderId) delete next.folderId
+        if (ids.has(item.id) && !item.trashed) moved++
+        updated.push(next)
+        continue
+      }
+      updated.push(item)
+    }
+    pagesRef.current = updated
+    setPages(updated)
+    await saveNowOrThrow()
+    if (currentPageRef.current && (ids.has(currentPageRef.current.id) || currentPageRef.current.folderId === folderId)) {
+      const remaining = updated.filter(p => p.type !== 'folder' && !p.trashed)
+      if (remaining[0]) setCurrentPage(remaining[0])
+      else clearCurrentPage()
+    }
+    return { moved }
+  }, [saveNowOrThrow, setCurrentPage, clearCurrentPage])
+
   const getLatestPages = useCallback(() => pagesRef.current, [])
 
   return {
@@ -1856,5 +1955,9 @@ export function usePagesManager() {
     // applyRemoteChanges only updates React state — pages live in memory
     // and vanish on app restart.
     savePagesToStorage,
+    // Note imports
+    mergeImport,
+    discardImportAttachments,
+    undoImport,
   }
 }

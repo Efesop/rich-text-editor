@@ -273,6 +273,8 @@ describe('migrateNotePhotos', () => {
     assert.equal(result.outcome, 'moved')
     assert.equal(result.photos, 1)
     assert.equal(result.stayedInline, 2)
+    assert.equal(result.tooLarge, 1)
+    assert.equal(result.unreadable, 1)
     assert.ok(imageAttachmentId(blockById(state.pages[0], 'trip-img0').data))
     assert.equal(imageAttachmentId(blockById(state.pages[0], 'trip-img1').data), null)
     assert.equal(blockById(state.pages[0], 'trip-img2').data.file.url, 'data:image/png;base64,%%%')

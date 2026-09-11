@@ -5,6 +5,7 @@ import {
   FileDown,
   Smartphone,
   Import,
+  FileInput,
   Lock,
   LockKeyhole,
   Unlock,
@@ -31,6 +32,7 @@ export function MobileHeaderMenu ({
   onSyncSettings,
   onExport,
   onImportBundle,
+  onImportNotes,
   onPhoneSetup,
   currentPageLocked = false,
   currentPageHasTimer = false,
@@ -142,7 +144,7 @@ export function MobileHeaderMenu ({
           )
         })()}
 
-        {((pageActionsAvailable && (onLockPage || onTimer || onShare)) || (syncAvailable && onSyncSettings)) && (onExport || onImportBundle) && (
+        {((pageActionsAvailable && (onLockPage || onTimer || onShare)) || (syncAvailable && onSyncSettings)) && (onExport || onImportBundle || onImportNotes) && (
           <ActionSheetSeparator />
         )}
 
@@ -158,6 +160,14 @@ export function MobileHeaderMenu ({
             icon={Lock}
             label="Export all (encrypted)"
             onClick={closeAndRun(() => onExport('dashpack'))}
+          />
+        )}
+        {onImportNotes && (
+          <ActionSheetItem
+            icon={FileInput}
+            label="Import notes"
+            onClick={closeAndRun(onImportNotes)}
+            disabled={isImporting}
           />
         )}
         {onImportBundle && (

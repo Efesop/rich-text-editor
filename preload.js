@@ -57,7 +57,8 @@ contextBridge.exposeInMainWorld('electron', {
       'write-backup-file',
       'list-backup-files',
       'delete-backup-file',
-      'get-default-backup-folder'
+      'get-default-backup-folder',
+      'convert-heic'
     ];
 
     if (validChannels.includes(channel)) {

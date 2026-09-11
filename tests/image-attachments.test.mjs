@@ -100,6 +100,7 @@ describe('storeImageBytes', () => {
     assert.equal(stored.height, 480)
     assert.equal(stored.byteLength, bytes.byteLength)
     assert.equal(stored.reused, false)
+    assert.equal(stored.existed, false)
     assert.deepEqual(new Uint8Array(storage.files.get(stored.attachmentId)), bytes)
   })
 
@@ -108,6 +109,7 @@ describe('storeImageBytes', () => {
     await storeImageBytes({ bytes: png(5, 5), keyBytes: KEY, storage })
     const again = await storeImageBytes({ bytes: png(5, 5), keyBytes: KEY, storage })
     assert.equal(again.reused, true)
+    assert.equal(again.existed, true)
     assert.equal(storage.calls.save, 1)
   })
 
@@ -118,6 +120,7 @@ describe('storeImageBytes', () => {
     storage.files.set(id, new Uint8Array([1, 2, 3]).buffer)
     const stored = await storeImageBytes({ bytes, keyBytes: KEY, storage })
     assert.equal(stored.reused, false)
+    assert.equal(stored.existed, true, 'a damaged copy still counts as stored before')
     assert.deepEqual(new Uint8Array(storage.files.get(id)), bytes)
   })
 

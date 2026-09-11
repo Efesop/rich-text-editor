@@ -30,6 +30,7 @@ import {
 import { createSyncQueue } from '../lib/syncQueue.js'
 import { isSameRelay, resolveRelayUrl, compatRelayUrl, toHttpUrl, relaySupportsWebSocket } from '../lib/relayHosts.js'
 import { diffPages, snapshotPages, buildManifestPayload } from '../lib/syncDiff.js'
+import { importInProgress } from '../lib/import/lock.js'
 import { pullSince, applyPulledChanges, PullError } from '../lib/syncPull.js'
 import { makeIsHardDeleted } from '../lib/hardDeletes.js'
 import mobileStorage from '../lib/mobileStorage.js'
@@ -480,6 +481,8 @@ export function useSyncQueue ({
     // would be taken as this device's pages, and the save that follows would
     // replace them on disk. The next pull (focus, doorbell, timer) catches up.
     if (typeof arePagesLoadedRef.current === 'function' && !arePagesLoadedRef.current()) return
+    // An import is adding notes: pull once it has saved them
+    if (importInProgress()) return
     if (pullingRef.current) return
     pullingRef.current = true
     updateStatus({ stage: 'pulling' })

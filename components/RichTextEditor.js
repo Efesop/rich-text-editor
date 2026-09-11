@@ -88,7 +88,7 @@ import LiveSessionModal from './LiveSessionModal'
 import LiveNotificationsPanel from './LiveNotificationsPanel'
 import useLiveNotesStore from '../store/liveNotesStore'
 import DecoyVaultSetupModal from './DecoyVaultSetupModal'
-import { readDecoyPages } from '@/lib/storage'
+import { readDecoyPages, readPages } from '@/lib/storage'
 import { decryptJsonWithPassphrase } from '@/utils/cryptoUtils'
 import { usePageLinkInterceptor, PageLinkDropdown, PageLinkInlineTool } from './editor-tools/PageLink'
 // Sync feature (phase 2.0a–2.4). All gated behind SYNC_ENABLED — these imports
@@ -103,6 +103,9 @@ import SyncPassphraseModal from './SyncPassphraseModal'
 // Trash (phase 2.5) — always-on UX improvement. Soft-delete by default,
 // recoverable for 30 days. Independent of sync.
 import TrashModal from './TrashModal'
+import ImportNotesModal from './ImportNotesModal'
+import useNoteImport from '@/hooks/useNoteImport'
+import { importInProgress, whenImportEnds } from '@/lib/import/lock'
 // Backup (phase 2.9) — encrypted .dashpack auto-export. Independent of sync;
 // always-on safety net for users who lose all paired devices.
 import BackupSettingsModal from './BackupSettingsModal'
@@ -559,6 +562,9 @@ export default function RichTextEditor() {
     saveNowOrThrow,
     replacePageIfUnchanged,
     readSavedPage,
+    mergeImport,
+    discardImportAttachments,
+    undoImport,
   } = usePagesManager()
 
   const {
@@ -1492,10 +1498,25 @@ export default function RichTextEditor() {
     if (appLock.isLocked) clearPhotoUrls()
   }, [appLock.isLocked])
 
+  // Importing notes from other apps (components/ImportNotesModal.js)
+  const noteImport = useNoteImport({
+    pages,
+    getPages: getLatestPages,
+    getTags: () => useTagStore.getState().tags || [],
+    addTag: (tag) => useTagStore.getState().addTag(tag),
+    mergeImport,
+    discardImportAttachments,
+    undoImport,
+    readPages,
+    arePagesLoaded,
+    fetchSyncUsage: SYNC_ENABLED ? () => sync?.fetchVaultUsage?.() : undefined,
+    syncEnabled: SYNC_ENABLED && !!sync?.status?.enabled
+  })
+
   // Photos pasted into notes before attachment photos move out of the notes
-  // (hooks/useImageMigration.js). Off until the Stage 3 release.
+  // (hooks/useImageMigration.js)
   useImageMigration({
-    canRun: () => !appLock.isLocked && isDuressModeRef.current !== true && !isImporting && !loadError && arePagesLoaded(),
+    canRun: () => !appLock.isLocked && isDuressModeRef.current !== true && !isImporting && !importInProgress() && !loadError && arePagesLoaded(),
     syncEnabled: Boolean(SYNC_ENABLED && sync?.status?.enabled),
     getPairedDevices: async () => (await sync?.fetchVaultUsage?.())?.pairedDevices || null,
     getPages: getLatestPages,
@@ -1739,6 +1760,21 @@ export default function RichTextEditor() {
     }
   }, [isLockDropdownOpen])
 
+  // Locking waits while an import adds notes: encrypting would take them out
+  // of memory half way (lib/import/lock.js). Returns true when it waits.
+  const lockWaitingForImportRef = useRef(false)
+  const waitForImportBeforeLocking = (lock) => {
+    if (!importInProgress()) return false
+    if (!lockWaitingForImportRef.current) {
+      lockWaitingForImportRef.current = true
+      whenImportEnds(() => {
+        lockWaitingForImportRef.current = false
+        lock()
+      })
+    }
+    return true
+  }
+
   // Idle timer for auto-lock (encrypts before locking)
   const handleInstantLock = useCallback(async () => {
     if (appLock.isEnabled) {
@@ -1746,6 +1782,7 @@ export default function RichTextEditor() {
       // last ~300ms (Editor.js debounce window) would not reach pagesRef and would
       // be lost when encryptAndClearAppLockPages reads pagesRef to encrypt
       if (window.__editorFlush) await window.__editorFlush()
+      if (waitForImportBeforeLocking(() => handleInstantLock())) return
       await encryptAndClearAppLockPages()
       appLock.lock()
     }
@@ -1996,6 +2033,11 @@ export default function RichTextEditor() {
     const fireEncrypt = (opts = {}) => {
       const { force = false } = opts
       if (appLock.isEnabled && !appLock.isLocked && appLock.getEncryptionKey()) {
+        // An import is adding notes: encrypt (and lock) once it has saved them
+        if (importInProgress()) {
+          whenImportEnds(force ? fireEncryptForce : fireEncryptLater)
+          return
+        }
         // Fire-and-forget — we can't await across iOS's suspend boundary.
         // Trigger flush + encrypt synchronously so the IDB write has the
         // best chance of committing before the WebView freezes.
@@ -2029,6 +2071,7 @@ export default function RichTextEditor() {
       }
     }
     const fireEncryptForce = () => fireEncrypt({ force: true })
+    const fireEncryptLater = () => fireEncrypt()
     window.addEventListener('beforeunload', fireEncryptForce)
     window.addEventListener('pagehide', fireEncryptForce)
     document.addEventListener('visibilitychange', onVisibility)
@@ -4662,6 +4705,7 @@ export default function RichTextEditor() {
                     onSyncSettings={SYNC_AVAILABLE ? () => setIsSyncSettingsOpen(true) : undefined}
                     onExport={handleExport}
                     onImportBundle={handleImportBundleClick}
+                    onImportNotes={noteImport.open}
                     onPhoneSetup={() => setIsInstallModalOpen(true)}
                     currentPageLocked={!!(currentPage?.password?.hash && !tempUnlockedPages.has(currentPage?.id))}
                     currentPageHasTimer={!!currentPage?.selfDestructAt}
@@ -4731,6 +4775,7 @@ export default function RichTextEditor() {
             onMoveToFolder={() => handleMoveToFolder(currentPage)}
             onDuplicate={() => handleDuplicatePage(currentPage)}
             onImportBundle={handleImportBundleClick}
+            onImportNotes={noteImport.open}
             isImporting={isImporting}
             showPhoneSetup={shouldShowMobileInstall()}
             onPhoneSetup={() => setIsInstallModalOpen(true)}
@@ -5614,6 +5659,20 @@ export default function RichTextEditor() {
         }
         defaultFolder={defaultBackupFolder}
         theme={theme}
+      />
+
+      <ImportNotesModal
+        importer={noteImport}
+        theme={theme}
+        onOpenNote={(pageId) => {
+          const page = (getLatestPages() || []).find(p => p.id === pageId)
+          noteImport.close()
+          if (page) navigateToPage(page)
+        }}
+        onOpenBackup={() => {
+          noteImport.close()
+          setIsBackupSettingsOpen(true)
+        }}
       />
 
       {/* Trash modal (phase 2.5) — always-on, independent of sync. */}

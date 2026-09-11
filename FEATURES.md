@@ -164,7 +164,7 @@ Turn on **Match macOS appearance** (Mac) or **Match iOS appearance** (iPhone) an
 ### Mac
 - **Title in the document** — the page title sits at the top of the editor column with tags, date, and word count beneath it. There is no separate header bar.
 - **Title-bar toolbar** — Lock page, Self-destruct, Export, Settings (gear), and a ⋯ menu.
-- **⋯ menu** — Share encrypted note, Version history, Move to folder, Duplicate (⌘⇧D), Import encrypted bundle, Use on your phone, Report a bug, Move to Trash (⌘⇧⌫). When an update is available the menu shows a dot and an "Update to Dash x.y.z" row.
+- **⋯ menu** — Share encrypted note, Version history, Move to folder, Duplicate (⌘⇧D), Import notes, Import encrypted bundle, Use on your phone, Report a bug, Move to Trash (⌘⇧⌫). When an update is available the menu shows a dot and an "Update to Dash x.y.z" row.
 - **Settings popover** — theme swatches, Match macOS appearance, App lock, Dash Sync, Backups, Trash, Keyboard shortcuts, version and Check for updates.
 - **Sidebar** — FOLDERS and NOTES sections; new-folder on the Folders label, sort on the Notes label; the footer is just the collapse button. Expanded folders show a chevron and a bright title.
 - **Status bar** — encryption chip and sync status on the left; outline, AI, and features on the right.
@@ -336,8 +336,22 @@ Exports keep nested lists (numbered per level), callouts, toggles and inline for
 All exports can optionally be **encrypted with a passphrase** (AES-GCM-256).
 
 ### Import
+- **Import notes from other apps** (⋯ menu → Import notes, or Import notes in the phone's page actions):
+  - **Evernote**: .enex exports, including photos, attachments, to-dos, tasks, code blocks and encrypted sections (kept encrypted). Notebook names become tags.
+  - **Notion**: the HTML export zip (every part of a large export), including subpages, page links, properties, callouts, toggles, to-dos, tables, equations and files.
+  - **Obsidian**: a vault folder or zip, including [[wikilinks]], embedded photos and files, callouts (folding ones become toggles), highlights, frontmatter and #tags. Canvases and bases are listed as not imported.
+  - **Notesnook**: the Markdown + Frontmatter export zip, with its dates, tags and notebooks.
+  - **Standard Notes**: a decrypted backup, with plain, Markdown, rich text, code and Super notes, nested tags and links between notes. 2FA notes are left out unless you choose to include them.
+  - **Markdown files**: any folder or zip of Markdown or text files.
+- Nothing is written until you've checked the preview: how many notes, photos and files; notes already in Dash (skipped unless you say otherwise); anything that can't come across exactly; new and shortened tags; and what photos will use of your sync storage
+- Each import goes into its own folder; notebooks, folders and tags from the other app become tags
+- Photos keep their full quality with location and camera details removed, and are made smaller only when over 10 MB. HEIC photos become JPEG on Mac and iPhone
+- A report lists everything left out and why, and Undo import moves the notes to Trash and removes the folder (recent imports can be undone from the first step too)
+- If Dash stops part way through an import, the next launch takes back the photos and files it had stored and adds no notes
+- Exports Dash can't read are recognised, with steps to make the right one: Notion's Markdown export, encrypted Standard Notes backups, Notesnook backups and Evernote's HTML export
+- Photos and files need the Dash app or the installed web app; a plain browser tab can import notes without them
 - Import an encrypted bundle (.dashpack) exported from Dash, with its attachments (⋯ menu → Import encrypted bundle)
-- Importing from other apps (Evernote, Notion, Obsidian and other Markdown apps, Standard Notes) is on the roadmap; there is no import from JSON, Markdown, plain text, DOCX or CSV
+- There is no import from JSON, DOCX or CSV
 
 ---
 
