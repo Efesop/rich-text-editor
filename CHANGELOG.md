@@ -5,6 +5,55 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.9] - 2026-09-11
+
+Second stage of note importers: photos stored as attachments, nested lists,
+and exports that keep everything in the note.
+
+### Added
+- **Nested lists.** Tab and Shift+Tab indent and outdent bullet, numbered and
+  checklist items, up to eight levels, and so do Indent and Outdent in a list
+  item's block menu, which is the way to do it on a phone. Sub-items move with
+  their item, and Enter or Backspace on a nested item steps out a level first.
+  Numbered items count per level, with letters and roman numerals at deeper
+  levels (1, a, i).
+- **Pasting keeps nesting.** Lists pasted from web pages, Google Docs and
+  other apps, and pasted Markdown lists, keep their levels. A pasted ordered
+  list stays numbered, and ticked checkboxes stay ticked.
+- **Photos are stored as attachments.** A new photo has its location and
+  camera data removed, is stored once on the device and is shown from there,
+  so the note stays small enough to sync. Photos sync through the attachment
+  transfer queue, and a device still waiting for one shows a placeholder until
+  it arrives.
+
+### Fixed
+- **Pasting an ordered list turned it into bullets**, and nested items in a
+  pasted list were lost.
+- **Exports dropped content.** Callouts and toggles were missing from every
+  format, a quote or photo without a caption printed "undefined", an empty
+  table stopped the export, inline formatting came out as HTML tags, and a
+  PDF stopped after its first page. Word exports now use real nested
+  numbering, RTF keeps accented characters and emoji, and PDF, Word and RTF
+  exports include photos.
+- **Removing a file block deleted the file**, even when a copy of the block in
+  another note still used it. Files and photos are now deleted only when a
+  note is deleted for good and no other note uses them.
+- **Converting several blocks to another list type wasn't saved** until the
+  next edit, and lost their nesting.
+- **Numbered lists rewrote every number on every change.**
+- **The editor contained a text pattern Safari before iOS 16.4 can't parse**,
+  used when pasting Markdown. It has been replaced.
+
+### Changed
+- Apps from 1.6.8 and earlier show a photo stored as an attachment as a blank
+  space, and flatten nested lists when they save a note. Update every device.
+- In a plain browser tab, photos stay inside the note as before: that storage
+  holds only about 5 MB. The installed web app, the iPhone app and the Mac app
+  store them as attachments.
+- Photos already pasted into notes stay where they are for now. Moving them to
+  attachment storage is built and tested, and switches on in the next release,
+  once every device can show attachment photos.
+
 ## [1.6.8] - 2026-09-10
 
 First stage of note importers: sync and storage fixes, so existing notes and
