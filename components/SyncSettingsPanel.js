@@ -19,6 +19,7 @@ import SignInModal from './SignInModal'
 import { signOut as identitySignOut, getEmail as getIdentityEmail } from '@/lib/identity'
 import { getMacEntitlementEmail, setMacEntitlementEmail } from '@/lib/entitlementId'
 import { PHOTO_HEADROOM, VAULT_LIMIT_BYTES } from '@/lib/attachmentTransferQueue'
+import { MIGRATION_MIN_APP_VERSION } from '@/lib/imageMigration'
 
 /**
  * Sync settings panel — opens from main Settings, controls all sync behavior.
@@ -91,6 +92,10 @@ export default function SyncSettingsPanel ({
   fetchQuota,         // returns { lifetimeUsed, lifetimeLimit, ... }
   getPageTitle,       // (pageId) => title, for notes too large to sync
   onRetryTransfers,   // retry attachment transfers that failed or are waiting
+  photoMigration,     // hooks/useImageMigration.js report on photos moving out of older notes
+  findNote,           // (pageId) => the note or null, for notes left as they were
+  onOpenNote,         // (note) => open it
+  onCheckPhotos,      // run the photo move now, e.g. after another device updates
   theme
 }) {
   const isFallout = theme === 'fallout'
@@ -262,6 +267,14 @@ export default function SyncSettingsPanel ({
         ? 'text-[#c0c0c0] hover:bg-[#2a2a2a]'
         : 'text-gray-500 hover:bg-gray-100'
 
+  const rowHoverClasses = isFallout
+    ? 'hover:bg-green-900/30'
+    : isDarkBlue
+      ? 'hover:bg-[#1a2035]'
+      : isDark
+        ? 'hover:bg-[#2a2a2a]'
+        : 'hover:bg-gray-100'
+
   const iconContainerClasses = isFallout
     ? 'bg-green-500/20 border border-green-500/40 text-green-400'
     : isDarkBlue
@@ -312,6 +325,23 @@ export default function SyncSettingsPanel ({
     if (status?.stage === 'paused') return 'text-yellow-400'
     return isFallout ? 'text-green-400' : 'text-emerald-500'
   })()
+
+  // Shown with sync off too: this is where Dash explains what it keeps where
+  const photoSection = (
+    <PhotoMigrationSection
+      report={photoMigration}
+      syncOn={Boolean(status?.enabled)}
+      findNote={findNote}
+      onOpenNote={onOpenNote}
+      onCheckAgain={onCheckPhotos}
+      titleClasses={titleClasses}
+      subtitleClasses={subtitleClasses}
+      sectionLabelClasses={sectionLabelClasses}
+      cardClasses={cardClasses}
+      secondaryBtn={secondaryBtn}
+      rowHoverClasses={rowHoverClasses}
+    />
+  )
 
   return (
     <>
@@ -386,6 +416,7 @@ export default function SyncSettingsPanel ({
               onOpenSignIn={() => setShowSignIn(true)}
               onSignOut={handleSignOut}
               onOpenPaywall={() => setShowPaywall(true)}
+              photoSection={photoSection}
             />
           )}
 
@@ -429,6 +460,7 @@ export default function SyncSettingsPanel ({
               onRefreshEntitlement={() => refreshEntitlement?.()}
               getPageTitle={getPageTitle}
               onRetryTransfers={onRetryTransfers}
+              photoSection={photoSection}
             />
           )}
         </div>
@@ -446,7 +478,8 @@ function DisabledState ({
   isFallout, titleClasses, subtitleClasses, cardClasses, primaryBtn, secondaryBtn,
   onEnableSync, onAcceptPair, quota,
   // v1.5 Option C — entitlement + identity props
-  hasSync, signedInEmail, isNativeIOS, onSubscribe, onOpenSignIn, onSignOut, onOpenPaywall
+  hasSync, signedInEmail, isNativeIOS, onSubscribe, onOpenSignIn, onSignOut, onOpenPaywall,
+  photoSection
 }) {
   return (
     <div className="space-y-5">
@@ -503,6 +536,8 @@ function DisabledState ({
       </div>
 
       <QuotaBadge quota={quota} subtitleClasses={subtitleClasses} cardClasses={cardClasses} titleClasses={titleClasses} />
+
+      {photoSection}
 
       <p className={`text-[11px] leading-relaxed ${subtitleClasses}`}>
         Sync is opt-in. Your existing notes never leave this device until you turn it on. If you lose all your devices, you can restore from a local backup file (see Backup settings).
@@ -619,7 +654,7 @@ function UnlockedState ({
   onSyncNow, onPairNewDevice, onRevokeDevice, onDisableSync,
   confirmStop, setConfirmStop,
   hasSync, entitlementLoading, signedInEmail, onSubscribe, onOpenSignIn, onSignOut, onRefreshEntitlement,
-  getPageTitle, onRetryTransfers
+  getPageTitle, onRetryTransfers, photoSection
 }) {
   const isAnimating = status.stage === 'flushing' || status.stage === 'pulling' || status.stage === 'queued'
   const hasError = status.stage === 'error' || status.stage === 'rate-limited'
@@ -915,7 +950,108 @@ function UnlockedState ({
           })()}
         </div>
       </div>
+      {photoSection}
       <p className={`text-[11px] leading-relaxed ${subtitleClasses}`}>Turning off sync keeps every note on this device. It only stops uploading.</p>
+    </div>
+  )
+}
+
+// Why a note kept its photos inside it, in the words shown to the user.
+// A move that failed partway (restore-*) is finished on a later run.
+const PHOTOS_LEFT_REASONS = {
+  'photo-too-large': 'A photo is too large to move',
+  'unreadable-photo': "A photo couldn't be read",
+  'verify-failed': "The move couldn't be confirmed, so nothing changed"
+}
+
+const formatPhotoBytes = (bytes) => {
+  const mb = (Number(bytes) || 0) / (1024 * 1024)
+  if (mb >= 10) return `${Math.round(mb)} MB`
+  if (mb >= 0.1) return `${mb.toFixed(1)} MB`
+  return `${Math.max(1, Math.round((Number(bytes) || 0) / 1024))} KB`
+}
+
+// The names detectDeviceName gives devices, which read as "your iPhone".
+const GENERIC_DEVICE_NAMES = new Set(['iPhone', 'iPad', 'Mac', 'Android', 'Windows PC', 'Linux PC', 'Computer', 'Browser', 'Unknown device'])
+const deviceLabel = (device) => {
+  const name = typeof device?.deviceName === 'string' ? device.deviceName.trim() : ''
+  if (!name || name === 'Unknown device') return 'another device'
+  return GENERIC_DEVICE_NAMES.has(name) ? `your ${name}` : name
+}
+
+// Photos pasted into notes before 1.6.9 moving out of the notes
+// (hooks/useImageMigration.js). Hidden until there is something to say.
+function PhotoMigrationSection ({
+  report, syncOn, findNote, onOpenNote, onCheckAgain,
+  titleClasses, subtitleClasses, sectionLabelClasses, cardClasses, secondaryBtn, rowHoverClasses
+}) {
+  const moved = Number(report?.moved) || 0
+  // Only a run with sync on checks the devices, so an old list means nothing once sync is off
+  const waitingOn = syncOn && Array.isArray(report?.waitingOn) ? report.waitingOn : []
+  const leftAsIs = (Array.isArray(report?.leftAsIs) ? report.leftAsIs : [])
+    .map(entry => ({ ...entry, note: findNote?.(entry.pageId) }))
+    .filter(entry => entry.note && entry.note.type !== 'folder' && !entry.note.trashed)
+  if (moved === 0 && waitingOn.length === 0 && leftAsIs.length === 0) return null
+
+  return (
+    <div className="space-y-2">
+      <span className={sectionLabelClasses}>Photos in older notes</span>
+      <div className={`p-3 rounded-lg space-y-3 ${cardClasses}`}>
+        <div>
+          <p className={`text-sm font-medium ${titleClasses}`}>
+            {moved === 0 ? 'No photos moved yet' : `${moved} ${moved === 1 ? 'photo' : 'photos'} moved (${formatPhotoBytes(report.bytes)})`}
+          </p>
+          <p className={`${subtitleClasses} leading-relaxed`}>
+            Photos from older notes are kept next to the note instead of inside it, which keeps notes small. They look the same.
+          </p>
+        </div>
+
+        {waitingOn.length > 0 && (
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 space-y-0.5">
+              {waitingOn.map(device => (
+                <p key={device.deviceId} className={`text-sm ${titleClasses}`}>
+                  Waiting for {deviceLabel(device)} to update{device.appVersion ? ` (it has Dash ${device.appVersion})` : ''}
+                </p>
+              ))}
+              <p className={`${subtitleClasses} leading-relaxed`}>
+                Photos start moving once every device has Dash {MIGRATION_MIN_APP_VERSION} or later.
+              </p>
+            </div>
+            {onCheckAgain && (
+              <button
+                onClick={onCheckAgain}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium flex-shrink-0 transition-all duration-200 ${secondaryBtn}`}
+              >
+                Check again
+              </button>
+            )}
+          </div>
+        )}
+
+        {leftAsIs.length > 0 && (
+          <div className="space-y-1">
+            <p className={`text-sm font-medium ${titleClasses}`}>
+              {leftAsIs.length === 1 ? '1 note was left as it was' : `${leftAsIs.length} notes were left as they were`}
+            </p>
+            <ul className="-mx-2">
+              {leftAsIs.slice(0, 5).map(entry => (
+                <li key={entry.pageId}>
+                  <button
+                    onClick={() => onOpenNote?.(entry.note)}
+                    className={`w-full text-left px-2 py-1.5 rounded-md transition-colors ${rowHoverClasses}`}
+                    title="Open this note"
+                  >
+                    <span className={`block text-sm truncate ${titleClasses}`}>{entry.note.title || 'Untitled'}</span>
+                    <span className={`block ${subtitleClasses}`}>{PHOTOS_LEFT_REASONS[entry.reason] || 'Moving its photos was interrupted'}</span>
+                  </button>
+                </li>
+              ))}
+              {leftAsIs.length > 5 && <li className={`px-2 ${subtitleClasses}`}>and {leftAsIs.length - 5} more</li>}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

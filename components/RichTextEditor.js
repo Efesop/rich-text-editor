@@ -1513,8 +1513,8 @@ export default function RichTextEditor() {
   })
 
   // Photos pasted into notes before attachment photos move out of the notes
-  // (hooks/useImageMigration.js)
-  useImageMigration({
+  // (hooks/useImageMigration.js). Its report shows in Sync settings.
+  const imageMigration = useImageMigration({
     canRun: () => !appLock.isLocked && isDuressModeRef.current !== true && !isImporting && !importInProgress() && !loadError && arePagesLoaded(),
     syncEnabled: Boolean(SYNC_ENABLED && sync?.status?.enabled),
     getPairedDevices: async () => (await sync?.fetchVaultUsage?.())?.pairedDevices || null,
@@ -5799,6 +5799,10 @@ export default function RichTextEditor() {
             fetchQuota={() => sync?.fetchQuota?.()}
             getPageTitle={(id) => (getLatestPages() || []).find(p => p.id === id)?.title || 'Untitled'}
             onRetryTransfers={() => sync?.retryAttachmentTransfers?.()}
+            photoMigration={imageMigration.report}
+            findNote={(id) => (getLatestPages() || []).find(p => p.id === id) || null}
+            onOpenNote={(page) => { setIsSyncSettingsOpen(false); handlePageSelect(page) }}
+            onCheckPhotos={imageMigration.runNow}
             onRevokeDevice={async (deviceId) => {
               const result = await sync?.revokeDevice?.(deviceId)
               if (!result?.ok) {
