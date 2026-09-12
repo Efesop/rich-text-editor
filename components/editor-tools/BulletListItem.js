@@ -1,5 +1,6 @@
 import DOMPurify from 'isomorphic-dompurify'
 import { queuePasteItems } from '../../utils/pasteQueue'
+import { splitListItem } from '../../lib/listEnter.js'
 import { clampListIndent, withIndent } from '../../lib/listIndent.js'
 import { listBlocksFromPaste } from '../../lib/listPaste.js'
 import { applyIndent, changeListIndent, listConversionConfig, listIndentMenu } from './listIndentRuntime'
@@ -160,18 +161,16 @@ export default class BulletListItem {
         return
       }
 
-      const { beforeCaret, afterCaret } = this._splitAtCursor()
-      this._data.text = DOMPurify.sanitize(beforeCaret)
-      this._element.innerHTML = this._data.text
-
-      const currentIndex = this.api.blocks.getCurrentBlockIndex()
-      // The new item starts at the same level
-      this.api.blocks.insert('bulletListItem', withIndent({ text: DOMPurify.sanitize(afterCaret) }, this._data.indent), {}, currentIndex + 1, true)
-
-      // Ensure caret lands in the new block
-      setTimeout(() => {
-        this.api.caret.setToBlock(currentIndex + 1, 'start')
-      }, 50)
+      // The rest of the text moves to a new item at the same level, and the
+      // caret moves into it now, so keys typed straight after Enter land there
+      this._data.text = splitListItem({
+        api: this.api,
+        block: this.block,
+        input: this._element,
+        tool: 'bulletListItem',
+        dataFor: text => withIndent({ text }, this._data.indent),
+        clean: html => DOMPurify.sanitize(html)
+      })
     }
 
     if (e.key === 'Backspace') {
@@ -204,35 +203,6 @@ export default class BulletListItem {
           }
         }
       }
-    }
-  }
-
-  _splitAtCursor() {
-    const sel = window.getSelection()
-    if (!sel || !sel.rangeCount) {
-      return { beforeCaret: this._element.innerHTML, afterCaret: '' }
-    }
-
-    const range = sel.getRangeAt(0)
-
-    const preRange = document.createRange()
-    preRange.selectNodeContents(this._element)
-    preRange.setEnd(range.startContainer, range.startOffset)
-    const beforeFragment = preRange.cloneContents()
-
-    const postRange = document.createRange()
-    postRange.selectNodeContents(this._element)
-    postRange.setStart(range.endContainer, range.endOffset)
-    const afterFragment = postRange.cloneContents()
-
-    const tempBefore = document.createElement('div')
-    tempBefore.appendChild(beforeFragment)
-    const tempAfter = document.createElement('div')
-    tempAfter.appendChild(afterFragment)
-
-    return {
-      beforeCaret: tempBefore.innerHTML,
-      afterCaret: tempAfter.innerHTML
     }
   }
 

@@ -1,4 +1,5 @@
 import DOMPurify from 'isomorphic-dompurify'
+import { splitListItem } from '../../lib/listEnter.js'
 import { clampListIndent, withIndent } from '../../lib/listIndent.js'
 import { applyIndent, changeListIndent, listConversionConfig, listIndentMenu } from './listIndentRuntime'
 
@@ -140,30 +141,17 @@ export default class ChecklistItem {
         return
       }
 
-      const { beforeCaret, afterCaret } = this._splitAtCursor()
-      this._data.text = DOMPurify.sanitize(beforeCaret)
-      this._textEl.innerHTML = this._data.text
-
-      const currentIndex = this.api.blocks.getCurrentBlockIndex()
-      // The new item starts at the same level
-      this.api.blocks.insert('checklistItem', withIndent({ text: DOMPurify.sanitize(afterCaret), checked: false }, this._data.indent), {}, currentIndex + 1, true)
-
-      // For ChecklistItem, the contentEditable is inside a wrapper,
-      // so api.caret won't find it. Manually focus the new block's text element.
-      setTimeout(() => {
-        const allBlocks = document.querySelectorAll('.ce-block')
-        const newBlock = allBlocks[currentIndex + 1]
-        const textEl = newBlock?.querySelector('.dash-checklist-text')
-        if (textEl) {
-          textEl.focus()
-          const range = document.createRange()
-          range.selectNodeContents(textEl)
-          range.collapse(true)
-          const sel = window.getSelection()
-          sel.removeAllRanges()
-          sel.addRange(range)
-        }
-      }, 50)
+      // The rest of the text moves to a new unchecked item at the same level,
+      // and the caret moves into it now, so keys typed straight after Enter
+      // land there
+      this._data.text = splitListItem({
+        api: this.api,
+        block: this.block,
+        input: this._textEl,
+        tool: 'checklistItem',
+        dataFor: text => withIndent({ text, checked: false }, this._data.indent),
+        clean: html => DOMPurify.sanitize(html)
+      })
     }
 
     if (e.key === 'Backspace') {
@@ -196,35 +184,6 @@ export default class ChecklistItem {
           }
         }
       }
-    }
-  }
-
-  _splitAtCursor() {
-    const sel = window.getSelection()
-    if (!sel || !sel.rangeCount) {
-      return { beforeCaret: this._textEl.innerHTML, afterCaret: '' }
-    }
-
-    const range = sel.getRangeAt(0)
-
-    const preRange = document.createRange()
-    preRange.selectNodeContents(this._textEl)
-    preRange.setEnd(range.startContainer, range.startOffset)
-    const beforeFragment = preRange.cloneContents()
-
-    const postRange = document.createRange()
-    postRange.selectNodeContents(this._textEl)
-    postRange.setStart(range.endContainer, range.endOffset)
-    const afterFragment = postRange.cloneContents()
-
-    const tempBefore = document.createElement('div')
-    tempBefore.appendChild(beforeFragment)
-    const tempAfter = document.createElement('div')
-    tempAfter.appendChild(afterFragment)
-
-    return {
-      beforeCaret: tempBefore.innerHTML,
-      afterCaret: tempAfter.innerHTML
     }
   }
 
