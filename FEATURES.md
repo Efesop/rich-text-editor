@@ -105,6 +105,19 @@ Real-time word count displayed in the editor footer.
 - Drag-and-drop reordering (custom sort)
 - Sort by: Date Modified, Date Created, Title, or Custom Order
 
+### Pinned Notes
+- Pin a note from its row menu (Pin to top), the ⋯ menu (Pin note, Cmd+Shift+P) or Page actions on iPhone
+- Pinned notes sit in a Pinned section above Folders, most recently pinned first
+- A pinned note in a folder also stays in its folder, marked with a pin
+- Pins sync between devices
+
+### Templates
+- Naming a new note offers Blank, five built-in templates (Meeting notes, Daily journal, To-do list, Project plan, Weekly review) and your own templates
+- Picking a template suggests a name, unless you already typed one
+- Save as template (⋯ menu, or Page actions on iPhone) copies a note into a Templates folder, where it is edited like any note
+- `{{date}}`, `{{time}}`, `{{weekday}}` and `{{title}}` fill in when a note is made from a template
+- Template notes are left out of search and the quick switcher
+
 ### Folders
 - Create, rename, and delete folders
 - Drag pages into/out of folders
@@ -220,6 +233,7 @@ Turn on **Match macOS appearance** (Mac) or **Match iOS appearance** (iPhone) an
 - Set a page to automatically delete after a time period (1 hour, 12 hours, 1 day, 7 days, or 30 days, plus custom durations)
 - Countdown badge in the sidebar shows precise time remaining
 - Badge color shifts from green to orange to red as expiry approaches
+- When the page you have open self-destructs, its text turns into binary that crumbles and falls away down the page
 - Cancel self-destruct at any time via the page's context menu
 
 ---

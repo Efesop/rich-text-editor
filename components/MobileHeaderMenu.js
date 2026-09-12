@@ -13,7 +13,10 @@ import {
   Cloud,
   Timer,
   TimerOff,
-  MoreVertical
+  MoreVertical,
+  Pin,
+  PinOff,
+  LayoutTemplate
 } from 'lucide-react'
 import { ActionSheet, ActionSheetItem, ActionSheetSeparator } from './ActionSheet'
 import { shouldShowMobileInstall } from '@/utils/deviceUtils'
@@ -29,6 +32,9 @@ export function MobileHeaderMenu ({
   onLockPage,
   onTimer,
   onShare,
+  onTogglePin,
+  currentPagePinned = false,
+  onSaveAsTemplate,
   onSyncSettings,
   onExport,
   onImportBundle,
@@ -114,6 +120,20 @@ export function MobileHeaderMenu ({
             icon={Share2}
             label="Share encrypted note"
             onClick={closeAndRun(onShare)}
+          />
+        )}
+        {pageActionsAvailable && onTogglePin && (
+          <ActionSheetItem
+            icon={currentPagePinned ? PinOff : Pin}
+            label={currentPagePinned ? 'Unpin note' : 'Pin note'}
+            onClick={closeAndRun(onTogglePin)}
+          />
+        )}
+        {pageActionsAvailable && onSaveAsTemplate && (
+          <ActionSheetItem
+            icon={LayoutTemplate}
+            label="Save as template"
+            onClick={closeAndRun(onSaveAsTemplate)}
           />
         )}
 

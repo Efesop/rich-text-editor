@@ -7,6 +7,8 @@ import useTagStore from '../store/tagStore'
 import { readPages, savePages as savePagesToFallback, saveDecoyPages } from '@/lib/storage'
 import { deleteMultipleAttachments, hasAttachment } from '@/lib/attachmentStorage'
 import { attachmentIdsInPage, attachmentIdsSafeToDelete } from '@/lib/attachmentRefs'
+import { isPinned, setPinned } from '@/lib/pinnedNotes'
+import { instantiateTemplate, templatesFolder } from '@/lib/templates'
 import { captureVersion, deleteVersions } from '@/lib/versionStorage'
 import { encryptPagesUntilStable } from '@/lib/appLockSnapshot'
 import { recordHardDelete } from '@/lib/hardDeletes'
@@ -618,7 +620,7 @@ export function usePagesManager() {
   // Hard delete — removes from pagesRef + cleans up versions/attachments.
   // Pushes a tombstone envelope via the sync hook (when sync is enabled +
   // unlocked, which is checked in useSyncQueue's enqueueChangedPages).
-  const permanentlyDeletePage = useCallback(async (pageToDelete) => {
+  const permanentlyDeletePage = useCallback(async (pageToDelete, options) => {
     dbg('pages', 'permanently deleting:', pageToDelete.title || pageToDelete.id, pageToDelete.type === 'folder' ? '(folder)' : '')
     // Get latest page content from pagesRef BEFORE filtering (for attachment cleanup below)
     const latestPage = pagesRef.current.find(p => p.id === pageToDelete.id) || pageToDelete
@@ -696,8 +698,11 @@ export function usePagesManager() {
       }
     }
 
-    // Handle current page cleanup
-    if (currentPageRef.current?.id === pageToDelete.id) openNextNote(pagesRef.current, pageToDelete.id)
+    // Handle current page cleanup. A page that self-destructs while open
+    // stays on screen for its animation; completeSelfDestruct opens the next.
+    if (options?.keepOpen !== true && currentPageRef.current?.id === pageToDelete.id) {
+      openNextNote(pagesRef.current, pageToDelete.id)
+    }
   }, [savePagesToStorage])
 
   // Default delete = soft-trash for notes (recoverable from Trash),
@@ -1226,11 +1231,98 @@ export function usePagesManager() {
     setPages(newPages)
   }, [savePagesToStorage])
 
+  // Pins a note to the top of the sidebar, or unpins it. `lastEdited` moves
+  // too, so the change wins on other devices' latest-wins merge.
+  const togglePin = useCallback((pageId) => {
+    const page = pagesRef.current.find(p => p.id === pageId && p.type !== 'folder')
+    if (!page || page.id?.startsWith('live-')) return
+    const now = Date.now()
+    const pinned = !isPinned(page)
+    const updated = { ...setPinned(page, pinned, now), lastEdited: now }
+    const newPages = pagesRef.current.map(p => (p.id === pageId ? updated : p))
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
+    if (currentPageRef.current?.id === pageId) {
+      _setCurrentPage(prev => (prev ? { ...setPinned(prev, pinned, now), lastEdited: now } : prev))
+    }
+  }, [savePagesToStorage])
+
+  // Copies a note into the templates folder, making the folder the first
+  // time, so new notes can start from it. Returns the template note, or null
+  // when the note's content can't be read (locked).
+  const saveAsTemplate = useCallback(async (page) => {
+    const source = page && pagesRef.current.find(p => p.id === page.id)
+    if (!source || source.type === 'folder' || !Array.isArray(source.content?.blocks)) return null
+    let newPages = [...pagesRef.current]
+    let folder = templatesFolder(newPages)
+    if (!folder) {
+      folder = { id: crypto.randomUUID(), title: 'Templates', type: 'folder', pages: [], createdAt: new Date().toISOString(), templates: true }
+      newPages = [folder, ...newPages]
+    }
+    const now = Date.now()
+    const folderId = folder.id
+    const template = {
+      id: crypto.randomUUID(),
+      title: source.title || 'Untitled',
+      content: JSON.parse(JSON.stringify(source.content)),
+      tags: [],
+      tagNames: [],
+      createdAt: new Date(now).toISOString(),
+      password: null,
+      folderId,
+      lastEdited: now
+    }
+    newPages = newPages.map(item => (item.id === folderId
+      ? { ...item, pages: [...(Array.isArray(item.pages) ? item.pages : []), template.id] }
+      : item))
+    newPages.splice(newPages.findIndex(item => item.id === folderId) + 1, 0, template)
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
+    return template
+  }, [savePagesToStorage])
+
+  // Starts a note from a template. `replacePageId` is the blank note the
+  // new-note dialog was naming: while it is still empty it is swapped for this
+  // one, in its place, so no stray "New Page" is left behind. The new note has
+  // a new id, so a late save from the blank note's editor can't land on it.
+  const createPageFromTemplate = useCallback(async (template, { title, replacePageId = null } = {}) => {
+    const now = new Date()
+    const locale = typeof navigator !== 'undefined' ? navigator.language : undefined
+    const made = instantiateTemplate(template, { now, locale, title })
+    const newPage = {
+      id: crypto.randomUUID(),
+      title: made.title.slice(0, 50),
+      content: made.content,
+      tags: [],
+      tagNames: [],
+      createdAt: now.toISOString(),
+      password: null,
+      lastEdited: now.getTime()
+    }
+    let newPages = [...pagesRef.current]
+    const blankIndex = replacePageId ? newPages.findIndex(p => p.id === replacePageId) : -1
+    const blank = blankIndex === -1 ? null : newPages[blankIndex]
+    const blankIsEmpty = Boolean(blank) && blank.type !== 'folder' && !blank.folderId && !blank.password?.hash &&
+      Array.isArray(blank.content?.blocks) &&
+      blank.content.blocks.every(block => block?.type === 'paragraph' && !String(block.data?.text || '').replace(/<br\s*\/?>|&nbsp;|\s/g, ''))
+    if (blankIsEmpty) newPages.splice(blankIndex, 1, newPage)
+    else newPages = [newPage, ...newPages]
+    pagesRef.current = newPages
+    savePagesToStorage(newPages)
+    setPages(newPages)
+    setCurrentPage(newPage)
+    return newPage
+  }, [savePagesToStorage, setCurrentPage])
+
   const handleDuplicatePage = useCallback(async (page) => {
     if (!page) return
 
     // Strip encryption fields — duplicate starts as an unencrypted copy
+    // A copy starts unpinned, as well as unencrypted
     const { password, encryptedContent, appLockEncrypted, ...pageWithoutEncryption } = page
+    delete pageWithoutEncryption.pinnedAt
     if (!pageWithoutEncryption.content) {
       // Page is locked and not temp-unlocked — can't duplicate without content
       dbg('pages', 'cannot duplicate locked page without decrypted content')
@@ -1691,6 +1783,14 @@ export function usePagesManager() {
 
   // Self-destruct: check for expired pages every 5 seconds
   useEffect(() => {
+    const markSelfDestructing = (pageId) => {
+      selfDestructingPagesRef.current.add(pageId)
+      setSelfDestructingPages(prev => {
+        const next = new Set(prev)
+        next.add(pageId)
+        return next
+      })
+    }
     const checkExpired = async () => {
       const now = Date.now()
       const expired = pagesRef.current.filter(
@@ -1702,6 +1802,13 @@ export function usePagesManager() {
           const elapsed = now - page.selfDestructAt
           if (elapsed < 2000) continue
 
+          // A page open on screen stays there while its self-destruct
+          // animation plays (SelfDestructOverlay), and completeSelfDestruct
+          // opens the next page when it ends. It is marked before the delete,
+          // so the animation starts from the page as it was.
+          const isOpen = currentPageRef.current?.id === page.id
+          if (isOpen) markSelfDestructing(page.id)
+
           // Delete from storage IMMEDIATELY so force-quit can't preserve
           // the page. Self-destruct bypasses Trash — the whole point of
           // the feature is unrecoverable destruction. AWAIT both the
@@ -1709,7 +1816,7 @@ export function usePagesManager() {
           // race the destruct timer (the 150ms `savePagesToStorage`
           // debounce would otherwise lose the write entirely).
           try {
-            await permanentlyDeletePage(page)
+            await permanentlyDeletePage(page, { keepOpen: isOpen })
             await flushSavesNow()
           } catch (err) {
             console.error('self-destruct: delete/flush failed', err)
@@ -1721,16 +1828,10 @@ export function usePagesManager() {
             setTimeout(() => window.electron.invoke('delete-pages-backup').catch(() => {}), 500)
           }
 
-          // Start dissolve animation (cosmetic only — data is already gone)
-          selfDestructingPagesRef.current.add(page.id)
-          setSelfDestructingPages(prev => {
-            const next = new Set(prev)
-            next.add(page.id)
-            return next
-          })
-
-          // Clean up animation state after dissolve
-          if (currentPageRef.current?.id !== page.id) {
+          // A page not on screen only dissolves from the sidebar (cosmetic —
+          // its data is already gone); its animation state clears after
+          if (!isOpen) {
+            markSelfDestructing(page.id)
             setTimeout(() => {
               selfDestructingPagesRef.current.delete(page.id)
               setSelfDestructingPages(prev => {
@@ -1930,6 +2031,9 @@ export function usePagesManager() {
     removePageFromFolder,
     renameFolder,
     handleDuplicatePage,
+    togglePin,
+    saveAsTemplate,
+    createPageFromTemplate,
     importPages,
     movePageToFolder,
     reorderItems,

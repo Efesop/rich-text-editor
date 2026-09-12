@@ -497,3 +497,33 @@ describe('applyPulledChanges — edge cases', () => {
     assert.ok(merged.pages.includes('local-only-page'), 'local-only-page preserved (was the bug)')
   })
 })
+
+describe('applyPulledChanges — pins and the templates folder', () => {
+  it('a pin or an unpin from another device replaces the local note', async () => {
+    const pinned = await applyPulledChanges([{ id: 'p1', title: 'A', lastEdited: 100 }], [
+      { envelopeType: 'note', resourceType: 'note', resourceId: 'p1', payload: { id: 'p1', title: 'A', lastEdited: 200, pinnedAt: 200 }, version: 2, payloadTimestamp: 200, uploadedAt: 200, authorDeviceId: 'r' }
+    ])
+    assert.equal(pinned.newPages[0].pinnedAt, 200)
+    const unpinned = await applyPulledChanges([{ id: 'p1', title: 'A', lastEdited: 200, pinnedAt: 200 }], [
+      { envelopeType: 'note', resourceType: 'note', resourceId: 'p1', payload: { id: 'p1', title: 'A', lastEdited: 300 }, version: 3, payloadTimestamp: 300, uploadedAt: 300, authorDeviceId: 'r' }
+    ])
+    assert.equal('pinnedAt' in unpinned.newPages[0], false)
+  })
+
+  it('keeps the templates flag when an older device sends the folder without it', async () => {
+    const before = [{ id: 'f1', type: 'folder', title: 'Templates', templates: true, pages: ['t1'] }]
+    const result = await applyPulledChanges(before, [
+      { envelopeType: 'folder', resourceType: 'folder', resourceId: 'f1', payload: { id: 'f1', type: 'folder', title: 'Templates', pages: ['t1', 't2'] }, version: 2, payloadTimestamp: 200, uploadedAt: 200, authorDeviceId: 'r' }
+    ])
+    const merged = result.newPages.find(p => p.id === 'f1')
+    assert.equal(merged.templates, true)
+    assert.deepEqual(merged.pages, ['t1', 't2'])
+  })
+
+  it('takes a new templates folder from its envelope', async () => {
+    const result = await applyPulledChanges([], [
+      { envelopeType: 'folder', resourceType: 'folder', resourceId: 'f1', payload: { id: 'f1', type: 'folder', title: 'Templates', templates: true, pages: [] }, version: 1, payloadTimestamp: 100, uploadedAt: 100, authorDeviceId: 'r' }
+    ])
+    assert.equal(result.newPages[0].templates, true)
+  })
+})

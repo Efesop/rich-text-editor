@@ -42,7 +42,7 @@ Future feature ideas and enhancements for Dash.
 - ~~Trash / recently deleted with 30-day recovery~~ ✓ **Shipped** — soft-delete with 30-day auto-purge; restore or permanently delete from the Trash modal (always on, independent of sync)
 - ~~Note versioning / revision history~~ ✓ **Shipped in v1.3.159** — see [FEATURES.md#version-history](./FEATURES.md#version-history)
 - ~~Swipe actions on iPhone (left = Trash, right = lock)~~ ✓ **Shipped in v1.6.1**
-- Pinned notes and favorites
+- ~~Pinned notes and favorites~~ ✓ **Built Sep 12 2026** — a Pinned section above Folders on Mac and iPhone; pin from the row menu, the ⋯ menu (⌘⇧P) or Page actions (`lib/pinnedNotes.js`)
 - Smart filters (by date, tag, word count, locked status)
 - Nested folders (sub-folders)
 - Page icons / emoji per page
@@ -134,9 +134,9 @@ Future feature ideas and enhancements for Dash.
   canvas on real hardware and ask users before building the native recognition path.
 
 ## Templates
-- Built-in page templates (meeting notes, journal, to-do, etc.)
-- Custom user templates
-- Template variables (date, time, page title)
+- ~~Built-in page templates (meeting notes, journal, to-do, etc.)~~ ✓ **Built Sep 12 2026** — offered in the new-note dialog (`lib/templates.js`)
+- ~~Custom user templates~~ ✓ **Built Sep 12 2026** — Save as template copies a note into a Templates folder
+- ~~Template variables (date, time, page title)~~ ✓ **Built Sep 12 2026** — `{{date}}`, `{{time}}`, `{{weekday}}` and `{{title}}`
 
 ## Backup & Sync
 - ~~Auto-backup: scheduled encrypted `.dashpack` export~~ ✓ **Shipped in v1.4.0**

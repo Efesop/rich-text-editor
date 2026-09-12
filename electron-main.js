@@ -818,7 +818,8 @@ ipcMain.handle('save-pages', async (event, pages) => {
           type: 'folder',
           pages: Array.isArray(page.pages) ? page.pages : [],
           createdAt: page.createdAt || new Date().toISOString(),
-          ...(page.emoji ? { emoji: page.emoji } : {})
+          ...(page.emoji ? { emoji: page.emoji } : {}),
+          ...(page.templates === true ? { templates: true } : {})
         };
       }
 
@@ -860,7 +861,8 @@ ipcMain.handle('save-pages', async (event, pages) => {
         ...(page.trashed === true ? { trashed: true } : {}),
         ...(typeof page.trashedAt === 'number' ? { trashedAt: page.trashedAt } : {}),
         ...(typeof page.trashedBy === 'string' ? { trashedBy: page.trashedBy } : {}),
-        ...(typeof page.restoredAt === 'number' ? { restoredAt: page.restoredAt } : {})
+        ...(typeof page.restoredAt === 'number' ? { restoredAt: page.restoredAt } : {}),
+        ...(Number.isFinite(page.pinnedAt) ? { pinnedAt: page.pinnedAt } : {})
       };
     });
 

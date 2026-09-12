@@ -26,6 +26,7 @@ export function FolderItem({
   onRename,
   onToggleLock,
   onDuplicate,
+  onTogglePin,
   onMoveToFolder,
   onSelfDestruct,
   onCancelSelfDestruct,
@@ -343,6 +344,8 @@ export function FolderItem({
                   tempUnlockedPages={tempUnlockedPages}
                   isInsideFolder={true}
                   onDuplicate={onDuplicate}
+                  onTogglePin={onTogglePin}
+                  showPinMark={true}
                   onVersionHistory={onVersionHistory}
                   onMoveToFolder={onMoveToFolder}
                   onSelfDestruct={onSelfDestruct}

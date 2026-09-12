@@ -7,6 +7,7 @@ export function useKeyboardNavigation({
   onToggleSidebar,
   onDeletePage,
   onDuplicatePage,
+  onTogglePinPage,
   onToggleFocusMode,
   onToggleQuickSwitcher,
   onLockApp,
@@ -79,7 +80,11 @@ export function useKeyboardNavigation({
           break
         case 'p':
           event.preventDefault()
-          onToggleQuickSwitcher?.()
+          if (shiftKey) {
+            if (currentPage) onTogglePinPage?.(currentPage)
+          } else {
+            onToggleQuickSwitcher?.()
+          }
           break
         case 'f':
           if (shiftKey) {
@@ -178,6 +183,7 @@ export function useKeyboardNavigation({
     onToggleSidebar,
     onDeletePage,
     onDuplicatePage,
+    onTogglePinPage,
     onToggleFocusMode,
     onToggleQuickSwitcher,
     onLockApp,

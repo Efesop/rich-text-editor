@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Lock, LockKeyhole, Unlock, Trash2, MoreVertical, FolderMinus, FolderPlus, Copy, Edit3, Timer, TimerOff, History } from 'lucide-react'
+import { Lock, LockKeyhole, Unlock, Trash2, MoreVertical, FolderMinus, FolderPlus, Copy, Edit3, Timer, TimerOff, History, Pin, PinOff } from 'lucide-react'
 import StackedTags from './StackedTags'
 import Tooltip from './Tooltip'
 import { isMobileDevice, isSmallScreen } from '@/utils/deviceUtils'
 import { ActionSheet, ActionSheetItem, ActionSheetSeparator } from './ActionSheet'
 import { useLongPress } from '@/utils/useLongPress'
 import { hapticLight } from '@/utils/nativeBridge'
+import { isPinned } from '@/lib/pinnedNotes'
 
 const PageItem = ({
   page,
@@ -15,6 +16,8 @@ const PageItem = ({
   onRename,
   onDelete,
   onToggleLock,
+  onTogglePin,
+  showPinMark = false,
   onRemoveFromFolder,
   onMoveToFolder,
   onSelfDestruct,
@@ -306,6 +309,9 @@ const PageItem = ({
             <span className="flex-1 truncate min-w-0" title={page.title}>
               {page.title}
             </span>
+            {showPinMark && isPinned(page) && (
+              <Pin className={`h-3 w-3 flex-shrink-0 ml-1.5 ${getIconClasses()}`} strokeWidth={2} aria-label="Pinned" />
+            )}
             {Array.isArray(page.tagNames) && page.tagNames.length > 0 && (
               <StackedTags
                 tags={page.tagNames}
@@ -402,6 +408,22 @@ const PageItem = ({
           <div className="py-1">
             {!page.id?.startsWith('live-') && (
               <>
+                {onTogglePin && (
+                  <button
+                    role="menuitem"
+                    className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onTogglePin(page)
+                      setIsDropdownOpen(false)
+                    }}
+                  >
+                    {isPinned(page)
+                      ? <PinOff className="h-4 w-4 inline mr-2" aria-hidden="true" />
+                      : <Pin className="h-4 w-4 inline mr-2" aria-hidden="true" />}
+                    {isPinned(page) ? 'Unpin' : 'Pin to top'}
+                  </button>
+                )}
                 <button
                   role="menuitem"
                   className={`block px-4 py-2 text-sm w-full text-left ${getDropdownItemClasses()}`}
@@ -543,6 +565,16 @@ const PageItem = ({
       >
         {!page.id?.startsWith('live-') && (
           <>
+            {onTogglePin && (
+              <ActionSheetItem
+                icon={isPinned(page) ? PinOff : Pin}
+                label={isPinned(page) ? 'Unpin' : 'Pin to top'}
+                onClick={() => {
+                  onTogglePin(page)
+                  setIsActionSheetOpen(false)
+                }}
+              />
+            )}
             <ActionSheetItem
               icon={Edit3}
               label="Rename"

@@ -422,7 +422,8 @@ export function validatePageStructure(page) {
     password: page.password || null,
     folderId: page.folderId || null,
     type: page.type || undefined,
-    selfDestructAt: page.selfDestructAt || undefined
+    selfDestructAt: page.selfDestructAt || undefined,
+    ...(Number.isFinite(page.pinnedAt) ? { pinnedAt: page.pinnedAt } : {})
   }
 
   // Trash and sync state, kept when well formed. Every editor save comes

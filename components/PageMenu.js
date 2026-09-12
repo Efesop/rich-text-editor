@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { MoreHorizontal, Download, Share2, History, FolderInput, Copy, Import, FileInput, Smartphone, Bug, Trash2 } from 'lucide-react'
+import { MoreHorizontal, Download, Share2, History, FolderInput, Copy, Import, FileInput, Smartphone, Bug, Trash2, Pin, PinOff, LayoutTemplate } from 'lucide-react'
 import { getThemeClasses } from '@/utils/themeUtils'
 import Tooltip from './Tooltip'
 
@@ -20,6 +20,9 @@ export default function PageMenu ({
   onVersionHistory,
   onMoveToFolder,
   onDuplicate,
+  isPinned = false,
+  onTogglePin,
+  onSaveAsTemplate,
   onImportBundle,
   onImportNotes,
   isImporting,
@@ -135,6 +138,8 @@ export default function PageMenu ({
               {renderItem({ icon: History, label: 'Version history', className: `${itemText} ${itemHover}`, onClick: onVersionHistory })}
               {renderItem({ icon: FolderInput, label: 'Move to folder…', className: `${itemText} ${itemHover}`, onClick: onMoveToFolder })}
               {renderItem({ icon: Copy, label: 'Duplicate', kbd: `${mod}⇧D`, className: `${itemText} ${itemHover}`, onClick: onDuplicate })}
+              {onTogglePin && renderItem({ icon: isPinned ? PinOff : Pin, label: isPinned ? 'Unpin note' : 'Pin note', kbd: `${mod}⇧P`, className: `${itemText} ${itemHover}`, onClick: onTogglePin })}
+              {onSaveAsTemplate && renderItem({ icon: LayoutTemplate, label: 'Save as template…', className: `${itemText} ${itemHover}`, onClick: onSaveAsTemplate })}
               <div className={`h-px my-1 mx-1.5 ${dividerClass}`} />
             </>
           )}

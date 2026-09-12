@@ -1,8 +1,10 @@
 import React, { useRef, useEffect } from 'react'
 import { useTheme } from 'next-themes'
-import { Pencil, X } from 'lucide-react'
+import { Pencil, X, FileText, Users, BookOpen, ListChecks, Target, CalendarCheck, LayoutTemplate } from 'lucide-react'
 
-export function RenameModal({ isOpen, onClose, onConfirm, title, onTitleChange, isNew }) {
+const TEMPLATE_ICONS = { FileText, Users, BookOpen, ListChecks, Target, CalendarCheck, LayoutTemplate }
+
+export function RenameModal({ isOpen, onClose, onConfirm, title, onTitleChange, isNew, templates = null, selectedTemplateId = 'blank', onSelectTemplate }) {
   const inputRef = useRef(null)
   const modalRef = useRef(null)
   const { theme } = useTheme()
@@ -43,6 +45,34 @@ export function RenameModal({ isOpen, onClose, onConfirm, title, onTitleChange, 
   const isFallout = theme === 'fallout'
   const isDark = theme === 'dark'
   const isDarkBlue = theme === 'darkblue'
+
+  // Choosing a template when a note is made (new notes only)
+  const optionClass = (selected) => `flex items-center gap-2.5 h-11 px-3 rounded-xl border text-sm text-left transition-colors min-w-0 ${
+    selected
+      ? isFallout ? 'bg-green-500/20 border-green-400 text-green-300 font-mono' : isDarkBlue ? 'bg-blue-500/15 border-blue-500 text-[#e0e6f0]' : isDark ? 'bg-blue-500/15 border-blue-500 text-white' : 'bg-blue-50 border-blue-500 text-blue-700'
+      : isFallout ? 'bg-gray-800 border-green-500/30 text-green-400 hover:bg-gray-700 font-mono' : isDarkBlue ? 'bg-[#0c1017] border-[#1c2438] text-[#8b99b5] hover:bg-[#1a2035]' : isDark ? 'bg-[#2f2f2f] border-[#3a3a3a] text-[#c0c0c0] hover:bg-[#3a3a3a]' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+  }`
+  const renderTemplateGroup = (items) => (
+    <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Template">
+      {items.map(item => {
+        const Icon = TEMPLATE_ICONS[item.icon] || FileText
+        const selected = item.id === selectedTemplateId
+        return (
+          <button
+            key={item.id}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onSelectTemplate?.(item.id)}
+            className={optionClass(selected)}
+          >
+            <Icon className={`w-4 h-4 flex-shrink-0 ${selected ? '' : 'opacity-60'}`} aria-hidden="true" />
+            <span className="truncate">{item.name}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
 
   return (
     <div
@@ -161,6 +191,22 @@ export function RenameModal({ isOpen, onClose, onConfirm, title, onTitleChange, 
             `}>
               {title.length}/{maxLength} characters
             </p>
+            {isNew && Array.isArray(templates) && templates.length > 1 && (
+              <div className="mt-5">
+                <p className={`text-sm font-medium mb-2 ${isFallout ? 'text-green-400 font-mono' : isDarkBlue ? 'text-[#e0e6f0]' : isDark ? 'text-[#c0c0c0]' : 'text-gray-700'}`}>
+                  Template
+                </p>
+                {renderTemplateGroup(templates.filter(item => item.kind !== 'yours'))}
+                {templates.some(item => item.kind === 'yours') && (
+                  <>
+                    <p className={`text-xs font-medium mt-3 mb-2 ${isFallout ? 'text-green-600 font-mono' : isDarkBlue ? 'text-[#5d6b88]' : isDark ? 'text-[#6b6b6b]' : 'text-gray-400'}`}>
+                      Yours
+                    </p>
+                    {renderTemplateGroup(templates.filter(item => item.kind === 'yours'))}
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Actions */}

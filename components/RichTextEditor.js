@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ChevronRight, ChevronLeft, Plus, Import, X, FolderPlus, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, List, Shield, Copy, Check, AlertCircle, SlidersHorizontal, SunMoon, ArrowUpLeft } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, Import, X, FolderPlus, Lock, LockKeyhole, Unlock, Timer, TimerOff, Keyboard, Sparkles, List, Shield, Copy, Check, AlertCircle, SlidersHorizontal, SunMoon, ArrowUpLeft, LayoutTemplate } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { PassphraseModal } from '@/components/PassphraseModal'
 import { useTheme } from 'next-themes'
@@ -51,6 +51,8 @@ import MiniOutline from './MiniOutline'
 import BacklinksSection from './BacklinksSection'
 import BacklinksPopover from './BacklinksPopover'
 import { findBacklinks } from '@/lib/backlinks'
+import { isPinned, pinnedNotes } from '@/lib/pinnedNotes'
+import { isTemplateNote, suggestedTitle, templateChoices, templateNoteIds } from '@/lib/templates'
 import Tooltip from './Tooltip'
 import EncryptionStatusIndicator from './EncryptionStatusIndicator'
 import { useUpdateManager } from '@/hooks/useUpdateManager'
@@ -59,6 +61,7 @@ import { useKeyboardNavigation, useScreenReader, useSkipNavigation } from '@/hoo
 import { DndContext, closestCorners, PointerSensor, TouchSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import SortablePageItem from './SortablePageItem'
+import PageItem from './PageItem'
 import SortableFolderItem from './SortableFolderItem'
 import { getTagChipStyle } from '@/utils/colorUtils'
 import { ConfirmModal } from './ConfirmModal'
@@ -548,6 +551,9 @@ export default function RichTextEditor() {
     completeSelfDestruct,
     editorReloadKey,
     setEditorReloadKey,
+    togglePin,
+    saveAsTemplate,
+    createPageFromTemplate,
     decryptAllAppLockPages,
     encryptAndClearAppLockPages,
     reEncryptAppLockPages,
@@ -638,6 +644,11 @@ export default function RichTextEditor() {
   const [pageToRename, setPageToRename] = useState(null)
   const [isNewPageRename, setIsNewPageRename] = useState(false)
   const [newPageTitle, setNewPageTitle] = useState('')
+  // The template picked in the new-note dialog, and the name it last suggested
+  const [newPageTemplateId, setNewPageTemplateId] = useState('blank')
+  const templateSuggestionRef = useRef('')
+  const newNoteTemplates = useMemo(() => templateChoices(pages), [pages])
+  const templateIds = useMemo(() => templateNoteIds(pages), [pages])
   const [tagToEdit, setTagToEdit] = useState(null)
   const [searchFilter, setSearchFilter] = useState('all')
   const [selectedTagsFilter, setSelectedTagsFilter] = useState([])
@@ -1391,7 +1402,8 @@ export default function RichTextEditor() {
                 ...p,
                 title: m.title ?? p.title,
                 emoji: m.emoji ?? p.emoji ?? null,
-                pages: Array.isArray(m.pages) ? [...m.pages] : (p.pages || [])
+                pages: Array.isArray(m.pages) ? [...m.pages] : (p.pages || []),
+                ...(m.templates === true ? { templates: true } : {})
               }
             })
           }
@@ -3177,6 +3189,8 @@ export default function RichTextEditor() {
     if (newPage) {
       setPageToRename(newPage)
       setNewPageTitle('')
+      setNewPageTemplateId('blank')
+      templateSuggestionRef.current = ''
       setIsNewPageRename(true)
       setIsRenameModalOpen(true)
       // Mobile: collapse sidebar so the rename modal + new editor are
@@ -3187,14 +3201,48 @@ export default function RichTextEditor() {
   }, [handleNewPage, isSmallScreen])
 
   const confirmRename = useCallback(async () => {
-    if (pageToRename && newPageTitle && newPageTitle !== pageToRename.title) {
+    const choice = isNewPageRename && newPageTemplateId !== 'blank'
+      ? newNoteTemplates.find(item => item.id === newPageTemplateId)
+      : null
+    if (choice?.template && pageToRename) {
+      await createPageFromTemplate(choice.template, { title: newPageTitle.trim().slice(0, 50), replacePageId: pageToRename.id })
+    } else if (pageToRename && newPageTitle && newPageTitle !== pageToRename.title) {
       await renamePage(pageToRename, newPageTitle.slice(0, 50))
     }
     setIsRenameModalOpen(false)
     setPageToRename(null)
     setNewPageTitle('')
     setIsNewPageRename(false)
-  }, [pageToRename, newPageTitle, renamePage])
+    setNewPageTemplateId('blank')
+    templateSuggestionRef.current = ''
+  }, [pageToRename, newPageTitle, renamePage, isNewPageRename, newPageTemplateId, newNoteTemplates, createPageFromTemplate])
+
+  // Picking a template suggests a name, unless the person typed one
+  const handleSelectNewPageTemplate = useCallback((templateId) => {
+    setNewPageTemplateId(templateId)
+    const choice = newNoteTemplates.find(item => item.id === templateId)
+    const locale = typeof navigator !== 'undefined' ? navigator.language : undefined
+    const suggestion = choice?.template ? suggestedTitle(choice.template, { locale }).slice(0, 50) : ''
+    const typed = newPageTitle.trim() && newPageTitle !== templateSuggestionRef.current
+    if (!typed) {
+      templateSuggestionRef.current = suggestion
+      setNewPageTitle(suggestion)
+    }
+  }, [newNoteTemplates, newPageTitle])
+
+  const handleTogglePin = useCallback((page) => {
+    if (!page || page.type === 'folder' || page.id?.startsWith('live-')) return
+    hapticLight()
+    togglePin(page.id)
+  }, [togglePin])
+
+  const handleSaveAsTemplate = useCallback(async (page) => {
+    if (!page) return
+    // The open note's latest edits go into the template
+    if (currentPage?.id === page.id && window.__editorFlush) await window.__editorFlush()
+    const template = await saveAsTemplate(page)
+    if (template) navigateToPage(template)
+  }, [currentPage?.id, saveAsTemplate, navigateToPage])
 
   const handleToggleLock = useCallback((page) => {
     hapticLight()
@@ -3458,7 +3506,7 @@ export default function RichTextEditor() {
     if (sidebarOpen) {
       return [
         ...rootItems.filter(item => item.type === 'folder'),
-        ...rootItems.filter(item => item.type !== 'folder')
+        ...rootItems.filter(item => item.type !== 'folder' && !isPinned(item))
       ].map(item => item.id)
     }
     return rootItems.map(item => item.id)
@@ -3646,6 +3694,7 @@ export default function RichTextEditor() {
     isFocusMode: focusMode,
     onDeletePage: handleDeletePage,
     onDuplicatePage: handleDuplicatePage,
+    onTogglePinPage: handleTogglePin,
     currentPage,
     pages: notesOutsideTrash(pages), // Not filteredPages(): the sidebar's search and tag filters don't limit these keys
     onSelectPage: handlePageSelect,
@@ -3913,6 +3962,8 @@ export default function RichTextEditor() {
 
   // ---- Sep 2026 UI refresh: desktop toolbar / sidebar sections / page meta ----
   const isLivePage = !!currentPage?.id?.startsWith('live-')
+  // The open page is self-destructing: its text turns into bits (SelfDestructOverlay)
+  const isWipingPage = !!(currentPage && selfDestructingPages.has(currentPage.id))
   const pageLocked = !!(currentPage?.password?.hash && !tempUnlockedPages.has(currentPage?.id))
   const toolbarButtonClass = `p-2 rounded-lg transition-colors cursor-pointer ${getIconClasses()} ${getButtonHoverClasses()}`
   const toolbarDividerClass = theme === 'fallout' ? 'bg-green-500/25' : theme === 'dark' ? 'bg-white/10' : theme === 'darkblue' ? 'bg-white/10' : 'bg-neutral-200'
@@ -4009,9 +4060,11 @@ export default function RichTextEditor() {
     const hasTags = currentPage.tagNames && currentPage.tagNames.length > 0
     const dividerClass = theme === 'fallout' ? 'bg-green-500/25' : theme === 'dark' ? 'bg-white/10' : theme === 'darkblue' ? 'bg-white/10' : 'bg-neutral-200'
     const mutedClass = theme === 'fallout' ? 'text-green-600' : theme === 'dark' ? 'text-[#6b6b6b]' : theme === 'darkblue' ? 'text-[#5d6b88]' : 'text-neutral-400'
+    const templateNote = isTemplateNote(currentPage, pages)
     return (
+      <>
       <div
-        className={`flex items-center gap-1.5 ${isMobileRow ? 'mt-2 overflow-x-auto flex-nowrap -mx-1 px-1 dash-no-scrollbar' : 'mt-2.5 mb-4 flex-wrap'}`}
+        className={`flex items-center gap-1.5 ${isMobileRow ? 'mt-2 overflow-x-auto flex-nowrap -mx-1 px-1 dash-no-scrollbar' : `mt-2.5 ${templateNote ? 'mb-1.5' : 'mb-4'} flex-wrap`}`}
         style={isMobileRow ? { WebkitOverflowScrolling: 'touch' } : undefined}
       >
         {folder && (
@@ -4028,6 +4081,12 @@ export default function RichTextEditor() {
               <span className={`inline-block w-px h-4 mx-1 flex-shrink-0 ${dividerClass}`} aria-hidden="true" />
             )}
           </>
+        )}
+        {templateNote && (
+          <span className={`inline-flex items-center gap-1 text-xs font-medium flex-shrink-0 ${mutedClass}`}>
+            <LayoutTemplate className="w-3 h-3" aria-hidden="true" />
+            Template
+          </span>
         )}
         {hasTags && currentPage.tagNames.map((tagName, index) => {
           const tag = (tags || []).find(t => t.name === tagName)
@@ -4090,6 +4149,12 @@ export default function RichTextEditor() {
           </>
         )}
       </div>
+      {templateNote && (
+        <p className={`text-xs leading-relaxed ${mutedClass} ${isMobileRow ? 'mt-1.5' : 'mb-4'}`}>
+          {'Notes made from this template fill in {{date}}, {{time}}, {{weekday}} and {{title}}.'}
+        </p>
+      )}
+      </>
     )
   }
 
@@ -4506,6 +4571,7 @@ export default function RichTextEditor() {
                         onMoveToFolder={handleMoveToFolder}
                         onSelfDestruct={handleSelfDestruct}
                         onCancelSelfDestruct={handleCancelSelfDestruct}
+                        onTogglePin={handleTogglePin}
                         selfDestructingPages={selfDestructingPages}
                         completeSelfDestruct={completeSelfDestruct}
                         pagesCount={folderPageIds.length}
@@ -4532,6 +4598,7 @@ export default function RichTextEditor() {
                         onMoveToFolder={handleMoveToFolder}
                         onSelfDestruct={handleSelfDestruct}
                         onCancelSelfDestruct={handleCancelSelfDestruct}
+                        onTogglePin={handleTogglePin}
                         sidebarOpen={sidebarOpen}
                         theme={theme}
                         tags={tags}
@@ -4546,13 +4613,47 @@ export default function RichTextEditor() {
                   }
                   return null
                   }
+                  // Pinned notes: their own section, not draggable, most recently pinned first
+                  const renderPinnedItem = (item) => (
+                    <PageItem
+                      key={`pinned-${item.id}`}
+                      page={item}
+                      isActive={currentPage?.id === item.id}
+                      onSelect={handlePageSelect}
+                      onRename={handleRenamePage}
+                      onDelete={handleDeletePage}
+                      onToggleLock={handleToggleLockFromSidebar}
+                      onDuplicate={handleDuplicatePage}
+                      onVersionHistory={handleVersionHistory}
+                      onMoveToFolder={handleMoveToFolder}
+                      onSelfDestruct={handleSelfDestruct}
+                      onCancelSelfDestruct={handleCancelSelfDestruct}
+                      onTogglePin={handleTogglePin}
+                      sidebarOpen={sidebarOpen}
+                      theme={theme}
+                      tags={tags}
+                      tempUnlockedPages={tempUnlockedPages}
+                      isInsideFolder={false}
+                      isSelfDestructing={selfDestructingPages.has(item.id)}
+                      onSelfDestructComplete={completeSelfDestruct}
+                    />
+                  )
                   const showSections = sidebarOpen
                   if (!showSections) return sortedItems.map(renderRootItem)
+                  const pinned = pinnedNotes(sortedItems)
                   const rootFolders = sortedItems.filter(item => item.type === 'folder')
-                  const rootNotes = sortedItems.filter(item => item.type !== 'folder' && !item.folderId && !folderOwnedPageIds.has(item.id))
+                  const rootNotes = sortedItems.filter(item => item.type !== 'folder' && !item.folderId && !folderOwnedPageIds.has(item.id) && !isPinned(item))
                   return (
                     <>
-                      <div className={sidebarSectionLabelClass}>
+                      {pinned.length > 0 && (
+                        <>
+                          <div className={sidebarSectionLabelClass}>
+                            <span>Pinned</span>
+                          </div>
+                          {pinned.map(renderPinnedItem)}
+                        </>
+                      )}
+                      <div className={`${sidebarSectionLabelClass}${pinned.length > 0 ? ' mt-1.5' : ''}`}>
                         <span>Folders</span>
                         <button
                           type="button"
@@ -4648,7 +4749,7 @@ export default function RichTextEditor() {
         <>
         {/* Header */}
         {isSmallScreen ? (
-        <div className={`flex flex-col px-6 py-3 ${theme === 'fallout' ? 'border-b border-green-600/20' : theme === 'dark' ? 'border-b border-[#2e2e2e]' : theme === 'darkblue' ? 'border-b border-[#1c2438]' : 'border-b border-neutral-100'} ${getHeaderClasses()} safe-area-top ${focusMode ? 'hidden' : ''}`}>
+        <div data-sd-area="header" className={`flex flex-col px-6 py-3 ${theme === 'fallout' ? 'border-b border-green-600/20' : theme === 'dark' ? 'border-b border-[#2e2e2e]' : theme === 'darkblue' ? 'border-b border-[#1c2438]' : 'border-b border-neutral-100'} ${getHeaderClasses()} safe-area-top ${focusMode ? 'hidden' : ''}`}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center min-w-0 flex-1">
               <button
@@ -4660,7 +4761,8 @@ export default function RichTextEditor() {
               </button>
               <Tooltip text="Rename page">
               <h1
-                className={`text-xl font-semibold cursor-pointer truncate min-w-0 flex-1 py-1 px-1.5 -my-1 rounded-lg transition-colors ${pageTitleClass}`}
+                data-sd-source
+                className={`text-xl font-semibold cursor-pointer truncate min-w-0 flex-1 py-1 px-1.5 -my-1 rounded-lg transition-colors ${pageTitleClass} ${isWipingPage ? 'dash-sd-wipe-source' : ''}`}
                 onClick={() => handleRenamePage(currentPage)}
               >
                 {currentPage?.title}
@@ -4714,6 +4816,9 @@ export default function RichTextEditor() {
                           setIsShareModalOpen(true)
                         }
                       : undefined}
+                    onTogglePin={currentPage && !currentPage.id?.startsWith('live-') ? () => handleTogglePin(currentPage) : undefined}
+                    currentPagePinned={isPinned(currentPage)}
+                    onSaveAsTemplate={currentPage && !currentPage.id?.startsWith('live-') && Array.isArray(currentPage.content?.blocks) && !templateIds.has(currentPage.id) ? () => handleSaveAsTemplate(currentPage) : undefined}
                     onSyncSettings={SYNC_AVAILABLE ? () => setIsSyncSettingsOpen(true) : undefined}
                     onExport={handleExport}
                     onImportBundle={handleImportBundleClick}
@@ -4728,7 +4833,11 @@ export default function RichTextEditor() {
                   />
             </div>
           </div>
-          {!isLivePage && renderPageMeta('mobile')}
+          {!isLivePage && (
+            <div data-sd-source className={isWipingPage ? 'dash-sd-wipe-source' : undefined}>
+              {renderPageMeta('mobile')}
+            </div>
+          )}
         </div>
         ) : (
         <>
@@ -4786,6 +4895,9 @@ export default function RichTextEditor() {
             onVersionHistory={() => handleVersionHistory(currentPage)}
             onMoveToFolder={() => handleMoveToFolder(currentPage)}
             onDuplicate={() => handleDuplicatePage(currentPage)}
+            isPinned={isPinned(currentPage)}
+            onTogglePin={currentPage && !isLivePage ? () => handleTogglePin(currentPage) : undefined}
+            onSaveAsTemplate={currentPage && !isLivePage && Array.isArray(currentPage.content?.blocks) && !templateIds.has(currentPage.id) ? () => handleSaveAsTemplate(currentPage) : undefined}
             onImportBundle={handleImportBundleClick}
             onImportNotes={noteImport.open}
             isImporting={isImporting}
@@ -4830,11 +4942,11 @@ export default function RichTextEditor() {
         {/* Live Session Bar */}
         {/* Editor */ }
   <div className="flex-1 relative overflow-hidden">
-  <div ref={editorScrollRef} className={`h-full overflow-auto ${getMainContentClasses()} ${focusMode ? 'focus-mode-scroll' : ''} ${currentPage && selfDestructingPages.has(currentPage.id) ? 'pointer-events-none' : ''}`}>
+  <div ref={editorScrollRef} data-sd-area="page" className={`h-full overflow-auto ${getMainContentClasses()} ${focusMode ? 'focus-mode-scroll' : ''} ${isWipingPage ? 'pointer-events-none' : ''}`}>
     {/* Padding lives on this wrapper, not the scroller: Chrome insets sticky
         children by the scroll container's own padding, which left a 24px gap
         above stuck table headings. */}
-    <div className={`p-6 md:pl-[72px] ${focusMode ? 'pt-16' : ''}`}>
+    <div data-sd-source className={`p-6 md:pl-[72px] ${focusMode ? 'pt-16' : ''} ${isWipingPage ? 'dash-sd-wipe-source' : ''}`}>
     <div className={`${focusMode ? 'max-w-2xl mx-auto w-full' : ''} ${focusMode && paragraphDimming ? 'paragraph-dimming' : ''} ${focusMode && typewriterMode ? 'pb-[50vh]' : ''}`}>
       {currentPage && (
         <div className="relative">
@@ -5191,11 +5303,14 @@ export default function RichTextEditor() {
 
       <RenameModal
         isOpen={isRenameModalOpen}
-        onClose={() => { setIsRenameModalOpen(false); setIsNewPageRename(false) }}
+        onClose={() => { setIsRenameModalOpen(false); setIsNewPageRename(false); setNewPageTemplateId('blank'); templateSuggestionRef.current = '' }}
         onConfirm={confirmRename}
         title={newPageTitle}
         onTitleChange={setNewPageTitle}
         isNew={isNewPageRename}
+        templates={isNewPageRename ? newNoteTemplates : null}
+        selectedTemplateId={newPageTemplateId}
+        onSelectTemplate={handleSelectNewPageTemplate}
       />
 
       <TagModal
@@ -5604,7 +5719,7 @@ export default function RichTextEditor() {
       <QuickSwitcher
         isOpen={showQuickSwitcher}
         onClose={() => setShowQuickSwitcher(false)}
-        pages={pages}
+        pages={(pages || []).filter(p => !templateIds.has(p.id))}
         onSelectPage={(page) => {
           handlePageSelect(page)
           setShowQuickSwitcher(false)
@@ -5936,7 +6051,7 @@ export default function RichTextEditor() {
         onClearAllTags={handleClearAllTagsFilter}
         allTags={(tags || []).map(t => t.name)}
         tagColorMap={(tags || []).reduce((acc, t) => { acc[t.name] = t.color; return acc }, {})}
-        pages={notesOutsideTrash(pages)}
+        pages={notesOutsideTrash(pages).filter(p => !templateIds.has(p.id))}
         folders={(pages || []).filter(p => p.type === 'folder')}
         onSelectPage={(page) => {
           handleSelectPageFromSearch(page)

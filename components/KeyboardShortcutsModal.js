@@ -24,6 +24,7 @@ export function KeyboardShortcutsModal({ isOpen, onClose, theme }) {
       title: 'Page Management',
       shortcuts: [
         { label: 'Duplicate page', keys: [mod, 'Shift', 'D'] },
+        { label: 'Pin page', keys: [mod, 'Shift', 'P'] },
         { label: 'Delete page', keys: [mod, 'Shift', '⌫'] },
         { label: 'Previous page', keys: ['Alt', '↑'] },
         { label: 'Next page', keys: ['Alt', '↓'] },

@@ -805,7 +805,7 @@ describe('Page-switch race condition prevention', () => {
 const REQUIRED_PAGE_FIELDS = [
   'id', 'title', 'content', 'encryptedContent', 'appLockEncrypted', 'tags', 'tagNames',
   'createdAt', 'password', 'folderId', 'type', 'selfDestructAt',
-  'lastEdited', 'trashed', 'trashedAt', 'trashedBy', 'restoredAt'
+  'lastEdited', 'trashed', 'trashedAt', 'trashedBy', 'restoredAt', 'pinnedAt'
 ]
 
 describe('Electron save-pages persists every field the app relies on', () => {
@@ -850,7 +850,8 @@ describe('An editor save keeps every field save-pages persists', () => {
     trashed: true,
     trashedAt: 1767196800000,
     trashedBy: 'device-phone',
-    restoredAt: 1767110400000
+    restoredAt: 1767110400000,
+    pinnedAt: 1767168000000
   }
   // The save replaces the content these two hold encrypted, so they must go.
   // Only folders have a type, and folders never reach savePage.
@@ -869,8 +870,8 @@ describe('An editor save keeps every field save-pages persists', () => {
 
   it('keeps timestamps only when they are finite numbers', () => {
     for (const bad of [NaN, Infinity, '1767139200000', null]) {
-      const { sanitized } = validate({ ...SAMPLE, lastEdited: bad, trashedAt: bad, restoredAt: bad })
-      for (const field of ['lastEdited', 'trashedAt', 'restoredAt']) {
+      const { sanitized } = validate({ ...SAMPLE, lastEdited: bad, trashedAt: bad, restoredAt: bad, pinnedAt: bad })
+      for (const field of ['lastEdited', 'trashedAt', 'restoredAt', 'pinnedAt']) {
         assert.ok(!(field in sanitized), `kept ${field} = ${String(bad)}`)
       }
     }

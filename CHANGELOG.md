@@ -5,6 +5,19 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Pinned notes.** Pin a note to keep it in a Pinned section at the top of the sidebar on Mac and the notes list on iPhone, most recently pinned first. Pin or unpin from a note's row menu, the ⋯ menu (⌘⇧P) or Page actions on iPhone. A pinned note in a folder also stays in its folder, marked with a pin. Pins sync between devices.
+- **Templates.** Naming a new note now offers templates: Meeting notes, Daily journal, To-do list, Project plan, Weekly review, and your own. Picking one suggests a name unless you typed one. Save any note as a template from the ⋯ menu (Page actions on iPhone) to copy it into a Templates folder, where you edit it like any note. `{{date}}`, `{{time}}`, `{{weekday}}` and `{{title}}` fill in when a note is made from a template. Templates stay out of search and the quick switcher.
+
+### Changed
+- **Self-destruct animation.** When the page you have open self-destructs, its text turns into binary that crumbles and falls away down the page, then the next page opens.
+
+### Fixed
+- A page that self-destructed while open switched to another page straight away, so its animation never played.
+- Empty bullet and numbered list items lost their bullet or number to the "List item" placeholder, and a numbered item's placeholder sat left of the text (cut off on iPhone). The marker now stays, with the placeholder beside it.
+
 ## [1.6.10] - 2026-09-11
 
 Third stage of note importers: bring your notes in from other apps.

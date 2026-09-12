@@ -1499,6 +1499,38 @@
   pointer-events: none;
 }
 
+/* Editor.js shows its own placeholder in ::before on every empty element with
+   data-placeholder. On list items that took the place of the bullet or number,
+   and pushed a numbered item's placeholder left of the text. Keep the marker
+   in ::before and the placeholder after it, where the text goes. */
+.codex-editor .dash-bullet-item[data-placeholder]:empty::before,
+.codex-editor .dash-bullet-item[data-placeholder][data-empty="true"]::before {
+  content: "\2022";
+  color: inherit;
+  cursor: auto;
+}
+
+.codex-editor .dash-numbered-item[data-placeholder]:empty::before,
+.codex-editor .dash-numbered-item[data-placeholder][data-empty="true"]::before {
+  content: attr(data-number) ".";
+  color: inherit;
+  cursor: auto;
+}
+
+.codex-editor .dash-bullet-item[data-placeholder]:empty::after,
+.codex-editor .dash-bullet-item[data-placeholder][data-empty="true"]::after,
+.codex-editor .dash-numbered-item[data-placeholder]:empty::after,
+.codex-editor .dash-numbered-item[data-placeholder][data-empty="true"]::after {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.dark .codex-editor :is(.dash-bullet-item, .dash-numbered-item)[data-placeholder]:is(:empty, [data-empty="true"])::after { color: #6b7280; }
+.darkblue .codex-editor :is(.dash-bullet-item, .dash-numbered-item)[data-placeholder]:is(:empty, [data-empty="true"])::after { color: #5d6b88; }
+.fallout .codex-editor :is(.dash-bullet-item, .dash-numbered-item)[data-placeholder]:is(:empty, [data-empty="true"])::after { color: rgba(34, 197, 94, 0.4); }
+.fallout .codex-editor :is(.dash-bullet-item, .dash-numbered-item)[data-placeholder]:is(:empty, [data-empty="true"])::before { color: #22c55e; }
+
 /* Checklist items */
 .dash-checklist-item {
   display: flex;
@@ -2984,32 +3016,11 @@ button:focus {
   animation-name: dash-sd-dissolve-fallout-anim;
 }
 
-/* Self-destruct overlay v2 animations */
-@keyframes dash-sd2-backdrop {
-  0% { opacity: 0; backdrop-filter: blur(0px); }
-  100% { opacity: 1; backdrop-filter: blur(12px); }
-}
-
-@keyframes dash-sd2-icon-enter {
-  0% { opacity: 0; transform: scale(0.5); }
-  60% { opacity: 1; transform: scale(1.1); }
-  100% { opacity: 1; transform: scale(1); }
-}
-
-@keyframes dash-sd2-icon-breathe {
-  0% { transform: scale(1); opacity: 1; }
-  100% { transform: scale(1.08); opacity: 0.8; }
-}
-
-@keyframes dash-sd2-icon-burst {
-  0% { transform: scale(1.08); opacity: 1; }
-  50% { transform: scale(1.6); opacity: 0.4; }
-  100% { transform: scale(2); opacity: 0; }
-}
-
-@keyframes dash-sd2-ring-burst {
-  0% { transform: scale(0.5); opacity: 0.7; }
-  100% { transform: scale(4); opacity: 0; }
+/* Self-destruct: the open page's text fades as it turns into bits
+   (components/SelfDestructOverlay.js draws the bits) */
+.dash-sd-wipe-source {
+  opacity: 0 !important;
+  transition: opacity 560ms ease 90ms;
 }
 
 /* Reduced motion support */

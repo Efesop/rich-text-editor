@@ -270,3 +270,23 @@ describe('buildManifestPayload', () => {
     assert.deepEqual(m.folders, [])
   })
 })
+
+describe('diffPages — pins and the templates folder', () => {
+  it('pinning or unpinning a note → upsert', () => {
+    assert.ok(diffPages([note({ id: 'p1' })], [note({ id: 'p1', pinnedAt: 5 })]).notesUpserted.has('p1'))
+    assert.ok(diffPages([note({ id: 'p1', pinnedAt: 5 })], [note({ id: 'p1' })]).notesUpserted.has('p1'))
+    assert.equal(diffPages([note({ id: 'p1', pinnedAt: 5 })], [note({ id: 'p1', pinnedAt: 5 })]).notesUpserted.size, 0)
+  })
+
+  it('marking a folder as the templates folder → manifestChanged', () => {
+    assert.equal(diffPages([folder({ id: 'f1' })], [folder({ id: 'f1', templates: true })]).manifestChanged, true)
+  })
+})
+
+describe('buildManifestPayload — the templates folder', () => {
+  it('marks the templates folder, and only that folder', () => {
+    const m = buildManifestPayload([folder({ id: 'f1', templates: true }), folder({ id: 'f2' })], [])
+    assert.equal(m.folders[0].templates, true)
+    assert.equal('templates' in m.folders[1], false)
+  })
+})
