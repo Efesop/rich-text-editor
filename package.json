@@ -70,7 +70,6 @@
     "@editorjs/editorjs": "^2.30.6",
     "@editorjs/embed": "^2.7.4",
     "@editorjs/header": "^2.8.7",
-    "@editorjs/image": "^2.9.3",
     "@editorjs/inline-code": "^1.5.1",
     "@editorjs/marker": "^1.4.0",
     "@editorjs/nested-list": "^1.4.3",
