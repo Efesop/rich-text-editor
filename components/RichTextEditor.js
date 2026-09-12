@@ -103,6 +103,7 @@ import SyncPassphraseModal from './SyncPassphraseModal'
 // Trash (phase 2.5) — always-on UX improvement. Soft-delete by default,
 // recoverable for 30 days. Independent of sync.
 import TrashModal from './TrashModal'
+import { folderNoteIds, isInTrash, notesOutsideTrash } from '@/lib/noteLists'
 import ImportNotesModal from './ImportNotesModal'
 import useNoteImport from '@/hooks/useNoteImport'
 import { importInProgress, whenImportEnds } from '@/lib/import/lock'
@@ -3463,12 +3464,9 @@ export default function RichTextEditor() {
     return rootItems.map(item => item.id)
   }, [filteredPages, sortPages, sortOption, sidebarOpen])
 
-  const getFolderPageIds = useCallback((folderId) => {
-    const folder = (pages || []).find(p => p.id === folderId && p.type === 'folder')
-    if (!folder || !Array.isArray(folder.pages)) return []
-    const existingIds = new Set((pages || []).map(p => p.id))
-    return folder.pages.filter(id => existingIds.has(id))
-  }, [pages])
+  // A note in Trash stays in its folder's list, so Restore puts it back, but
+  // the folder doesn't show or count it (lib/noteLists.js).
+  const getFolderPageIds = useCallback((folderId) => folderNoteIds(pages, folderId), [pages])
 
   useEffect(() => {
     if (currentPage && currentPage.content) {
@@ -3649,7 +3647,7 @@ export default function RichTextEditor() {
     onDeletePage: handleDeletePage,
     onDuplicatePage: handleDuplicatePage,
     currentPage,
-    pages: (Array.isArray(pages) ? pages : []).filter(page => page.type !== 'folder'), // Use pages directly instead of filteredPages()
+    pages: notesOutsideTrash(pages), // Not filteredPages(): the sidebar's search and tag filters don't limit these keys
     onSelectPage: handlePageSelect,
     onToggleShortcutsModal: () => setIsShortcutsModalOpen(true),
     onToggleAIPanel: () => {
@@ -3660,15 +3658,33 @@ export default function RichTextEditor() {
 
   // Page link [[wiki links]] interceptor
   const handlePageLinkClick = useCallback((pageId) => {
-    const allPages = (Array.isArray(pages) ? pages : []).filter(p => p.type !== 'folder')
-    const targetPage = allPages.find(p => p.id === pageId)
-    if (targetPage) {
-      handlePageSelect(targetPage)
+    const targetPage = (Array.isArray(pages) ? pages : []).find(p => p.id === pageId && p.type !== 'folder')
+    if (!targetPage) return
+    // A note in Trash opens once it is restored. Opened as it is, the editor
+    // would show a note the sidebar and search leave out.
+    if (isInTrash(targetPage)) {
+      setConfirmModal({
+        isOpen: true,
+        title: 'Note in Trash',
+        message: `"${targetPage.title || 'Untitled'}" is in Trash. Restore it to open it.`,
+        confirmText: 'Restore',
+        cancelText: 'Cancel',
+        showCancel: true,
+        variant: 'info',
+        onConfirm: async () => {
+          await restorePage(targetPage)
+          // Open the restored copy: the one clicked still says it's in Trash
+          const restored = getLatestPages().find(p => p.id === targetPage.id)
+          if (restored && !isInTrash(restored)) handlePageSelect(restored)
+        }
+      })
+      return
     }
-  }, [pages, handlePageSelect])
+    handlePageSelect(targetPage)
+  }, [pages, handlePageSelect, restorePage, getLatestPages])
 
   const pageLinkData = usePageLinkInterceptor({
-    pages: (Array.isArray(pages) ? pages : []).filter(p => p.type !== 'folder'),
+    pages: notesOutsideTrash(pages),
     onSelectPage: handlePageSelect,
     editorHolder: 'editorjs'
   })
@@ -5278,7 +5294,7 @@ export default function RichTextEditor() {
             addPageToFolder(newPage.id, folderId)
           }
         }}
-        pages={(pages || []).filter(page => page.type !== 'folder' && !page.folderId)}
+        pages={notesOutsideTrash(pages).filter(page => !page.folderId)}
         currentFolderId={selectedFolderId}
         theme={theme}
       />
@@ -5569,7 +5585,7 @@ export default function RichTextEditor() {
         isOpen={!!toolbarLinkState}
         query=""
         position={toolbarLinkState?.position || { top: 0, left: 0 }}
-        filteredPages={(Array.isArray(pages) ? pages : []).filter(p => p.type !== 'folder')}
+        filteredPages={notesOutsideTrash(pages)}
         selectedIndex={0}
         onSelect={handleToolbarPageLinkSelect}
         onClose={() => setToolbarLinkState(null)}
@@ -5920,7 +5936,7 @@ export default function RichTextEditor() {
         onClearAllTags={handleClearAllTagsFilter}
         allTags={(tags || []).map(t => t.name)}
         tagColorMap={(tags || []).reduce((acc, t) => { acc[t.name] = t.color; return acc }, {})}
-        pages={(pages || []).filter(p => p.type !== 'folder')}
+        pages={notesOutsideTrash(pages)}
         folders={(pages || []).filter(p => p.type === 'folder')}
         onSelectPage={(page) => {
           handleSelectPageFromSearch(page)

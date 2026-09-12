@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { notesOutsideTrash } from '@/lib/noteLists'
 
 const PAGE_LINK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="-4 -4 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 15h6"/><path d="M12 12v6"/></svg>'
 
@@ -108,8 +109,8 @@ export function usePageLinkInterceptor({ pages, onSelectPage, editorHolder }) {
   const triggerNodeRef = useRef(null)
   const triggerOffsetRef = useRef(null)
 
-  const filteredPages = (pages || [])
-    .filter(p => p.type !== 'folder')
+  // Notes outside Trash: a new link shouldn't point to a note in Trash
+  const filteredPages = notesOutsideTrash(pages)
     .filter(p => {
       if (!query) return true
       return p.title.toLowerCase().includes(query.toLowerCase())
