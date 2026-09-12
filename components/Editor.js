@@ -11,28 +11,7 @@ import CalloutTool from './editor-tools/Callout'
 import ToggleTool from './editor-tools/Toggle'
 import { attachMarkdownShortcuts } from './editor-tools/markdownInput'
 import { attachListIndentKeys, renumberLists } from './editor-tools/listIndentRuntime'
-import { autoLinkify, parseMarkdownToBlocks } from '@/lib/markdownBlocks'
-
-// Process table blocks to auto-linkify URLs in cells
-function linkifyTableBlocks(blocks) {
-  if (!Array.isArray(blocks)) return blocks
-  let anyChanged = false
-  const result = blocks.map(block => {
-    if (block.type !== 'table' || !Array.isArray(block.data?.content)) return block
-    let blockChanged = false
-    const newContent = block.data.content.map(row =>
-      Array.isArray(row) ? row.map(cell => {
-        const linked = autoLinkify(cell)
-        if (linked !== cell) blockChanged = true
-        return linked
-      }) : row
-    )
-    if (!blockChanged) return block
-    anyChanged = true
-    return { ...block, data: { ...block.data, content: newContent } }
-  })
-  return anyChanged ? result : blocks
-}
+import { autoLinkify, linkifyTableBlocks, parseMarkdownToBlocks } from '@/lib/markdownBlocks'
 
 // Local AI (Ollama / LM Studio / LocalAI) needs a model server on localhost,
 // which cannot run inside the iOS/Android Capacitor WebView — so every AI

@@ -859,6 +859,7 @@ ipcMain.handle('save-pages', async (event, pages) => {
         ...(typeof page.lastEdited === 'number' ? { lastEdited: page.lastEdited } : {}),
         ...(page.trashed === true ? { trashed: true } : {}),
         ...(typeof page.trashedAt === 'number' ? { trashedAt: page.trashedAt } : {}),
+        ...(typeof page.trashedBy === 'string' ? { trashedBy: page.trashedBy } : {}),
         ...(typeof page.restoredAt === 'number' ? { restoredAt: page.restoredAt } : {})
       };
     });

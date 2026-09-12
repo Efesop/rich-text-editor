@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { hashPassword, verifyPassword } from '@/utils/passwordUtils'
-import { sanitizeEditorContent, validatePageStructure } from '@/utils/securityUtils'
+import { sanitizeEditorContent } from '@/utils/securityUtils'
+import { applyEditorSave } from '@/lib/editorSave'
 import { deriveKeyFromPassphrase, encryptJsonWithKey, decryptJsonWithKey } from '@/utils/cryptoUtils'
 import useTagStore from '../store/tagStore'
 import { readPages, savePages as savePagesToFallback, saveDecoyPages } from '@/lib/storage'
@@ -480,6 +481,11 @@ export function usePagesManager() {
   }, [createNewPage])
 
   const lastSavedContentRef = useRef(null)
+  // The contentFingerprint (lib/editorSave.js) of each note savePage stored,
+  // keyed by the stored object, so the next save of that note can tell an
+  // edit without sanitizing the stored content again. Anything else that
+  // changes a note replaces its object, and the fingerprint is worked out again.
+  const savedFingerprintsRef = useRef(new WeakMap())
 
   const savePage = useCallback(async (pageContent, forPageId) => {
     // ARCHITECTURAL RULE: Every save MUST carry the page ID from the editor
@@ -503,16 +509,12 @@ export function usePagesManager() {
     lastSavedContentRef.current = contentStr
 
     try {
-      // Sanitize the content before saving
-      const sanitizedContent = sanitizeEditorContent(pageContent)
-
-      const updatedPage = {
-        ...currentPageData,
-        content: sanitizedContent
-      }
-
-      // Validate the complete page structure
-      const validation = validatePageStructure(updatedPage)
+      // Sanitize and validate. The note keeps every other field it carries,
+      // and lastEdited, which sync compares, moves only when the content
+      // changed: the editor saves a note every time it opens.
+      const validation = applyEditorSave(currentPageData, pageContent, {
+        storedFingerprint: savedFingerprintsRef.current.get(currentPageData)
+      })
       if (!validation.isValid) {
         console.error('Page validation failed:', validation.errors)
         throw new Error('Invalid page data structure')
@@ -530,6 +532,7 @@ export function usePagesManager() {
         p.id === validation.sanitized.id ? validation.sanitized : p
       )
       pagesRef.current = newPages
+      savedFingerprintsRef.current.set(validation.sanitized, validation.fingerprint)
       // Only update currentPageRef if saved page IS the current page.
       // If the user has already switched away, this save is for the old page
       // and must not overwrite the ref pointing to the new page.
@@ -541,7 +544,7 @@ export function usePagesManager() {
       // Capture version snapshot (fire-and-forget, never blocks save)
       // Skip for password-locked pages — versions would store plaintext on disk
       if (!validation.sanitized.password?.hash) {
-        captureVersion(validation.sanitized.id, sanitizedContent.blocks).catch(err => {
+        captureVersion(validation.sanitized.id, validation.sanitized.content.blocks).catch(err => {
           // captureVersion logs internally too, but the call-site swallow
           // erased the trail — we want to spot IDB-quota silent stops.
           console.warn('captureVersion failed (call site)', err)

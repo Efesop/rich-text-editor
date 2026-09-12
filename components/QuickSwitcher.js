@@ -8,9 +8,10 @@ export default function QuickSwitcher({ isOpen, onClose, pages, onSelectPage, th
   const inputRef = useRef(null)
   const listRef = useRef(null)
 
-  // Only include actual pages (not folders)
+  // Only include notes: not folders, and not notes in Trash, which the
+  // sidebar and search leave out too
   const allPages = useMemo(() => {
-    return (pages || []).filter(p => p.type !== 'folder')
+    return (pages || []).filter(p => p.type !== 'folder' && !p.trashed)
   }, [pages])
 
   // Fuse.js instance

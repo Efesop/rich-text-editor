@@ -798,20 +798,22 @@ describe('Page-switch race condition prevention', () => {
 })
 
 // ===== ELECTRON PERSISTENCE — REQUIRED FIELDS + CORRUPT-FILE RECOVERY =====
+// Trash shipped (May 2026) without extending the save-pages whitelist, so
+// on desktop a trashed note reappeared after every relaunch. Any new
+// persisted page field must be added to the save-pages sanitizer, to
+// validatePageStructure (every editor save goes through it) AND to this list.
+const REQUIRED_PAGE_FIELDS = [
+  'id', 'title', 'content', 'encryptedContent', 'appLockEncrypted', 'tags', 'tagNames',
+  'createdAt', 'password', 'folderId', 'type', 'selfDestructAt',
+  'lastEdited', 'trashed', 'trashedAt', 'trashedBy', 'restoredAt'
+]
+
 describe('Electron save-pages persists every field the app relies on', () => {
   const saveSection = () => {
     const code = readSrc('electron-main.js')
     const start = code.indexOf("ipcMain.handle('save-pages'")
     return code.substring(start, start + 5000)
   }
-  // Trash shipped (May 2026) without extending the save-pages whitelist, so
-  // on desktop a trashed note reappeared after every relaunch. Any new
-  // persisted page field must be added to the sanitizer AND to this list.
-  const REQUIRED_PAGE_FIELDS = [
-    'id', 'title', 'content', 'encryptedContent', 'appLockEncrypted', 'tags', 'tagNames',
-    'createdAt', 'password', 'folderId', 'type', 'selfDestructAt',
-    'lastEdited', 'trashed', 'trashedAt', 'restoredAt'
-  ]
   REQUIRED_PAGE_FIELDS.forEach(field => {
     it(`save-pages sanitizer emits '${field}'`, () => {
       assert.ok(saveSection().includes(`${field}:`), `save-pages must persist '${field}'`)
@@ -821,6 +823,90 @@ describe('Electron save-pages persists every field the app relies on', () => {
     const section = saveSection()
     assert.ok(!section.includes("throw new Error('Invalid page: missing or invalid title')"), 'must not throw on empty title')
     assert.ok(section.includes("'Untitled'"), 'must coerce to Untitled')
+  })
+})
+
+// ===== EDITOR SAVES — EVERY PAGE FIELD SURVIVES =====
+describe('An editor save keeps every field save-pages persists', () => {
+  // savePage stores validatePageStructure's result (through applyEditorSave in
+  // lib/editorSave.js), and the editor saves a note as soon as it opens. A
+  // field left out here is lost from a note that is only opened: notes opened
+  // from the quick switcher left Trash, and sync treated them as never edited.
+  const validate = (page) => {
+    assert.ok(securityUtils?.validatePageStructure, 'utils/securityUtils.js must load')
+    return securityUtils.validatePageStructure(page)
+  }
+  const SAMPLE = {
+    id: 'note-1',
+    title: 'Groceries',
+    content: { time: 1767139200000, blocks: [{ id: 'b1', type: 'paragraph', data: { text: 'Milk' } }], version: '2.30.6' },
+    tags: ['legacy'],
+    tagNames: ['home'],
+    createdAt: '2025-12-01T09:00:00.000Z',
+    password: { hash: '$2a$10$abcdefghijklmnopqrstuu' },
+    folderId: 'folder-1',
+    selfDestructAt: 1767225600000,
+    lastEdited: 1767139200000,
+    trashed: true,
+    trashedAt: 1767196800000,
+    trashedBy: 'device-phone',
+    restoredAt: 1767110400000
+  }
+  // The save replaces the content these two hold encrypted, so they must go.
+  // Only folders have a type, and folders never reach savePage.
+  const NOT_FROM_AN_EDITOR_SAVE = ['encryptedContent', 'appLockEncrypted', 'type']
+
+  it('has a sample for every field save-pages persists', () => {
+    const missing = REQUIRED_PAGE_FIELDS.filter(field => !(field in SAMPLE) && !NOT_FROM_AN_EDITOR_SAVE.includes(field))
+    assert.deepEqual(missing, [])
+  })
+
+  for (const field of Object.keys(SAMPLE)) {
+    it(`keeps '${field}'`, () => {
+      assert.deepEqual(validate(structuredClone(SAMPLE)).sanitized[field], SAMPLE[field])
+    })
+  }
+
+  it('keeps timestamps only when they are finite numbers', () => {
+    for (const bad of [NaN, Infinity, '1767139200000', null]) {
+      const { sanitized } = validate({ ...SAMPLE, lastEdited: bad, trashedAt: bad, restoredAt: bad })
+      for (const field of ['lastEdited', 'trashedAt', 'restoredAt']) {
+        assert.ok(!(field in sanitized), `kept ${field} = ${String(bad)}`)
+      }
+    }
+  })
+
+  it("keeps 'trashed' only when it is true, and 'trashedBy' only when it is a string", () => {
+    for (const bad of [false, 'true', 1, null]) {
+      assert.ok(!('trashed' in validate({ ...SAMPLE, trashed: bad }).sanitized), `kept trashed = ${String(bad)}`)
+    }
+    for (const bad of [null, 7, { id: 'device-phone' }]) {
+      assert.ok(!('trashedBy' in validate({ ...SAMPLE, trashedBy: bad }).sanitized), `kept trashedBy = ${JSON.stringify(bad)}`)
+    }
+  })
+
+  it('leaves out encryptedContent and appLockEncrypted, which hold the content the save replaces', () => {
+    const { sanitized } = validate({ ...SAMPLE, encryptedContent: { data: [1], iv: [2], salt: [3] }, appLockEncrypted: true })
+    assert.ok(!('encryptedContent' in sanitized))
+    assert.ok(!('appLockEncrypted' in sanitized))
+  })
+
+  it('savePage saves through applyEditorSave', () => {
+    const code = readSrc('hooks/usePagesManager.js')
+    const start = code.indexOf('const savePage = useCallback')
+    assert.ok(start !== -1, 'could not find savePage in hooks/usePagesManager.js — update this check')
+    const section = code.substring(start, code.indexOf('}, [savePagesToStorage])', start))
+    assert.ok(section.includes('applyEditorSave('), 'savePage must store what applyEditorSave (lib/editorSave.js) returns')
+  })
+})
+
+describe('Notes in Trash stay out of the quick switcher', () => {
+  it('QuickSwitcher leaves trashed notes out of its list', () => {
+    const code = readSrc('components/QuickSwitcher.js')
+    const start = code.indexOf('const allPages = useMemo')
+    assert.ok(start !== -1, 'could not find allPages in components/QuickSwitcher.js — update this check')
+    const section = code.substring(start, code.indexOf('}, [pages])', start))
+    assert.ok(section.includes('trashed'), 'the quick switcher must not list notes in Trash')
   })
 })
 

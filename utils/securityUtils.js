@@ -425,6 +425,19 @@ export function validatePageStructure(page) {
     selfDestructAt: page.selfDestructAt || undefined
   }
 
+  // Trash and sync state, kept when well formed. Every editor save comes
+  // through here, and the editor saves a note as soon as it opens, so a field
+  // left out is lost from a note that was only opened: `lastEdited` is what
+  // sync compares when two devices change the same note, and without
+  // `trashed` a note opened from the quick switcher left Trash.
+  // encryptedContent and appLockEncrypted stay out on purpose: they hold the
+  // content this save replaces.
+  if (Number.isFinite(page.lastEdited)) sanitized.lastEdited = page.lastEdited
+  if (page.trashed === true) sanitized.trashed = true
+  if (Number.isFinite(page.trashedAt)) sanitized.trashedAt = page.trashedAt
+  if (typeof page.trashedBy === 'string') sanitized.trashedBy = sanitizeString(page.trashedBy)
+  if (Number.isFinite(page.restoredAt)) sanitized.restoredAt = page.restoredAt
+
   return { isValid: true, errors: [], sanitized }
 }
 
