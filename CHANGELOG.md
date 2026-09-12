@@ -5,11 +5,15 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.6.11] - 2026-09-12
+
+Pinned notes, templates, PDFs in every language, and fixes for notes in Trash.
 
 ### Added
 - **Pinned notes.** Pin a note to keep it in a Pinned section at the top of the sidebar on Mac and the notes list on iPhone, most recently pinned first. Pin or unpin from a note's row menu, the ⋯ menu (⌘⇧P) or Page actions on iPhone. A pinned note in a folder also stays in its folder, marked with a pin. Pins sync between devices.
 - **Templates.** Naming a new note now offers templates: Meeting notes, Daily journal, To-do list, Project plan, Weekly review, and your own. Picking one suggests a name unless you typed one. Save any note as a template from the ⋯ menu (Page actions on iPhone) to copy it into a Templates folder, where you edit it like any note. `{{date}}`, `{{time}}`, `{{weekday}}` and `{{title}}` fill in when a note is made from a template. Templates stay out of search and the quick switcher.
+- **PDFs in every language.** PDF export now keeps text in Chinese, Japanese, Korean, Arabic, Hebrew, Greek, Cyrillic and other scripts, and includes emoji. Right-to-left lines are aligned right, and Chinese and Japanese lines don't start with closing punctuation. The fonts (Noto, under the SIL Open Font License) load only when a note needs them, and notes in Western European languages export as before.
+- **Photos in older notes** in Sync settings shows how moving photos into attachment storage is going: how many have moved, which notes were left as they were and why (each opens the note), and which devices it is waiting on to update.
 
 ### Changed
 - **Self-destruct animation.** When the page you have open self-destructs, its text turns into binary that crumbles and falls away down the page, then the next page opens.
@@ -17,6 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - A page that self-destructed while open switched to another page straight away, so its animation never played.
 - Empty bullet and numbered list items lost their bullet or number to the "List item" placeholder, and a numbered item's placeholder sat left of the text (cut off on iPhone). The marker now stays, with the placeholder beside it.
+- **Typing straight after Enter in a list** put the first characters at the start of the item above.
+- **Opening a note could take it out of Trash.** Saving a note dropped its Trash and last-edited details, so a note opened from the quick switcher left Trash, and sync treated notes that had only been opened as never edited.
+- **Notes in Trash still showed in their folder** and counted in its badge, and search, Add Page, both link pickers and Alt+arrow navigation listed them. A note in Trash keeps its place in the folder for Restore, and a link to one now offers to restore it.
+- When the note you had open went to Trash, was deleted or self-destructed, was removed by another device, or had its import undone, Dash could open a locked note next and ask for its password, leaving the old note on screen. It now opens the next note without a password, or no note.
+- **Dash Sync:** a device checking in at the same moment could bring back a device you had just removed, or drop one that had just been added.
+
+### Removed
+- The unused `@editorjs/image` package.
 
 ## [1.6.10] - 2026-09-11
 

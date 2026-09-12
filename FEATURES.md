@@ -123,6 +123,7 @@ Real-time word count displayed in the editor footer.
 - Drag pages into/out of folders
 - Move pages between folders via context menu
 - Collapse/expand folders
+- A note in Trash doesn't show in its folder or count towards it, and Restore puts it back in its place
 
 ### Tags
 - Create color-coded tags
@@ -277,6 +278,7 @@ Optional end-to-end-encrypted sync keeps notes, folders, tags, attachments, and 
 - **Client-side vault encryption** — a per-account vault key encrypts everything before upload; the key is derived on-device and never leaves it.
 - **Magic-link sign-in** — sign in with your email and a 6-digit code (no password to remember). Identity only ties your subscription to your devices.
 - **Trash & auto-backup** — deleted pages sync to a recoverable Trash (30-day retention); scheduled encrypted `.dashpack` backups run independently of sync.
+- **Photos in older notes** — Sync settings shows how many photos pasted before 1.6.9 have moved into attachment storage, which notes were left as they were and why (each opens the note), and which devices the move is waiting on to update.
 
 ---
 
@@ -346,6 +348,8 @@ Generate read-only, encrypted share links of any note.
 - CSV
 
 Exports keep nested lists (numbered per level), callouts, toggles and inline formatting. PDF, Word and RTF include photos; Markdown embeds them.
+
+PDF export keeps text in every script, including Chinese, Japanese, Korean, Arabic and Hebrew (right-to-left lines align right), and includes emoji. Dash adds the fonts a note needs (Noto, SIL Open Font License) only when the note uses them; notes in Western European languages use the PDF's built-in fonts.
 
 All exports can optionally be **encrypted with a passphrase** (AES-GCM-256).
 
