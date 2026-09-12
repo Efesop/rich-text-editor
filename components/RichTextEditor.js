@@ -542,6 +542,7 @@ export default function RichTextEditor() {
     cancelSelfDestruct,
     navigateToPage,
     clearCurrentPage,
+    openNextNote,
     selfDestructingPages,
     completeSelfDestruct,
     editorReloadKey,
@@ -1475,12 +1476,10 @@ export default function RichTextEditor() {
           // Peer trashed or hard-deleted the page we're viewing.
           // Pre-fix the editor kept the stale page open even after the
           // sidebar hid it — user saw a phantom page they couldn't
-          // close. Navigate to the first non-trashed note instead.
+          // close. Open the next note instead, or none.
           const peerDeleted = !fresh || fresh.trashed === true
           if (peerDeleted) {
-            const next = pagesToSet.find(p => p && p.type !== 'folder' && !p.trashed)
-            if (next) setCurrentPage(next)
-            else clearCurrentPage() // no notes left — setCurrentPage(null) is a no-op
+            openNextNote(pagesToSet)
           } else if (fresh !== cur) {
             // Content refresh, not navigation.
             setCurrentPage(fresh)
@@ -3334,10 +3333,7 @@ export default function RichTextEditor() {
       const roomId = page.id.replace('live-', '')
       try { localStorage.removeItem('dash-live-page-' + roomId) } catch { /* ignore */ }
       setPages(prev => prev.filter(p => p.id !== page.id))
-      if (currentPage?.id === page.id) {
-        const remaining = pages.filter(p => p.id !== page.id && p.type !== 'folder')
-        if (remaining.length > 0) setCurrentPage(remaining[0])
-      }
+      if (currentPage?.id === page.id) openNextNote(pages, page.id)
       return
     }
     // Already trashed → user is invoking delete from inside the Trash
@@ -3373,7 +3369,7 @@ export default function RichTextEditor() {
       showCancel: true,
       cancelText: 'Cancel'
     })
-  }, [trashPage, permanentlyDeletePage, currentPage, pages, setPages, setCurrentPage])
+  }, [trashPage, permanentlyDeletePage, currentPage, pages, setPages, openNextNote])
 
   const filteredPages = useCallback(() => {
     return pages.filter(page => {

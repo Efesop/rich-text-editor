@@ -9,6 +9,7 @@ import { attachmentIdsInPage, attachmentIdsSafeToDelete } from '@/lib/attachment
 import { captureVersion, deleteVersions } from '@/lib/versionStorage'
 import { encryptPagesUntilStable } from '@/lib/appLockSnapshot'
 import { recordHardDelete } from '@/lib/hardDeletes'
+import { nextNoteToOpen } from '@/lib/nextNote'
 import { encryptJsonWithPassphrase } from '@/utils/cryptoUtils'
 import { DEMO_PAGES, DEMO_TAGS, isDemoMode } from '@/lib/demoSeed'
 
@@ -586,11 +587,7 @@ export function usePagesManager() {
     savePagesToStorage(newPages)
     setPages(newPages)
     // Move user off the trashed page if they're viewing it
-    if (currentPageRef.current?.id === pageToTrash.id) {
-      const remaining = newPages.filter(p => p.type !== 'folder' && !p.trashed)
-      if (remaining[0]) setCurrentPage(remaining[0])
-      else clearCurrentPage() // no notes left — actually clear (setCurrentPage(null) is a no-op)
-    }
+    if (currentPageRef.current?.id === pageToTrash.id) openNextNote(newPages)
   }, [])
 
   const restorePage = useCallback(async (pageToRestore) => {
@@ -697,11 +694,7 @@ export function usePagesManager() {
     }
 
     // Handle current page cleanup
-    if (currentPageRef.current?.id === pageToDelete.id) {
-      const remainingPages = (Array.isArray(pagesRef.current) ? pagesRef.current : []).filter(p => p.type !== 'folder' && !p.trashed)
-      if (remainingPages[0]) setCurrentPage(remainingPages[0])
-      else clearCurrentPage() // no notes left — actually clear (setCurrentPage(null) is a no-op)
-    }
+    if (currentPageRef.current?.id === pageToDelete.id) openNextNote(pagesRef.current, pageToDelete.id)
   }, [savePagesToStorage])
 
   // Default delete = soft-trash for notes (recoverable from Trash),
@@ -1023,6 +1016,23 @@ export function usePagesManager() {
     _setCurrentPage(null)
   }, [])
 
+  // Leave a note that went away (Trash, delete, self-destruct, sync pull,
+  // import undo, decoy notes): open the next note that opens without a
+  // password, or clear the open note when there is none. setCurrentPage would
+  // ask for a locked note's password instead and leave the note that went
+  // away open behind the prompt, where edits go nowhere.
+  const openNextNote = useCallback((items = pagesRef.current, excludeId = null) => {
+    const next = nextNoteToOpen(items, { excludeId, unlockedIds: tempUnlockedPagesRef.current })
+    if (!next) {
+      _setCurrentPage(null)
+      return null
+    }
+    lastSavedContentRef.current = null // Reset dedup on page switch
+    const latest = pagesRef.current.find(p => p.id === next.id) || next
+    _setCurrentPage(latest)
+    return latest
+  }, [])
+
   const updateTagInPages = useCallback(async (oldName, updatedTag) => {
     if (!oldName || !updatedTag?.name) return
 
@@ -1342,16 +1352,14 @@ export function usePagesManager() {
       duressKeyRef.current = duressPassword
       setPages(decoyPages)
       pagesRef.current = decoyPages
-      if (decoyPages.length > 0) {
-        _setCurrentPage(decoyPages[0])
-      }
+      openNextNote(decoyPages)
     } else {
       // Classic hide mode: empty app
       setPages([])
       pagesRef.current = []
       _setCurrentPage(null)
     }
-  }, [])
+  }, [openNextNote])
 
   // Recover from duress hide mode: unblock saves and reload pages from disk
   // Only reloads if duress mode is active (savesBlockedRef), otherwise no-op
@@ -1370,6 +1378,11 @@ export function usePagesManager() {
     dbg('duress', 'recovered', validPages.length, 'pages from disk')
     setPages(validPages)
     pagesRef.current = validPages
+    // A decoy note may still be open, and it isn't one of the real notes.
+    // Clearing it now (ref included) lets decryptAllAppLockPages, which runs
+    // straight after, open the first real note.
+    currentPageRef.current = null
+    _setCurrentPage(null)
     return true
   }, [])
 
@@ -1528,6 +1541,7 @@ export function usePagesManager() {
     dbg('applock', 'decrypting all pages, encrypted count:', currentPages.filter(p => p.appLockEncrypted).length)
     if (!hasAppLockPages) {
       dbg('applock', 'no encrypted pages to decrypt')
+      if (!currentPageRef.current) openNextNote(currentPages)
       return
     }
 
@@ -1578,12 +1592,11 @@ export function usePagesManager() {
         _setCurrentPage(updated)
         setEditorReloadKey(k => k + 1)
       }
-    } else if (decrypted.length > 0) {
-      const firstPage = decrypted.find(p => p.type !== 'folder') || decrypted[0]
-      dbg('applock', 'selecting first page after recovery:', firstPage.title || firstPage.id)
-      _setCurrentPage(firstPage)
+    } else {
+      const firstPage = openNextNote(decrypted)
+      dbg('applock', 'selecting first page after recovery:', firstPage ? firstPage.title || firstPage.id : 'none')
     }
-  }, [])
+  }, [openNextNote])
 
   // App lock encryption: encrypt all pages and clear plaintext from memory
   const encryptAndClearAppLockPages = useCallback(async () => {
@@ -1670,13 +1683,8 @@ export function usePagesManager() {
       next.delete(pageId)
       return next
     })
-    if (currentPageRef.current?.id === pageId) {
-      const remaining = pagesRef.current.filter(p => p.type !== 'folder' && p.id !== pageId)
-      if (remaining.length > 0) {
-        setCurrentPage(remaining[0])
-      }
-    }
-  }, [setCurrentPage])
+    if (currentPageRef.current?.id === pageId) openNextNote(pagesRef.current, pageId)
+  }, [openNextNote])
 
   // Self-destruct: check for expired pages every 5 seconds
   useEffect(() => {
@@ -1875,13 +1883,15 @@ export function usePagesManager() {
     pagesRef.current = updated
     setPages(updated)
     await saveNowOrThrow()
-    if (currentPageRef.current && (ids.has(currentPageRef.current.id) || currentPageRef.current.folderId === folderId)) {
-      const remaining = updated.filter(p => p.type !== 'folder' && !p.trashed)
-      if (remaining[0]) setCurrentPage(remaining[0])
-      else clearCurrentPage()
+    const open = currentPageRef.current
+    if (open && (ids.has(open.id) || open.folderId === folderId)) {
+      // A note moved into the folder later stays open, now outside the folder
+      const stillHere = updated.find(p => p.id === open.id && !p.trashed)
+      if (stillHere) _setCurrentPage(stillHere)
+      else openNextNote(updated)
     }
     return { moved }
-  }, [saveNowOrThrow, setCurrentPage, clearCurrentPage])
+  }, [saveNowOrThrow, openNextNote])
 
   const getLatestPages = useCallback(() => pagesRef.current, [])
 
@@ -1930,6 +1940,7 @@ export function usePagesManager() {
     cancelSelfDestruct,
     navigateToPage,
     clearCurrentPage,
+    openNextNote,
     selfDestructingPages,
     completeSelfDestruct,
     editorReloadKey,
