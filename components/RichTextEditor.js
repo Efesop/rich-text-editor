@@ -3001,7 +3001,7 @@ export default function RichTextEditor() {
 
       switch (exportType) {
         case 'pdf':
-          exportToPDF(content, fileName, { images })
+          await exportToPDF(content, fileName, { images })
           break
         case 'markdown':
           const markdown = exportToMarkdown(content, { images })

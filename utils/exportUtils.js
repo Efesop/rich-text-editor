@@ -19,6 +19,9 @@ import {
 import { create } from 'xmlbuilder2'
 import { stringify } from 'csv-stringify/sync'
 import { encryptJsonWithPassphrase, decryptJsonWithPassphrase } from './cryptoUtils.js'
+import { loadPdfFonts } from './pdfFonts.js'
+import { canvasRasterizer } from './pdfRaster.js'
+import { createPdfText, pdfFontKeys } from './pdfText.js'
 import {
   CALLOUT_LABELS,
   CSV_COLUMNS,
@@ -47,9 +50,16 @@ const PT_TO_MM = 0.3528
 const PX_TO_MM = 0.2646
 const HEADING_SIZES = [22, 18, 15, 13, 12, 12]
 
-/** The note laid out as a jsPDF document, starting a new page whenever one fills. */
-export function buildPdf (content, { images = new Map() } = {}) {
-  const doc = new jsPDF()
+/**
+ * The note laid out as a jsPDF document, starting a new page whenever one
+ * fills. Text beyond Western European letters needs `fonts` (loadPdfFonts
+ * with pdfFontsFor's keys), and `rasterizer` (utils/pdfRaster.js) draws what
+ * those fonts lack. Without fonts the note is written in jsPDF's own fonts.
+ */
+export function buildPdf (content, { images = new Map(), fonts = null, rasterizer = null } = {}) {
+  // Embedded fonts make a PDF large; compression takes most of that back
+  const doc = new jsPDF(fonts ? { compress: true } : undefined)
+  const unicode = fonts ? createPdfText(doc, { fonts, rasterizer }) : null
   const width = PDF_PAGE.width - PDF_PAGE.margin * 2
   const bottom = PDF_PAGE.height - PDF_PAGE.margin
   let y = PDF_PAGE.margin
@@ -61,13 +71,27 @@ export function buildPdf (content, { images = new Map() } = {}) {
     }
   }
 
-  const write = (text, { size = 11, style = 'normal', font = 'helvetica', indent = 0, after = 3 } = {}) => {
+  const textLines = (text, { size, style, font, width: lineWidth }) => unicode
+    ? unicode.lines(text, { width: lineWidth, size, style, mono: font === 'courier' })
+    : doc.splitTextToSize(String(text), lineWidth)
+
+  // `right` is where a right-to-left paragraph's lines end
+  const drawLine = (line, { x, right, baseline, size, style, font, rtl }) => {
+    if (unicode) unicode.draw(line, { x, right, baseline, size, style, mono: font === 'courier', rtl })
+    else doc.text(line, x, baseline)
+  }
+
+  // `rtl` defaults to the direction of the text's first letter
+  const write = (text, { size = 11, style = 'normal', font = 'helvetica', indent = 0, after = 3, rtl: direction } = {}) => {
     doc.setFont(font, style)
     doc.setFontSize(size)
     const lineHeight = size * PT_TO_MM * 1.4
-    for (const line of doc.splitTextToSize(String(text), width - indent)) {
+    const rtl = Boolean(unicode) && (direction ?? unicode.isRtl(text))
+    const x = PDF_PAGE.margin + (rtl ? 0 : indent)
+    const right = PDF_PAGE.margin + width - (rtl ? indent : 0)
+    for (const line of textLines(text, { size, style, font, width: width - indent })) {
       room(lineHeight)
-      doc.text(line, PDF_PAGE.margin + indent, y + size * PT_TO_MM)
+      drawLine(line, { x, right, baseline: y + size * PT_TO_MM, size, style, font, rtl })
       y += lineHeight
     }
     y += after
@@ -80,14 +104,23 @@ export function buildPdf (content, { images = new Map() } = {}) {
     const lineHeight = size * PT_TO_MM * 1.3
     doc.setFontSize(size)
     item.rows.forEach((row, r) => {
-      doc.setFont('helvetica', r === 0 && item.withHeadings ? 'bold' : 'normal')
-      const cells = row.map(cell => doc.splitTextToSize(inlineText(cell), cellWidth - padding * 2))
+      const style = r === 0 && item.withHeadings ? 'bold' : 'normal'
+      doc.setFont('helvetica', style)
+      const cells = row.map(cell => textLines(inlineText(cell), { size, style, font: 'helvetica', width: cellWidth - padding * 2 }))
       const height = Math.max(1, ...cells.map(lines => lines.length)) * lineHeight + padding * 2
       room(height)
       cells.forEach((lines, c) => {
         const x = PDF_PAGE.margin + c * cellWidth
         doc.rect(x, y, cellWidth, height)
-        if (lines.length) doc.text(lines, x + padding, y + padding + size * PT_TO_MM)
+        if (!lines.length) return
+        if (!unicode) {
+          doc.text(lines, x + padding, y + padding + size * PT_TO_MM)
+          return
+        }
+        const rtl = unicode.isRtl(inlineText(row[c]))
+        lines.forEach((line, i) => drawLine(line, {
+          x: x + padding, right: x + cellWidth - padding, baseline: y + padding + size * PT_TO_MM + i * lineHeight, size, style, font: 'helvetica', rtl
+        }))
       })
       y += height
     })
@@ -134,18 +167,23 @@ export function buildPdf (content, { images = new Map() } = {}) {
         if (text.trim()) write(text)
         break
       }
-      case 'list-item':
-        write(`${listMarker(item)} ${inlineText(item.html)}`, { indent: 6 * item.indent, after: 1.5 })
+      case 'list-item': {
+        // The item's words set its direction, not a marker such as "a." or "[x]"
+        const text = inlineText(item.html)
+        write(`${listMarker(item)} ${text}`, { indent: 6 * item.indent, after: 1.5, rtl: unicode?.isRtl(text) })
         break
+      }
       case 'quote': {
         write(inlineText(item.html), { style: 'italic', indent: 6, after: 1.5 })
         const caption = inlineText(item.captionHtml).trim()
         if (caption) write(`— ${caption}`, { size: 9, indent: 6 })
         break
       }
-      case 'callout':
-        write(`${CALLOUT_LABELS[item.variant]}: ${inlineText(item.html)}`)
+      case 'callout': {
+        const text = inlineText(item.html)
+        write(`${CALLOUT_LABELS[item.variant]}: ${text}`, { rtl: unicode?.isRtl(text) })
         break
+      }
       case 'toggle': {
         write(inlineText(item.summaryHtml), { style: 'bold', after: 1.5 })
         const body = inlineText(item.contentHtml)
@@ -183,8 +221,48 @@ export function buildPdf (content, { images = new Map() } = {}) {
   return doc
 }
 
-export const exportToPDF = (content, title, options) => {
-  buildPdf(content, options).save(`${title}.pdf`)
+// Everything a PDF of the note draws, to tell which fonts it needs
+function pdfText (content) {
+  const texts = []
+  const code = []
+  for (const item of exportItems(content)) {
+    if (item.kind === 'code') {
+      code.push(item.code)
+    } else if (item.kind === 'table') {
+      item.rows.forEach(row => row.forEach(cell => texts.push(inlineText(cell))))
+    } else if (item.kind === 'seed-phrase') {
+      texts.push(...item.words)
+    } else {
+      for (const field of ['html', 'captionHtml', 'summaryHtml', 'contentHtml']) {
+        if (item[field]) texts.push(inlineText(item[field]))
+      }
+      for (const field of ['url', 'filename']) {
+        if (item[field]) texts.push(item[field])
+      }
+    }
+  }
+  return { texts, code }
+}
+
+/** The fonts (keys of PDF_FONTS in utils/pdfFonts.js) a PDF of the note needs; none for Western European text. */
+export const pdfFontsFor = (content) => pdfFontKeys(pdfText(content))
+
+/**
+ * Save the note as a PDF, loading the fonts it needs first. If laying it out
+ * with those fonts fails, the PDF is written in jsPDF's own fonts instead.
+ */
+export const exportToPDF = async (content, title, { images } = {}) => {
+  const keys = pdfFontsFor(content)
+  let doc = null
+  if (keys.length) {
+    try {
+      doc = buildPdf(content, { images, fonts: await loadPdfFonts(keys), rasterizer: canvasRasterizer() })
+    } catch (err) {
+      console.error('PDF export: laying out with embedded fonts failed', err)
+    }
+  }
+  if (!doc) doc = buildPdf(content, { images })
+  doc.save(`${title}.pdf`)
 }
 
 // --- Text formats ------------------------------------------------------------
