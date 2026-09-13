@@ -2,6 +2,7 @@ import DOMPurify from 'isomorphic-dompurify'
 import { queuePasteItems } from '../../utils/pasteQueue'
 import { splitListItem } from '../../lib/listEnter.js'
 import { slashInEmptyItem } from '../../lib/listSlash.js'
+import { isComposingKey } from '../../lib/listComposition.js'
 import { clampListIndent, withIndent } from '../../lib/listIndent.js'
 import { listBlocksFromPaste } from '../../lib/listPaste.js'
 import { applyIndent, changeListIndent, listConversionConfig, listIndentMenu } from './listIndentRuntime'
@@ -131,6 +132,10 @@ export default class BulletListItem {
   }
 
   _handleKeyDown(e) {
+    // Keys an input method is using stay with it: Enter confirms a Japanese,
+    // Chinese or Korean composition and Backspace edits it (lib/listComposition.js)
+    if (isComposingKey(e)) return
+
     // '/' in an empty item turns it into a paragraph with the '/' in it and
     // opens the block menu, before this handler returns, so keys typed
     // straight after land after the '/' (lib/listSlash.js)
