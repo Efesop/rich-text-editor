@@ -5,6 +5,14 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.12] - 2026-09-13
+
+Two fixes for typing in lists.
+
+### Fixed
+- **'/' in an empty bullet, numbered or checklist item** now turns it into a paragraph and opens the block menu straight away, as '/' does in an empty paragraph. The menu didn't open before, and a key typed straight after the '/' landed ahead of it.
+- **Japanese, Chinese and Korean input in lists.** Confirming a composition with Enter no longer splits the item and adds the text twice, and Backspace while composing no longer turns the item into a paragraph.
+
 ## [1.6.11] - 2026-09-12
 
 Pinned notes, templates, PDFs in every language, and fixes for notes in Trash.
