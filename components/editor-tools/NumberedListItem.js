@@ -1,5 +1,6 @@
 import DOMPurify from 'isomorphic-dompurify'
 import { splitListItem } from '../../lib/listEnter.js'
+import { slashInEmptyItem } from '../../lib/listSlash.js'
 import { clampListIndent, withIndent } from '../../lib/listIndent.js'
 import { applyIndent, changeListIndent, listConversionConfig, listIndentMenu, renumberLists } from './listIndentRuntime'
 
@@ -85,21 +86,12 @@ export default class NumberedListItem {
   }
 
   _handleKeyDown(e) {
-    // Convert to paragraph on '/' in empty block so Editor.js slash menu appears
+    // '/' in an empty item turns it into a paragraph with the '/' in it and
+    // opens the block menu, before this handler returns, so keys typed
+    // straight after land after the '/' (lib/listSlash.js)
     if (e.key === '/' && this._element.textContent.trim() === '') {
-      e.preventDefault()
-      const currentIndex = this.api.blocks.getCurrentBlockIndex()
-      this.api.blocks.insert('paragraph', { text: '' }, {}, currentIndex + 1, true)
-      this.api.blocks.delete(currentIndex)
-      setTimeout(() => {
-        renumberLists()
-        const block = document.querySelectorAll('.ce-block')[currentIndex]
-        const contentEl = block?.querySelector('[contenteditable]')
-        if (contentEl) {
-          contentEl.focus()
-          document.execCommand('insertText', false, '/')
-        }
-      }, 50)
+      slashInEmptyItem({ api: this.api, block: this.block, event: e })
+      renumberLists()
       return
     }
 
