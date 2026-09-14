@@ -80,6 +80,7 @@ import { deriveKeyFromPassphrase } from '@/utils/cryptoUtils'
 import useAppLockStore from '../store/appLockStore'
 import { useIdleTimer } from '@/hooks/useIdleTimer'
 import AppLockScreen from './AppLockScreen'
+import { LOCK_SCREEN_EXIT_MS } from '@/lib/lockScreen'
 import AppLockSetupModal from './AppLockSetupModal'
 import AppLockSettingsModal from './AppLockSettingsModal'
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal'
@@ -1287,6 +1288,8 @@ export default function RichTextEditor() {
   const [isAppLockSettingsOpen, setIsAppLockSettingsOpen] = useState(false)
   const [isEncryptionChoiceOpen, setIsEncryptionChoiceOpen] = useState(false)
   const [biometricAvailable, setBiometricAvailable] = useState(false)
+  // What the lock screen calls it: Touch ID on Mac, Face ID on most iPhones
+  const [biometricName, setBiometricName] = useState('Touch ID')
   const [isLockDropdownOpen, setIsLockDropdownOpen] = useState(false)
   const lockDropdownRef = useRef(null)
 
@@ -1552,15 +1555,29 @@ export default function RichTextEditor() {
     } else if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()) {
       ;(async () => {
         try {
-          const { BiometricAuth } = await import('@aparajita/capacitor-biometric-auth')
+          const { BiometricAuth, BiometryType } = await import('@aparajita/capacitor-biometric-auth')
           const ci = await BiometricAuth.checkBiometry()
           setBiometricAvailable(!!ci?.isAvailable)
+          if (ci?.biometryType === BiometryType.faceId) setBiometricName('Face ID')
         } catch (err) {
           console.warn('biometric checkBiometry failed', err)
         }
       })()
     }
   }, [])
+
+  // The lock screen stays up for a moment after Dash unlocks, to play its
+  // unlock: the field decrypts outward and the screen fades (AppLockScreen)
+  const [lockScreenUp, setLockScreenUp] = useState(false)
+  useEffect(() => {
+    if (appLock.isLocked) {
+      setLockScreenUp(true)
+      return
+    }
+    if (!lockScreenUp) return
+    const timer = setTimeout(() => setLockScreenUp(false), LOCK_SCREEN_EXIT_MS)
+    return () => clearTimeout(timer)
+  }, [appLock.isLocked, lockScreenUp])
 
   // Deep link handler — dash:// protocol opens shared notes
   const pendingDeepLinkRef = useRef(null)
@@ -5727,15 +5744,17 @@ export default function RichTextEditor() {
         theme={theme}
       />
 
-      {appLock.isLocked && (
+      {(appLock.isLocked || lockScreenUp) && (
         <AppLockScreen
           onUnlock={handleAppLockUnlock}
           onBiometricUnlock={handleBiometricUnlock}
           biometricAvailable={biometricAvailable}
           biometricEnabled={appLock.biometricEnabled}
+          biometricName={biometricName}
           onDuressUnlock={handleDuressUnlock}
           duressEnabled={appLock.duressEnabled}
           theme={theme}
+          leaving={!appLock.isLocked}
         />
       )}
 

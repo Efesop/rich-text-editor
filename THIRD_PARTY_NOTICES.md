@@ -1,8 +1,8 @@
 # Third-party notices
 
 Dash is MIT licensed. The note importers (`lib/import/`) use the open-source
-libraries below, and PDF export embeds the Noto fonts listed last. Each notice
-is reproduced as its authors require.
+libraries below. PDF export embeds the Noto fonts and the lock screen draws with
+Geist Mono, both listed last. Each notice is reproduced as its authors require.
 
 ## @zip.js/zip.js 2.14.0
 
@@ -338,3 +338,14 @@ DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 ```
+
+## Geist Mono (lock screen)
+
+`public/fonts/geist/GeistMonoVF.woff` is Geist Mono, the typeface of
+dashnote.io. The app lock screen draws its field of 0s and 1s with it. The same
+notice ships with the font as `public/fonts/geist/OFL.txt`. License: SIL Open
+Font License 1.1, the text above.
+
+| Font | Version | Source | Copyright |
+|---|---|---|---|
+| Geist Mono (variable) | 1.200 | [vercel/geist-font](https://github.com/vercel/geist-font) | Copyright (c) 2023 Vercel, in collaboration with basement.studio |
