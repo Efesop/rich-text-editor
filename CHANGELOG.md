@@ -5,6 +5,17 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.13] - 2026-09-14
+
+A new lock screen, and wrong passwords on it are caught again.
+
+### Changed
+- **A new lock screen.** When app lock is on, Dash now waits behind the binary field from dashnote.io, drawn in your theme’s own colours. The password field has its own unlock arrow, with Touch ID (Face ID on iPhone) underneath. A wrong password shakes the field and scrambles the bits around it, and unlocking decrypts the field outward as the screen fades. With Reduce Motion on, the field holds still.
+
+### Fixed
+- **Wrong passwords on the lock screen.** The lock screen treated every password as right while it checked it, so a wrong one just cleared the field, and the waits after repeated wrong passwords never started. It now says “Wrong password” and waits 1 s after 3 wrong passwords, 5 s after 5, 15 s after 7 and 30 s after 9, counting down on screen.
+- The iPhone lock screen said “Unlock with Touch ID” on iPhones that use Face ID.
+
 ## [1.6.12] - 2026-09-13
 
 Two fixes for typing in lists.
