@@ -111,7 +111,7 @@ export default function AppLockScreen({ onUnlock, onBiometricUnlock, biometricAv
       }
     }
 
-    const success = onUnlock(password)
+    const success = await onUnlock(password)
     if (success) {
       setPassword('')
       setError('')
