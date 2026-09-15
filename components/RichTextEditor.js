@@ -1567,7 +1567,7 @@ export default function RichTextEditor() {
   }, [])
 
   // The lock screen stays up for a moment after Dash unlocks, to play its
-  // unlock: the field decrypts outward and the screen fades (AppLockScreen)
+  // unlock: the field rushes outward and the screen fades into the notes (AppLockScreen)
   const [lockScreenUp, setLockScreenUp] = useState(false)
   useEffect(() => {
     if (appLock.isLocked) {

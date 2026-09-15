@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { ArrowRight, Fingerprint, ScanFace } from 'lucide-react'
 import LockScreenField from './LockScreenField'
 import { WRONG_PASSWORD, biometricMessage, lockMessage, lockTheme, lockoutFor } from '@/lib/lockScreen'
@@ -39,13 +39,15 @@ function clearAttemptData () {
 }
 
 const NO_NOTICE = { text: '', bad: false }
+const nextPaint = () => new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)))
 
 // The screen Dash shows while app lock has it locked, on Mac and iPhone: the
 // dashnote.io binary field (LockScreenField) behind the password field. A
 // wrong password shakes the field and scrambles the bits around it. Once Dash
 // unlocks, RichTextEditor keeps this screen up with `leaving` for
-// LOCK_SCREEN_EXIT_MS (lib/lockScreen.js) while the field decrypts outward
-// and the screen fades. Styles: .dash-lock in styles/globals.css.
+// LOCK_SCREEN_EXIT_MS (lib/lockScreen.js): the field stops drawing and the
+// exit runs as a CSS transition growing from the password field, which stays
+// smooth while notes decrypt underneath. Styles: .dash-lock in styles/globals.css.
 export default function AppLockScreen ({ onUnlock, onBiometricUnlock, biometricAvailable, biometricEnabled, biometricName = 'Touch ID', onDuressUnlock, duressEnabled, theme, leaving = false }) {
   const [password, setPassword] = useState('')
   const [notice, setNotice] = useState(NO_NOTICE)
@@ -55,6 +57,7 @@ export default function AppLockScreen ({ onUnlock, onBiometricUnlock, biometricA
   const [busy, setBusy] = useState(false)
   const [wrong, setWrong] = useState(false)
   const [shaking, setShaking] = useState(false)
+  const lockRef = useRef(null)
   const inputRef = useRef(null)
   const formRef = useRef(null)
   const wordsRef = useRef(null)
@@ -112,13 +115,25 @@ export default function AppLockScreen ({ onUnlock, onBiometricUnlock, biometricA
     return { x: box.left + box.width / 2, y: box.top + box.height / 2 }
   }
 
+  // The unlock grows from the password field (--lock-origin-x/y). It's set
+  // before any unlock, since the transition starts the moment `leaving` lands.
+  useLayoutEffect(() => {
+    const place = () => {
+      const lock = lockRef.current
+      const centre = fieldCentre()
+      if (!lock || !centre) return
+      lock.style.setProperty('--lock-origin-x', `${Math.round(centre.x)}px`)
+      lock.style.setProperty('--lock-origin-y', `${Math.round(centre.y)}px`)
+    }
+    place()
+    window.addEventListener('resize', place)
+    return () => window.removeEventListener('resize', place)
+  }, [])
+
   // Dash unlocked, whether by password, Touch ID, Face ID or a duress
-  // password, which has to look exactly the same: decrypt the field outward
+  // password, which has to look exactly the same
   useEffect(() => {
-    if (!leaving) return
-    const centre = fieldCentre()
-    if (centre) fieldRef.current?.unlock(centre.x, centre.y)
-    inputRef.current?.blur()
+    if (leaving) inputRef.current?.blur()
   }, [leaving])
 
   const handleChange = (e) => {
@@ -133,6 +148,8 @@ export default function AppLockScreen ({ onUnlock, onBiometricUnlock, biometricA
     if (!typed.trim() || cooldownRemaining > 0 || busy || leaving) return
     setBusy(true)
     try {
+      // Let the pulsing arrow show first: checking the password blocks for a moment
+      await nextPaint()
       // A duress password is checked first, and unlocks into the decoy like the real one
       let unlocked = false
       if (duressEnabled && onDuressUnlock) unlocked = await onDuressUnlock(typed)
@@ -197,13 +214,14 @@ export default function AppLockScreen ({ onUnlock, onBiometricUnlock, biometricA
 
   return (
     <div
+      ref={lockRef}
       className={`dash-lock${theme === 'fallout' ? ' font-mono' : ''}${leaving ? ' is-leaving' : ''}`}
       style={style}
       role="dialog"
       aria-modal="true"
       aria-labelledby="dash-lock-title"
     >
-      <LockScreenField ref={fieldRef} ink={colours.ink} base={colours.base} peak={colours.peak} clearRef={wordsRef} />
+      <LockScreenField ref={fieldRef} ink={colours.ink} base={colours.base} peak={colours.peak} clearRef={wordsRef} paused={leaving} />
       {/* The Mac window can still be dragged by its top edge while locked */}
       <div className="dash-lock-drag" aria-hidden="true" />
 
@@ -233,7 +251,7 @@ export default function AppLockScreen ({ onUnlock, onBiometricUnlock, biometricA
             />
             <button
               type="submit"
-              className={`dash-lock-go${waiting ? ' is-waiting' : ''}`}
+              className={`dash-lock-go${waiting ? ' is-waiting' : ''}${busy ? ' is-busy' : ''}`}
               aria-label={waiting ? `Try again in ${cooldownRemaining} second${cooldownRemaining === 1 ? '' : 's'}` : 'Unlock'}
               disabled={!password.trim() || waiting || busy || leaving}
             >

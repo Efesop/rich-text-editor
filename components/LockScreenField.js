@@ -1,10 +1,12 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
-import { EFFECTS, FIELD, createField, liveEffects, stepField } from '@/lib/lockField'
+import { FIELD, SCRAMBLE, createField, liveEffects, stepField } from '@/lib/lockField'
 
 // The binary field behind the app lock screen (lib/lockField.js), in the
 // theme's own ink. It only draws while the lock screen is up: 12 frames a
-// second at rest and 30 while a wrong password or an unlock plays. It stops
-// while the window is hidden and holds still with Reduce Motion on.
+// second at rest and 30 while a wrong password scrambles it. It stops while
+// the window is hidden and holds still with Reduce Motion on. Once `paused`
+// (Dash is unlocking) it keeps its last frame and stops drawing, leaving the
+// main thread to the app while the screen's exit runs as a CSS transition.
 
 const FAMILY = 'Dash Bits'
 const FONT_STACK = `"${FAMILY}", ui-monospace, SFMono-Regular, Menlo, monospace`
@@ -44,25 +46,26 @@ function glyph (char, ink, dpr) {
   return canvas
 }
 
-const LockScreenField = forwardRef(function LockScreenField ({ ink, base, peak, clearRef }, ref) {
+const LockScreenField = forwardRef(function LockScreenField ({ ink, base, peak, clearRef, paused = false }, ref) {
   const canvasRef = useRef(null)
   const effectsRef = useRef([])
-  const sizeRef = useRef({ width: 0, height: 0 })
+  const pausedRef = useRef(paused)
   const wakeRef = useRef(() => {})
+  const stopRef = useRef(() => {})
 
   useImperativeHandle(ref, () => ({
     // A wrong password: the bits around (x, y) scramble, then settle
     scramble (x, y) {
-      effectsRef.current.push({ type: 'scramble', x, y, radius: EFFECTS.scramble.radius, duration: EFFECTS.scramble.duration, start: performance.now() })
-      wakeRef.current()
-    },
-    // Unlocked: the field decrypts outward from (x, y) and stays empty
-    unlock (x, y) {
-      const { width, height } = sizeRef.current
-      effectsRef.current.push({ type: 'unlock', x, y, radius: Math.hypot(width, height) + 140, duration: EFFECTS.unlock.duration, start: performance.now() })
+      effectsRef.current.push({ type: 'scramble', x, y, radius: SCRAMBLE.radius, duration: SCRAMBLE.duration, start: performance.now() })
       wakeRef.current()
     }
   }), [])
+
+  useEffect(() => {
+    pausedRef.current = paused
+    if (paused) stopRef.current()
+    else wakeRef.current()
+  }, [paused])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -71,13 +74,24 @@ const LockScreenField = forwardRef(function LockScreenField ({ ink, base, peak, 
     const still = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
     let field = null
     let sprites = null
+    let clear = null
     let dpr = 1
     let time = Math.random() * FIELD.period
     let last = 0
     let timer = 0
     let frame = 0
-    let empty = false
     let disposed = false
+
+    // Where the words are, so the field clears softly behind them. Measured
+    // when the field is set up, not every frame, which would force layout
+    // while the app is busy.
+    const measureClearing = () => {
+      const words = clearRef && clearRef.current
+      if (!words) return null
+      const box = words.getBoundingClientRect()
+      const own = canvas.getBoundingClientRect()
+      return { x: box.left - own.left + box.width / 2, y: box.top - own.top + box.height / 2, rx: box.width / 2 + 120, ry: box.height / 2 + 90 }
+    }
 
     const setup = () => {
       const rect = canvas.getBoundingClientRect()
@@ -86,18 +100,9 @@ const LockScreenField = forwardRef(function LockScreenField ({ ink, base, peak, 
       dpr = Math.min(2, window.devicePixelRatio || 1)
       canvas.width = Math.round(width * dpr)
       canvas.height = Math.round(height * dpr)
-      sizeRef.current = { width, height }
       field = createField(width, height)
       sprites = [glyph('0', ink, dpr), glyph('1', ink, dpr)]
-    }
-
-    // Where the words are, so the field clears softly behind them
-    const clearing = () => {
-      const words = clearRef && clearRef.current
-      if (!words) return null
-      const box = words.getBoundingClientRect()
-      const own = canvas.getBoundingClientRect()
-      return { x: box.left - own.left + box.width / 2, y: box.top - own.top + box.height / 2, rx: box.width / 2 + 120, ry: box.height / 2 + 90 }
+      clear = measureClearing()
     }
 
     const draw = (dt) => {
@@ -105,11 +110,9 @@ const LockScreenField = forwardRef(function LockScreenField ({ ink, base, peak, 
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       if (!field) return
       const now = performance.now()
-      const { live, unlocked } = liveEffects(effectsRef.current, now)
+      const live = liveEffects(effectsRef.current, now)
       effectsRef.current = live
-      if (unlocked) empty = true
-      if (empty) return
-      const alpha = stepField(field, { time, dt, now, effects: live, base, peak, clear: clearing(), still })
+      const alpha = stepField(field, { time, dt, now, effects: live, base, peak, clear, still })
       const { xs, ys, bits } = field
       for (let i = 0; i < alpha.length; i++) {
         if (alpha[i] <= 0.004) continue
@@ -120,7 +123,7 @@ const LockScreenField = forwardRef(function LockScreenField ({ ink, base, peak, 
     }
 
     const schedule = () => {
-      if (disposed || still || empty || timer || frame) return
+      if (disposed || still || pausedRef.current || timer || frame) return
       const fps = effectsRef.current.length ? FIELD.activeFps : FIELD.fps
       timer = window.setTimeout(() => {
         timer = 0
@@ -130,7 +133,7 @@ const LockScreenField = forwardRef(function LockScreenField ({ ink, base, peak, 
 
     function tick () {
       frame = 0
-      if (disposed || document.hidden) {
+      if (disposed || pausedRef.current || document.hidden) {
         last = 0
         return
       }
@@ -142,17 +145,28 @@ const LockScreenField = forwardRef(function LockScreenField ({ ink, base, peak, 
       schedule()
     }
 
-    // An effect starts on the next frame rather than after a resting one
+    // A scramble starts on the next frame rather than after a resting one
     wakeRef.current = () => {
-      if (disposed || still) return
+      if (disposed || still || pausedRef.current) return
       if (timer) {
         window.clearTimeout(timer)
         timer = 0
       }
       if (!frame) frame = window.requestAnimationFrame(tick)
     }
+    stopRef.current = () => {
+      if (timer) {
+        window.clearTimeout(timer)
+        timer = 0
+      }
+      if (frame) {
+        window.cancelAnimationFrame(frame)
+        frame = 0
+      }
+    }
 
     const onResize = () => {
+      if (pausedRef.current) return
       setup()
       draw(0)
     }
@@ -170,11 +184,11 @@ const LockScreenField = forwardRef(function LockScreenField ({ ink, base, peak, 
     document.addEventListener('visibilitychange', onVisibility)
     return () => {
       disposed = true
-      window.clearTimeout(timer)
-      window.cancelAnimationFrame(frame)
+      stopRef.current()
       window.removeEventListener('resize', onResize)
       document.removeEventListener('visibilitychange', onVisibility)
       wakeRef.current = () => {}
+      stopRef.current = () => {}
     }
   }, [ink, base, peak, clearRef])
 

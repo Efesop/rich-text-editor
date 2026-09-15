@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 
-const { EFFECTS, FIELD, clearFactor, createField, liveEffects, stepField, sweepFront, unlockRadius } = await import('../lib/lockField.js')
+const { FIELD, SCRAMBLE, clearFactor, createField, liveEffects, stepField, sweepFront } = await import('../lib/lockField.js')
 
 const never = () => 1 // a random() that never flips a bit
 const always = () => 0 // a random() that flips every bit it can
@@ -76,9 +76,9 @@ describe('lock screen field — the clearing behind the words', () => {
   })
 })
 
-describe('lock screen field — a wrong password and unlocking', () => {
-  // At time 0 the sweep is off screen, so only the effect changes the field
-  const scramble = { type: 'scramble', x: 400, y: 300, ...EFFECTS.scramble, start: 1000 }
+describe('lock screen field — a wrong password', () => {
+  // At time 0 the sweep is off screen, so only the scramble changes the field
+  const scramble = { type: 'scramble', x: 400, y: 300, ...SCRAMBLE, start: 1000 }
   const stepAt = (now, effect, random = never) => {
     const field = createField(800, 600, { random: half })
     const bits = [...field.bits]
@@ -91,7 +91,7 @@ describe('lock screen field — a wrong password and unlocking', () => {
     const centre = cellAt(start.field, 400, 294)
     assert.ok(start.alpha[centre] > 0.3)
     assert.ok(near(start.alpha[cellAt(start.field, 0, 0)], 0.05))
-    const after = stepAt(1000 + EFFECTS.scramble.duration, scramble)
+    const after = stepAt(1000 + SCRAMBLE.duration, scramble)
     assert.ok(near(after.alpha[centre], 0.05))
   })
 
@@ -115,31 +115,19 @@ describe('lock screen field — a wrong password and unlocking', () => {
     assert.equal(busy.field.bits[corner], quiet.field.bits[corner])
   })
 
-  it('decrypts outward from the field and leaves the window empty when done', () => {
-    const unlock = { type: 'unlock', x: 400, y: 300, radius: 2000, duration: EFFECTS.unlock.duration, start: 0 }
-    const { field, alpha } = stepAt(50, unlock)
-    assert.equal(alpha[cellAt(field, 400, 294)], 0)
-    assert.ok(near(alpha[cellAt(field, 0, 0)], 0.05))
-    assert.deepEqual(liveEffects([unlock], 10), { live: [unlock], unlocked: false })
-    assert.deepEqual(liveEffects([unlock], EFFECTS.unlock.duration), { live: [], unlocked: true })
-    assert.deepEqual(liveEffects([scramble], 5000), { live: [], unlocked: false })
-  })
-
-  it('eases the unlock out and stops at its radius', () => {
-    assert.equal(unlockRadius(0, 100), 0)
-    assert.equal(unlockRadius(1, 100), 100)
-    assert.equal(unlockRadius(2, 100), 100)
-    assert.ok(unlockRadius(0.5, 100) > 50)
+  it('lets go of a scramble once it has played', () => {
+    assert.deepEqual(liveEffects([scramble], 1100), [scramble])
+    assert.deepEqual(liveEffects([scramble], 1000 + SCRAMBLE.duration), [])
+    assert.deepEqual(liveEffects(null, 0), [])
   })
 
   it('never draws a bit stronger than the full ink', () => {
     const field = createField(800, 600, { random: half })
-    const time = 3
     const effects = [
       { type: 'scramble', x: 400, y: 300, radius: 900, duration: 1000, start: 0 },
-      { type: 'unlock', x: 400, y: 300, radius: 400, duration: 1000, start: 0 }
+      { type: 'scramble', x: 420, y: 310, radius: 900, duration: 1000, start: 0 }
     ]
-    const alpha = stepField(field, { time, dt: 1 / 12, now: 1, effects, base: 0.2, peak: 0.9, random: never })
+    const alpha = stepField(field, { time: 3, dt: 1 / 12, now: 1, effects, base: 0.2, peak: 0.9, random: never })
     assert.ok([...alpha].every(a => a >= 0 && a <= 1))
   })
 })

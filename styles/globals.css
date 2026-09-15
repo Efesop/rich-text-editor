@@ -6482,8 +6482,7 @@ button:focus {
 /* App lock screen (components/AppLockScreen.js). Colours arrive as --lock-*
    variables from lib/lockScreen.js; the binary field behind the words is
    components/LockScreenField.js. When Dash unlocks, the screen stays up for
-   LOCK_SCREEN_EXIT_MS with .is-leaving: the words lift away, the field
-   decrypts outward and the screen fades. */
+   LOCK_SCREEN_EXIT_MS with .is-leaving while it plays the unlock. */
 .dash-lock {
   position: fixed;
   inset: 0;
@@ -6491,10 +6490,25 @@ button:focus {
   overflow: hidden;
   background: var(--lock-ground);
   color: var(--lock-text);
-  transition: opacity 320ms ease 320ms;
+  transform-origin: var(--lock-origin-x, 50%) var(--lock-origin-y, 50%);
+  transition: opacity 460ms cubic-bezier(0.4, 0, 0.2, 1) 60ms, transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
 }
-.dash-lock.is-leaving { opacity: 0; pointer-events: none; }
-.dash-lock-field { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* The unlock uses only opacity and transform, which the compositor runs, so
+   it stays smooth while Dash decrypts notes and draws the app underneath: the
+   words lift away, the field rushes outward from the password field faster
+   than the screen around it, and the whole screen fades into the notes. */
+.dash-lock.is-leaving { opacity: 0; transform: scale(1.03); pointer-events: none; }
+.dash-lock-field {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transform-origin: var(--lock-origin-x, 50%) var(--lock-origin-y, 50%);
+  transition: transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dash-lock.is-leaving .dash-lock-field { transform: scale(1.14); }
 .dash-lock-drag { position: absolute; top: 0; left: 0; right: 0; height: 38px; -webkit-app-region: drag; }
 .dash-lock-center {
   position: relative;
@@ -6512,9 +6526,9 @@ button:focus {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  transition: opacity 240ms ease, transform 240ms ease;
+  transition: opacity 200ms ease-out, transform 260ms cubic-bezier(0.4, 0, 0.2, 1);
 }
-.dash-lock.is-leaving .dash-lock-words { opacity: 0; transform: translateY(-8px); }
+.dash-lock.is-leaving .dash-lock-words { opacity: 0; transform: translateY(-10px); }
 .dash-lock-logo { width: 64px; height: 64px; border-radius: 15px; }
 .dash-lock-title { margin: 22px 0 0; font-size: 26px; line-height: 1.2; font-weight: 600; letter-spacing: -0.02em; color: var(--lock-text); }
 .dash-lock-sub { margin: 8px 0 0; font-size: 15px; color: var(--lock-sub); }
@@ -6568,6 +6582,12 @@ button:focus {
 }
 .dash-lock-go:disabled { opacity: 0.25; cursor: default; }
 .dash-lock-go.is-waiting { opacity: 0.55; }
+/* Pressed: the arrow pulses while the password is checked */
+.dash-lock-go.is-busy { animation: dash-lock-busy 900ms ease-in-out infinite; }
+@keyframes dash-lock-busy {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
 .dash-lock-count { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .dash-lock-message { min-height: 19px; margin: 12px 0 0; font-size: 13px; line-height: 19px; color: var(--lock-sub); }
 .dash-lock-message.is-bad { color: var(--lock-bad); }
@@ -6626,6 +6646,9 @@ button:focus {
 }
 @media (prefers-reduced-motion: reduce) {
   .dash-lock { transition: opacity 200ms ease; }
+  .dash-lock.is-leaving,
+  .dash-lock.is-leaving .dash-lock-field,
   .dash-lock.is-leaving .dash-lock-words { transform: none; }
-  .dash-lock-form.is-shaking { animation: none; }
+  .dash-lock-form.is-shaking,
+  .dash-lock-go.is-busy { animation: none; }
 }
