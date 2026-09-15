@@ -205,7 +205,7 @@ Turn on **Match macOS appearance** (Mac) or **Match iOS appearance** (iPhone) an
 ### App Lock & Auto-Lock
 - Lock the entire app after a configurable idle timeout (1, 5, 15, 30 minutes, custom, or Never)
 - Master password required to unlock
-- **Lock screen** — the binary field from dashnote.io, in your theme's own colours. A wrong password shakes the field and scrambles the bits around it, the waits after repeated wrong passwords (1 s after 3, 5 s after 5, 15 s after 7, 30 s after 9) count down on screen, and unlocking decrypts the field outward. The field holds still with Reduce Motion on
+- **Lock screen** — the binary field from dashnote.io, in your theme's own colours. A wrong password shakes the field and scrambles the bits around it, the waits after repeated wrong passwords (1 s after 3, 5 s after 5, 15 s after 7, 30 s after 9) count down on screen, and unlocking sends the field rushing outward as the screen fades into your notes. The field holds still with Reduce Motion on
 - **Touch ID / Face ID biometric unlock** — use Touch ID on macOS or Face ID (Touch ID on older devices) on iOS, via `@aparajita/capacitor-biometric-auth`, as an alternative to typing your password
 - Biometrics also available for unlocking individual locked pages
 - Instant lock with Cmd+Shift+L

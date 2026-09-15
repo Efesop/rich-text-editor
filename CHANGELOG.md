@@ -5,6 +5,11 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.14] - 2026-09-15
+
+### Fixed
+- **Unlocking is smoother.** When Dash unlocked, the lock screen's field stuttered while your notes decrypted, blew away too fast and left an empty screen for a moment before your notes appeared. It now rushes outward from the password field and fades straight into your notes, and the unlock arrow pulses as soon as you press Return.
+
 ## [1.6.13] - 2026-09-14
 
 A new lock screen, and wrong passwords on it are caught again.
