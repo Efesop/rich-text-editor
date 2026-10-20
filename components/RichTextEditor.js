@@ -628,6 +628,7 @@ export default function RichTextEditor() {
   // Desktop toolbar settings popover (Sep 2026 UI refresh).
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const settingsButtonRef = useRef(null)
+  const appRootRef = useRef(null)
   // "Match macOS appearance": follow prefers-color-scheme, mapping dark to
   // the last dark theme the user picked (dark / darkblue / fallout).
   const [matchSystemAppearance, setMatchSystemAppearance] = useState(false)
@@ -1917,12 +1918,12 @@ export default function RichTextEditor() {
 
   const handleBiometricUnlock = useCallback(async () => {
     if (typeof window !== 'undefined' && window.electron?.invoke) {
-      const success = await window.electron.invoke('prompt-touch-id')
-      if (success) {
-        // Retrieve password from safeStorage for encryption key derivation
-        const password = await window.electron.invoke('safe-storage-retrieve', 'app-lock-password')
-        if (password) {
-          return handleAppLockUnlock(password)
+      // The main process prompts for Touch ID and only then hands back the
+      // password from the keychain, for the encryption key
+      const result = await window.electron.invoke('unlock-with-touch-id')
+      if (result?.ok) {
+        if (result.password) {
+          return handleAppLockUnlock(result.password)
         }
         // Touch ID succeeded but no stored password (e.g. upgraded from older version)
         // Return 'needs-password' so the lock screen can prompt for it
@@ -1959,12 +1960,17 @@ export default function RichTextEditor() {
 
     await appLock.enable(password, timeout, biometric, Array.from(salt))
     appLock.setEncryptionKey(key, salt)
+    // Hand the key to the save pipeline and save now, so notes are encrypted
+    // at rest from this moment. Without it they stayed plaintext until the
+    // first unlock, even through a lock.
+    if (window.__editorFlush) await window.__editorFlush()
+    await reEncryptAppLockPages(key, salt)
 
     // Store password in safeStorage if biometric enabled
     if (biometric && window.electron?.invoke) {
       await window.electron.invoke('safe-storage-store', 'app-lock-password', password).catch(() => {})
     }
-  }, [appLock])
+  }, [appLock, reEncryptAppLockPages])
 
   // Handle app lock password change — re-encrypt with new key
   const handleAppLockChangePassword = useCallback(async (currentPassword, newPassword) => {
@@ -2053,7 +2059,7 @@ export default function RichTextEditor() {
     // appLock.lock() on every visibility-hidden churn (alt-tab on Mac,
     // notification-center pulldown on iPhone) creates a re-decrypt
     // prompt storm. Strategy:
-    //  - Always encrypt on suspend (durable disk-state safety).
+    //  - Always save encrypted on suspend (durable disk-state safety).
     //  - Lock the app ONLY if it stays backgrounded > LOCK_BG_MS (30s)
     //    OR was force-quit (beforeunload/pagehide fires). Quick context
     //    switches don't trigger lock.
@@ -2071,13 +2077,18 @@ export default function RichTextEditor() {
         // Trigger flush + encrypt synchronously so the IDB write has the
         // best chance of committing before the WebView freezes.
         try { if (window.__editorFlush) window.__editorFlush() } catch { /* */ }
-        try { encryptAndClearAppLockPages() } catch { /* */ }
-        // Lock ONLY on hard exits (beforeunload / pagehide) so the
-        // app-switcher snapshot of a force-quit can't show plaintext.
-        // Background-but-resumed flows lock later in the resume handler
-        // if elapsed > LOCK_BG_MS.
         if (force) {
+          // Hard exit: encrypt the notes in memory too, then lock, so the
+          // app-switcher snapshot of a force-quit can't show plaintext.
+          try { encryptAndClearAppLockPages() } catch { /* */ }
           try { appLock.lock?.() } catch { /* */ }
+        } else {
+          // A quick switch away: write the notes to disk encrypted, but keep
+          // them readable in memory, since the app stays unlocked. Clearing
+          // them here without locking left every other note blank on return,
+          // and typing into one saved over its real contents. Background-
+          // but-resumed flows lock in the resume handler after LOCK_BG_MS.
+          try { flushSavesNow() } catch { /* */ }
         }
       }
     }
@@ -2088,13 +2099,14 @@ export default function RichTextEditor() {
       } else {
         // Resumed. If we were backgrounded long enough, lock now so the
         // user's unattended-app snapshot leak window stays bounded.
+        // handleInstantLock encrypts the notes in memory before locking.
         if (
           appLock.isEnabled &&
           !appLock.isLocked &&
           backgroundedAt &&
           Date.now() - backgroundedAt > LOCK_BG_MS
         ) {
-          try { appLock.lock?.() } catch { /* */ }
+          try { handleInstantLock() } catch { /* */ }
         }
         backgroundedAt = null
       }
@@ -2135,7 +2147,26 @@ export default function RichTextEditor() {
         try { appListenerHandle.remove() } catch { /* */ }
       }
     }
-  }, [appLock.isEnabled, appLock.isLocked, encryptAndClearAppLockPages])
+  }, [appLock.isEnabled, appLock.isLocked, encryptAndClearAppLockPages, flushSavesNow, handleInstantLock])
+
+  // While the app is locked, everything behind the lock screen is inert: Tab,
+  // clicks and screen readers can't reach the note that was open when it
+  // locked. Children added while locked are covered too.
+  useEffect(() => {
+    const root = appRootRef.current
+    if (!root) return
+    const locked = appLock.isLocked
+    const apply = () => {
+      for (const child of root.children) {
+        child.inert = locked && !child.classList.contains('dash-lock')
+      }
+    }
+    apply()
+    if (!locked) return
+    const observer = new MutationObserver(apply)
+    observer.observe(root, { childList: true })
+    return () => observer.disconnect()
+  }, [appLock.isLocked])
 
   // Keep currentPageRef in sync for live session callbacks
   useEffect(() => {
@@ -4177,6 +4208,7 @@ export default function RichTextEditor() {
 
   return (
     <div
+      ref={appRootRef}
       className={`${getMainContainerClasses()} ${isMacElectron ? 'mac-electron' : ''}`}
       role="application"
       aria-label="Rich Text Note Editor"

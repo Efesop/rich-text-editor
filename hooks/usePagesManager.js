@@ -89,8 +89,12 @@ export function usePagesManager() {
   const preparePagesForStorage = async (pages) => {
     const result = []
     for (const page of pages) {
-      // If page is locked and temp-unlocked, encrypt content before saving
-      if (page.password?.hash && tempUnlockedPagesRef.current.has(page.id)) {
+      // A locked page holding plaintext in memory is encrypted before saving:
+      // while temp-unlocked, and also after it was re-locked (leaving the
+      // note only takes it out of tempUnlockedPages, the plaintext stays in
+      // memory). Its key is still cached from the unlock. Without a key the
+      // page is a legacy one saved as-is, as before.
+      if (page.password?.hash && page.content && (tempUnlockedPagesRef.current.has(page.id) || encryptionKeysRef.current.has(page.id))) {
         const keyData = encryptionKeysRef.current.get(page.id)
         if (keyData && page.content) {
           try {
@@ -501,6 +505,13 @@ export function usePagesManager() {
     if (!currentPageData) return
     // Block saves for pages that are self-destructing
     if (selfDestructingPagesRef.current.has(currentPageData.id)) return
+    // Never put editor content over a note whose contents aren't in memory
+    // (still encrypted by app lock or its own password). The editor shows
+    // such a note empty, and saving that over it erased the real note.
+    if (currentPageData.content == null && currentPageData.encryptedContent) {
+      dbg('save', 'refused — note is still encrypted in memory')
+      return
+    }
 
     // Skip save if content hasn't structurally changed
     const contentStr = JSON.stringify(pageContent.blocks)

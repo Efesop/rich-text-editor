@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, systemPreferences, safeStorage } = require('electron');
+const { app, BrowserWindow, dialog, systemPreferences, safeStorage, Menu } = require('electron');
 const path = require('path');
 const url = require('url');
 const { ipcMain } = require('electron');
@@ -122,6 +122,9 @@ function createWindow() {
       enableRemoteModule: false,
       allowRunningInsecureContent: false,
       experimentalFeatures: false,
+      // No DevTools in released builds: from them anyone at a locked Mac
+      // could read the notes behind the lock screen and call the IPC bridge.
+      devTools: !app.isPackaged,
       preload: path.join(__dirname, 'preload.js')
     },
     show: false // Don't show until ready
@@ -369,9 +372,37 @@ ipcMain.handle('safe-storage-store', async (event, key, plaintext) => {
   }
 });
 
+// Reads one value saved with safe-storage-store, or null.
+async function readSafeStorage(key) {
+  if (!isSafeStorageKey(key)) return null;
+  if (!safeStorage.isEncryptionAvailable()) return null;
+  try {
+    const encrypted = await fs.readFile(path.join(app.getPath('userData'), `safe-${key}.enc`));
+    return safeStorage.decryptString(encrypted);
+  } catch {
+    return null;
+  }
+}
+
+// Touch ID unlock. The app-lock password leaves the keychain only after the
+// prompt succeeds here, in the main process. Before, the renderer prompted and
+// then fetched it through safe-storage-retrieve, which any script in the page
+// could call without a prompt.
+ipcMain.handle('unlock-with-touch-id', async () => {
+  if (process.platform !== 'darwin') return { ok: false };
+  try {
+    await systemPreferences.promptTouchID('unlock Dash');
+  } catch {
+    return { ok: false };
+  }
+  return { ok: true, password: await readSafeStorage('app-lock-password') };
+});
+
 ipcMain.handle('safe-storage-retrieve', async (event, key) => {
   try {
     if (!isSafeStorageKey(key)) return null;
+    // Only through unlock-with-touch-id, behind the prompt
+    if (key === 'app-lock-password') return null;
     if (!safeStorage.isEncryptionAvailable()) return null;
     const filePath = path.join(app.getPath('userData'), `safe-${key}.enc`);
     const encrypted = await fs.readFile(filePath);
@@ -672,6 +703,18 @@ ipcMain.handle('convert-heic', async (event, input) => {
   }
 });
 
+const SAFE_OPEN_EXTENSIONS = new Set([
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'heif', 'avif', 'bmp', 'tif', 'tiff',
+  'pdf', 'txt', 'md', 'rtf', 'csv', 'epub',
+  'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'pages', 'numbers', 'key', 'odt', 'ods', 'odp',
+  'mp3', 'm4a', 'wav', 'aac', 'flac', 'mp4', 'mov', 'm4v'
+]);
+
+function isSafeToOpenFile(name) {
+  const ext = path.extname(name).slice(1).toLowerCase();
+  return SAFE_OPEN_EXTENSIONS.has(ext);
+}
+
 ipcMain.handle('open-attachment', async (event, attachmentId, filename, mimeType) => {
   if (!isValidAttachmentId(attachmentId)) return { opened: false };
   try {
@@ -684,7 +727,15 @@ ipcMain.handle('open-attachment', async (event, attachmentId, filename, mimeType
     const tmpFile = path.join(tmpDir, safeName);
     await fs.copyFile(srcPath, tmpFile);
     const { shell } = require('electron');
-    await shell.openPath(tmpFile);
+    // Open only kinds of file that don't run anything. The name comes from
+    // the note, and an imported note can name a file anything: a .terminal
+    // or .command file would run in Terminal, an .html file in the browser.
+    // Anything else is shown in Finder for the user to decide.
+    if (isSafeToOpenFile(safeName)) {
+      await shell.openPath(tmpFile);
+    } else {
+      shell.showItemInFolder(tmpFile);
+    }
     return { opened: true };
   } catch (error) {
     log.error('Failed to open attachment:', error.message);
@@ -1256,6 +1307,28 @@ if (!gotTheLock) {
   })
 }
 
+// The standard menus, minus the View menu's developer items. The Edit menu
+// keeps copy, paste and undo working.
+function buildReleaseMenu() {
+  const isMac = process.platform === 'darwin';
+  return Menu.buildFromTemplate([
+    ...(isMac ? [{ role: 'appMenu' }] : []),
+    { role: 'fileMenu' },
+    { role: 'editMenu' },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' }
+      ]
+    },
+    { role: 'windowMenu' }
+  ]);
+}
+
 app.whenReady().then(() => {
   log.info('App is ready, checking Applications folder...');
 
@@ -1265,6 +1338,10 @@ app.whenReady().then(() => {
     // If move was initiated, app will restart - don't continue
     return;
   }
+
+  // Released builds get a menu without Electron's developer items
+  // (Toggle Developer Tools, Reload, Force Reload)
+  if (app.isPackaged) Menu.setApplicationMenu(buildReleaseMenu());
 
   log.info('Creating window...');
   createWindow();

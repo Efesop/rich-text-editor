@@ -2,6 +2,7 @@
 import DOMPurify from 'isomorphic-dompurify'
 import MultiBlockTuneEnhancer from './MultiBlockToolbar'
 import { migrateEditorData } from '@/utils/migrateBlocks'
+import { sanitizeEditorContent } from '@/utils/securityUtils'
 import { PageLinkInlineTool } from './editor-tools/PageLink'
 import { AIInlineTool } from './editor-tools/AIInlineTool'
 import { AIBlockTool } from './editor-tools/AIBlockTool'
@@ -20,6 +21,12 @@ import { autoLinkify, linkifyTableBlocks, parseMarkdownToBlocks } from '@/lib/ma
 // keep AI, where a local model server is reachable.
 const isCapacitorNative = () =>
   typeof window !== 'undefined' && !!window.Capacitor?.isNativePlatform?.()
+
+// Notes reach the editor from storage, sync, other devices and paste. Every
+// one is cleaned with the sanitizer saves use before the block tools render
+// it, because they set their text as HTML: a note that arrived with an
+// <img onerror> ran it the moment it was shown.
+const prepareForRender = (data) => sanitizeEditorContent(migrateEditorData(data))
 
 export default function Editor({ data, onChange, holder, onPageLinkClick, liveUpdateKey, readOnly, pageId }) {
   const editorRef = useRef(null)
@@ -432,7 +439,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
           : { time: Date.now(), blocks: [], version: '2.30.6' }
 
         // Migrate old nestedlist/checklist blocks to individual item blocks
-        const migratedData = migrateEditorData(validData)
+        const migratedData = prepareForRender(validData)
         // Auto-linkify plain-text URLs in table cells
         migratedData.blocks = linkifyTableBlocks(migratedData.blocks)
 
@@ -538,7 +545,9 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
             e.preventDefault()
             e.stopPropagation()
 
-            const blocks = parseMarkdownToBlocks(plain)
+            // Cleaned like every other way content gets in: the tools render
+            // data.text as HTML, so raw pasted markup would run.
+            const blocks = sanitizeEditorContent({ blocks: parseMarkdownToBlocks(plain) }).blocks
             if (!blocks.length) return
 
             const editor = editorRef.current
@@ -600,7 +609,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
             : { time: Date.now(), blocks: [], version: '2.30.6' }
 
           // Migrate old nestedlist/checklist blocks to individual item blocks
-          const migratedData = migrateEditorData(validData)
+          const migratedData = prepareForRender(validData)
           await editorRef.current.render(migratedData)
           dataRef.current = data
           // Reset undo history for the new page so undo doesn't cross pages
@@ -625,7 +634,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
         const validData = data && typeof data === 'object' && Array.isArray(data.blocks)
           ? data
           : { time: Date.now(), blocks: [], version: '2.30.6' }
-        const migratedData = migrateEditorData(validData)
+        const migratedData = prepareForRender(validData)
         const newBlocks = migratedData.blocks
         lastSavedRef.current = JSON.stringify(newBlocks)
 
@@ -691,7 +700,7 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
           const validData = data && typeof data === 'object' && Array.isArray(data.blocks)
             ? data
             : { time: Date.now(), blocks: [], version: '2.30.6' }
-          const migratedData = migrateEditorData(validData)
+          const migratedData = prepareForRender(validData)
           lastSavedRef.current = JSON.stringify(migratedData.blocks)
           await editorRef.current.render(migratedData)
           dataRef.current = data

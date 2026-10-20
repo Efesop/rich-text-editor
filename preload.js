@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('electron', {
       'lock-get-attempts',
       'check-biometric-available',
       'prompt-touch-id',
+      'unlock-with-touch-id',
       'safe-storage-store',
       'safe-storage-retrieve',
       'safe-storage-delete',

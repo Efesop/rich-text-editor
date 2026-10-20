@@ -477,6 +477,13 @@ export function useSyncQueue ({
     const store = vaultStoreRef.current
     const meta = metadataRef.current
     if (!store || !meta?.syncEnabled || !store.isUnlocked()) return
+    // Not while the app is locked or in duress, as push already isn't: pulled
+    // notes would join the locked page list and be saved without the app-lock
+    // key. The first pull after unlocking catches up.
+    const appLocked = isAppLockedRef.current
+    const duress = duressActiveRef.current
+    if (typeof appLocked === 'function' ? appLocked() : appLocked) return
+    if (typeof duress === 'function' ? duress() : duress) return
     // Never apply a pull before the local pages have loaded: the empty list
     // would be taken as this device's pages, and the save that follows would
     // replace them on disk. The next pull (focus, doorbell, timer) catches up.

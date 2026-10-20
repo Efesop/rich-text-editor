@@ -764,7 +764,7 @@ describe('Page-switch race condition prevention', () => {
     const code = readSrc('components/RichTextEditor.js')
     const blockStart = code.indexOf("const fireEncrypt")
     assert.ok(blockStart > 0, 'fireEncrypt handler must exist (lifecycle encrypt path)')
-    const block = code.substring(blockStart, blockStart + 800)
+    const block = code.substring(blockStart, blockStart + 2000)
     const flushIdx = block.indexOf('__editorFlush')
     const encryptIdx = block.indexOf('encryptAndClearAppLockPages')
     assert.ok(flushIdx > 0, 'lifecycle handler must call __editorFlush')
