@@ -5,6 +5,18 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.15] - 2026-10-20
+
+Safety fixes for app lock, locked notes and pasted text.
+
+### Fixed
+- **A note could lose its text with app lock on.** If Dash was hidden for a moment (minimised, or another app in front) and you then opened a different note, it could open empty, and typing in it replaced what the note held. Notes now stay readable after a quick switch away, and Dash never saves over a note it hasn't decrypted. If a note lost its text this way, Version History may still have it.
+- **App lock encrypts your notes as soon as you turn it on.** They stayed unencrypted on disk until the first time you unlocked. Sync also waits while the app is locked.
+- **Locked notes stay encrypted.** After you opened a password-locked note and moved to another, its text could be saved without encryption.
+- **Pasted and synced text is cleaned before it's shown,** so markup in it can't run inside Dash.
+- **Mac: the lock screen is harder to get around.** Developer tools are off in the app, your app lock password only leaves the Keychain after Touch ID, and nothing behind the lock screen can be reached with the keyboard.
+- **Attachments that could run something** (anything but images, PDFs, documents, audio and video) are shown in Finder on Mac, or downloaded on the web, instead of opened.
+
 ## [1.6.14] - 2026-09-15
 
 ### Fixed
