@@ -402,10 +402,11 @@ export async function relayUsageBytes(kv: Deno.Kv): Promise<number> {
   ])
   let baseline = counterValue(baselineEntry)
   if (baselineEntry.value === null) {
+    // Sum the vault indexes, one read each (not a scan of every entry)
     let scanned = 0
-    for await (const entry of kv.list<VaultIndex>({ prefix: ['v'] })) {
-      if (entry.key.length !== 3 || entry.key[2] !== 'index') continue
-      if (typeof entry.value?.totalBytes === 'number') scanned += entry.value.totalBytes
+    for (const vaultId of await listVaultIds(kv)) {
+      const totalBytes = (await kv.get<VaultIndex>(['v', vaultId, 'index'])).value?.totalBytes
+      if (typeof totalBytes === 'number') scanned += totalBytes
     }
     // Another request may have seeded it meanwhile; the first one wins.
     await kv.atomic()
@@ -633,6 +634,20 @@ export function clearRateLimits(): void {
 }
 
 /**
+ * Every vault's id, without reading its data. Each registered vault keeps a
+ * small device map at ['vault', vaultId, 'devices'] (plus nonces and purge
+ * tokens beside it), so listing the ['vault'] prefix touches a few small
+ * entries per vault. Listing ['v'] would read every note and chunk.
+ */
+export async function listVaultIds(kv: Deno.Kv): Promise<string[]> {
+  const ids = new Set<string>()
+  for await (const entry of kv.list({ prefix: ['vault'] })) {
+    if (typeof entry.key[1] === 'string') ids.add(entry.key[1])
+  }
+  return [...ids]
+}
+
+/**
  * Purge vaults inactive for >= INACTIVE_VAULT_TTL_MS. Called from a Deno
  * cron job in relay.ts. Iterates ['v'] prefix, finds index entries with
  * `lastActivityAt` older than the cutoff, deletes the whole vault subtree.
@@ -644,19 +659,18 @@ export async function purgeInactiveVaults(kv: Deno.Kv): Promise<number> {
   const cutoff = Date.now() - INACTIVE_VAULT_TTL_MS
   const vaultsToPurge: string[] = []
 
-  // Identify candidates first
-  const idxIter = kv.list<VaultIndex>({ prefix: ['v'] })
-  for await (const entry of idxIter) {
-    if (entry.key.length !== 3 || entry.key[2] !== 'index') continue
-    const lastAt = entry.value?.lastActivityAt
+  // Identify candidates first: one small index read per vault. This used to
+  // list the whole ['v'] prefix to find the index entries, which read every
+  // note, version and attachment chunk on the relay each night. KV bills
+  // reads per 4 KiB, so that scan alone used up the free plan's monthly reads
+  // (October 2026) and Deno paused the relay.
+  for (const vaultId of await listVaultIds(kv)) {
+    const lastAt = (await kv.get<VaultIndex>(['v', vaultId, 'index'])).value?.lastActivityAt
     // Treat missing lastActivityAt as inactive only if vault has been
     // around for long enough (otherwise we'd nuke fresh vaults that
     // haven't pushed yet). Skip — wait for first push to record activity.
     if (typeof lastAt !== 'number') continue
-    if (lastAt < cutoff) {
-      const vaultId = entry.key[1] as string
-      vaultsToPurge.push(vaultId)
-    }
+    if (lastAt < cutoff) vaultsToPurge.push(vaultId)
   }
 
   // Delete each vault subtree. Use existing purge logic if available, or

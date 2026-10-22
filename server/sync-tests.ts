@@ -1579,6 +1579,79 @@ Deno.test('pull: a vault that is only read is not purged as inactive', setupTear
   assertEquals((await kv.get(['v', VAULT_B, 'index'])).value, null)
 }))
 
+// Counts the vault data entries (anything under ['v', vaultId] but its index)
+// read through this KV, per vault.
+function countingKv(kv: Deno.Kv): { kv: Deno.Kv; dataReads: Map<string, number> } {
+  const dataReads = new Map<string, number>()
+  const note = (key: Deno.KvKey) => {
+    if (key[0] === 'v' && key[2] !== 'index') dataReads.set(String(key[1]), (dataReads.get(String(key[1])) ?? 0) + 1)
+  }
+  const counted = new Proxy(kv, {
+    get (target, prop) {
+      if (prop === 'list') {
+        return (selector: Deno.KvListSelector, options?: Deno.KvListOptions) => (async function * () {
+          for await (const entry of target.list(selector, options)) { note(entry.key); yield entry }
+        })()
+      }
+      if (prop === 'get') {
+        return async (key: Deno.KvKey, options?: { consistency?: Deno.KvConsistencyLevel }) => {
+          const entry = await target.get(key, options)
+          if (entry.value !== null) note(key)
+          return entry
+        }
+      }
+      if (prop === 'getMany') {
+        return async (keys: Deno.KvKey[], options?: { consistency?: Deno.KvConsistencyLevel }) => {
+          const entries = await target.getMany(keys, options)
+          for (const entry of entries) if (entry.value !== null) note(entry.key)
+          return entries
+        }
+      }
+      const value = Reflect.get(target, prop, target)
+      return typeof value === 'function' ? value.bind(target) : value
+    }
+  })
+  return { kv: counted, dataReads }
+}
+
+Deno.test('purgeInactiveVaults reads one index per vault, never an active vault\'s notes', setupTeardown(async (kv) => {
+  const VAULT_B = 'vault-bbbbbbbbbbbbbbbbbbbbbb1'
+  const DEVICE_B1 = 'device-bbbbbbbbbbbbbbbbbb1'
+  const longAgo = Date.now() - INACTIVE_VAULT_TTL_MS - 24 * 60 * 60 * 1000
+  setClock(() => longAgo)
+  assertEquals((await registerDevice(kv, VAULT_B, DEVICE_B1, undefined, longAgo)).status, 200)
+  assertEquals((await pushNote(kv, 'old', mkCipher(100), { vaultId: VAULT_B, deviceId: DEVICE_B1, timestamp: longAgo })).status, 200)
+  resetClock()
+  assertEquals((await registerDevice(kv, VAULT_A, DEVICE_A1)).status, 200)
+  for (let i = 0; i < 25; i++) {
+    assertEquals((await pushNote(kv, `n${i}`, mkCipher(64 * 1024))).status, 200)
+  }
+
+  const { kv: counted, dataReads } = countingKv(kv)
+  assertEquals(await purgeInactiveVaults(counted), 1)
+  // The active vault's 25 notes were never read; only the purged vault's data
+  // was walked, to delete it.
+  assertEquals(dataReads.get(VAULT_A) ?? 0, 0)
+  assertExists((await kv.get(['v', VAULT_A, 'index'])).value)
+  assertEquals((await kv.get(['v', VAULT_B, 'index'])).value, null)
+  assertEquals((await kv.get(['vault', VAULT_B, 'devices'])).value, null)
+}))
+
+Deno.test('relay usage baseline is seeded from vault indexes without reading notes', setupTeardown(async (kv) => {
+  assertEquals((await registerDevice(kv, VAULT_A, DEVICE_A1)).status, 200)
+  for (let i = 0; i < 5; i++) {
+    assertEquals((await pushNote(kv, `n${i}`, mkCipher(10 * 1024))).status, 200)
+  }
+  const totalBytes = (await kv.get<{ totalBytes: number }>(['v', VAULT_A, 'index'])).value?.totalBytes
+  // Drop the baseline so the next call has to seed it again.
+  for await (const entry of kv.list({ prefix: [] })) {
+    if (JSON.stringify(entry.key).includes('usage')) await kv.delete(entry.key)
+  }
+  const { kv: counted, dataReads } = countingKv(kv)
+  assertEquals(await relayUsageBytes(counted), totalBytes)
+  assertEquals(dataReads.get(VAULT_A) ?? 0, 0)
+}))
+
 Deno.test('share: large payloads round-trip through chunks, small ones stay single values', setupTeardown(async (kv) => {
   const cors = { 'Access-Control-Allow-Origin': '*' }
   for (const size of [2 * 1024, 1024 * 1024]) {
