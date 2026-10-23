@@ -13,6 +13,7 @@ import ToggleTool from './editor-tools/Toggle'
 import { attachMarkdownShortcuts } from './editor-tools/markdownInput'
 import { attachListIndentKeys, renumberLists } from './editor-tools/listIndentRuntime'
 import { autoLinkify, linkifyTableBlocks, parseMarkdownToBlocks } from '@/lib/markdownBlocks'
+import { externalLinkTarget } from '@/lib/safeLinks'
 
 // Local AI (Ollama / LM Studio / LocalAI) needs a model server on localhost,
 // which cannot run inside the iOS/Android Capacitor WebView — so every AI
@@ -730,13 +731,11 @@ export default function Editor({ data, onChange, holder, onPageLinkClick, liveUp
         return
       }
 
-      if (link.href) {
+      if (link.hasAttribute('href')) {
         event.preventDefault()
-        const href = link.href
-        // Block dangerous URL schemes
-        if (href.startsWith('javascript:') || href.startsWith('data:')) {
-          return
-        }
+        // Only absolute web, email and phone links leave the app (lib/safeLinks.js)
+        const href = externalLinkTarget(link.getAttribute('href'))
+        if (!href) return
         if (window.electron?.openExternal) {
           window.electron.openExternal(href)
         } else {

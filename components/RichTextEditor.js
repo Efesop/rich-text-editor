@@ -81,6 +81,7 @@ import useAppLockStore from '../store/appLockStore'
 import { useIdleTimer } from '@/hooks/useIdleTimer'
 import AppLockScreen from './AppLockScreen'
 import { LOCK_SCREEN_EXIT_MS } from '@/lib/lockScreen'
+import { isAppInternalPath } from '@/lib/safeLinks'
 import AppLockSetupModal from './AppLockSetupModal'
 import AppLockSettingsModal from './AppLockSettingsModal'
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal'
@@ -3641,6 +3642,12 @@ export default function RichTextEditor() {
       if (!link) return
       const href = link.getAttribute('href')
       if (!href) return
+      // Links outside the editor (version history, AI panel) never get to
+      // Capacitor's internal paths on iOS (lib/safeLinks.js)
+      if (isAppInternalPath(href, window.location.href)) {
+        event.preventDefault()
+        return
+      }
       // Ignore programmatic clicks or downloads (used by export)
       if (!event.isTrusted || link.hasAttribute('download')) return
       try {
