@@ -175,10 +175,10 @@ function createWindow() {
   // in the electron-dev terminal alongside Next/main logs. Lets us tail
   // a single log file for the whole flow during sync diagnostics.
   if (isDev) {
-    mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
-      const tag = ['LOG', 'INFO', 'WARN', 'ERROR'][level] || 'LOG'
+    mainWindow.webContents.on('console-message', ({ level, message, lineNumber, sourceId }) => {
+      const tag = String(level || 'info').toUpperCase()
       const src = sourceId ? sourceId.split('/').pop() : ''
-      process.stdout.write(`[renderer:${tag}] ${message}${src ? ` (${src}:${line})` : ''}\n`)
+      process.stdout.write(`[renderer:${tag}] ${message}${src ? ` (${src}:${lineNumber})` : ''}\n`)
     })
   }
 
@@ -1003,7 +1003,11 @@ class UpdateManager {
       // but let's be explicit about version comparison
       const currentVersion = app.getVersion()
       const latestVersion = result.updateInfo.version
-      const updateAvailable = latestVersion !== currentVersion
+      // The updater's own answer also covers releases that need a newer
+      // macOS than this Mac has (minimumSystemVersion in latest-mac.yml)
+      const updateAvailable = typeof result.isUpdateAvailable === 'boolean'
+        ? result.isUpdateAvailable
+        : latestVersion !== currentVersion
 
       log.info('Version comparison:', { currentVersion, latestVersion, updateAvailable })
 
@@ -1256,6 +1260,19 @@ ipcMain.handle('get-update-status', () => {
 
 ipcMain.handle('get-app-version', () => {
   return app.getVersion()
+})
+
+// Links in notes. The sandboxed preload has no `shell` module, so it asks
+// the main process to open them; only web links leave the app.
+ipcMain.handle('open-external', async (event, target) => {
+  try {
+    const { protocol } = new URL(target)
+    if (protocol === 'http:' || protocol === 'https:') {
+      await require('electron').shell.openExternal(target)
+      return true
+    }
+  } catch {}
+  return false
 })
 
 // --- Deep link (dashnotes:// protocol) handling ---

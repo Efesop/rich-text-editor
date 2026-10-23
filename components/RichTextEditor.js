@@ -3648,6 +3648,8 @@ export default function RichTextEditor() {
         event.preventDefault()
         return
       }
+      // The editor's own handler already opened it (components/Editor.js)
+      if (event.defaultPrevented) return
       // Ignore programmatic clicks or downloads (used by export)
       if (!event.isTrusted || link.hasAttribute('download')) return
       try {

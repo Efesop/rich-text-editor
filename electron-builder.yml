@@ -16,6 +16,10 @@ mac:
   target:
     - dmg
     - zip
+  # Electron 44 needs macOS 13 (Ventura). Older Macs get a clear "needs a
+  # newer macOS" message from Finder, and scripts/mark-min-macos.js keeps the
+  # updater from offering them this release.
+  minimumSystemVersion: '13.0'
   hardenedRuntime: true
   gatekeeperAssess: false
   entitlements: 'build/entitlements.mac.plist'
@@ -28,5 +32,7 @@ publish:
   provider: github
   owner: Efesop
   repo: rich-text-editor
-  releaseType: release
+  # Published by the release workflow once latest-mac.yml carries the
+  # minimum macOS (scripts/mark-min-macos.js)
+  releaseType: draft
 afterSign: scripts/notarize.js

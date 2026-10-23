@@ -90,4 +90,13 @@ describe('click handlers', () => {
     assert.ok(guard !== -1, 'guard missing')
     assert.ok(guard < handler.indexOf('event.isTrusted'), 'guard must run before the early returns')
   })
+
+  it('the app-wide handler leaves links the editor already opened', () => {
+    const app = read('components/RichTextEditor.js')
+    const at = app.indexOf('const handleLinkClick = (event) =>')
+    const handler = app.slice(at, app.indexOf("document.addEventListener('click', handleLinkClick)", at))
+    const skip = handler.indexOf('if (event.defaultPrevented) return')
+    assert.ok(skip !== -1, 'a link would open twice')
+    assert.ok(skip < handler.indexOf('window.electron.openExternal'))
+  })
 })

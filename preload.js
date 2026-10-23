@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer, shell } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronPlatform', {
   isMac: process.platform === 'darwin',
@@ -101,12 +101,7 @@ contextBridge.exposeInMainWorld('electron', {
     }
   },
   
-  openExternal: (url) => {
-    try {
-      const parsed = new URL(url)
-      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-        shell.openExternal(url)
-      }
-    } catch {}
-  }
+  // A sandboxed preload has no `shell`: the main process opens the link
+  // (and checks it is a web link) in 'open-external'
+  openExternal: (url) => ipcRenderer.invoke('open-external', String(url)).catch(() => false)
 });
