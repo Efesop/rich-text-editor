@@ -5,6 +5,18 @@ All notable changes to Dash will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.16] - 2026-10-23
+
+Security updates after October 2026's breaches and advisories, and links that open on Mac.
+
+### Fixed
+- **iPhone: a link in a note could open a web page inside Dash with Dash's own access** (CVE-2026-103922, in Capacitor, the framework the iPhone app is built on). Capacitor is updated, and notes now open only web, email and phone links. Other links do nothing.
+- **Mac: links in notes open in your browser.** Clicking one did nothing before.
+
+### Changed
+- **Mac: Dash runs on Electron 44,** with Chromium's current security fixes. It was on Electron 32, which stopped getting them in 2025. Dash for Mac now needs macOS 13 Ventura or later. Macs on older versions stay on 1.6.15 and aren't offered this update.
+- DOMPurify, which cleans pasted and synced text, is updated to 3.4.17.
+
 ## [1.6.15] - 2026-10-20
 
 Safety fixes for app lock, locked notes and pasted text.
